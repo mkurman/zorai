@@ -5,6 +5,8 @@ import { getAgentBridge, shouldUseDaemonRuntime } from "@/lib/agentDaemonConfig"
 import { fetchAgentRuns, isSubagentRun, type AgentRun } from "@/lib/agentRuns";
 import { fetchThreadTodos } from "@/lib/agentTodos";
 import { beginThreadLoading } from "@/zorai/features/threads/threadLoadingStore";
+import { isLeadOnlyPersona, LEAD_PERSONA_SPAWN_ERROR } from "@/zorai/features/threads/leadPersonas";
+import { sameAgentRunSnapshot } from "@/zorai/features/threads/sessionCooperation";
 import {
   composerDraftIsImageCommand,
   useComposerDraftStore,
@@ -47,6 +49,7 @@ import {
 import {
   beginProgrammaticThreadHistoryScroll,
   endProgrammaticThreadHistoryScroll,
+  resolveOlderThreadPageMessageOffset,
   setFollowThreadHistoryBottom,
   shouldFollowThreadHistoryBottom,
 } from "./threadHistoryScroll";
@@ -592,13 +595,14 @@ export function useAgentChatPanelProviderValue(): {
   const refreshSpawnedAgentRuns = useCallback(async () => {
     if (!activeDaemonThreadId) {
       activeDaemonThreadIdRef.current = null;
-      setSpawnedAgentRuns([]);
+      setSpawnedAgentRuns((current) => current.length === 0 ? current : []);
       return;
     }
     activeDaemonThreadIdRef.current = activeDaemonThreadId;
     const runs = await fetchAgentRuns(activeDaemonThreadId);
     if (activeDaemonThreadIdRef.current !== activeDaemonThreadId) return;
-    setSpawnedAgentRuns(runs.filter(isSubagentRun));
+    const next = runs.filter(isSubagentRun);
+    setSpawnedAgentRuns((current) => sameAgentRunSnapshot(current, next) ? current : next);
   }, [activeDaemonThreadId]);
 
   useEffect(() => {
@@ -955,10 +959,14 @@ export function useAgentChatPanelProviderValue(): {
         });
       }
 
-      const loadedStart = currentThread?.loadedMessageStart ?? 0;
       const currentMessages = useAgentStore.getState().messages[threadId] ?? [];
-      const totalMessages = currentThread?.messageCount ?? currentMessages.length;
-      if (loadedStart <= 0 || totalMessages <= 0) {
+      const messageOffset = resolveOlderThreadPageMessageOffset({
+        loadedMessageStart: currentThread?.loadedMessageStart,
+        loadedMessageEnd: currentThread?.loadedMessageEnd,
+        messageCount: currentThread?.messageCount,
+        currentMessageCount: currentMessages.length,
+      });
+      if (messageOffset === null) {
         return false;
       }
 
@@ -966,7 +974,7 @@ export function useAgentChatPanelProviderValue(): {
         daemonThreadId,
         localThreadId: threadId,
         messageLimit,
-        messageOffset: Math.max(0, totalMessages - loadedStart),
+        messageOffset,
         mergeMode: "prepend",
         setThreadTodos,
         setDaemonTodosByThread,
@@ -997,7 +1005,15 @@ export function useAgentChatPanelProviderValue(): {
     setActiveThread(localId);
     setChatBackView("threads");
     setView("chat");
-    if (!alreadyLatest) {
+    const loadedCount = useAgentStore.getState().messages[localId]?.length ?? 0;
+    const needsHistoryWindow = Boolean(
+      thread?.daemonThreadId
+      && (
+        (thread.messageCount ?? 0) > loadedCount
+        || ((thread.loadedMessageStart ?? 0) > 0 && loadedCount === 0)
+      ),
+    );
+    if (!alreadyLatest || needsHistoryWindow) {
       void loadThreadPage(localId, "latest");
     }
   }, [loadThreadPage, setActiveThread, setChatBackView, setFollowThreadHistoryBottom, setView]);
@@ -1084,6 +1100,9 @@ export function useAgentChatPanelProviderValue(): {
   }, [agentSettings.agent_backend, sendDaemonMessage, sendMessageLegacy]);
 
   const spawnSubagent = useCallback(async (request: { title: string; description: string; cwd?: string | null }) => {
+    if (isLeadOnlyPersona(request.title)) {
+      return { ok: false, error: LEAD_PERSONA_SPAWN_ERROR };
+    }
     const thread = useAgentStore.getState().threads.find((entry) => entry.id === activeThreadId);
     const daemonThreadId = thread?.daemonThreadId ?? daemonThreadIdRef.current;
     const bridge = getAgentBridge();

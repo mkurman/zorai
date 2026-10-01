@@ -2,6 +2,7 @@ import { getBridge } from "@/lib/bridge";
 import { useThreadFilePreview } from "@/zorai/features/threads/ThreadFilePreviewContext";
 import type { ToolArtifactReference } from "./toolArtifacts";
 import { toolArtifactPreviewEntry } from "./toolArtifactPresentation";
+import { useMemo } from "react";
 
 export function ToolArtifactChips({
   artifacts,
@@ -16,12 +17,13 @@ export function ToolArtifactChips({
   const visible = compact ? artifacts.slice(0, 2) : artifacts;
   const overflow = compact ? Math.max(0, artifacts.length - visible.length) : 0;
   const bridge = getBridge();
+  const paths = useMemo(() => artifacts.map((artifact) => artifact.path.split("/").pop() ?? artifact.path), [artifacts]);
 
   if (artifacts.length === 0) return null;
 
   return (
     <div className={compact ? "zorai-tool-artifacts zorai-tool-artifacts--compact" : "zorai-tool-artifacts"}>
-      {visible.map((artifact) => (
+      {visible.map((artifact, index) => (
         <div key={`${artifact.provenance}:${artifact.path}`} className="zorai-tool-artifact">
           <button
             type="button"
@@ -32,7 +34,7 @@ export function ToolArtifactChips({
               openThreadFilePreview(toolArtifactPreviewEntry(artifact, createdAt));
             }}
           >
-            {artifact.path}
+            {paths[index] ?? artifact.path}
           </button>
           {!compact ? (
             <>

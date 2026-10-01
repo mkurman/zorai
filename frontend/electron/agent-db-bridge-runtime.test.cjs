@@ -147,3 +147,27 @@ test("agent bridge forwards only actionable concierge welcome events to renderer
     },
   ]);
 });
+
+test("agent bridge drops events after the renderer frame is gone", () => {
+  let sends = 0;
+  const { runtime, spawned } = createRuntimeHarness({
+    mainWindow: {
+      isDestroyed: () => false,
+      webContents: {
+        isDestroyed: () => false,
+        isCrashed: () => true,
+        mainFrame: null,
+        send() {
+          sends += 1;
+          throw new Error("Render frame was disposed before WebFrameMain could be accessed");
+        },
+      },
+    },
+  });
+
+  runtime.sendAgentCommand({ type: "subscribe" });
+  spawned[0].emitStdout(`${JSON.stringify({ type: "agent-event", content: "still streaming" })}\n`);
+  spawned[0].emitStdout(`${JSON.stringify({ type: "token", content: "more" })}\n`);
+
+  assert.equal(sends, 0);
+});

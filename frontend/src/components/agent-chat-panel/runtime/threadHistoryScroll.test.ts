@@ -8,6 +8,7 @@ import {
   setFollowThreadHistoryBottom,
   shouldFollowThreadHistoryBottom,
   THREAD_HISTORY_OLDER_LOAD_DEBOUNCE_MS,
+  resolveOlderThreadPageMessageOffset,
   threadHasOlderHistory,
 } from "./threadHistoryScroll";
 
@@ -158,11 +159,35 @@ describe("consumeThreadHistoryScroll", () => {
   });
 });
 
+describe("resolveOlderThreadPageMessageOffset", () => {
+  it("returns the daemon offset for the next older page", () => {
+    expect(resolveOlderThreadPageMessageOffset({
+      loadedMessageStart: 70,
+      messageCount: 120,
+      currentMessageCount: 50,
+    })).toBe(50);
+    expect(resolveOlderThreadPageMessageOffset({
+      loadedMessageStart: null,
+      loadedMessageEnd: 3008,
+      messageCount: 3008,
+      currentMessageCount: 100,
+    })).toBe(100);
+    expect(resolveOlderThreadPageMessageOffset({
+      loadedMessageStart: 0,
+      messageCount: 100,
+      currentMessageCount: 100,
+    })).toBe(null);
+  });
+});
+
 describe("threadHasOlderHistory", () => {
-  it("is true only when the loaded window starts after the first stored message", () => {
+  it("detects older rows from loaded start or total message count", () => {
     expect(threadHasOlderHistory({ loadedMessageStart: 70 })).toBe(true);
-    expect(threadHasOlderHistory({ loadedMessageStart: 0 })).toBe(false);
-    expect(threadHasOlderHistory({ loadedMessageStart: null })).toBe(false);
+    expect(threadHasOlderHistory({ loadedMessageStart: 0, messageCount: 886, loadedMessageEnd: 886 }, 100)).toBe(true);
+    expect(threadHasOlderHistory({ loadedMessageStart: 0, messageCount: 886, loadedMessageEnd: 886 }, 886)).toBe(false);
+    expect(threadHasOlderHistory({ loadedMessageStart: 0, messageCount: 100, loadedMessageEnd: 100 }, 100)).toBe(false);
+    expect(threadHasOlderHistory({ loadedMessageStart: null, messageCount: 886 }, 100)).toBe(true);
+    expect(threadHasOlderHistory({ loadedMessageStart: null }, 0)).toBe(false);
     expect(threadHasOlderHistory(null)).toBe(false);
   });
 });

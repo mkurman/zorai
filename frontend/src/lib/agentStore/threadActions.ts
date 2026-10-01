@@ -12,6 +12,7 @@ import {
 import { normalizeAgentProviderId } from "./providers";
 import type { AgentSettings } from "./settings";
 import type { AgentState, AgentStoreGet, AgentStoreSet } from "./storeTypes";
+import { boundOptionalRendererText, boundRendererText } from "./rendererText";
 import type { AgentMessage } from "./types";
 
 type ThreadActionKeys =
@@ -187,6 +188,9 @@ export function createThreadActions(
     addMessage: (threadId, message) => {
       const fullMessage: AgentMessage = {
         ...message,
+        content: boundRendererText(message.content),
+        toolArguments: typeof message.toolArguments === "string" ? boundRendererText(message.toolArguments) : message.toolArguments,
+        reasoning: typeof message.reasoning === "string" ? boundRendererText(message.reasoning) : message.reasoning,
         id: nextMessageId(),
         threadId,
         createdAt: Date.now(),
@@ -238,12 +242,12 @@ export function createThreadActions(
         const nextTotalTokens = meta?.totalTokens ?? lastMessage.totalTokens;
         const updatedLastMessage: AgentMessage = {
           ...lastMessage,
-          content,
+          content: boundRendererText(content),
           isStreaming: streaming ?? false,
           inputTokens: nextInputTokens,
           outputTokens: nextOutputTokens,
           totalTokens: nextTotalTokens,
-          reasoning: meta?.reasoning ?? lastMessage.reasoning,
+          reasoning: boundOptionalRendererText(meta?.reasoning ?? lastMessage.reasoning),
           reasoningTokens: meta?.reasoningTokens ?? lastMessage.reasoningTokens,
           audioTokens: meta?.audioTokens ?? lastMessage.audioTokens,
           videoTokens: meta?.videoTokens ?? lastMessage.videoTokens,

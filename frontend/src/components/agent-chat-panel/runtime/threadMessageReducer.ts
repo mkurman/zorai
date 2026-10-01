@@ -38,6 +38,7 @@ export function reconcileThreadMessages(
     }
 
     if (isStaleLocalTool(local, authoritative)) return;
+    if (isStaleLocalAssistantShell(local)) return;
     reconciled.push(local);
   });
 
@@ -107,6 +108,14 @@ function mergeMessageRichness(authoritative: AgentMessage, local: AgentMessage):
     reasoning: authoritative.reasoning || local.reasoning,
     providerFinalResult: authoritative.providerFinalResult ?? local.providerFinalResult,
   };
+}
+
+function isStaleLocalAssistantShell(message: AgentMessage): boolean {
+  return isOptimisticMessage(message)
+    && message.role === "assistant"
+    && !message.isStreaming
+    && !message.content.trim()
+    && !message.reasoning?.trim();
 }
 
 function isStaleLocalTool(message: AgentMessage, authoritative: readonly AgentMessage[]): boolean {

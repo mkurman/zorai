@@ -1,4 +1,5 @@
 import { readPersistedJson, scheduleJsonWrite } from "../persistence";
+import { boundRendererText } from "./rendererText";
 import { getBridge } from "../bridge";
 import { PRIMARY_AGENT_NAME } from "../agentNames";
 import { normalizeAgentProviderId, normalizeApiTransport } from "./providers";
@@ -186,6 +187,17 @@ export function isHiddenAgentThread(thread: Pick<RemoteAgentThreadRecord, "id" |
     || title.startsWith("weles ");
 }
 
+function coerceRemoteMessageIndex(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.max(0, Math.trunc(value));
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : null;
+  }
+  return null;
+}
+
 function epochMsOrNow(value: number | null | undefined): number {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return Date.now();
@@ -266,12 +278,16 @@ export function buildHydratedRemoteMessage(
   message: RemoteAgentMessageRecord,
 ): AgentMessage {
   const provider = typeof message.provider === "string" ? message.provider : undefined;
+  const content = boundRendererText(typeof message.content === "string" ? message.content : "");
+  const isCompactionArtifact = message.message_kind === "compaction_artifact"
+    || content.trim().startsWith("Pre-compaction context:");
+
   return {
     id: typeof message.id === "string" && message.id.trim() ? message.id : nextMessageId(),
     threadId,
     createdAt: Number(message.timestamp ?? Date.now()),
     role: message.role ?? "assistant",
-    content: typeof message.content === "string" ? message.content : "",
+    content,
     contentBlocks: Array.isArray(message.content_blocks) ? message.content_blocks : undefined,
     authorAgentId: typeof message.author_agent_id === "string" ? message.author_agent_id : undefined,
     authorAgentName: typeof message.author_agent_name === "string" ? message.author_agent_name : undefined,
@@ -291,7 +307,7 @@ export function buildHydratedRemoteMessage(
     toolCalls: Array.isArray(message.tool_calls) ? message.tool_calls : undefined,
     toolName: typeof message.tool_name === "string" ? message.tool_name : undefined,
     toolCallId: typeof message.tool_call_id === "string" ? message.tool_call_id : undefined,
-    toolArguments: typeof message.tool_arguments === "string" ? message.tool_arguments : undefined,
+    toolArguments: typeof message.tool_arguments === "string" ? boundRendererText(message.tool_arguments) : undefined,
     toolStatus:
       message.tool_status === "requested"
         || message.tool_status === "executing"
@@ -309,8 +325,8 @@ export function buildHydratedRemoteMessage(
       ? message.cost_usd
       : undefined,
     reasoning: typeof message.reasoning === "string" ? message.reasoning : undefined,
-    isCompactionSummary: message.message_kind === "compaction_artifact",
-    messageKind: message.message_kind ?? "normal",
+    isCompactionSummary: isCompactionArtifact,
+    messageKind: isCompactionArtifact ? "compaction_artifact" : (message.message_kind ?? "normal"),
     compactionStrategy: message.compaction_strategy ?? undefined,
     compactionPayload: typeof message.compaction_payload === "string" ? message.compaction_payload : undefined,
     pinnedForCompaction: Boolean(message.pinned_for_compaction),
@@ -407,8 +423,18 @@ export function buildHydratedRemoteThread(
   const totalInputTokens = Number(thread.total_input_tokens ?? 0);
   const totalOutputTokens = Number(thread.total_output_tokens ?? 0);
   const totalMessageCount = Number(thread.total_message_count ?? messages.length);
-  const loadedMessageStart = typeof thread.loaded_message_start === "number" ? thread.loaded_message_start : null;
-  const loadedMessageEnd = typeof thread.loaded_message_end === "number" ? thread.loaded_message_end : null;
+  let loadedMessageStart = coerceRemoteMessageIndex(thread.loaded_message_start);
+  let loadedMessageEnd = coerceRemoteMessageIndex(thread.loaded_message_end);
+  if (loadedMessageStart === null && loadedMessageEnd !== null && totalMessageCount > messages.length) {
+    loadedMessageStart = Math.max(0, loadedMessageEnd - messages.length);
+  } else if (
+    loadedMessageStart === null
+    && loadedMessageEnd === null
+    && totalMessageCount > messages.length
+  ) {
+    loadedMessageEnd = totalMessageCount;
+    loadedMessageStart = Math.max(0, totalMessageCount - messages.length);
+  }
   const activeContextWindowStart = typeof thread.active_context_window_start === "number" ? thread.active_context_window_start : null;
   const activeContextWindowEnd = typeof thread.active_context_window_end === "number" ? thread.active_context_window_end : null;
   const activeContextWindowTokens = typeof thread.active_context_window_tokens === "number" ? thread.active_context_window_tokens : null;
@@ -728,7 +754,7 @@ export function deserializeMessage(message: AgentDbMessageRecord): AgentMessage 
     threadId: message.thread_id,
     createdAt: message.created_at,
     role: message.role as AgentRole,
-    content: message.content,
+    content: boundRendererText(message.content),
     contentBlocks,
     authorAgentId: typeof metadata.authorAgentId === "string" ? metadata.authorAgentId : undefined,
     authorAgentName: typeof metadata.authorAgentName === "string" ? metadata.authorAgentName : undefined,
@@ -750,7 +776,7 @@ export function deserializeMessage(message: AgentDbMessageRecord): AgentMessage 
     toolCalls,
     toolName: (metadata.toolName as string) ?? undefined,
     toolCallId: (metadata.toolCallId as string) ?? undefined,
-    toolArguments: (metadata.toolArguments as string) ?? undefined,
+    toolArguments: typeof metadata.toolArguments === "string" ? boundRendererText(metadata.toolArguments) : undefined,
     toolStatus: (metadata.toolStatus as AgentMessage["toolStatus"]) ?? undefined,
     welesReview: (metadata.welesReview as AgentMessage["welesReview"]) ?? undefined,
     inputTokens: message.input_tokens ?? 0,

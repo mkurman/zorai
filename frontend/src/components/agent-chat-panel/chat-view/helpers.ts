@@ -1,4 +1,5 @@
 import type { AgentMessage, AgentTodoItem } from "../../../lib/agentStore";
+import { isCompactionArtifactMessage } from "./compactionArtifact";
 import { mergeToolReviewMeta } from "../toolReviewPresentation";
 import type { ChatDisplayItem, ToolEventAttribution, ToolEventGroup } from "./types";
 
@@ -74,7 +75,7 @@ export function buildDisplayItems(messages: AgentMessage[]): ChatDisplayItem[] {
       }
       continue;
     }
-    if (isToolPlaceholderAssistantMessage(message, messages[index - 1], messages[index + 1])) {
+    if (shouldHideAssistantDisplayMessage(message)) {
       continue;
     }
 
@@ -138,12 +139,12 @@ function isAssistantToolCallEnvelope(message: AgentMessage): boolean {
     && message.toolCalls.length > 0;
 }
 
-function isToolPlaceholderAssistantMessage(
-  message: AgentMessage,
-  previous?: AgentMessage,
-  next?: AgentMessage,
-): boolean {
+function shouldHideAssistantDisplayMessage(message: AgentMessage): boolean {
   if (message.role !== "assistant") {
+    return false;
+  }
+
+  if (isCompactionArtifactMessage(message)) {
     return false;
   }
 
@@ -151,11 +152,7 @@ function isToolPlaceholderAssistantMessage(
     return false;
   }
 
-  if (assistantMessageHasVisibleContent(message.content)) {
-    return false;
-  }
-
-  return previous?.role === "tool" || next?.role === "tool";
+  return !assistantMessageHasVisibleContent(message.content);
 }
 
 export function filterDisplayItems(items: ChatDisplayItem[], searchQuery: string): ChatDisplayItem[] {

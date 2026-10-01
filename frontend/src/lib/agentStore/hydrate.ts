@@ -23,6 +23,15 @@ import {
 import { useAgentStore } from "./store";
 import { getDaemonAgentConfig } from "../daemonConfig";
 
+export function retainActiveThreadMessages<T>(
+  messages: Record<string, T[]>,
+  activeThreadId: string | null,
+): Record<string, T[]> {
+  if (!activeThreadId) return {};
+  const active = messages[activeThreadId];
+  return active ? { [activeThreadId]: active } : {};
+}
+
 export async function hydrateAgentStore(): Promise<void> {
   try {
     await hydrateAgentStoreInner();
@@ -73,11 +82,12 @@ async function hydrateAgentStoreInner(): Promise<void> {
         }
         if (threads.length > 0) {
           const sortedThreads = threads.sort((left, right) => right.updatedAt - left.updatedAt);
+          const activeThreadId = sortedThreads[0]?.id ?? null;
           const hydrated: AgentChatState = {
             threads: sortedThreads,
-            messages,
+            messages: retainActiveThreadMessages(messages, activeThreadId),
             todos: {},
-            activeThreadId: sortedThreads[0]?.id ?? null,
+            activeThreadId,
           };
           syncChatCounters(hydrated);
           useAgentStore.setState(hydrated);
@@ -92,17 +102,9 @@ async function hydrateAgentStoreInner(): Promise<void> {
   const savedActiveThread = await readPersistedJson<{ activeThreadId: string | null }>(AGENT_ACTIVE_THREAD_FILE);
   const dbThreads = await api?.dbListThreads?.();
   if (Array.isArray(dbThreads) && dbThreads.length > 0) {
-    const messages: AgentChatState["messages"] = {};
-    for (const thread of dbThreads) {
-      const threadMessages = await api?.dbListMessages?.(thread.id, 500) ?? [];
-      messages[thread.id] = threadMessages.map(deserializeMessage);
-    }
-
     const hydratedThreads = dbThreads.map((thread) => ({
       ...deserializeThread(thread),
       daemonThreadId: daemonThreadMap[thread.id] ?? null,
-      messageCount: messages[thread.id]?.length ?? thread.message_count,
-      lastMessagePreview: messages[thread.id]?.[messages[thread.id].length - 1]?.content?.slice(0, 100) ?? thread.last_preview ?? "",
     }));
     const savedId = savedActiveThread?.activeThreadId;
     const restoredId = (savedId && hydratedThreads.some((thread) => thread.id === savedId))
@@ -110,6 +112,16 @@ async function hydrateAgentStoreInner(): Promise<void> {
       : (hydratedThreads.length > 0
         ? hydratedThreads.reduce((left, right) => (left.updatedAt >= right.updatedAt ? left : right)).id
         : null);
+    const messages: AgentChatState["messages"] = {};
+    if (restoredId) {
+      const threadMessages = await api?.dbListMessages?.(restoredId, 500) ?? [];
+      messages[restoredId] = threadMessages.map(deserializeMessage);
+      const active = hydratedThreads.find((thread) => thread.id === restoredId);
+      const loaded = messages[restoredId];
+      if (active && loaded && loaded.length > 0) {
+        active.lastMessagePreview = loaded[loaded.length - 1]?.content?.slice(0, 100) ?? active.lastMessagePreview;
+      }
+    }
     const hydrated: AgentChatState = {
       threads: hydratedThreads,
       messages,
@@ -131,7 +143,7 @@ async function hydrateAgentStoreInner(): Promise<void> {
       ...thread,
       daemonThreadId: daemonThreadMap[thread.id] ?? thread.daemonThreadId ?? null,
     })),
-    messages: legacyChat.messages,
+    messages: retainActiveThreadMessages(legacyChat.messages, legacyChat.activeThreadId ?? null),
     todos: {},
     activeThreadId: legacyChat.activeThreadId ?? null,
   };

@@ -778,8 +778,8 @@ describe("Zorai feature surfaces", () => {
     expect(contextSource).not.toContain("zorai-file-preview");
     expect(overlaySource).toContain("zorai-file-preview-overlay");
     expect(overlaySource).toContain("Close preview");
-    expect(overlaySource).toContain("MarkdownContent");
-    expect(overlaySource).toContain("isMarkdownPath");
+    expect(overlaySource).toContain("MonacoReadOnlyView");
+    expect(overlaySource).toContain("languageForWorkspacePath");
     expect(css).toMatch(/\.zorai-file-preview-overlay\s*{[^}]*position:\s*absolute/s);
   });
 

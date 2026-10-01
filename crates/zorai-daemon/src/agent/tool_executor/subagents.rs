@@ -494,6 +494,26 @@ pub(crate) async fn execute_spawn_subagent(
         );
     }
 
+    if args
+        .get("title")
+        .and_then(|value| value.as_str())
+        .is_some_and(crate::agent::agent_identity::is_lead_only_persona)
+        || args
+            .get("role")
+            .and_then(|value| value.as_str())
+            .is_some_and(crate::agent::agent_identity::is_lead_only_persona)
+        || args
+            .get("agent")
+            .and_then(|value| value.as_str())
+            .is_some_and(crate::agent::agent_identity::is_lead_only_persona)
+        || args
+            .get("sub_agent")
+            .and_then(|value| value.as_str())
+            .is_some_and(crate::agent::agent_identity::is_lead_only_persona)
+    {
+        anyhow::bail!(crate::agent::agent_identity::LEAD_PERSONA_SPAWN_ERROR);
+    }
+
     let title = args
         .get("title")
         .and_then(|value| value.as_str())
@@ -594,6 +614,15 @@ pub(crate) async fn execute_spawn_subagent(
         .find(|sa| sa.enabled && sa.matches_spawn_request(&title))
         .cloned();
     if let Some(def) = matched_def.as_ref() {
+        if crate::agent::agent_identity::is_lead_only_persona(&def.id)
+            || crate::agent::agent_identity::is_lead_only_persona(&def.name)
+            || def
+                .role
+                .as_deref()
+                .is_some_and(crate::agent::agent_identity::is_lead_only_persona)
+        {
+            anyhow::bail!(crate::agent::agent_identity::LEAD_PERSONA_SPAWN_ERROR);
+        }
         if let Some(reason) = def.protected_reason.as_deref() {
             anyhow::bail!(
                 "protected sub-agent '{}' is reserved and cannot be spawned via spawn_subagent: {}",
@@ -811,8 +840,9 @@ pub(crate) async fn execute_spawn_subagent(
         )
         .ok_or_else(|| {
             anyhow::anyhow!(
-                "cannot assign a unique persona to subagent '{}': all 9 spawned personas are already active under this parent scope. Reuse an existing subagent (list_subagents) or let one finish before spawning another.",
-                subagent.title
+                "cannot assign a unique persona to subagent '{}': all {} worker personas are already active under this parent scope. Reuse an existing subagent (list_subagents) or let one finish before spawning another.",
+                subagent.title,
+                crate::agent::agent_identity::spawned_persona_count()
             )
         })?;
         build_spawned_persona_prompt(persona)
@@ -1090,7 +1120,11 @@ pub(crate) async fn execute_list_agents(agent: &AgentEngine) -> Result<String> {
             serde_json::json!(sub_agent.model),
             sub_agent.enabled,
         );
-        row["spawnable"] = serde_json::Value::Bool(sub_agent.is_spawnable());
+        row["spawnable"] = serde_json::Value::Bool(
+            sub_agent.is_spawnable()
+                && !crate::agent::agent_identity::is_lead_only_persona(&sub_agent.id)
+                && !crate::agent::agent_identity::is_lead_only_persona(&sub_agent.name),
+        );
         if let Some(role) = sub_agent
             .role
             .as_deref()

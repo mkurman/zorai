@@ -1,6 +1,7 @@
 import { LoadingState, ThreadListSkeleton } from "@/components/LoadingState";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
+import { fetchAgentRuns, type AgentRun } from "@/lib/agentRuns";
 import { useAgentStore, type AgentThread } from "@/lib/agentStore";
 import {
   buildThreadFilterTabs,
@@ -18,6 +19,16 @@ import {
 } from "./threadFilterModel";
 import { openThreadTarget } from "./openThreadTarget";
 import { isThreadLoading, useThreadLoadingStore } from "./threadLoadingStore";
+import { threadReadKey, useThreadReadStateStore } from "./threadReadStateStore";
+import {
+  isWorkerThread,
+  sameAgentRunSnapshot,
+  sessionActivityLabel,
+  threadIsUnread,
+  threadIsWorking,
+  workerCountForThread,
+  workerThreadIds,
+} from "./sessionCooperation";
 import { ZORAI_FOCUS_SEARCH_EVENT, ZORAI_THREAD_LIST_REFRESH_EVENT, consumePendingFocusSearch } from "../../shell/zoraiNavigationEvents";
 
 const THREAD_FILTER_FETCH_DEBOUNCE_MS = 1000;
@@ -28,6 +39,12 @@ export function ThreadsRail() {
   const storeThreads = useAgentStore((state) => state.threads);
   const threadLoadingByThreadId = useThreadLoadingStore((state) => state.byThreadId);
   const refreshSubAgents = useAgentStore((state) => state.refreshSubAgents);
+  const updateThreadTitle = useAgentStore((state) => state.updateThreadTitle);
+  const deleteThread = useAgentStore((state) => state.deleteThread);
+  const lastReadAtByThread = useThreadReadStateStore((state) => state.lastReadAtByThread);
+  const [runs, setRuns] = useState<AgentRun[]>([]);
+  const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const [tab, setTab] = useState<ThreadFilterTab>("svarog");
   const [dateFilter, setDateFilter] = useState<DateFilterId>(DEFAULT_THREAD_DATE_FILTER);
   const [fromDate, setFromDate] = useState("");
@@ -72,10 +89,34 @@ export function ThreadsRail() {
     () => resolveThreadCreationAgent(tab, subAgents),
     [subAgents, tab],
   );
+  const spawnedWorkerIds = useMemo(() => workerThreadIds(runs), [runs]);
+  const listedThreads = useMemo(
+    () => tab === "internal"
+      ? displayedThreads
+      : displayedThreads.filter((thread) => !isWorkerThread(thread, spawnedWorkerIds)),
+    [displayedThreads, spawnedWorkerIds, tab],
+  );
 
   useEffect(() => {
     void refreshSubAgents();
   }, [refreshSubAgents]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      void fetchAgentRuns().then((next) => {
+        if (!cancelled) setRuns((current) => sameAgentRunSnapshot(current, next) ? current : next);
+      });
+    };
+    load();
+    const timer = window.setInterval(load, 4000);
+    const clock = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.clearInterval(clock);
+    };
+  }, []);
 
   useEffect(() => {
     const focusSearch = () => {
@@ -165,6 +206,8 @@ export function ThreadsRail() {
         </button>
       </div>
       <input ref={searchInputRef} className="zorai-search-input" value={runtime.searchQuery} onChange={(event) => runtime.setSearchQuery(event.target.value)} placeholder="Search threads" />
+      <details className="zorai-thread-filters">
+        <summary>Filters</summary>
       <div className="zorai-thread-filter-tabs" aria-label="Thread source filters">
         {fixedThreadTabs.map((item) => (
           <button
@@ -204,29 +247,148 @@ export function ThreadsRail() {
           </>
         ) : null}
       </div>
+      </details>
       <div className="zorai-thread-list" aria-busy={loadingTab !== null}>
         {loadingTab && daemonFilteredThreads === null ? (
           <ThreadListSkeleton />
-        ) : displayedThreads.length === 0 ? (
+        ) : listedThreads.length === 0 ? (
           <div className="zorai-empty">No threads match this search.</div>
-        ) : displayedThreads.map((thread) => {
+        ) : listedThreads.map((thread) => {
           const loading = isThreadLoading(threadLoadingByThreadId, thread.id, thread.daemonThreadId);
+          const active = thread.id === runtime.activeThreadId || thread.daemonThreadId === runtime.activeThread?.daemonThreadId;
+          const working = threadIsWorking(
+            thread,
+            runs,
+            runtime.isStreamingResponse ? runtime.activeThreadId : null,
+          );
+          const readKey = threadReadKey(thread);
+          const unread = threadIsUnread(thread, readKey ? lastReadAtByThread[readKey] ?? null : null, Boolean(active));
+          const workers = workerCountForThread(thread, runs);
           return (
-            <button
-              type="button"
+            <ThreadSessionRow
               key={thread.daemonThreadId ?? thread.id}
-              className={["zorai-thread-item", thread.id === runtime.activeThreadId || thread.daemonThreadId === runtime.activeThread?.daemonThreadId ? "zorai-thread-item--active" : "", loading ? "zorai-thread-item--loading" : ""].filter(Boolean).join(" ")}
-              aria-busy={loading}
-              onClick={() => void openThreadTarget(runtime, thread.daemonThreadId || thread.id)}
-            >
-              <span className="zorai-thread-title">{thread.title}</span>
-              {loading ? <LoadingState size={12} className="zorai-thread-item__spinner" /> : null}
-              {thread.lastMessagePreview ? <span className="zorai-thread-preview">{thread.lastMessagePreview}</span> : null}
-              <span className="zorai-thread-meta">{threadHistoryLabel(thread)} - {new Date(thread.updatedAt).toLocaleDateString()}</span>
-            </button>
+              thread={thread}
+              active={Boolean(active)}
+              loading={loading}
+              working={working}
+              unread={unread}
+              workers={workers}
+              activity={sessionActivityLabel(thread.updatedAt, now)}
+              history={threadHistoryLabel(thread)}
+              editing={editingThreadId === thread.id}
+              onOpen={() => void openThreadTarget(runtime, thread.daemonThreadId || thread.id)}
+              onStartRename={() => setEditingThreadId(thread.id)}
+              onRename={(title) => {
+                updateThreadTitle(thread.id, title);
+                setEditingThreadId(null);
+              }}
+              onCancelRename={() => setEditingThreadId(null)}
+              onDelete={() => {
+                if (window.confirm(`Delete “${thread.title}”?`)) deleteThread(thread.id);
+              }}
+            />
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function ThreadSessionRow({
+  thread,
+  active,
+  loading,
+  working,
+  unread,
+  workers,
+  activity,
+  history,
+  editing,
+  onOpen,
+  onStartRename,
+  onRename,
+  onCancelRename,
+  onDelete,
+}: {
+  thread: AgentThread;
+  active: boolean;
+  loading: boolean;
+  working: boolean;
+  unread: boolean;
+  workers: number;
+  activity: string;
+  history: string;
+  editing: boolean;
+  onOpen: () => void;
+  onStartRename: () => void;
+  onRename: (title: string) => void;
+  onCancelRename: () => void;
+  onDelete: () => void;
+}) {
+  const [draft, setDraft] = useState(thread.title);
+  const status = working ? "working" : active ? "active" : unread ? "unread" : "idle";
+  const statusLabel = [working ? "working" : "", unread ? "unread" : ""].filter(Boolean).join(", ");
+
+  useEffect(() => {
+    if (editing) setDraft(thread.title);
+  }, [editing, thread.title]);
+
+  return (
+    <div
+      className={["zorai-thread-row", active ? "zorai-thread-row--active" : "", loading ? "zorai-thread-row--loading" : ""].filter(Boolean).join(" ")}
+      data-status={status}
+    >
+      {editing ? (
+        <input
+          className="zorai-thread-row__input"
+          aria-label="Rename session"
+          value={draft}
+          autoFocus
+          spellCheck={false}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              const title = draft.trim();
+              if (title && title !== thread.title) onRename(title);
+              else onCancelRename();
+            } else if (event.key === "Escape") {
+              event.preventDefault();
+              onCancelRename();
+            }
+          }}
+          onBlur={() => {
+            const title = draft.trim();
+            if (title && title !== thread.title) onRename(title);
+            else onCancelRename();
+          }}
+        />
+      ) : (
+        <button
+          type="button"
+          className="zorai-thread-row__main"
+          aria-current={active ? "page" : undefined}
+          aria-busy={loading}
+          aria-label={[thread.title, statusLabel].filter(Boolean).join(", ")}
+          title={`${thread.title} — ${history}`}
+          onClick={onOpen}
+          onDoubleClick={(event) => {
+            event.preventDefault();
+            onStartRename();
+          }}
+        >
+          <span className={`zorai-thread-dot zorai-thread-dot--${status}`} aria-hidden="true" />
+          <span className="zorai-thread-title">{thread.title}</span>
+          {workers > 0 ? <span className="zorai-thread-workers" title={`${workers} spawned ${workers === 1 ? "agent" : "agents"}`}>{workers}</span> : null}
+          {loading ? <LoadingState size={12} className="zorai-thread-item__spinner" /> : <span className="zorai-thread-activity">{activity}</span>}
+        </button>
+      )}
+      {editing ? null : (
+        <span className="zorai-thread-row__actions">
+          <button type="button" className="zorai-thread-row__action" aria-label={`Rename ${thread.title}`} onClick={onStartRename}>Rename</button>
+          <button type="button" className="zorai-thread-row__action zorai-thread-row__action--danger" aria-label={`Delete ${thread.title}`} onClick={onDelete}>Delete</button>
+        </span>
+      )}
     </div>
   );
 }

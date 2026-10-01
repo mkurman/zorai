@@ -28,8 +28,8 @@ async fn apply_sqlite_connection_pragmas(
         // `run_wal_checkpoint_loop`).
         conn.pragma_update(None, "journal_size_limit", "268435456")?;
         conn.pragma_update(None, "busy_timeout", "5000")?;
-        conn.pragma_update(None, "cache_size", "-65536")?;
-        conn.pragma_update(None, "mmap_size", "268435456")?;
+        conn.pragma_update(None, "cache_size", super::db::SQLITE_PAGE_CACHE_KIB)?;
+        conn.pragma_update(None, "mmap_size", super::db::SQLITE_MMAP_BYTES)?;
         conn.pragma_update(None, "temp_store", "MEMORY")?;
         conn.pragma_update(None, "query_only", if query_only { "ON" } else { "OFF" })?;
         Ok(())

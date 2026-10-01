@@ -1,10 +1,12 @@
 import type { NightModePreference, UiFontScale } from "./types";
 
 export const UI_FONT_SCALE_OPTIONS: ReadonlyArray<{ id: UiFontScale; label: string }> = [
+  { id: "tiny", label: "Tiny" },
   { id: "small", label: "Small" },
   { id: "medium", label: "Medium" },
   { id: "large", label: "Large" },
   { id: "very-large", label: "Very large" },
+  { id: "huge", label: "Huge" },
 ];
 
 export const NIGHT_MODE_OPTIONS: ReadonlyArray<{ id: NightModePreference; label: string }> = [
@@ -14,10 +16,12 @@ export const NIGHT_MODE_OPTIONS: ReadonlyArray<{ id: NightModePreference; label:
 ];
 
 export const UI_FONT_SCALE_FACTORS: Record<UiFontScale, number> = {
+  "tiny": 0.75,
   small: 0.875,
-  medium: 1,
+  medium: 1.0,
   large: 1.125,
   "very-large": 1.25,
+  huge: 1.5,
 };
 
 const UI_FONT_FALLBACKS =
@@ -26,7 +30,7 @@ const UI_FONT_FALLBACKS =
 export type ResolvedAppearance = "dark" | "light";
 
 export function normalizeUiFontScale(value: unknown): UiFontScale {
-  if (value === "small" || value === "medium" || value === "large" || value === "very-large") {
+  if (value === "tiny" || value === "small" || value === "medium" || value === "large" || value === "very-large" || value === "huge") {
     return value;
   }
   return "medium";

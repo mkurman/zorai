@@ -229,7 +229,7 @@ export interface TranscriptEntry {
 // ---------------------------------------------------------------------------
 // Settings (mirrors ZoraiConfig in Rust)
 // ---------------------------------------------------------------------------
-export type UiFontScale = "small" | "medium" | "large" | "very-large";
+export type UiFontScale = "tiny" | "small" | "medium" | "large" | "very-large" | "huge";
 export type NightModePreference = "on" | "off" | "auto";
 
 export interface ZoraiSettings {

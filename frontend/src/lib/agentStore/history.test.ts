@@ -49,6 +49,26 @@ describe("buildHydratedRemoteThread", () => {
     });
   });
 
+  it("infers loaded message bounds when the daemon page omits pagination fields", () => {
+    const hydrated = buildHydratedRemoteThread(
+      {
+        id: "thread-missing-bounds",
+        title: "Paged thread",
+        total_message_count: 886,
+        messages: Array.from({ length: 100 }, (_, index) => ({
+          id: `message-${index}`,
+          role: "user",
+          content: `message ${index}`,
+          timestamp: index,
+        })),
+      },
+      "Svarog",
+    );
+
+    expect(hydrated?.thread.loadedMessageStart).toBe(786);
+    expect(hydrated?.thread.loadedMessageEnd).toBe(886);
+  });
+
   it("hydrates authoritative whole-thread cost even when the loaded page has no costed messages", () => {
     const hydrated = buildHydratedRemoteThread(
       {

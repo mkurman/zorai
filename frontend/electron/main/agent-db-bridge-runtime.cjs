@@ -22,6 +22,25 @@ function createAgentDbBridgeRuntime(options) {
     let consecutiveAgentBridgeExits = 0;
     let agentBridgeRestartCooldownUntil = 0;
 
+    function sendToRenderer(window, channel, payload) {
+        if (!window || (typeof window.isDestroyed === 'function' && window.isDestroyed())) return false;
+        const contents = window.webContents;
+        if (!contents || (typeof contents.isDestroyed === 'function' && contents.isDestroyed())) return false;
+        if (typeof contents.isCrashed === 'function' && contents.isCrashed()) return false;
+        if ('mainFrame' in contents) {
+            const frame = contents.mainFrame;
+            if (!frame || (typeof frame.isDestroyed === 'function' && frame.isDestroyed())) return false;
+        }
+        try {
+            contents.send(channel, payload);
+            return true;
+        } catch (error) {
+            const message = error && error.message ? error.message : String(error);
+            if (message.includes('Render frame was disposed')) return false;
+            throw error;
+        }
+    }
+
     function getCliPath() {
         return getDaemonPath().replace(/zorai-daemon/, 'zorai').replace(/zorai-daemon\.exe/, 'zorai.exe');
     }
@@ -127,22 +146,16 @@ function createAgentDbBridgeRuntime(options) {
                         agentBridge.pending.delete(explicitErrorPending.reqId);
                         continue;
                     }
-                    const mainWindowForError = getMainWindow();
-                    if (mainWindowForError && !mainWindowForError.isDestroyed()) {
-                        mainWindowForError.webContents.send('agent-event', event);
-                    }
+                    sendToRenderer(getMainWindow(), 'agent-event', event);
                     continue;
                 }
 
                 if (event.type === 'plugin-oauth-complete') {
-                    const mainWindow = getMainWindow();
-                    if (mainWindow && !mainWindow.isDestroyed()) {
-                        mainWindow.webContents.send('plugin-oauth-complete', {
-                            name: event.name,
-                            success: event.success,
-                            error: event.error,
-                        });
-                    }
+                    sendToRenderer(getMainWindow(), 'plugin-oauth-complete', {
+                        name: event.name,
+                        success: event.success,
+                        error: event.error,
+                    });
                     continue;
                 }
 
@@ -153,9 +166,8 @@ function createAgentDbBridgeRuntime(options) {
                         agentBridge.pending.delete(oldest.reqId);
                     }
                     const lastError = event.data?.last_error;
-                    const mainWindow = getMainWindow();
-                    if (mainWindow && !mainWindow.isDestroyed() && typeof lastError === 'string' && lastError.trim()) {
-                        mainWindow.webContents.send('whatsapp-error', lastError);
+                    if (typeof lastError === 'string' && lastError.trim()) {
+                        sendToRenderer(getMainWindow(), 'whatsapp-error', lastError);
                     }
                     continue;
                 }
@@ -166,32 +178,23 @@ function createAgentDbBridgeRuntime(options) {
                 }
 
                 if (event.type === 'whatsapp-link-linked') {
-                    const mainWindow = getMainWindow();
-                    if (mainWindow && !mainWindow.isDestroyed()) {
-                        mainWindow.webContents.send('whatsapp-connected', { phone: event.data?.phone || null });
-                    }
+                    sendToRenderer(getMainWindow(), 'whatsapp-connected', { phone: event.data?.phone || null });
                     continue;
                 }
 
                 if (event.type === 'whatsapp-link-error') {
-                    const mainWindow = getMainWindow();
-                    if (mainWindow && !mainWindow.isDestroyed()) {
-                        mainWindow.webContents.send('whatsapp-error', event.data?.message || 'WhatsApp link error');
-                    }
+                    sendToRenderer(getMainWindow(), 'whatsapp-error', event.data?.message || 'WhatsApp link error');
                     continue;
                 }
 
                 if (event.type === 'whatsapp-link-disconnected') {
                     const reason = event.data?.reason;
-                    const mainWindow = getMainWindow();
-                    if (mainWindow && !mainWindow.isDestroyed()) {
-                        if (typeof reason === 'string' && reason.trim()) {
-                            mainWindow.webContents.send('whatsapp-error', reason);
-                        }
-                        mainWindow.webContents.send('whatsapp-disconnected', {
-                            reason: typeof reason === 'string' ? reason : null,
-                        });
+                    if (typeof reason === 'string' && reason.trim()) {
+                        sendToRenderer(getMainWindow(), 'whatsapp-error', reason);
                     }
+                    sendToRenderer(getMainWindow(), 'whatsapp-disconnected', {
+                        reason: typeof reason === 'string' ? reason : null,
+                    });
                     continue;
                 }
 
@@ -199,9 +202,7 @@ function createAgentDbBridgeRuntime(options) {
                 if (event.type === 'concierge_welcome') {
                     logToFile('info', '[concierge] forwarding concierge_welcome to renderer', { contentLen: event.content?.length, actionsLen: event.actions?.length });
                 }
-                if (mainWindow && !mainWindow.isDestroyed()) {
-                    mainWindow.webContents.send('agent-event', event);
-                } else if (event.type === 'concierge_welcome') {
+                if (!sendToRenderer(mainWindow, 'agent-event', event) && event.type === 'concierge_welcome') {
                     logToFile('warn', '[concierge] mainWindow not available to forward event');
                 }
             }

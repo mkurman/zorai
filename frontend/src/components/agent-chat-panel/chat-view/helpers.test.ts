@@ -162,6 +162,30 @@ describe("buildDisplayItems", () => {
     expect(toolLists[1].groups[0].resultContent).toBe("second");
   });
 
+  it("hides orphaned empty assistant shells that only carry author metadata", () => {
+    const items = buildDisplayItems([
+      message({ id: "user", role: "user", content: "Investigate", createdAt: 1 }),
+      message({
+        id: "assistant-shell",
+        role: "assistant",
+        content: "",
+        authorAgentName: "Svarog",
+        createdAt: 2,
+      }),
+      message({
+        id: "assistant-answer",
+        role: "assistant",
+        content: "Recovered answer after rate limit.",
+        createdAt: 3,
+      }),
+    ]);
+
+    expect(items.map((item) => item.type === "message" ? item.message.content : item.type)).toEqual([
+      "Investigate",
+      "Recovered answer after rate limit.",
+    ]);
+  });
+
   it("keeps reasoning when the assistant body is only a tool-call placeholder", () => {
     const items = buildDisplayItems([
       message({

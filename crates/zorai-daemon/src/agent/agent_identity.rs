@@ -70,7 +70,7 @@ pub(crate) struct ResolvedAgentTarget {
     pub(super) matched_sub_agent: Option<SubAgentDefinition>,
 }
 
-const SPAWNED_PERSONAS: [PersonaSeed; 9] = [
+const SPAWNED_PERSONAS: [PersonaSeed; 8] = [
     PersonaSeed {
         id: SWAROZYC_AGENT_ID,
         name: SWAROZYC_AGENT_NAME,
@@ -111,12 +111,26 @@ const SPAWNED_PERSONAS: [PersonaSeed; 9] = [
         name: ROD_AGENT_NAME,
         guidance: "You are continuity-minded. Prefer solutions that preserve durable structure, conventions, and long-term coherence.",
     },
-    PersonaSeed {
-        id: WELES_AGENT_ID,
-        name: WELES_AGENT_NAME,
-        guidance: "You are comfortable exploring edge cases, failure modes, and messy corners, but you must report back clearly and concretely.",
-    },
 ];
+
+pub(crate) const LEAD_PERSONA_SPAWN_ERROR: &str = "Svarog, Rarog, and Weles are lead personas and cannot be spawned. Reuse their provider and model on another persona.";
+
+pub(crate) fn spawned_persona_count() -> usize {
+    SPAWNED_PERSONAS.len()
+}
+
+/// Lead personas keep an extended policy. Spawned workers may use the same
+/// provider and model, but they must not become these personas.
+pub(crate) fn is_lead_only_persona(alias: &str) -> bool {
+    let mut normalized = alias.trim().to_ascii_lowercase();
+    if let Some(stripped) = normalized.strip_suffix("_builtin") {
+        normalized = stripped.to_string();
+    }
+    matches!(
+        normalized.as_str(),
+        MAIN_AGENT_ID | MAIN_AGENT_PUBLIC_ALIAS | CONCIERGE_AGENT_ID | WELES_AGENT_ID | "veles"
+    )
+}
 
 tokio::task_local! {
     static ACTIVE_AGENT_SCOPE_ID: String;
@@ -746,6 +760,32 @@ mod tests {
         assert_eq!(canonical_agent_name("dazhbog"), "Dazhbog");
         assert_eq!(canonical_agent_id("rod"), ROD_AGENT_ID);
         assert_eq!(canonical_agent_name("Rod"), ROD_AGENT_NAME);
+    }
+
+    #[test]
+    fn lead_personas_cannot_be_assigned_by_spawn() {
+        for alias in [
+            "svarog",
+            "Svarog",
+            "swarog",
+            "rarog",
+            "Rarog",
+            "weles",
+            "Weles",
+            "veles",
+            "weles_builtin",
+        ] {
+            assert!(is_lead_only_persona(alias), "{alias} is a lead persona");
+        }
+        for persona in SPAWNED_PERSONAS {
+            assert!(!is_lead_only_persona(persona.id), "{}", persona.id);
+            assert!(!is_lead_only_persona(persona.name), "{}", persona.name);
+        }
+        assert_eq!(spawned_persona_count(), 8);
+        let assigned = spawned_persona_id("task-123");
+        assert_ne!(assigned, WELES_AGENT_ID);
+        assert_ne!(assigned, MAIN_AGENT_ID);
+        assert_ne!(assigned, CONCIERGE_AGENT_ID);
     }
 
     #[test]

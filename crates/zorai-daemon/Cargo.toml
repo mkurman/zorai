@@ -90,7 +90,9 @@ tokio = { workspace = true, features = ["net"] }
 # glibc default allocator creates one arena per thread; with 30+ tokio workers
 # and 14 per-connection rusqlite threads this produced ~13 arenas and >13 GB
 # of retained/fragmented RSS after hours of multi-thread load (2026-08-30
-# investigation). tikv-jemallocator cannot be built on MSVC, hence the
+# investigation). jemalloc still kept one 64 MiB dirty extent per arena while
+# idle (about 5 GB at 89 threads) until narenas and background decay were set
+# in src/main.rs. tikv-jemallocator cannot be built on MSVC, hence the
 # target-specific gate; macOS and Windows keep their platform allocators.
 [target.'cfg(target_os = "linux")'.dependencies]
 tikv-jemallocator = "0.6"

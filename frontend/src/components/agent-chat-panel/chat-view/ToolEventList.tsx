@@ -21,7 +21,7 @@ export function ToolEventList({
   const working = groups.some(
     (group) => group.status === "requested" || group.status === "executing",
   );
-  const title = groups[groups.length - 1]?.toolName || "tools";
+  const title = groups[groups.length - 1]?.toolName?.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ") || "Tools";
 
   return (
     <div className="acp-tool-list">
@@ -37,7 +37,6 @@ export function ToolEventList({
         className="acp-tool-list__header"
         onClick={() => setExpanded((prev) => !prev)}
       >
-        <span className="acp-tool-list__caret">{expanded ? "▼" : "▶"}</span>
         <span
           className={`acp-tool-list__title${working ? " acp-tool-list__title--working" : ""}`}
           title={title}

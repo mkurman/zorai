@@ -28,6 +28,7 @@ export function CodeThreadRuntimeSwitcher({ thread, variant = "toolbar" }: Props
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [selectedContextWindow, setSelectedContextWindow] = useState<number | null>(null);
   const [modelStep, setModelStep] = useState(false);
+  const [pickerQuery, setPickerQuery] = useState("");
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties | undefined>(undefined);
@@ -214,13 +215,20 @@ export function CodeThreadRuntimeSwitcher({ thread, variant = "toolbar" }: Props
     setSelectedAgentId(null);
     setSelectedProvider(null);
     setModelStep(false);
+    setPickerQuery("");
   };
 
-  const providerOptions = threadProviderIdsList;
+  const pickerNeedle = pickerQuery.trim().toLowerCase();
+  const visibleAgents = pickerNeedle
+    ? agents.filter((agent) => agent.name.toLowerCase().includes(pickerNeedle) || agent.id.toLowerCase().includes(pickerNeedle))
+    : agents;
+  const providerOptions = pickerNeedle
+    ? threadProviderIdsList.filter((pid) => pid.toLowerCase().includes(pickerNeedle) || (getProviderDefinition(pid as AgentProviderId)?.name ?? "").toLowerCase().includes(pickerNeedle))
+    : threadProviderIdsList;
   void modelStep;
-  const modelOptions = selectedProvider
+  const modelOptions = (selectedProvider
     ? getProviderModels(selectedProvider as AgentProviderId)
-    : [];
+    : []).filter((modelOption) => !pickerNeedle || modelOption.name.toLowerCase().includes(pickerNeedle) || modelOption.id.toLowerCase().includes(pickerNeedle));
 
   const variantClass = variant === "composer" ? " zorai-code-runtime-switcher--composer" : "";
   return (
@@ -242,10 +250,17 @@ export function CodeThreadRuntimeSwitcher({ thread, variant = "toolbar" }: Props
       {open
         ? createPortal(
             <div id="zorai-runtime-switcher-menu" style={menuStyle as React.CSSProperties} className="zorai-code-runtime-switcher__menu zorai-code-runtime-switcher__menu--cascade" role="menu">
+          <input
+            className="zorai-search-input zorai-code-runtime-switcher__search"
+            value={pickerQuery}
+            onChange={(event) => setPickerQuery(event.target.value)}
+            placeholder="Filter agents, providers, models"
+            aria-label="Filter runtime choices"
+          />
           {!selectedAgentId ? (
             <div className="zorai-code-runtime-switcher__col">
               <div className="zorai-code-runtime-switcher__col-title">Agent&apos;s name &gt; [ select agent ]</div>
-              {agents.map((agent) => {
+              {visibleAgents.map((agent) => {
                 const isCurrentAgent = profile.ownerId.trim().toLowerCase() === agent.id.trim().toLowerCase();
                 return (
                   <button
@@ -256,8 +271,6 @@ export function CodeThreadRuntimeSwitcher({ thread, variant = "toolbar" }: Props
                     onClick={() => setSelectedAgentId(agent.id)}
                   >
                     <span>{agent.name}</span>
-                    <span className="zorai-code-runtime-switcher__item-sub">{agent.id}</span>
-                    {isCurrentAgent ? <span className="zorai-code-runtime-switcher__check" aria-hidden="true">✓</span> : null}
                     <span aria-hidden="true" className="zorai-code-runtime-switcher__item-go">›</span>
                   </button>
                 );
@@ -268,7 +281,7 @@ export function CodeThreadRuntimeSwitcher({ thread, variant = "toolbar" }: Props
             <div className="zorai-code-runtime-switcher__col">
               <button type="button" className="zorai-code-runtime-switcher__back" onClick={() => setSelectedAgentId(null)}>← Agents</button>
               <div className="zorai-code-runtime-switcher__col-title">Provider&apos;s name &gt; [ select provider ] &gt; select model</div>
-              <div className="zorai-code-runtime-switcher__hint" style={{ fontSize: "var(--text-xs)", color: "var(--zorai-muted)", marginBottom: 6 }}>
+              <div className="zorai-code-runtime-switcher__hint" style={{ color: "var(--zorai-muted)", marginBottom: 6 }}>
                 For: <strong>{agents.find((a) => a.id === selectedAgentId)?.name ?? selectedAgentId}</strong> — will apply to this thread only
               </div>
               {providerOptions.map((pid) => {
@@ -285,9 +298,10 @@ export function CodeThreadRuntimeSwitcher({ thread, variant = "toolbar" }: Props
                     }}
                   >
                     <span>{getProviderDefinition(pid as AgentProviderId)?.name ?? pid}</span>
-                    <span className="zorai-code-runtime-switcher__item-sub">{pid}</span>
-                    {isCurrentProvider ? <span className="zorai-code-runtime-switcher__check" aria-hidden="true">✓</span> : null}
-                    <span aria-hidden="true" className="zorai-code-runtime-switcher__item-go">›</span>
+                    <div className="zorai-code-runtime-switcher__item-sub-container">
+                      {isCurrentProvider ? <span className="zorai-code-runtime-switcher__check" aria-hidden="true">✓</span> : null}
+                      <span aria-hidden="true" className="zorai-code-runtime-switcher__item-go">›</span>
+                    </div>
                   </button>
                 );
               })}
@@ -299,7 +313,7 @@ export function CodeThreadRuntimeSwitcher({ thread, variant = "toolbar" }: Props
               <div className="zorai-code-runtime-switcher__col-title">
                 Model&apos;s name &gt; [ select model from the current provider&apos;s list only ]
               </div>
-              <div className="zorai-code-runtime-switcher__hint" style={{ fontSize: "var(--text-xs)", color: "var(--zorai-muted)", marginBottom: 6 }}>
+              <div className="zorai-code-runtime-switcher__hint" style={{ color: "var(--zorai-muted)", marginBottom: 6 }}>
                 Provider: <strong>{selectedProvider}</strong> — same check semantics as above
               </div>
               <div className="zorai-code-runtime-switcher__model-list">
@@ -320,8 +334,10 @@ export function CodeThreadRuntimeSwitcher({ thread, variant = "toolbar" }: Props
                       }}
                     >
                       <span>{m.name}</span>
-                      <span className="zorai-code-runtime-switcher__item-sub">{m.id} · {(m.contextWindow / 1000).toFixed(0)}k ctx</span>
-                      {isCurrentModel ? <span className="zorai-code-runtime-switcher__check" aria-hidden="true">✓</span> : null}
+                      <div className="zorai-code-runtime-switcher__item-sub-container">
+                        <span className="zorai-code-runtime-switcher__item-sub">{(m.contextWindow / 1000).toFixed(0)}k ctx</span>
+                        {isCurrentModel ? <span className="zorai-code-runtime-switcher__check" aria-hidden="true">✓</span> : null}
+                      </div>
                     </button>
                   );
                 })}

@@ -40,6 +40,8 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
     ? "acp-tool-review--blocked"
     : "acp-tool-review--flagged";
 
+  const toolName = useMemo(() => group.toolName.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" "), [group.toolName]);
+
   return (
     <div className="acp-tool-row">
       <div className="acp-tool-row__header">
@@ -50,7 +52,7 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
           onClick={() => setCollapsed((prev) => !prev)}
         >
           <span className="acp-tool-row__caret">{collapsed ? "▶" : "▼"}</span>
-          <span className="acp-tool-row__name">{group.toolName}</span>
+          <span className="acp-tool-row__name">{toolName}</span>
         </button>
         <ToolArtifactChips artifacts={artifacts} createdAt={group.createdAt} compact />
         <div className="acp-tool-row__status">

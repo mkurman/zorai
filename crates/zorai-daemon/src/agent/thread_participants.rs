@@ -88,6 +88,12 @@ fn auto_response_request_text() -> &'static str {
     "Respond to the latest main agent message on this thread and continue the same workstream. Keep the reply concrete, useful, and aligned with your participant instruction."
 }
 
+fn is_auto_response_request_prompt(instruction: &str) -> bool {
+    let trimmed = instruction.trim();
+    trimmed == auto_response_request_text()
+        || trimmed.starts_with("Respond to the latest main agent message")
+}
+
 pub(super) fn normalize_thread_participants(
     participants: Vec<ThreadParticipantState>,
 ) -> Vec<ThreadParticipantState> {
@@ -1071,18 +1077,34 @@ impl AgentEngine {
         thread_id: &str,
         target_agent_id: &str,
         source_message_timestamp: u64,
-    ) -> Result<ThreadParticipantSuggestion> {
+    ) -> Result<Option<ThreadParticipantSuggestion>> {
+        let generated = self
+            .generate_visible_thread_participant_message(
+                thread_id,
+                target_agent_id,
+                auto_response_request_text(),
+            )
+            .await?;
+        let Some((_, message)) = crate::agent::thread_participant_runner::parse_participant_suggestion_response(
+            &generated,
+        ) else {
+            return Ok(None);
+        };
+        if crate::agent::thread_participant_runner::participant_message_is_status_ack(&message) {
+            return Ok(None);
+        }
         let due_at = now_millis().saturating_add(AUTO_PARTICIPANT_RESPONSE_DELAY_MS);
         self.queue_thread_participant_suggestion_entry(
             thread_id,
             target_agent_id,
-            auto_response_request_text(),
+            &message,
             false,
             ThreadParticipantSuggestionKind::AutoResponse,
             Some(due_at),
             Some(source_message_timestamp),
         )
         .await
+        .map(Some)
     }
 
     pub(crate) async fn request_thread_auto_response_suggestion(
@@ -1128,12 +1150,26 @@ impl AgentEngine {
             return Ok(false);
         }
 
-        self.queue_thread_auto_response_suggestion(
-            thread_id,
-            &participant.agent_id,
-            source_message_timestamp,
-        )
-        .await?;
+        let Some(_) = self
+            .queue_thread_auto_response_suggestion(
+                thread_id,
+                &participant.agent_id,
+                source_message_timestamp,
+            )
+            .await?
+        else {
+            let state_changed = self
+                .mark_thread_participant_observed_visible_message(
+                    thread_id,
+                    &participant.agent_id,
+                    source_message_timestamp,
+                )
+                .await;
+            if state_changed {
+                self.persist_thread_by_id(thread_id).await;
+            }
+            return Ok(false);
+        };
         let state_changed = self
             .mark_thread_participant_observed_visible_message(
                 thread_id,
@@ -1407,13 +1443,31 @@ impl AgentEngine {
                 .await
             }
             ThreadParticipantSuggestionKind::AutoResponse => {
-                self.send_visible_thread_participant_message(
+                let message = if is_auto_response_request_prompt(&suggestion.instruction) {
+                    let generated = self
+                        .generate_visible_thread_participant_message(
+                            thread_id,
+                            &suggestion.target_agent_id,
+                            &suggestion.instruction,
+                        )
+                        .await?;
+                    crate::agent::thread_participant_runner::parse_participant_suggestion_response(
+                        &generated,
+                    )
+                    .map(|(_, message)| message)
+                    .unwrap_or(generated)
+                } else {
+                    suggestion.instruction.clone()
+                };
+                self.append_visible_thread_participant_message(
                     thread_id,
                     &suggestion.target_agent_id,
-                    None,
-                    &suggestion.instruction,
+                    &message,
                 )
-                .await
+                .await?;
+                self.continue_thread_after_participant_post_or_notice(thread_id)
+                    .await;
+                Ok(())
             }
         };
 
