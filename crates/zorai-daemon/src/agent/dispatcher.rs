@@ -831,13 +831,14 @@ impl AgentEngine {
                 .collect::<Vec<_>>()
         };
 
+        let mut workers = Vec::new();
         for goal_run_id in goal_run_ids {
             if !self.try_begin_goal_run_work(&goal_run_id).await {
                 continue;
             }
 
             let engine = self.clone();
-            tokio::spawn(async move {
+            workers.push(tokio::spawn(async move {
                 let result = engine.advance_goal_run(&goal_run_id).await;
                 if let Err(error) = result {
                     tracing::error!(goal_run_id = %goal_run_id, error = %error, "goal run advancement failed");
@@ -851,7 +852,10 @@ impl AgentEngine {
                     }
                 }
                 engine.finish_goal_run_work(&goal_run_id).await;
-            });
+            }));
+        }
+        for worker in workers {
+            let _ = worker.await;
         }
     }
 

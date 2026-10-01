@@ -37,6 +37,7 @@ import {
   type ComposerTarget,
 } from "./composerTargetModel";
 import { BUILTIN_WORKSPACE_PERSONAS } from "../workspaces/workspaceActorPicker";
+import { isLeadOnlyPersona } from "./leadPersonas";
 
 export function ThreadComposer({
   showTargetSelector = false,
@@ -71,7 +72,7 @@ export function ThreadComposer({
     { kind: "current", id: "current", label: runtime.activeThread?.agent_name || "Current responder" },
     ...handoffAgents.map((agent) => ({ kind: "agent" as const, id: agent.id, label: agent.name })),
     ...subAgents
-      .filter((agent) => agent.enabled && agent.id !== activeResponderId)
+      .filter((agent) => agent.enabled && agent.id !== activeResponderId && !isLeadOnlyPersona(agent.id) && !isLeadOnlyPersona(agent.name))
       .map((agent) => ({ kind: "subagent" as const, id: agent.id, label: agent.name })),
   ], [activeResponderId, handoffAgents, runtime.activeThread?.agent_name, subAgents]);
   const [composerTarget, setComposerTarget] = useState<ComposerTarget>(composerTargets[0]);
@@ -427,46 +428,6 @@ export function ThreadComposer({
 
         <div className="zorai-composer-actions">
           <div className="zorai-composer-actions__left">
-            {compact ? (
-              <CodeThreadRuntimeSwitcher key={runtime.activeThread?.id ?? "none"} thread={runtime.activeThread ?? null} variant="composer" />
-            ) : showTargetSelector ? (
-              <label className="zorai-composer-target">
-                <select
-                  className="zorai-input"
-                  aria-label={assignOwnerDirectly ? "Choose thread owner" : "Choose agent or subagent"}
-                  value={composerTargetValue(composerTarget)}
-                  disabled={targetPending || isStreamingResponse}
-                  onChange={(event) => {
-                    const next = parseComposerTarget(event.target.value, composerTargets);
-                    const route = resolveComposerSendRoute(next, assignOwnerDirectly);
-                    if (route.action === "assign-owner" && runtime.activeThread) {
-                      useAgentStore.getState().setThreadOwner(runtime.activeThread.id, {
-                        agentId: route.agentId,
-                        agentName: route.agentName,
-                      });
-                      setComposerTarget({ kind: "current", id: "current", label: route.agentName });
-                      setTargetError(null);
-                      return;
-                    }
-                    setComposerTarget(next);
-                  }}
-                >
-                  <optgroup label="Responder">
-                    {composerTargets.filter((target) => target.kind === "current").map((target) => <option key={composerTargetValue(target)} value={composerTargetValue(target)}>{target.label}</option>)}
-                  </optgroup>
-                  <optgroup label="Agents">
-                    {composerTargets.filter((target) => target.kind === "agent").map((target) => <option key={composerTargetValue(target)} value={composerTargetValue(target)}>{target.label}</option>)}
-                  </optgroup>
-                  <optgroup label={assignOwnerDirectly ? "Subagents" : "Delegate to subagent"}>
-                    {composerTargets.filter((target) => target.kind === "subagent").map((target) => <option key={composerTargetValue(target)} value={composerTargetValue(target)}>{target.label}</option>)}
-                  </optgroup>
-                </select>
-              </label>
-            ) : null}
-            <div className="zorai-composer-mode">
-              {runtime.activeThread ? <ThreadEffortGauge key={runtime.activeThread.id} thread={runtime.activeThread} /> : null}
-              <ManagedSecurityShield />
-            </div>
             <input
               ref={fileInputRef}
               type="file"
@@ -486,6 +447,9 @@ export function ThreadComposer({
             >
               <ComposerIcon kind="attach" />
             </button>
+            <div className="zorai-composer-mode">
+              <ManagedSecurityShield />
+            </div>
             {voiceCaptureAvailable ? (
               <button
                 type="button"
@@ -525,6 +489,45 @@ export function ThreadComposer({
           </div>
 
           <div className="zorai-composer-actions__right">
+            {compact ? (
+              <CodeThreadRuntimeSwitcher key={runtime.activeThread?.id ?? "none"} thread={runtime.activeThread ?? null} variant="composer" />
+            ) : showTargetSelector ? (
+              <label className="zorai-composer-target">
+                <select
+                  className="zorai-input"
+                  aria-label={assignOwnerDirectly ? "Choose thread owner" : "Choose agent or subagent"}
+                  value={composerTargetValue(composerTarget)}
+                  disabled={targetPending || isStreamingResponse}
+                  onChange={(event) => {
+                    const next = parseComposerTarget(event.target.value, composerTargets);
+                    const route = resolveComposerSendRoute(next, assignOwnerDirectly);
+                    if (route.action === "assign-owner" && runtime.activeThread) {
+                      useAgentStore.getState().setThreadOwner(runtime.activeThread.id, {
+                        agentId: route.agentId,
+                        agentName: route.agentName,
+                      });
+                      setComposerTarget({ kind: "current", id: "current", label: route.agentName });
+                      setTargetError(null);
+                      return;
+                    }
+                    setComposerTarget(next);
+                  }}
+                >
+                  <optgroup label="Responder">
+                    {composerTargets.filter((target) => target.kind === "current").map((target) => <option key={composerTargetValue(target)} value={composerTargetValue(target)}>{target.label}</option>)}
+                  </optgroup>
+                  <optgroup label="Agents">
+                    {composerTargets.filter((target) => target.kind === "agent").map((target) => <option key={composerTargetValue(target)} value={composerTargetValue(target)}>{target.label}</option>)}
+                  </optgroup>
+                  <optgroup label={assignOwnerDirectly ? "Subagents" : "Delegate to subagent"}>
+                    {composerTargets.filter((target) => target.kind === "subagent").map((target) => <option key={composerTargetValue(target)} value={composerTargetValue(target)}>{target.label}</option>)}
+                  </optgroup>
+                </select>
+              </label>
+            ) : null}
+            <div className="zorai-composer-mode">
+              {runtime.activeThread ? <ThreadEffortGauge key={runtime.activeThread.id} thread={runtime.activeThread} /> : null}
+            </div>
             <ComposerContextCircle key={runtime.activeThread?.id ?? "none"} thread={runtime.activeThread ?? null} messages={runtime.messages} />
             {queue.editingId ? (
               <>

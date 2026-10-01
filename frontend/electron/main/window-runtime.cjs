@@ -50,6 +50,7 @@ function createWindowRuntime(options) {
     function buildAppMenu() {
         return Menu.buildFromTemplate([
             { label: 'File', submenu: [
+                { label: 'New Window', accelerator: 'Ctrl+Alt+N', click: () => createWindow() },
                 { label: 'New Workspace', accelerator: 'Ctrl+Shift+N', click: () => sendAppCommand('new-workspace') },
                 { label: 'New Surface', accelerator: 'Ctrl+T', click: () => sendAppCommand('new-surface') },
                 { type: 'separator' },
@@ -101,6 +102,7 @@ function createWindowRuntime(options) {
     function createWindow() {
         const { width: screenW, height: screenH } = screen.getPrimaryDisplay().workAreaSize;
         const frameOptions = resolveWindowFrameOptions();
+        const openWindows = BrowserWindow.getAllWindows().length;
         const mainWindow = new BrowserWindow({
             width: Math.min(1400, screenW),
             height: Math.min(900, screenH),
@@ -124,6 +126,10 @@ function createWindowRuntime(options) {
             show: false,
             opacity: 1,
         });
+        if (openWindows > 0) {
+            const [currentX, currentY] = mainWindow.getPosition();
+            mainWindow.setPosition(currentX + 32, currentY + 32);
+        }
         setMainWindow(mainWindow);
         const rendererLoadTarget = resolveRendererLoadTarget({
             app,
@@ -147,12 +153,18 @@ function createWindowRuntime(options) {
         Menu.setApplicationMenu(buildAppMenu());
         mainWindow.once('ready-to-show', () => mainWindow.show());
         if (!app.isPackaged) mainWindow.webContents.openDevTools();
+        mainWindow.on('focus', () => setMainWindow(mainWindow));
         mainWindow.on('maximize', () => mainWindow.webContents.send('window-state', 'maximized'));
         mainWindow.on('unmaximize', () => mainWindow.webContents.send('window-state', 'normal'));
         mainWindow.on('closed', () => {
-            logToFile('info', 'main window closed');
-            stopAllTerminalBridges(true, true);
-            setMainWindow(null);
+            logToFile('info', 'window closed');
+            const remaining = BrowserWindow.getAllWindows();
+            if (getMainWindow() === mainWindow) {
+                setMainWindow(remaining[0] ?? null);
+            }
+            if (remaining.length === 0) {
+                stopAllTerminalBridges(true, true);
+            }
         });
     }
 

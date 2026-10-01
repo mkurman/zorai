@@ -709,7 +709,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
 }
 
 .acp-tool-row__status {
@@ -782,12 +782,12 @@
   gap: 8px;
   width: 100%;
   min-width: 0;
-  padding: 4px 8px;
+  padding: 4px 0;
   border: none;
   border-radius: 4px;
   background: transparent;
   color: var(--text-muted);
-  font-size: var(--text-sm-plus);
+  font-size: var(--text-sm);
   cursor: pointer;
   text-align: left;
 }
@@ -807,6 +807,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-family: var(--font-mono);
   color: var(--text-muted);
 }
 

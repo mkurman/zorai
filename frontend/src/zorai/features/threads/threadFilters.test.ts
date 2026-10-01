@@ -119,7 +119,7 @@ describe("thread filters", () => {
     }).map((item) => item.id)).toEqual(["svarog-thread"]);
   });
 
-  it("defaults the thread date filter to the last seven days", () => {
+  it("keeps older sessions visible until the operator narrows the date filter", () => {
     expect(DEFAULT_THREAD_DATE_FILTER).toBe("7d");
     const recent = thread({ id: "recent", updatedAt: Date.now() });
     const old = thread({ id: "old", updatedAt: Date.now() - 8 * 24 * 60 * 60 * 1000 });
@@ -130,7 +130,7 @@ describe("thread filters", () => {
       fromDate: "",
       toDate: "",
       goalThreadIds: new Set(),
-    }).map((item) => item.id)).toEqual(["recent"]);
+    }).map((item) => item.id)).toEqual(["recent", "old"]);
   });
 
   it("keeps recent threads when updatedAt is unix seconds instead of milliseconds", () => {
@@ -166,7 +166,7 @@ describe("thread filters", () => {
     }).map((item) => item.id)).toEqual(["local-1"]);
   });
 
-  it("routes specialized threads onto their picker tabs instead of Svarog", () => {
+  it("keeps a Svarog-owned goal thread on Svarog and Goals, and routes other surfaces off Svarog", () => {
     const goal = thread({ id: "goal-thread", daemonThreadId: "goal:run-1", title: "Ship the planner" });
     const workspace = thread({ id: "ws-thread", daemonThreadId: "workspace-thread:task-1", title: "Board task" });
     const playground = thread({ id: "pg-thread", daemonThreadId: "playground:domowoj:user", title: "Participant Playground · Domowoj" });
@@ -180,7 +180,7 @@ describe("thread filters", () => {
     expect(filterThreads(all, { tab: "playgrounds", dateFilter: "all", fromDate: "", toDate: "", goalThreadIds: new Set() }).map((item) => item.id)).toEqual(["pg-thread"]);
     expect(filterThreads(all, { tab: "internal", dateFilter: "all", fromDate: "", toDate: "", goalThreadIds: new Set() }).map((item) => item.id)).toEqual(["dm-thread"]);
     expect(filterThreads(all, { tab: "gateway", dateFilter: "all", fromDate: "", toDate: "", goalThreadIds: new Set() }).map((item) => item.id)).toEqual(["gw-thread"]);
-    expect(filterThreads(all, { tab: "svarog", dateFilter: "all", fromDate: "", toDate: "", goalThreadIds: new Set() }).map((item) => item.id)).toEqual(["svarog-thread"]);
+    expect(filterThreads(all, { tab: "svarog", dateFilter: "all", fromDate: "", toDate: "", goalThreadIds: new Set() }).map((item) => item.id)).toEqual(["goal-thread", "svarog-thread"]);
   });
 
   it("keeps only the matching subagent thread even when the daemon list is unfiltered", () => {

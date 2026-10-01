@@ -1,4 +1,11 @@
-import { memo, useEffect, useState } from "react";
+import { createContext, memo, useContext, useEffect, useState, type ReactNode, type RefObject } from "react";
+import {
+  compactionArtifactDisplayText,
+  compactionArtifactHasExpandablePayload,
+  compactionArtifactHeaderText,
+  compactionArtifactPayloadText,
+  isCompactionArtifactMessage,
+} from "@/components/agent-chat-panel/chat-view/compactionArtifact";
 import { assistantMessageHasVisibleContent } from "@/components/agent-chat-panel/chat-view/helpers";
 import { MarkdownContent } from "@/components/agent-chat-panel/chat-view/markdown";
 import type { AgentMessage } from "@/lib/agentStore";
@@ -15,6 +22,29 @@ export function isMessageFromCurrentViewSession(message: AgentMessage, mountedAt
 export function isRetryableErrorMessage(message: AgentMessage): boolean {
   if (message.role !== "assistant" || message.isStreaming) return false;
   return /^error\s*:/i.test(message.content.trim());
+}
+
+export type ThreadMessageActions = {
+  speak: (message: AgentMessage) => void;
+  feedback: (threadId: string, messageId: string, reaction: "up" | "down" | null) => void | Promise<void>;
+  regenerate: (messageId: string) => void;
+  fork: (messageId: string) => void | Promise<void>;
+  deleteMessage: (threadId: string, messageId: string) => void;
+  retry: () => void;
+  pin: (threadId: string, messageId: string) => void | Promise<void>;
+  unpin: (threadId: string, messageId: string) => void | Promise<void>;
+};
+
+const ThreadMessageActionsContext = createContext<RefObject<ThreadMessageActions | null> | null>(null);
+
+export function ThreadMessageActionsProvider({
+  actionsRef,
+  children,
+}: {
+  actionsRef: RefObject<ThreadMessageActions | null>;
+  children: ReactNode;
+}) {
+  return <ThreadMessageActionsContext.Provider value={actionsRef}>{children}</ThreadMessageActionsContext.Provider>;
 }
 
 export function shouldOfferMessageRetry(
@@ -44,24 +74,47 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
   onRegenerate,
   onFork,
   onDelete,
+  offerRetry = false,
 }: {
   message: AgentMessage;
   threadAgentName?: string;
-  onPin: () => void | Promise<void>;
-  onUnpin: () => void | Promise<void>;
+  onPin?: () => void | Promise<void>;
+  onUnpin?: () => void | Promise<void>;
   ttsEnabled: boolean;
   speaking: boolean;
   speechLoading: boolean;
   speechQueued: boolean;
-  onSpeak: () => void;
+  onSpeak?: () => void;
   onRetry?: () => void;
   onFeedback?: (reaction: "up" | "down" | null) => void | Promise<void>;
   onRegenerate?: () => void;
   onFork?: () => void | Promise<void>;
   onDelete?: () => void;
+  offerRetry?: boolean;
 }) {
+  const actionsRef = useContext(ThreadMessageActionsContext);
+  const sharedActions = Boolean(actionsRef);
   const [retryDismissed, setRetryDismissed] = useState(false);
   const [copied, setCopied] = useState(false);
+  if (isCompactionArtifactMessage(message)) {
+    return (
+      <NativeCompactionArtifact
+        message={message}
+        copied={copied}
+        onCopy={() => {
+          try {
+            navigator.clipboard.writeText(compactionArtifactDisplayText(message));
+          } catch {
+            // Ignore clipboard failures.
+          }
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1500);
+        }}
+        onDelete={onDelete}
+        onFork={onFork}
+      />
+    );
+  }
   const fromUser = message.role === "user";
   const isAssistant = message.role === "assistant";
   const author = message.authorAgentName ?? (fromUser ? "You" : message.role === "assistant" ? (threadAgentName ?? "Zorai") : message.role);
@@ -90,7 +143,7 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
       {hasVisibleContent && message.toolCalls && message.toolCalls.length > 0 ? (
         <div className="zorai-message__tools">{message.toolCalls.length} tool calls</div>
       ) : null}
-      {onRetry && !retryDismissed ? (
+      {(sharedActions ? offerRetry : Boolean(onRetry)) && !retryDismissed ? (
         <div className="zorai-message-retry" role="alert">
           <div>
             <strong>{isRateLimitError(message.content) ? "Provider rate limit" : "Agent request failed"}</strong>
@@ -102,7 +155,9 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
               className="zorai-primary-button"
               onClick={() => {
                 setRetryDismissed(true);
-                onRetry();
+                const actions = actionsRef?.current;
+                if (actions) actions.retry();
+                else onRetry?.();
               }}
             >
               Yes, retry
@@ -131,25 +186,34 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
             <MessageActionIcon kind={copied ? "copied" : "copy"} />
           </button>
         ) : null}
-        {onFork && !message.isStreaming ? (
+        {(sharedActions || onFork) && !message.isStreaming ? (
           <button
             type="button"
             className="zorai-ghost-button zorai-message-action"
             title="Fork thread from this message"
             aria-label="Fork thread from this message"
-            onClick={() => { void onFork(); }}
+            onClick={() => {
+              const actions = actionsRef?.current;
+              if (actions) void actions.fork(message.id);
+              else void onFork?.();
+            }}
           >
             <MessageActionIcon kind="fork" />
           </button>
         ) : null}
-        {isAssistant && onFeedback && !message.isStreaming ? (
+        {isAssistant && (sharedActions || onFeedback) && !message.isStreaming ? (
           <>
             <button
               type="button"
               className={["zorai-ghost-button zorai-message-action", message.feedback === "up" ? "zorai-button--active" : ""].filter(Boolean).join(" ")}
               title={message.feedback === "up" ? "Clear positive feedback" : "Good response"}
               aria-label={message.feedback === "up" ? "Clear positive feedback" : "Good response"}
-              onClick={() => { void onFeedback(message.feedback === "up" ? null : "up"); }}
+              onClick={() => {
+                const reaction = message.feedback === "up" ? null : "up";
+                const actions = actionsRef?.current;
+                if (actions) void actions.feedback(message.threadId, message.id, reaction);
+                else void onFeedback?.(reaction);
+              }}
             >
               <MessageActionIcon kind="thumb-up" filled={message.feedback === "up"} />
             </button>
@@ -158,19 +222,28 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
               className={["zorai-ghost-button zorai-message-action", message.feedback === "down" ? "zorai-button--active" : ""].filter(Boolean).join(" ")}
               title={message.feedback === "down" ? "Clear negative feedback" : "Bad response"}
               aria-label={message.feedback === "down" ? "Clear negative feedback" : "Bad response"}
-              onClick={() => { void onFeedback(message.feedback === "down" ? null : "down"); }}
+              onClick={() => {
+                const reaction = message.feedback === "down" ? null : "down";
+                const actions = actionsRef?.current;
+                if (actions) void actions.feedback(message.threadId, message.id, reaction);
+                else void onFeedback?.(reaction);
+              }}
             >
               <MessageActionIcon kind="thumb-down" filled={message.feedback === "down"} />
             </button>
           </>
         ) : null}
-        {isAssistant && onRegenerate && !message.isStreaming ? (
+        {isAssistant && (sharedActions || onRegenerate) && !message.isStreaming ? (
           <button
             type="button"
             className="zorai-ghost-button zorai-message-action"
             title="Regenerate response"
             aria-label="Regenerate response"
-            onClick={onRegenerate}
+            onClick={() => {
+              const actions = actionsRef?.current;
+              if (actions) actions.regenerate(message.id);
+              else onRegenerate?.();
+            }}
           >
             <MessageActionIcon kind="regenerate" />
           </button>
@@ -182,27 +255,43 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
             disabled={speechLoading}
             title={speechLoading ? "Synthesizing speech…" : speechQueued ? "Queued for playback" : speaking ? "Stop speech (Ctrl+L)" : "Read aloud (Ctrl+L plays latest)"}
             aria-label={speechLoading ? "Synthesizing speech" : speechQueued ? "Queued for playback" : speaking ? "Stop speech" : "Read aloud"}
-            onClick={onSpeak}
+            onClick={() => {
+              const actions = actionsRef?.current;
+              if (actions) actions.speak(message);
+              else onSpeak?.();
+            }}
           >
             <MessageActionIcon kind="speak" animated={speechLoading || speaking || speechQueued} />
           </button>
         ) : null}
         {message.pinnedForCompaction ? (
-          <button type="button" className="zorai-ghost-button zorai-message-action zorai-button--active" title="Unpin from compaction" aria-label="Unpin from compaction" onClick={() => void onUnpin()}>
+          <button type="button" className="zorai-ghost-button zorai-message-action zorai-button--active" title="Unpin from compaction" aria-label="Unpin from compaction" onClick={() => {
+            const actions = actionsRef?.current;
+            if (actions) void actions.unpin(message.threadId, message.id);
+            else void onUnpin?.();
+          }}>
             <MessageActionIcon kind="pin" filled />
           </button>
         ) : (
-          <button type="button" className="zorai-ghost-button zorai-message-action" title="Pin for compaction" aria-label="Pin for compaction" onClick={() => void onPin()}>
+          <button type="button" className="zorai-ghost-button zorai-message-action" title="Pin for compaction" aria-label="Pin for compaction" onClick={() => {
+            const actions = actionsRef?.current;
+            if (actions) void actions.pin(message.threadId, message.id);
+            else void onPin?.();
+          }}>
             <MessageActionIcon kind="pin" />
           </button>
         )}
-        {onDelete ? (
+        {(sharedActions || onDelete) ? (
           <button
             type="button"
             className="zorai-ghost-button zorai-message-action"
             title="Delete message"
             aria-label="Delete message"
-            onClick={onDelete}
+            onClick={() => {
+              const actions = actionsRef?.current;
+              if (actions) actions.deleteMessage(message.threadId, message.id);
+              else onDelete?.();
+            }}
           >
             <MessageActionIcon kind="delete" />
           </button>
@@ -217,11 +306,7 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
   && previous.speaking === next.speaking
   && previous.speechLoading === next.speechLoading
   && previous.speechQueued === next.speechQueued
-  && previous.onRetry === next.onRetry
-  && previous.onFeedback === next.onFeedback
-  && previous.onRegenerate === next.onRegenerate
-  && previous.onFork === next.onFork
-  && previous.onDelete === next.onDelete
+  && previous.offerRetry === next.offerRetry
 ));
 
 function formatThoughtDuration(startedAt: number, now: number): string {
@@ -375,6 +460,96 @@ function MessageActionIcon({ kind, filled = false, animated = false }: { kind: "
       <path d="M17 14V2" />
       <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z" />
     </svg>
+  );
+}
+
+function NativeCompactionArtifact({
+  message,
+  copied,
+  onCopy,
+  onDelete,
+  onFork,
+}: {
+  message: AgentMessage;
+  copied: boolean;
+  onCopy: () => void;
+  onDelete?: () => void;
+  onFork?: () => void | Promise<void>;
+}) {
+  const actionsRef = useContext(ThreadMessageActionsContext);
+  const sharedActions = Boolean(actionsRef);
+  const [expanded, setExpanded] = useState(false);
+  const headerText = compactionArtifactHeaderText(message);
+  const payloadText = compactionArtifactPayloadText(message);
+  const canExpand = compactionArtifactHasExpandablePayload(message);
+
+  return (
+    <article id={`zorai-message-${message.id}`} className="zorai-message zorai-message--compaction">
+      <div className="zorai-message__meta">
+        <strong>Auto compaction</strong>
+        <span>{formatTime(message.createdAt)}</span>
+      </div>
+      <div className="zorai-compaction">
+        <div className="zorai-compaction__header">
+          <MarkdownContent content={headerText || "Context compacted for continuity."} />
+        </div>
+        {canExpand ? (
+          <details
+            className="zorai-compaction__payload"
+            open={expanded}
+            onToggle={(event) => setExpanded(event.currentTarget.open)}
+          >
+            <summary className="zorai-compaction__payload-toggle">
+              {expanded ? "Hide checkpoint" : "Show compaction checkpoint"}
+            </summary>
+            <div className="zorai-compaction__payload-body">
+              <MarkdownContent content={payloadText} />
+            </div>
+          </details>
+        ) : null}
+      </div>
+      <div className="zorai-message__actions">
+        <button
+          type="button"
+          className="zorai-ghost-button zorai-message-action"
+          title={copied ? "Copied" : "Copy compaction"}
+          aria-label={copied ? "Copied" : "Copy compaction"}
+          onClick={onCopy}
+        >
+          <MessageActionIcon kind={copied ? "copied" : "copy"} />
+        </button>
+        {(sharedActions || onFork) && !message.isStreaming ? (
+          <button
+            type="button"
+            className="zorai-ghost-button zorai-message-action"
+            title="Fork thread from this message"
+            aria-label="Fork thread from this message"
+            onClick={() => {
+              const actions = actionsRef?.current;
+              if (actions) void actions.fork(message.id);
+              else void onFork?.();
+            }}
+          >
+            <MessageActionIcon kind="fork" />
+          </button>
+        ) : null}
+        {(sharedActions || onDelete) ? (
+          <button
+            type="button"
+            className="zorai-ghost-button zorai-message-action"
+            title="Delete message"
+            aria-label="Delete message"
+            onClick={() => {
+              const actions = actionsRef?.current;
+              if (actions) actions.deleteMessage(message.threadId, message.id);
+              else onDelete?.();
+            }}
+          >
+            <MessageActionIcon kind="delete" />
+          </button>
+        ) : null}
+      </div>
+    </article>
   );
 }
 

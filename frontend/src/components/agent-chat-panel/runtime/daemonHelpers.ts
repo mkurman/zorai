@@ -12,6 +12,7 @@ import { getAgentBridge } from "@/lib/agentDaemonConfig";
 import { fetchThreadTodos } from "@/lib/agentTodos";
 import { useWorkspaceStore } from "@/lib/workspaceStore";
 import { resolveReactChatHistoryMessageLimit } from "@/lib/chatHistoryPageSize";
+import { shouldFollowThreadHistoryBottom } from "./threadHistoryScroll";
 import type { GoalRun } from "@/lib/goalRuns";
 import type { Workspace } from "@/lib/types";
 import type { WelesHealthState } from "@/lib/agentStore/types";
@@ -309,11 +310,25 @@ export async function loadDaemonThreadPageIntoLocalState({
       },
   }));
 
+  if (mergeMode === "append" || mergeMode === "replace") {
+    trimFollowedThreadToHistoryWindow(localThreadId);
+  }
+
   void fetchThreadTodos(daemonThreadId).catch(() => []).then((todos) => {
     setThreadTodos(localThreadId, todos);
     setDaemonTodosByThread((current) => ({ ...current, [daemonThreadId]: todos }));
   });
   return true;
+}
+
+export function trimFollowedThreadToHistoryWindow(localThreadId: string): boolean {
+  if (!shouldFollowThreadHistoryBottom()) return false;
+  return trimDaemonThreadMessagesToLatestWindow({
+    localThreadId,
+    messageLimit: resolveReactChatHistoryMessageLimit(
+      useAgentStore.getState().agentSettings.react_chat_history_page_size,
+    ),
+  });
 }
 
 export function trimDaemonThreadMessagesToLatestWindow({

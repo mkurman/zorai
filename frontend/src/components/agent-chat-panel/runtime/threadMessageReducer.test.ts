@@ -106,6 +106,35 @@ describe("reconcileThreadMessages", () => {
     expect(reconcileThreadMessages([user, stream], [older])).toEqual([older, user, stream]);
   });
 
+  it("drops finalized empty local assistant placeholders once authoritative rows arrive", () => {
+    const staleShell = message({
+      id: "msg_43",
+      role: "assistant",
+      createdAt: 1_010,
+      isStreaming: false,
+    });
+    const authoritativeUser = message({ id: "db-user", role: "user", content: "hello", createdAt: 1_020 });
+    const authoritativeTool = message({
+      id: "db-tool",
+      role: "tool",
+      content: "ok",
+      createdAt: 1_025,
+      toolCallId: "call-1",
+      toolStatus: "done",
+    });
+    const authoritativeAnswer = message({
+      id: "db-final",
+      role: "assistant",
+      content: "done",
+      createdAt: 1_030,
+    });
+
+    expect(reconcileThreadMessages(
+      [staleShell],
+      [authoritativeUser, authoritativeTool, authoritativeAnswer],
+    )).toEqual([authoritativeUser, authoritativeTool, authoritativeAnswer]);
+  });
+
   it("produces the same normalized timeline after reopen as after live authoritative adoption", () => {
     const optimistic = message({
       id: "msg_42",

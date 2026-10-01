@@ -1,10 +1,10 @@
 import { LoadingPanel } from "@/components/LoadingState";
+import { MonacoReadOnlyView } from "@/components/WorkspaceCodeEditor";
 import { useEffect, useMemo, useState } from "react";
-import { MarkdownContent } from "@/components/agent-chat-panel/chat-view/markdown";
+import { languageForWorkspacePath } from "@/zorai/features/code/codeLanguages";
 import { fetchFilePreview, fetchGitDiff } from "@/lib/agentWorkContext";
 import { shortenHomePath } from "@/lib/workspaceStore";
 import {
-  isMarkdownPath,
   previewRequestsForWorkContextEntry,
   threadContextEntryDisplayPath,
   threadContextEntryKey,
@@ -101,8 +101,8 @@ export function ThreadFilePreviewOverlay() {
           <h2>{threadContextEntryDisplayPath(entry, shortenHomePath)}</h2>
           <span>Type: {entry.kind ?? "file"}</span>
         </div>
-        <button type="button" className="zorai-ghost-button" onClick={closeThreadFilePreview}>
-          [x] Close preview
+        <button type="button" className="zorai-ghost-button zorai-file-preview-overlay__close" aria-label="Close preview" onClick={closeThreadFilePreview}>
+          x
         </button>
       </header>
 
@@ -124,30 +124,9 @@ export function ThreadFilePreviewOverlay() {
 }
 
 function PreviewText({ text, kind, path }: { text: string; kind: "git-diff" | "file-preview"; path?: string }) {
-  if (kind === "file-preview" && path && isMarkdownPath(path)) {
-    return (
-      <div className="zorai-file-preview-overlay__markdown">
-        <MarkdownContent content={text} />
-      </div>
-    );
-  }
-
-  if (kind !== "git-diff") {
+  if (text === "Binary file preview is not available.") {
     return <pre className="zorai-file-preview-overlay__pre">{text}</pre>;
   }
-
-  return (
-    <pre className="zorai-file-preview-overlay__pre">
-      {text.split("\n").map((line, index) => {
-        const lineClass = line.startsWith("+") && !line.startsWith("+++")
-          ? "zorai-diff-line zorai-diff-line--added"
-          : line.startsWith("-") && !line.startsWith("---")
-            ? "zorai-diff-line zorai-diff-line--removed"
-            : line.startsWith("@@")
-              ? "zorai-diff-line zorai-diff-line--hunk"
-              : "zorai-diff-line";
-        return <span key={`${index}:${line}`} className={lineClass}>{line || " "}</span>;
-      })}
-    </pre>
-  );
+  const language = kind === "git-diff" ? "diff" : languageForWorkspacePath(path ?? "");
+  return <MonacoReadOnlyView value={text} path={path || kind} language={language} />;
 }

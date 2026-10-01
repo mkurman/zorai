@@ -75,8 +75,7 @@ describe("MessageBubble participant authorship", () => {
     expect(html).toContain("Pre-compaction context: ~182,400 / 200,000 tokens");
     expect(html).toContain("Trigger: message-count");
     expect(html).toContain("Strategy: rule based");
-    expect(html).toContain("Content:");
-    expect(html).toContain("Compact summary");
+    expect(html).toContain("Expand");
   });
 
   it("renders compaction payload when the artifact stores it separately from the header", () => {
@@ -102,7 +101,6 @@ describe("MessageBubble participant authorship", () => {
     );
 
     expect(html).toContain("Strategy: custom model generated");
-    expect(html).toContain("Agent Context: State Checkpoint");
-    expect(html).toContain("Preserve the coding task and next step.");
+    expect(html).toContain("Expand");
   });
 });

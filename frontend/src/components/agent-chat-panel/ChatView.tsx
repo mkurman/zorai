@@ -67,7 +67,7 @@ export function ChatView({
       fillThreadHistoryIfUnscrollable({
         scroller: scrollerRef.current,
         loadOlder: onLoadOlderMessages,
-        hasOlderHistory: threadHasOlderHistory(activeThread),
+        hasOlderHistory: threadHasOlderHistory(activeThread, messages.length),
       });
     });
     return () => cancelAnimationFrame(frame);
@@ -94,7 +94,7 @@ export function ChatView({
     consumeThreadHistoryScroll({
       scroller: event.currentTarget,
       loadOlder: onLoadOlderMessages,
-      hasOlderHistory: threadHasOlderHistory(activeThread),
+      hasOlderHistory: threadHasOlderHistory(activeThread, messages.length),
     });
   };
 

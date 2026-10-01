@@ -240,6 +240,7 @@ function matchesThreadTab(
   if (tab === "internal") return flags.isInternal;
   if (tab === "gateway") return flags.isGateway;
   if (tab.startsWith("agent:")) return threadMatchesAgentTab(thread, tab.slice("agent:".length), subAgents, goalThreadIds);
+  if (flags.isGoal && (flags.agentId === "svarog" || flags.agentId == null)) return true;
   return flags.agentId === "svarog" && matchesSvarogTabExclusions(thread, goalThreadIds);
 }
 

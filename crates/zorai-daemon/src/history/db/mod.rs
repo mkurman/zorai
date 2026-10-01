@@ -12,6 +12,14 @@
 
 use anyhow::{anyhow, Result};
 
+/// Per-connection page cache, as a negative KiB `cache_size` (4 MiB).
+/// The history store opens 14 connections. 64 MiB each reserved about 900 MiB
+/// before any query ran, and those pages stayed resident while idle.
+pub(crate) const SQLITE_PAGE_CACHE_KIB: &str = "-4096";
+/// Per-connection mmap window. 256 MiB times the reader pool mapped far more
+/// of the database than an idle daemon needs.
+pub(crate) const SQLITE_MMAP_BYTES: &str = "16777216";
+
 pub(crate) mod libsql;
 pub(crate) mod sqlite;
 

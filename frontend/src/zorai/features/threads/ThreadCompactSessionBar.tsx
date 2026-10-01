@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
-import { formatRunStatus, runStatusColor, type AgentRun } from "@/lib/agentRuns";
+import { formatRunStatus, isRunActive, runStatusColor, type AgentRun } from "@/lib/agentRuns";
 import {
   fetchGitDiff,
   fetchThreadWorkContext,
@@ -266,12 +266,11 @@ function SpawnedRow({
   onOpen: () => void;
 }) {
   return (
-    <li className="zorai-compact-session__spawned">
-      <div>
-        <strong>{run.title}</strong>
+    <li className={isRunActive(run) ? "zorai-compact-session__spawned zorai-compact-session__spawned--live" : "zorai-compact-session__spawned"}>
+      <button type="button" className="zorai-compact-session__spawned-main" disabled={!canOpen} onClick={onOpen}>
+        <strong>{run.description.trim() || run.title}</strong>
         <span style={{ color: runStatusColor(run.status) }}>{formatRunStatus(run)}</span>
-      </div>
-      <button type="button" disabled={!canOpen} onClick={onOpen}>Open</button>
+      </button>
     </li>
   );
 }

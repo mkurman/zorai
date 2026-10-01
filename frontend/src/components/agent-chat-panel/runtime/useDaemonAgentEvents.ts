@@ -16,6 +16,7 @@ import {
   refreshDaemonThreadMessagesIntoLocalState,
   reloadDaemonThreadIntoLocalState,
   syncWelesHealth,
+  trimFollowedThreadToHistoryWindow,
 } from "./daemonHelpers";
 import {
   handleDivergentStartEvent,
@@ -363,6 +364,7 @@ export function useDaemonAgentEvents({
           finalizeStreamingAssistantMessages(tid);
           completeThreadStopBarrier(tid);
           flushDeferredThreadReload(tid);
+          trimFollowedThreadToHistoryWindow(tid);
           break;
         }
         case "turn_interrupted": {
@@ -374,6 +376,7 @@ export function useDaemonAgentEvents({
           finalizeStreamingAssistantMessages(tid);
           completeThreadStopBarrier(tid);
           flushDeferredThreadReload(tid);
+          trimFollowedThreadToHistoryWindow(tid);
           break;
         }
         case "tool_call": {
@@ -499,6 +502,7 @@ export function useDaemonAgentEvents({
           finalizeStreamingAssistantMessages(tid);
           completeThreadStopBarrier(tid);
           flushDeferredThreadReload(tid);
+          trimFollowedThreadToHistoryWindow(tid);
           break;
         }
         case "thread_created": {

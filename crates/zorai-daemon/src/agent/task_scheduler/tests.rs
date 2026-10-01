@@ -132,6 +132,30 @@ fn select_ready_task_indices_fail_closed_when_goal_metadata_missing_for_goal_lin
 }
 
 #[test]
+fn goal_worker_dispatches_on_its_own_lane_while_the_session_lane_is_busy() {
+    let mut chat = make_task("chat-turn", TaskStatus::InProgress, None);
+    chat.session_id = Some("sess-1".to_string());
+    chat.lane_id = Some("session:sess-1".to_string());
+
+    let mut worker = make_task("goal-worker", TaskStatus::Queued, Some("goal-1"));
+    worker.source = "goal_run".to_string();
+    worker.session_id = Some("sess-1".to_string());
+    worker.parent_thread_id = Some("owner-thread".to_string());
+    worker.thread_id = Some("worker-thread".to_string());
+
+    let mut tasks = VecDeque::new();
+    tasks.push_back(chat);
+    tasks.push_back(worker);
+    let mut statuses = HashMap::new();
+    statuses.insert("goal-1".to_string(), GoalRunStatus::Running);
+
+    assert_eq!(
+        select_ready_task_indices(&tasks, &[], &statuses, &make_default_config()),
+        vec![(1, "daemon-subagent:goal-worker".to_string())],
+    );
+}
+
+#[test]
 fn select_ready_task_indices_allows_four_parallel_child_daemon_tasks() {
     let mut tasks = VecDeque::new();
     for id in 0..4 {

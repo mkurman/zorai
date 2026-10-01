@@ -55,7 +55,19 @@ async fn seed_queued_participant_suggestion(
 
 #[tokio::test]
 async fn request_thread_auto_response_suggestion_queues_for_requested_participant() {
-    let (engine, _temp_dir) = make_runner_test_engine(AgentConfig::default()).await;
+    let recorded_bodies = Arc::new(StdMutex::new(VecDeque::new()));
+    let base_url = spawn_recording_openai_server(recorded_bodies).await;
+    let mut config = AgentConfig::default();
+    config.provider = PROVIDER_ID_OPENAI.to_string();
+    config.base_url = base_url;
+    config.model = "gpt-5.4-mini".to_string();
+    config.api_key = "test-key".to_string();
+    config.auth_source = AuthSource::ApiKey;
+    config.api_transport = ApiTransport::ChatCompletions;
+    config.auto_retry = false;
+    config.max_retries = 0;
+    config.max_tool_loops = 1;
+    let (engine, _temp_dir) = make_runner_test_engine(config).await;
     let thread_id = "thread_auto_response_requested_for_main_reply";
 
     engine.threads.write().await.insert(
@@ -141,7 +153,7 @@ async fn request_thread_auto_response_suggestion_queues_for_requested_participan
     engine.persist_thread_by_id(thread_id).await;
 
     let queued = engine
-        .request_thread_auto_response_suggestion(thread_id, "domowoj")
+        .request_thread_auto_response_suggestion(thread_id, "weles")
         .await
         .expect("explicit auto-response request should succeed");
     assert!(
@@ -160,24 +172,32 @@ async fn request_thread_auto_response_suggestion_queues_for_requested_participan
         suggestion.suggestion_kind,
         ThreadParticipantSuggestionKind::AutoResponse
     );
-    assert_eq!(suggestion.target_agent_id, "domowoj");
-    assert_eq!(suggestion.target_agent_name, "Domowoj");
+    assert_eq!(suggestion.target_agent_id, "weles");
+    assert_eq!(suggestion.target_agent_name, "Weles");
     assert_eq!(suggestion.source_message_timestamp, Some(30));
     assert!(
         suggestion.auto_send_at.is_some(),
         "auto response should carry a countdown deadline"
     );
-    assert!(
-        suggestion.instruction.contains("latest main agent message"),
-        "auto response request should explicitly target the latest main-agent message"
+    assert_eq!(
+        suggestion.instruction, "Gateway reply ok",
+        "the queue should show the drafted reply, not the prompt that asked for one"
     );
 
     let participants = engine.list_thread_participants(thread_id).await;
+    let weles = participants
+        .iter()
+        .find(|participant| participant.agent_id == "weles")
+        .expect("weles should still be registered");
     let domowoj = participants
         .iter()
         .find(|participant| participant.agent_id == "domowoj")
         .expect("domowoj should still be registered");
-    assert_eq!(domowoj.last_observed_visible_message_at, Some(30));
+    assert_eq!(weles.last_observed_visible_message_at, Some(30));
+    assert_eq!(
+        domowoj.last_observed_visible_message_at, None,
+        "only the requested participant should be drafted"
+    );
 }
 
 #[tokio::test]

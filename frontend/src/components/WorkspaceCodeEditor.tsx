@@ -1,9 +1,10 @@
 import { Component, Suspense, lazy, useEffect, useRef, type ErrorInfo, type ReactNode } from "react";
 import { getBridge } from "@/lib/bridge";
-import "@/lib/monacoEnvironment";
+import { monaco } from "@/lib/monacoEnvironment";
 import type { OnMount } from "@monaco-editor/react";
-import type { CodeEditorSettings } from "@/zorai/features/code/codeEditorSettingsStore";
+import { useCodeEditorSettingsStore, type CodeEditorSettings } from "@/zorai/features/code/codeEditorSettingsStore";
 import { formatCodeText, prettierParserForLanguage } from "@/zorai/features/code/codeFormatter";
+import { monacoModelPath } from "@/zorai/features/code/codeLanguages";
 import type { languages as MonacoLanguagesApi } from "monaco-editor";
 import { registerCodeEditorActions } from "@/zorai/features/code/codeEditorActions";
 
@@ -218,7 +219,7 @@ export function WorkspaceCodeEditor({
     <MonacoBoundary fallback={fallback}>
       <Suspense fallback={fallback}>
         <MonacoEditor
-          path={`zorai-workspace:///${path}`}
+          path={monacoModelPath("zorai-workspace", path)}
           value={value}
           language={language || "plaintext"}
           theme="vs-dark"
@@ -249,6 +250,95 @@ export function WorkspaceCodeEditor({
         />
       </Suspense>
     </MonacoBoundary>
+  );
+}
+
+function viewerOptions(settings: CodeEditorSettings) {
+  return {
+    automaticLayout: true,
+    readOnly: true,
+    domReadOnly: true,
+    readOnlyMessage: { value: "Preview only" },
+    contextmenu: true,
+    dropIntoEditor: { enabled: false },
+    quickSuggestions: false,
+    suggestOnTriggerCharacters: false,
+    parameterHints: { enabled: false },
+    codeLens: false,
+    formatOnPaste: false,
+    formatOnType: false,
+    minimap: { enabled: settings.minimap, renderCharacters: true, maxColumn: 72, showSlider: "mouseover" as const, side: "right" as const, size: "proportional" as const },
+    fontFamily: settings.fontFamily,
+    fontSize: settings.fontSize,
+    lineHeight: settings.lineHeight,
+    tabSize: settings.tabSize,
+    insertSpaces: settings.insertSpaces,
+    wordWrap: settings.wordWrap === "off" ? "off" as const : settings.wordWrap === "viewport" ? "on" as const : "bounded" as const,
+    wordWrapColumn: settings.wordWrapColumn,
+    renderWhitespace: settings.renderWhitespace,
+    lineNumbers: settings.lineNumbers,
+    bracketPairColorization: { enabled: settings.bracketGuides },
+    guides: { bracketPairs: settings.bracketGuides, indentation: settings.bracketGuides },
+    smoothScrolling: settings.smoothScrolling,
+    scrollBeyondLastLine: false,
+    stickyScroll: { enabled: settings.stickyScroll },
+    glyphMargin: settings.glyphMargin,
+    padding: { top: 8, bottom: 8 },
+    folding: true,
+  };
+}
+
+let previewThemeReady = false;
+
+function ensurePreviewTheme() {
+  if (previewThemeReady) return;
+  previewThemeReady = true;
+  monaco.languages.register({ id: "diff" });
+  monaco.languages.setMonarchTokensProvider("diff", {
+    tokenizer: {
+      root: [
+        [/^(\+\+\+|---).*$/, "diff-meta"],
+        [/^diff .*$/, "diff-meta"],
+        [/^@@.*$/, "diff-hunk"],
+        [/^\+.*/, "diff-add"],
+        [/^-.*/, "diff-remove"],
+      ],
+    },
+  });
+  monaco.editor.defineTheme("zorai-preview", {
+    base: "vs-dark",
+    inherit: true,
+    rules: [
+      { token: "diff-add", foreground: "3fb950" },
+      { token: "diff-remove", foreground: "f85149" },
+      { token: "diff-hunk", foreground: "79c0ff" },
+      { token: "diff-meta", foreground: "8b949e" },
+    ],
+    colors: {},
+  });
+}
+
+export function MonacoReadOnlyView({ value, path, language }: { value: string; path: string; language: string }) {
+  const settings = useCodeEditorSettingsStore((state) => state.settings);
+  ensurePreviewTheme();
+  const fallback = <pre className="zorai-file-preview-overlay__pre">{value}</pre>;
+  return (
+    <div className="zorai-monaco-viewer" aria-readonly="true">
+      <MonacoBoundary fallback={fallback}>
+        <Suspense fallback={<div className="zorai-monaco-viewer__loading">Loading preview…</div>}>
+          <MonacoEditor
+            path={monacoModelPath("zorai-preview", path)}
+            value={value}
+            language={language || "plaintext"}
+            theme="zorai-preview"
+            options={viewerOptions(settings)}
+            onMount={(editor) => {
+              editor.updateOptions({ readOnly: true, domReadOnly: true });
+            }}
+          />
+        </Suspense>
+      </MonacoBoundary>
+    </div>
   );
 }
 

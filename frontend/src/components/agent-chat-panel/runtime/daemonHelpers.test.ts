@@ -10,7 +10,9 @@ import {
   resolveAbsoluteMessageIndex,
   resolveDaemonOwnedThreadId,
   trimDaemonThreadMessagesToLatestWindow,
+  trimFollowedThreadToHistoryWindow,
 } from "./daemonHelpers";
+import { resetThreadHistoryScrollStateForTest, setFollowThreadHistoryBottom } from "./threadHistoryScroll";
 
 const agentGetThread = vi.fn();
 
@@ -1158,5 +1160,19 @@ describe("trimDaemonThreadMessagesToLatestWindow", () => {
 
     expect(trimmed).toBe(false);
     expect(useAgentStore.getState().messages["local-active"]).toHaveLength(50);
+  });
+
+  it("leaves earlier messages in place while the operator is reading them", () => {
+    useAgentStore.setState({
+      agentSettings: {
+        ...useAgentStore.getState().agentSettings,
+        react_chat_history_page_size: 25,
+      },
+    } as any);
+    setFollowThreadHistoryBottom(false);
+    const trimmed = trimFollowedThreadToHistoryWindow("local-active");
+    expect(trimmed).toBe(false);
+    expect(useAgentStore.getState().messages["local-active"]).toHaveLength(100);
+    resetThreadHistoryScrollStateForTest();
   });
 });

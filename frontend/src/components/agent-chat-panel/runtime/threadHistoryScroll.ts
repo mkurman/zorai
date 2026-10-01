@@ -50,9 +50,48 @@ export function resetThreadHistoryScrollStateForTest(): void {
 }
 
 export function threadHasOlderHistory(
-  thread: { loadedMessageStart?: number | null } | null | undefined,
+  thread: {
+    loadedMessageStart?: number | null;
+    loadedMessageEnd?: number | null;
+    messageCount?: number;
+  } | null | undefined,
+  loadedMessageCount = 0,
 ): boolean {
-  return (thread?.loadedMessageStart ?? 0) > 0;
+  if ((thread?.loadedMessageStart ?? 0) > 0) {
+    return true;
+  }
+  const total = thread?.messageCount ?? 0;
+  if (total <= 0) {
+    return false;
+  }
+  if (loadedMessageCount > 0 && loadedMessageCount < total) {
+    return true;
+  }
+  const loadedEnd = thread?.loadedMessageEnd ?? loadedMessageCount;
+  return loadedEnd < total;
+}
+
+export function resolveOlderThreadPageMessageOffset(params: {
+  loadedMessageStart?: number | null;
+  loadedMessageEnd?: number | null;
+  messageCount?: number;
+  currentMessageCount: number;
+}): number | null {
+  const total = params.messageCount ?? params.currentMessageCount;
+  if (total <= 0) {
+    return null;
+  }
+  const loadedEnd = params.loadedMessageEnd ?? params.currentMessageCount;
+  const hasOlder = (params.loadedMessageStart ?? 0) > 0
+    || loadedEnd < total
+    || params.currentMessageCount < total;
+  if (!hasOlder) {
+    return null;
+  }
+  const effectiveStart = (params.loadedMessageStart ?? 0) > 0
+    ? params.loadedMessageStart as number
+    : Math.max(0, total - params.currentMessageCount);
+  return Math.max(0, total - effectiveStart);
 }
 
 export function resolveThreadHistoryScrollAction(params: {

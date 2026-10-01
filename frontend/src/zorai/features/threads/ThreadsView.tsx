@@ -28,7 +28,9 @@ import { BUILTIN_WORKSPACE_PERSONAS } from "../workspaces/workspaceActorPicker";
 import { useThreadSpeech } from "./useThreadSpeech";
 import {
   NativeThreadMessageBubble,
+  ThreadMessageActionsProvider,
   shouldOfferMessageRetry,
+  type ThreadMessageActions,
 } from "./NativeThreadMessageBubble";
 import { ThreadRetryStatusBanner } from "./ThreadRetryStatusBanner";
 import { useThreadRetryStatus } from "./threadRetryStatus";
@@ -36,6 +38,8 @@ import { resolveThreadOwnerRuntimeProfile } from "./threadOwnerRuntime";
 import type { ZoraiReturnTarget } from "../../shell/zoraiNavigationEvents";
 import { shouldShowConversationSkeleton, useThreadLoadingStore } from "./threadLoadingStore";
 import { threadReadKey, useThreadReadStateStore } from "./threadReadStateStore";
+import { DelegatedSessionSlot } from "./DelegatedSessionBar";
+import { ThreadSessionTabs } from "./SessionTabStrip";
 
 export { ThreadsRail } from "./ThreadsRail";
 
@@ -70,6 +74,7 @@ export function ThreadsView({
   const [pinnedToBottom, setPinnedToBottom] = useState(true);
   const [readTasks, setReadTasks] = useState<AgentQueueTask[]>([]);
   const subAgents = useAgentStore((state) => state.subAgents);
+  const messageActionsRef = useRef<ThreadMessageActions | null>(null);
   const viewMountedAtRef = useRef(Date.now());
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const displayItems = useMemo(() => buildDisplayItems(runtime.messages), [runtime.messages]);
@@ -216,7 +221,7 @@ export function ThreadsView({
       fillThreadHistoryIfUnscrollable({
         scroller: scrollerRef.current,
         loadOlder: runtime.loadOlderThreadMessages,
-        hasOlderHistory: threadHasOlderHistory(runtime.activeThread),
+        hasOlderHistory: threadHasOlderHistory(runtime.activeThread, runtime.messages.length),
       });
     });
     return () => cancelAnimationFrame(frame);
@@ -269,7 +274,7 @@ export function ThreadsView({
     consumeThreadHistoryScroll({
       scroller: event.currentTarget,
       loadOlder: runtime.loadOlderThreadMessages,
-      hasOlderHistory: threadHasOlderHistory(runtime.activeThread),
+      hasOlderHistory: threadHasOlderHistory(runtime.activeThread, runtime.messages.length),
       onFollowBottomChange: setPinnedToBottom,
     });
   };
@@ -283,8 +288,23 @@ export function ThreadsView({
     endProgrammaticThreadHistoryScroll();
   };
   const profile = resolveThreadOwnerRuntimeProfile(activeThread, subAgents, useAgentStore.getState().agentSettings, useAgentStore.getState().conciergeConfig);
+  const activeThreadIdForActions = runtime.activeThread?.id;
+  messageActionsRef.current = {
+    speak: (message) => { void speech.speakMessage(message); },
+    feedback: (threadId, messageId, reaction) => runtime.submitMessageFeedback(activeThreadIdForActions ?? threadId, messageId, reaction),
+    regenerate: regenerateAssistantMessage,
+    fork: (messageId) => runtime.forkThread(messageId),
+    deleteMessage: (threadId, messageId) => runtime.deleteMessage(activeThreadIdForActions ?? threadId, messageId),
+    retry: retryLastMessage,
+    pin: async (threadId, messageId) => {
+      const result = await runtime.pinMessageForCompaction(activeThreadIdForActions ?? threadId, messageId);
+      if (result && result.ok === false && result.error === "pinned_budget_exceeded") setPinLimitResult(result);
+    },
+    unpin: (threadId, messageId) => { void runtime.unpinMessageForCompaction(activeThreadIdForActions ?? threadId, messageId); },
+  };
   return (
     <section className={["zorai-thread-surface", "zorai-native-thread-surface", variant === "compact" ? "zorai-thread-surface--compact" : ""].filter(Boolean).join(" ")}>
+      <ThreadSessionTabs />
       {variant === "full" ? (
         <>
           <ThreadHeader
@@ -330,6 +350,7 @@ export function ThreadsView({
       )}
 
       <div className="zorai-thread-chat">
+        <DelegatedSessionSlot />
         <div ref={scrollerRef} className="zorai-thread-chat-scroll" onScroll={(event) => void handleThreadScroll(event)}>
         {showConversationSkeleton ? (
           <ThreadConversationSkeleton embedded />
@@ -339,7 +360,9 @@ export function ThreadsView({
             <strong>Start a Zorai thread</strong>
             <span>Ask for a plan, delegate work, or turn a request into a goal.</span>
           </div>
-        ) : displayItems.map((item) => {
+        ) : (
+        <ThreadMessageActionsProvider actionsRef={messageActionsRef}>
+        {displayItems.map((item) => {
           if (item.type === "toolList") {
             return (
               <ToolEventList
@@ -377,35 +400,17 @@ export function ThreadsView({
               speaking={speech.speakingMessageId === message.id}
               speechLoading={speech.loadingMessageId === message.id}
               speechQueued={speech.queuedMessageIds.includes(message.id)}
-              onSpeak={() => void speech.speakMessage(message)}
-              onFeedback={message.role === "assistant" && !message.isStreaming
-                ? (reaction) => runtime.submitMessageFeedback(runtime.activeThread?.id ?? message.threadId, message.id, reaction)
-                : undefined}
-              onRegenerate={message.role === "assistant" ? () => regenerateAssistantMessage(message.id) : undefined}
-              onFork={!message.isStreaming
-                ? () => void runtime.forkThread(message.id)
-                : undefined}
-              onDelete={runtime.activeThread?.id || message.threadId
-                ? () => runtime.deleteMessage(runtime.activeThread?.id ?? message.threadId, message.id)
-                : undefined}
-              onRetry={shouldOfferMessageRetry(
+              offerRetry={shouldOfferMessageRetry(
                 message,
                 latestAssistantMessageId,
                 viewMountedAtRef.current,
                 Boolean(latestUserMessage),
-              )
-                ? retryLastMessage
-                : undefined}
-              onPin={async () => {
-                const result = await runtime.pinMessageForCompaction(runtime.activeThread?.id ?? message.threadId, message.id);
-                if (result && result.ok === false && result.error === "pinned_budget_exceeded") {
-                  setPinLimitResult(result);
-                }
-              }}
-              onUnpin={() => void runtime.unpinMessageForCompaction(runtime.activeThread?.id ?? message.threadId, message.id)}
+              )}
             />
           );
         })}
+        </ThreadMessageActionsProvider>
+        )}
         {retryStatus ? (
           <ThreadRetryStatusBanner
             status={retryStatus}
@@ -476,15 +481,14 @@ function ThreadHeader({
   onOpenOperations: () => void;
 }) {
   const participants = thread.threadParticipants ?? [];
-  const queued = thread.queuedParticipantSuggestions ?? [];
+  const activeParticipants = participants.filter((participant) => participant.status === "active");
   const responderStack = thread.threadHandoffState?.responderStack ?? [];
   const activeResponder = responderStack[responderStack.length - 1]?.agentName
     ?? thread.agent_name;
   return (
     <header className="zorai-thread-header">
       <div>
-        <div className="zorai-kicker">Thread</div>
-        <h2>{thread.title}</h2>
+        <h3>{thread.title}</h3>
         <span>{messageCount} messages / responder: {activeResponder}</span>
       </div>
       <div className="zorai-thread-header__actions">
@@ -502,7 +506,7 @@ function ThreadHeader({
           onReturn={onReturnHandoff}
         />
         <button type="button" className="zorai-ghost-button" onClick={onOpenParticipants}>
-          Participants {participants.length + queued.length}
+          Participants {activeParticipants.length}
         </button>
         <button
           type="button"

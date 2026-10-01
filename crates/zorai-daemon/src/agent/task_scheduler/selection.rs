@@ -381,15 +381,17 @@ pub(in crate::agent) fn task_lane_key(task: &AgentTask) -> String {
     if is_weles_review_task(task) {
         return "weles".to_string();
     }
+    // Goal workers and spawned children must not wait on the interactive
+    // session lane. Sharing that lane left them queued behind the lead turn.
+    if task.source == "goal_run" || subagent_parent_key(task).is_some() {
+        return format!("daemon-subagent:{}", task.id);
+    }
     if let Some(session_id) = task
         .session_id
         .as_deref()
         .filter(|value| !value.trim().is_empty())
     {
         return format!("session:{session_id}");
-    }
-    if subagent_parent_key(task).is_some() {
-        return format!("daemon-subagent:{}", task.id);
     }
     "daemon-main".to_string()
 }

@@ -35,7 +35,7 @@
   /* Background Scale - Void to Elevated */
   --bg-void: #020406;
   --bg-deep: #050810;
-  --bg-primary: #0a0f18;
+  --bg-primary: #191919;
   --bg-secondary: #0f1520;
   --bg-tertiary: #141c28;
   --bg-surface: #0c111a;
@@ -63,9 +63,9 @@
    * Crystal clear readability with precise contrast ratios
    * ═══════════════════════════════════════════════════════════════════════ */
   
-  --text-primary: #e8edf5;
+  --text-primary: #f2f2f2;
   --text-secondary: #9aa8ba;
-  --text-muted: rgba(154, 168, 186, 0.6);
+  --text-muted: #c0c0c0;
   --text-disabled: rgba(154, 168, 186, 0.32);
   --text-inverse: #0a0f18;
   
@@ -232,12 +232,10 @@
    * Font families, sizes, weights, and line heights
    * ═══════════════════════════════════════════════════════════════════════ */
   
-  --font-ui: "Cascadia Code", "JetBrains Mono", "Fira Code", "SF Mono",
-             "Cousine", Consolas, "Liberation Mono", monospace;
-  --font-mono: "Cascadia Code", "JetBrains Mono", "Fira Code", "SF Mono",
-               "Cousine", Consolas, "Liberation Mono", monospace;
+  --font-ui: "Inter Variable",Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --font-mono: "Söhne Mono","Sohne Mono","IBM Plex Mono","IBM Plex Mono Fallback",ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
   --font-display: var(--font-ui);
-  --ui-font-scale: 1;
+  --ui-font-scale: 1.0;
   
   --text-2xs: calc(10px * var(--ui-font-scale));
   --text-xs: calc(11px * var(--ui-font-scale));

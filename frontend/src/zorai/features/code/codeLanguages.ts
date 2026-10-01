@@ -15,6 +15,11 @@ const extensions: Record<string, string> = {
   tsx: "typescript", vue: "html", xml: "xml", yaml: "yaml", yml: "yaml", zig: "cpp",
 };
 
+export function monacoModelPath(scope: string, path: string): string {
+  const normalized = path.trim().replace(/\\/g, "/").replace(/^\/+/, "");
+  return `${scope}:///${normalized || "file"}`;
+}
+
 export function languageForWorkspacePath(path: string): string {
   const name = path.split(/[\\/]/).pop()?.toLowerCase() ?? "";
   if (named[name]) return named[name];

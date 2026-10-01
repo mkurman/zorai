@@ -49,12 +49,16 @@ async fn wal_pragmas_applied() -> Result<()> {
             let wal_autocheckpoint: i64 =
                 conn.query_row("PRAGMA wal_autocheckpoint", [], |row| row.get(0))?;
             let busy_timeout: i64 = conn.query_row("PRAGMA busy_timeout", [], |row| row.get(0))?;
+            let cache_size: i64 = conn.query_row("PRAGMA cache_size", [], |row| row.get(0))?;
+            let mmap_size: i64 = conn.query_row("PRAGMA mmap_size", [], |row| row.get(0))?;
             Ok((
                 journal_mode,
                 synchronous,
                 foreign_keys,
                 wal_autocheckpoint,
                 busy_timeout,
+                cache_size,
+                mmap_size,
             ))
         })
         .await
@@ -64,6 +68,8 @@ async fn wal_pragmas_applied() -> Result<()> {
     assert_eq!(pragmas.2, 1);
     assert_eq!(pragmas.3, 1000);
     assert_eq!(pragmas.4, 5000);
+    assert_eq!(pragmas.5, -4096, "page cache must stay at 4 MiB per connection");
+    assert_eq!(pragmas.6, 16_777_216, "mmap window must stay at 16 MiB per connection");
     fs::remove_dir_all(root)?;
     Ok(())
 }

@@ -8,6 +8,16 @@
 #[global_allocator]
 static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
+// jemalloc reads this before main. Two arenas and an immediate dirty purge
+// are what keep an idle daemon near 500 MiB. A busy daemon still has about
+// 2 GiB of headroom before the working set itself is the limit.
+#[cfg(target_os = "linux")]
+#[allow(non_upper_case_globals)]
+#[used]
+#[export_name = "_rjem_malloc_conf"]
+static _rjem_malloc_conf: &[u8] =
+    b"narenas:2,dirty_decay_ms:0,muzzy_decay_ms:0,background_thread:true\0";
+
 pub mod agent;
 mod criu;
 mod db_cli;

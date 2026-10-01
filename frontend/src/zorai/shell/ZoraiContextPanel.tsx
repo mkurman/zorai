@@ -42,7 +42,7 @@ export function ZoraiContextPanel({
         </div>
         <button
           type="button"
-          className="zorai-icon-button"
+          className="zorai-icon-button zorai-context-panel__close"
           onClick={onToggle}
           title="Collapse context"
           aria-expanded={true}

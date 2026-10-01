@@ -10,27 +10,18 @@ import {
   ToolStructuredValueView,
 } from "./toolValuePresentation";
 import { buildProviderFinalResultPresentation } from "../providerFinalResultPresentation";
+import {
+  compactionArtifactDisplayText,
+  compactionArtifactHasExpandablePayload,
+  compactionArtifactHeaderText,
+  compactionArtifactPayloadText,
+  isCompactionArtifactMessage,
+} from "./compactionArtifact";
 
-export function compactionArtifactDisplayText(message: AgentMessage): string {
-  if (message.messageKind !== "compaction_artifact") {
-    return message.content;
-  }
-
-  const visibleHeader = typeof message.content === "string" ? message.content.trim() : "";
-  const payload = typeof message.compactionPayload === "string" ? message.compactionPayload.trim() : "";
-
-  if (!payload) {
-    return visibleHeader;
-  }
-  if (!visibleHeader) {
-    return payload;
-  }
-  if (visibleHeader.includes(payload)) {
-    return visibleHeader;
-  }
-
-  return `${visibleHeader}\n\nContent:\n${payload}`;
-}
+export {
+  compactionArtifactDisplayText,
+  isCompactionArtifactMessage,
+} from "./compactionArtifact";
 
 function ActionBtn({ label, onClick }: { label: string; onClick: () => void }) {
   return (
@@ -90,7 +81,7 @@ export function MessageBubble({
   isSpeaking?: boolean;
   isSpeechPaused?: boolean;
 }) {
-  const isCompactionArtifact = message.messageKind === "compaction_artifact";
+  const isCompactionArtifact = isCompactionArtifactMessage(message);
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
   const isTool = message.role === "tool";
@@ -143,10 +134,14 @@ export function MessageBubble({
   };
 
   if (isCompactionArtifact) {
+    const headerText = compactionArtifactHeaderText(message);
+    const payloadText = compactionArtifactPayloadText(message);
     const compactionContent = compactionArtifactDisplayText(message);
+    const showPayload = expandedCompaction && payloadText.length > 0;
     const visibleContent = expandedCompaction || compactionContent.length <= 280
       ? compactionContent
       : `${compactionContent.slice(0, 280).trimEnd()}...`;
+    const canExpand = compactionArtifactHasExpandablePayload(message) || compactionContent.length > 280;
 
     return (
       <div
@@ -156,8 +151,17 @@ export function MessageBubble({
         onMouseLeave={() => setHovered(false)}
       >
         <div className="acp-compaction__rule">---- auto compaction ----</div>
-        <div className="acp-compaction__body">{visibleContent || "rule based"}</div>
-        {compactionContent.length > 280 && (
+        <div className="acp-compaction__body">
+          {payloadText.length > 0 ? (
+            <>
+              <div>{headerText || "rule based"}</div>
+              {showPayload ? <div>{payloadText}</div> : null}
+            </>
+          ) : (
+            visibleContent || "rule based"
+          )}
+        </div>
+        {canExpand && (
           <button
             className="acp-toggle-btn"
             onClick={() => setExpandedCompaction((current) => !current)}

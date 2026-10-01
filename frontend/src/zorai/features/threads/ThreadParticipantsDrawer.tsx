@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { AgentThread, ThreadParticipantState } from "@/lib/agentStore/types";
 import type { ThreadMutationResult } from "@/components/agent-chat-panel/runtime/types";
 import type { ThreadAgentOption } from "./threadHandoffModel";
+import { retainBusySuggestions, suggestionActionLabel, type SuggestionAction } from "./suggestionBusy";
 
 export function ThreadParticipantsDrawer({
   thread,
@@ -27,6 +28,7 @@ export function ThreadParticipantsDrawer({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingInstruction, setEditingInstruction] = useState("");
   const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const [busySuggestions, setBusySuggestions] = useState<Record<string, SuggestionAction>>({});
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -49,6 +51,13 @@ export function ThreadParticipantsDrawer({
       setAgentId(agentOptions[0]?.id ?? "");
     }
   }, [agentId, agentOptions]);
+
+  useEffect(() => {
+    setBusySuggestions((current) => {
+      const next = retainBusySuggestions(current, suggestions);
+      return Object.keys(next).length === Object.keys(current).length ? current : next;
+    });
+  }, [suggestions]);
 
   const runMutation = async (
     key: string,
@@ -73,6 +82,27 @@ export function ThreadParticipantsDrawer({
     }
   };
 
+  const beginSuggestionAction = async (
+    suggestionId: string,
+    action: SuggestionAction,
+    run: () => Promise<void>,
+  ) => {
+    setBusySuggestions((current) => ({ ...current, [suggestionId]: action }));
+    setError(null);
+    try {
+      await run();
+    } catch (reason) {
+      if (!mountedRef.current) return;
+      setBusySuggestions((current) => {
+        if (!(suggestionId in current)) return current;
+        const next = { ...current };
+        delete next[suggestionId];
+        return next;
+      });
+      setError(reason instanceof Error ? reason.message : "Participant action failed.");
+    }
+  };
+
   const beginEdit = (participant: ThreadParticipantState) => {
     setEditingId(participant.agentId);
     setEditingInstruction(participant.instruction);
@@ -94,8 +124,8 @@ export function ThreadParticipantsDrawer({
             <div className="zorai-kicker">Collaboration</div>
             <h2 id="zorai-participants-title">Thread Participants</h2>
           </div>
-          <button ref={closeRef} type="button" className="zorai-ghost-button" onClick={onClose}>
-            Close
+          <button ref={closeRef} type="button" className="zorai-icon-button zorai-participants-drawer__close" onClick={onClose}>
+            x
           </button>
         </header>
 
@@ -218,8 +248,10 @@ export function ThreadParticipantsDrawer({
           <h3>Queued suggestions</h3>
           {suggestions.length === 0 ? <p>No queued suggestions.</p> : null}
           {suggestions.map((suggestion) => {
-            const key = `suggestion:${suggestion.id}`;
             const daemonThreadId = thread.daemonThreadId;
+            const action = busySuggestions[suggestion.id];
+            const busyLabel = action ? suggestionActionLabel(action) : null;
+            const locked = !daemonThreadId || pendingKey !== null || Boolean(action);
             return (
               <article key={suggestion.id} className="zorai-suggestion-card">
                 <div>
@@ -232,26 +264,41 @@ export function ThreadParticipantsDrawer({
                   <button
                     type="button"
                     className="zorai-primary-button"
-                    disabled={!daemonThreadId || pendingKey !== null}
-                    onClick={() => daemonThreadId && void runMutation(key, () => onSendSuggestion(daemonThreadId, suggestion.id, false))}
+                    aria-busy={action === "send" ? true : undefined}
+                    disabled={locked && action !== "send"}
+                    onClick={() => daemonThreadId && !action && void beginSuggestionAction(
+                      suggestion.id,
+                      "send",
+                      () => onSendSuggestion(daemonThreadId, suggestion.id, false),
+                    )}
                   >
-                    Send
+                    {action === "send" ? busyLabel : "Send"}
                   </button>
                   <button
                     type="button"
                     className="zorai-ghost-button"
-                    disabled={!daemonThreadId || pendingKey !== null}
-                    onClick={() => daemonThreadId && void runMutation(key, () => onSendSuggestion(daemonThreadId, suggestion.id, true))}
+                    aria-busy={action === "force" ? true : undefined}
+                    disabled={locked && action !== "force"}
+                    onClick={() => daemonThreadId && !action && void beginSuggestionAction(
+                      suggestion.id,
+                      "force",
+                      () => onSendSuggestion(daemonThreadId, suggestion.id, true),
+                    )}
                   >
-                    Force send
+                    {action === "force" ? busyLabel : "Force send"}
                   </button>
                   <button
                     type="button"
                     className="zorai-ghost-button"
-                    disabled={!daemonThreadId || pendingKey !== null}
-                    onClick={() => daemonThreadId && void runMutation(key, () => onDismissSuggestion(daemonThreadId, suggestion.id))}
+                    aria-busy={action === "dismiss" ? true : undefined}
+                    disabled={locked && action !== "dismiss"}
+                    onClick={() => daemonThreadId && !action && void beginSuggestionAction(
+                      suggestion.id,
+                      "dismiss",
+                      () => onDismissSuggestion(daemonThreadId, suggestion.id),
+                    )}
                   >
-                    Dismiss
+                    {action === "dismiss" ? busyLabel : "Dismiss"}
                   </button>
                 </div>
               </article>
