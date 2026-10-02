@@ -14,7 +14,7 @@ import {
   shouldFollowThreadHistoryBottom,
   threadHasOlderHistory,
 } from "@/components/agent-chat-panel/runtime/threadHistoryScroll";
-import { useAgentStore, type AgentThread } from "@/lib/agentStore";
+import { useAgentStore, type AgentMessage, type AgentThread } from "@/lib/agentStore";
 import { fetchAgentTasks, type AgentQueueTask } from "@/lib/agentTaskQueue";
 import { ThreadFilePreviewOverlay } from "./ThreadFilePreviewOverlay";
 import { ThreadComposer } from "./ThreadComposer";
@@ -90,14 +90,9 @@ export function ThreadsView({
       ? activity.operations.filter((operation) => operation.state === "accepted" || operation.state === "started")
       : [];
   }), [runtime.messages]);
-  const latestUserMessage = useMemo(
-    () => [...runtime.messages].reverse().find((message) => message.role === "user" && message.content.trim()),
-    [runtime.messages],
-  );
-  const latestAssistantMessageId = useMemo(
-    () => [...runtime.messages].reverse().find((message) => message.role === "assistant")?.id,
-    [runtime.messages],
-  );
+  const threadEnds = useMemo(() => latestThreadEnds(runtime.messages), [runtime.messages]);
+  const latestUserMessage = threadEnds.latestUserMessage;
+  const latestAssistantMessageId = threadEnds.latestAssistantMessageId;
   const regenerateAssistantMessage = useCallback((messageId: string) => {
     const index = runtime.messages.findIndex((entry) => entry.id === messageId);
     if (index <= 0) return;
@@ -468,6 +463,25 @@ export function ThreadsView({
       <ThreadFilePreviewOverlay />
     </section>
   );
+}
+
+function latestThreadEnds(messages: AgentMessage[]): {
+  latestUserMessage: AgentMessage | undefined;
+  latestAssistantMessageId: string | undefined;
+} {
+  let latestUserMessage: AgentMessage | undefined;
+  let latestAssistantMessageId: string | undefined;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!latestAssistantMessageId && message.role === "assistant") {
+      latestAssistantMessageId = message.id;
+    }
+    if (!latestUserMessage && message.role === "user" && message.content.trim()) {
+      latestUserMessage = message;
+    }
+    if (latestUserMessage && latestAssistantMessageId) break;
+  }
+  return { latestUserMessage, latestAssistantMessageId };
 }
 
 function actualThreadResponderLabel(thread: AgentThread): string {

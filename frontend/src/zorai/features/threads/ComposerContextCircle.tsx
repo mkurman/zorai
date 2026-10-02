@@ -23,11 +23,11 @@ function formatCost(cost: number | undefined): string {
 export function resolveComposerThreadCost(
   thread: AgentThread | null | undefined,
   messages: AgentMessage[],
+  usage = summarizeSessionUsage(messages),
 ): { hasCost: boolean; totalCost: number } {
   if (typeof thread?.totalCostUsd === "number" && Number.isFinite(thread.totalCostUsd)) {
     return { hasCost: true, totalCost: thread.totalCostUsd };
   }
-  const usage = summarizeSessionUsage(messages);
   return { hasCost: usage.hasCost, totalCost: usage.totalCost };
 }
 
@@ -60,12 +60,12 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
     return profile.contextWindowTokens;
   }, [thread, subAgents, agentSettings, conciergeConfig]);
 
-  const used = currentContextTokens(thread ?? null, messages);
+  const used = useMemo(() => currentContextTokens(thread ?? null, messages), [messages, thread]);
   const pct = contextWindowTokens > 0 ? Math.min(100, Math.round((used / contextWindowTokens) * 100)) : 0;
   const tone: "ok" | "warn" | "danger" = pct >= 90 ? "danger" : pct >= 75 ? "warn" : "ok";
   const autoCompact = (agentSettings as unknown as Record<string, unknown>).auto_compact_context === true;
   const sessionUsage = useMemo(() => summarizeSessionUsage(messages), [messages]);
-  const resolvedCost = useMemo(() => resolveComposerThreadCost(thread, messages), [thread, messages]);
+  const resolvedCost = useMemo(() => resolveComposerThreadCost(thread, messages, sessionUsage), [messages, sessionUsage, thread]);
   const sessionCost = resolvedCost.totalCost;
   const sessionHasCost = resolvedCost.hasCost;
   const sessionAvgTps = sessionUsage.avgTps;

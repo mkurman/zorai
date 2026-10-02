@@ -972,13 +972,13 @@
 /* Plain tool result box */
 .acp-tool-result {
   padding: 8px;
-  background: var(--zorai-bg-panel);
-  border: 1px solid var(--border);
-  font-size: var(--text-sm);
+  background: transparent;
+  border: 1px solid var(--zorai-border);
+  font-size: var(--text-xs);
   line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-word;
-  border-radius: 2px;
+  border-radius: 8px;
 }
 
 /* Diff view */

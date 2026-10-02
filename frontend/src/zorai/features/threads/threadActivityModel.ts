@@ -60,7 +60,18 @@ export type ThreadActivity =
 type JsonRecord = Record<string, unknown>;
 type OperationState = OperationActivityItem["state"];
 
+const activityByMessage = new WeakMap<AgentMessage, ThreadActivity | null>();
+
 export function classifyThreadActivityMessage(message: AgentMessage): ThreadActivity | null {
+  if (activityByMessage.has(message)) {
+    return activityByMessage.get(message) ?? null;
+  }
+  const activity = classifyThreadActivityMessageUncached(message);
+  activityByMessage.set(message, activity);
+  return activity;
+}
+
+function classifyThreadActivityMessageUncached(message: AgentMessage): ThreadActivity | null {
   const compaction = classifyCompaction(message);
   if (compaction) {
     return compaction;

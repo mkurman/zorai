@@ -5,7 +5,6 @@ import { getToolDiffPresentation, ToolDiffView } from "./toolDiffPresentation";
 import { ToolStatusIcon } from "./ToolStatusIcon";
 import { extractToolArtifacts } from "./toolArtifacts";
 import { ToolArtifactChips } from "./ToolArtifactChips";
-import { RawToolPayload } from "./RawToolPayload";
 import {
   getToolFileTarget,
   getToolStructuredFields,
@@ -110,9 +109,6 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
               <div className="acp-tool-result">{group.resultContent}</div>
             </div>
           ) : null}
-
-          <RawToolPayload label="Raw arguments" raw={group.toolArguments} />
-          <RawToolPayload label="Raw result" raw={group.resultContent} />
 
           <div className="acp-tool-row__footer">
             <button
