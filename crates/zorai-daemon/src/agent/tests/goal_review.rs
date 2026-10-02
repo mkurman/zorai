@@ -237,24 +237,20 @@ async fn hibernated_worker_is_not_requeued_by_review_nudge() {
 
     // Hibernation signal 2: pending scheduled timer wakeup.
     engine.claim_operation_wakeup("op-hibernated-1").await;
-    engine
-        .timer_wakeups
-        .lock()
-        .await
-        .insert(
-            "wakeup-hibernated-1".to_string(),
-            crate::agent::agent_wakeup::AgentWakeup {
-                id: "wakeup-hibernated-1".to_string(),
-                thread_id: worker_thread.clone(),
-                message: "training checkpoint".to_string(),
-                interval_ms: 3_600_000,
-                next_fire_at: now_millis() + 3_600_000,
-                repetitions_remaining: Some(1),
-                wakeup_kind: "generic".to_string(),
-                goal_run_id: None,
-                created_at: now_millis(),
-            },
-        );
+    engine.timer_wakeups.lock().await.insert(
+        "wakeup-hibernated-1".to_string(),
+        crate::agent::agent_wakeup::AgentWakeup {
+            id: "wakeup-hibernated-1".to_string(),
+            thread_id: worker_thread.clone(),
+            message: "training checkpoint".to_string(),
+            interval_ms: 3_600_000,
+            next_fire_at: now_millis() + 3_600_000,
+            repetitions_remaining: Some(1),
+            wakeup_kind: "generic".to_string(),
+            goal_run_id: None,
+            created_at: now_millis(),
+        },
+    );
     engine
         .nudge_goal_worker_for_review(&goal.id, &worker)
         .await
@@ -271,7 +267,11 @@ async fn hibernated_worker_is_not_requeued_by_review_nudge() {
 
     // Once hibernation clears (no pending wakeups), the nudge resumes normal
     // behavior: requeue so the worker gets the review reminder turn.
-    engine.timer_wakeups.lock().await.remove("wakeup-hibernated-1");
+    engine
+        .timer_wakeups
+        .lock()
+        .await
+        .remove("wakeup-hibernated-1");
     engine
         .nudge_goal_worker_for_review(&goal.id, &worker)
         .await
@@ -381,10 +381,7 @@ async fn spawned_goal_child_does_not_steal_worker_thread_or_active_task() {
     let updated = engine.get_goal_run(&goal.id).await.expect("goal");
     assert_eq!(updated.active_task_id.as_deref(), Some(worker.id.as_str()));
     assert_eq!(updated.thread_id.as_deref(), Some(worker_thread.as_str()));
-    assert_eq!(
-        updated.execution_thread_ids,
-        vec![worker_thread.clone()]
-    );
+    assert_eq!(updated.execution_thread_ids, vec![worker_thread.clone()]);
     assert!(!updated
         .execution_thread_ids
         .iter()

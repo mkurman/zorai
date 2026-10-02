@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
-import type { AgentThread } from "@/lib/agentStore";
-import { useAgentStore } from "@/lib/agentStore";
+import { useAgentStore, type AgentMessage, type AgentThread } from "@/lib/agentStore";
 import { useOperatorQuestionStore } from "@/lib/operatorQuestionStore";
 import { fetchAgentTasks, type AgentQueueTask } from "@/lib/agentTaskQueue";
 import { useWorkspaceContextStore } from "@/lib/workspaceContextStore";
@@ -215,22 +214,13 @@ export function CodeAgentPane() {
   );
 }
 
-function evidenceForEntry(
-  entry: CodeProjectThreadEntry,
-  runtime: {
-    allMessagesByThread: ReturnType<typeof useAgentChatPanelRuntime>["allMessagesByThread"];
-    goalRunsForTrace: ReturnType<typeof useAgentChatPanelRuntime>["goalRunsForTrace"];
-  },
-  questionThreadId: string | null,
-  readState: Record<string, number>,
-  tasks: AgentQueueTask[],
-) {
-  const identities = new Set([entry.localThread.id, entry.thread.daemonThreadId, entry.localThread.daemonThreadId].filter(Boolean));
-  // Status for the history list is per-entry, not "is the currently
-  // focused thread streaming". A background thread keeps Working/Needs
-  // attention even while you look at another thread.
-  const messages = runtime.allMessagesByThread[entry.localThread.id]
-    ?? runtime.allMessagesByThread[entry.thread.daemonThreadId ?? ""] ?? [];
+const EMPTY_MESSAGES: AgentMessage[] = [];
+const threadMessageScans = new WeakMap<AgentMessage[], { working: boolean; latestCompletionAt: number | null }>();
+
+function scanThreadMessages(messages: AgentMessage[]): { working: boolean; latestCompletionAt: number | null } {
+  const cached = threadMessageScans.get(messages);
+  if (cached) return cached;
+
   let working = threadTurnIsActive(messages);
   let latestCompletionAt: number | null = null;
   for (const message of messages) {
@@ -246,6 +236,31 @@ function evidenceForEntry(
       latestCompletionAt = Math.max(latestCompletionAt ?? 0, message.createdAt);
     }
   }
+
+  const scanned = { working, latestCompletionAt };
+  threadMessageScans.set(messages, scanned);
+  return scanned;
+}
+
+function evidenceForEntry(
+  entry: CodeProjectThreadEntry,
+  runtime: {
+    allMessagesByThread: ReturnType<typeof useAgentChatPanelRuntime>["allMessagesByThread"];
+    goalRunsForTrace: ReturnType<typeof useAgentChatPanelRuntime>["goalRunsForTrace"];
+  },
+  questionThreadId: string | null,
+  readState: Record<string, number>,
+  tasks: AgentQueueTask[],
+) {
+  const identities = new Set([entry.localThread.id, entry.thread.daemonThreadId, entry.localThread.daemonThreadId].filter(Boolean));
+  // Status for the history list is per-entry, not "is the currently
+  // focused thread streaming". A background thread keeps Working/Needs
+  // attention even while you look at another thread.
+  const messages = runtime.allMessagesByThread[entry.localThread.id]
+    ?? runtime.allMessagesByThread[entry.thread.daemonThreadId ?? ""] ?? EMPTY_MESSAGES;
+  const scanned = scanThreadMessages(messages);
+  let working = scanned.working;
+  let latestCompletionAt = scanned.latestCompletionAt;
 
   let needsOperatorAction = Boolean(questionThreadId && identities.has(questionThreadId));
   for (const task of tasks) {

@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const path = require("node:path");
 
-const { createAgentDbBridgeRuntime } = require("./main/agent-db-bridge-runtime.cjs");
+const { createAgentDbBridgeRuntime, takeBridgeLines } = require("./main/agent-db-bridge-runtime.cjs");
 const {
   pendingHandlerMatchesResponseType,
   resolvePendingAgentQueryEvent,
@@ -170,4 +170,23 @@ test("agent bridge drops events after the renderer frame is gone", () => {
   spawned[0].emitStdout(`${JSON.stringify({ type: "token", content: "more" })}\n`);
 
   assert.equal(sends, 0);
+});
+
+test("bridge stdout drops only an unfinished line that never ends", () => {
+  const taken = takeBridgeLines("", "x".repeat(20), 8);
+  assert.equal(taken.lines.length, 0);
+  assert.equal(taken.buffer.length, 0);
+  const parsed = takeBridgeLines("", "{\"type\":\"ping\"}\n");
+  assert.deepEqual(parsed.lines, ["{\"type\":\"ping\"}"]);
+  assert.equal(parsed.buffer, "");
+});
+
+test("bridge stdout keeps a thread payload split across chunks", () => {
+  const payload = `{"type":"thread-detail","data":"${"m".repeat(30)}"}`;
+  const splitAt = 12;
+  const first = takeBridgeLines("", payload.slice(0, splitAt), 10_000);
+  assert.deepEqual(first.lines, []);
+  const second = takeBridgeLines(first.buffer, `${payload.slice(splitAt)}\n`, 10_000);
+  assert.deepEqual(second.lines, [payload]);
+  assert.equal(second.buffer, "");
 });

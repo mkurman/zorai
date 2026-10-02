@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useAgentStore, type AgentThread, type AgentMessage } from "@/lib/agentStore";
 import { getBridge } from "@/lib/bridge";
 import { pushToast } from "@/lib/toastStore";
+import { requestManualCompaction, useThreadCompaction } from "./threadCompactionStatus";
 import { summarizeSessionUsage } from "@/components/agent-chat-panel/chat-view/helpers";
 import { resolveThreadOwnerRuntimeProfile } from "./threadOwnerRuntime";
 
@@ -22,11 +23,11 @@ function formatCost(cost: number | undefined): string {
 export function resolveComposerThreadCost(
   thread: AgentThread | null | undefined,
   messages: AgentMessage[],
+  usage = summarizeSessionUsage(messages),
 ): { hasCost: boolean; totalCost: number } {
   if (typeof thread?.totalCostUsd === "number" && Number.isFinite(thread.totalCostUsd)) {
     return { hasCost: true, totalCost: thread.totalCostUsd };
   }
-  const usage = summarizeSessionUsage(messages);
   return { hasCost: usage.hasCost, totalCost: usage.totalCost };
 }
 
@@ -48,7 +49,8 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
   const subAgents = useAgentStore((state) => state.subAgents);
   const [open, setOpen] = useState(false);
   const [autoBusy, setAutoBusy] = useState(false);
-  const [compacting, setCompacting] = useState(false);
+  const compactionStatus = useThreadCompaction(thread?.daemonThreadId);
+  const compacting = Boolean(compactionStatus);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const btnRef = useRef<HTMLButtonElement | null>(null);
 
@@ -58,12 +60,12 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
     return profile.contextWindowTokens;
   }, [thread, subAgents, agentSettings, conciergeConfig]);
 
-  const used = currentContextTokens(thread ?? null, messages);
+  const used = useMemo(() => currentContextTokens(thread ?? null, messages), [messages, thread]);
   const pct = contextWindowTokens > 0 ? Math.min(100, Math.round((used / contextWindowTokens) * 100)) : 0;
   const tone: "ok" | "warn" | "danger" = pct >= 90 ? "danger" : pct >= 75 ? "warn" : "ok";
   const autoCompact = (agentSettings as unknown as Record<string, unknown>).auto_compact_context === true;
   const sessionUsage = useMemo(() => summarizeSessionUsage(messages), [messages]);
-  const resolvedCost = useMemo(() => resolveComposerThreadCost(thread, messages), [thread, messages]);
+  const resolvedCost = useMemo(() => resolveComposerThreadCost(thread, messages, sessionUsage), [messages, sessionUsage, thread]);
   const sessionCost = resolvedCost.totalCost;
   const sessionHasCost = resolvedCost.hasCost;
   const sessionAvgTps = sessionUsage.avgTps;
@@ -115,21 +117,8 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
   }, [open]);
 
   const doCompact = async () => {
-    const daemonId = thread?.daemonThreadId?.trim();
-    if (!daemonId) {
-      pushToast("Compact needs a daemon-linked thread — send one message first.", "info");
-      return;
-    }
-    setCompacting(true);
-    try {
-      await (getBridge() as unknown as { agentForceCompact?: (id: string) => Promise<unknown> })?.agentForceCompact?.(daemonId);
-      pushToast("Compaction started — like /compact in the TUI.", "info");
-      setOpen(false);
-    } catch (error) {
-      pushToast(error instanceof Error ? error.message : "Could not start compaction.", "error");
-    } finally {
-      window.setTimeout(() => setCompacting(false), 900);
-    }
+    setOpen(false);
+    await requestManualCompaction(thread?.daemonThreadId);
   };
 
   const toggleAuto = async (next: boolean) => {

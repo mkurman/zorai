@@ -223,8 +223,7 @@ pub(crate) fn estimated_collapsible_system_notice_line_count(
     content_width: usize,
     expanded: &ExpandedReasoning,
 ) -> usize {
-    let reasoning_expanded =
-        matches!(mode, TranscriptMode::Full) || expanded.contains(&msg_index);
+    let reasoning_expanded = matches!(mode, TranscriptMode::Full) || expanded.contains(&msg_index);
     let detail_width = content_width.saturating_sub(2).max(1);
     let mut count = 1usize;
 

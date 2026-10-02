@@ -1,5 +1,7 @@
 use super::*;
-use crate::agent::llm_client::{parse_structured_upstream_failure, StructuredUpstreamFailure};
+use crate::agent::llm_client::{
+    is_exhausted_provider_usage_limit, parse_structured_upstream_failure, StructuredUpstreamFailure,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FixableUpstreamRecoveryAction {
@@ -154,6 +156,9 @@ pub(super) fn retry_failure_class_from_message(message: &str) -> &'static str {
 }
 
 pub(super) fn is_transient_retry_message(message: &str) -> bool {
+    if is_exhausted_provider_usage_limit(message) {
+        return false;
+    }
     if let Some(structured) = parse_structured_upstream_failure(message) {
         return matches!(
             structured.class.as_str(),
@@ -237,5 +242,14 @@ mod tests {
 
         assert!(is_transient_retry_message(message));
         assert_eq!(retry_failure_class_from_message(message), "transport");
+    }
+
+    #[test]
+    fn exhausted_usage_limit_is_not_a_transient_retry() {
+        let message = "openai API returned 429: The usage limit has been reached\n\n[zorai-upstream-diagnostics]{\"class\":\"rate_limit\",\"summary\":\"openai API returned 429: The usage limit has been reached\",\"diagnostics\":{}}";
+        assert!(!is_transient_retry_message(message));
+        assert!(is_transient_retry_message(
+            "openai API returned 429: Too Many Requests\n\n[zorai-upstream-diagnostics]{\"class\":\"rate_limit\",\"summary\":\"429\",\"diagnostics\":{}}"
+        ));
     }
 }

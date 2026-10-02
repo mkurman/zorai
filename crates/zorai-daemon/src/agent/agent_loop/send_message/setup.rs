@@ -144,7 +144,16 @@ fn apply_thread_profile_to_task_provider_override(
         return task_provider_override;
     }
     match task_provider_override {
-        Some((provider, model, system_prompt, def_id, transport, context_window, huggingface, base_url)) => {
+        Some((
+            provider,
+            model,
+            system_prompt,
+            def_id,
+            transport,
+            context_window,
+            huggingface,
+            base_url,
+        )) => {
             let provider_changed = profile_provider
                 .as_ref()
                 .is_some_and(|value| value != &provider);
@@ -159,18 +168,8 @@ fn apply_thread_profile_to_task_provider_override(
                 if provider_changed { None } else { base_url },
             ))
         }
-        None if has_task => profile_provider.map(|provider| {
-            (
-                provider,
-                profile_model,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-            )
-        }),
+        None if has_task => profile_provider
+            .map(|provider| (provider, profile_model, None, None, None, None, None, None)),
         other => other,
     }
 }
@@ -868,6 +867,9 @@ impl<'a> SendMessageRunner<'a> {
         config.context_window_tokens = provider_config.context_window_tokens;
         let (stream_generation, stream_cancel_token, stream_retry_now) =
             engine.begin_stream_cancellation(&tid).await;
+        if engine.operator_stream_stop_requested(&tid).await {
+            stream_cancel_token.cancel();
+        }
         let onecontext_bootstrap = if is_new_thread {
             engine
                 .onecontext_bootstrap_for_new_thread(stored_user_content)

@@ -159,7 +159,8 @@ impl TuiModel {
                 if let Some(agent_id) = self.resolve_target_agent_id(active) {
                     return Some(agent_id);
                 }
-                if !active.eq_ignore_ascii_case("svarog") && !active.eq_ignore_ascii_case("swarog") {
+                if !active.eq_ignore_ascii_case("svarog") && !active.eq_ignore_ascii_case("swarog")
+                {
                     return Some(active.to_ascii_lowercase());
                 }
             }

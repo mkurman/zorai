@@ -430,6 +430,24 @@ impl TuiModel {
 
         match self.auth.action_cursor {
             0 => {
+                if entry.provider_id == zorai_shared::providers::PROVIDER_ID_CURSOR {
+                    if entry.authenticated {
+                        self.send_daemon_command(DaemonCommand::LogoutProvider {
+                            provider_id: entry.provider_id.clone(),
+                        });
+                        self.status_line = "Signing out of the Cursor subscription...".to_string();
+                    } else {
+                        self.send_daemon_command(DaemonCommand::LoginProvider {
+                            provider_id: entry.provider_id.clone(),
+                            api_key: String::new(),
+                            base_url: String::new(),
+                        });
+                        self.status_line =
+                            "Started Cursor subscription login. Refresh after you finish in the browser."
+                                .to_string();
+                    }
+                    return;
+                }
                 if entry.provider_id == zorai_shared::providers::PROVIDER_ID_CLAUDE_CODE_CLI {
                     self.status_line = if entry.authenticated {
                         "Claude Code CLI detected — no API key needed (local auth via `claude`)."
@@ -501,6 +519,11 @@ impl TuiModel {
                 if entry.provider_id == zorai_shared::providers::PROVIDER_ID_CLAUDE_CODE_CLI {
                     self.send_daemon_command(DaemonCommand::GetProviderAuthStates);
                     self.status_line = "Re-checking Claude Code CLI availability...".to_string();
+                    return;
+                }
+                if entry.provider_id == zorai_shared::providers::PROVIDER_ID_CURSOR {
+                    self.send_daemon_command(DaemonCommand::GetProviderAuthStates);
+                    self.status_line = "Re-checking Cursor subscription login...".to_string();
                     return;
                 }
                 if entry.provider_id == PROVIDER_ID_OPENAI && self.config.chatgpt_auth_available {

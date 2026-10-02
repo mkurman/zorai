@@ -414,7 +414,7 @@ select.zorai-input:disabled option {
   padding: 4px 8px;
   height: max-content;
   white-space: nowrap;
-  font-size: var(--text-xs);
+  font-size: var(--text-2xs);
 }
 
 .zorai-run-card__meta,

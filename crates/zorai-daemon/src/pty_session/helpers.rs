@@ -1,4 +1,5 @@
 use super::*;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 pub(super) fn pty_reader_loop(
     id: SessionId,
@@ -10,6 +11,7 @@ pub(super) fn pty_reader_loop(
     managed_lane: Arc<std::sync::Mutex<ManagedLaneState>>,
     active_command: Arc<std::sync::Mutex<Option<String>>>,
     tracked_cwd: Arc<std::sync::Mutex<Option<String>>>,
+    last_activity_at_ms: Arc<AtomicU64>,
     history: HistoryStore,
     workspace_id: Option<String>,
     cwd: Option<String>,
@@ -25,6 +27,7 @@ pub(super) fn pty_reader_loop(
                 break;
             }
             Ok(n) => {
+                last_activity_at_ms.store(super::unix_millis(), Ordering::Relaxed);
                 tracing::trace!(%id, bytes = n, "PTY reader got output");
                 let mut chunk = Vec::with_capacity(marker_tail.len() + n);
                 if !marker_tail.is_empty() {

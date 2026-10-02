@@ -252,10 +252,7 @@ async fn load_graph_seed_nodes(history: &HistoryStore, query: &str) -> Result<Ve
     Ok(seeds)
 }
 
-pub(crate) fn schedule_background_skill_catalog_sync(
-    history: HistoryStore,
-    skills_root: PathBuf,
-) {
+pub(crate) fn schedule_background_skill_catalog_sync(history: HistoryStore, skills_root: PathBuf) {
     tokio::spawn(async move {
         if let Err(error) = sync_skill_catalog(&history, &skills_root).await {
             tracing::warn!(

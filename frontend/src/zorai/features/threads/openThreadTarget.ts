@@ -3,9 +3,43 @@ import { normalizeBridgePayload } from "@/components/agent-chat-panel/runtime/da
 import { findThreadByAuthoritativeIdentity } from "@/components/agent-chat-panel/runtime/threadListQueries";
 import { getAgentBridge } from "@/lib/agentDaemonConfig";
 import { PRIMARY_AGENT_NAME } from "@/lib/agentNames";
-import { buildHydratedRemoteThread, useAgentStore, type RemoteAgentThreadRecord } from "@/lib/agentStore";
+import { buildHydratedRemoteThread, useAgentStore, type AgentThread, type RemoteAgentThreadRecord } from "@/lib/agentStore";
 import { beginThreadLoading } from "./threadLoadingStore";
 import { resolveReactChatHistoryMessageLimit } from "@/lib/chatHistoryPageSize";
+
+export function openListedThread(runtime: AgentChatPanelRuntimeValue, listed: AgentThread): Promise<boolean> {
+  const localId = ensureListedThread(listed);
+  return openThreadTarget(runtime, localId);
+}
+
+function ensureListedThread(listed: AgentThread): string {
+  const daemonThreadId = listed.daemonThreadId?.trim() || listed.id;
+  const existing = findThreadByAuthoritativeIdentity(useAgentStore.getState().threads, daemonThreadId)
+    ?? findThreadByAuthoritativeIdentity(useAgentStore.getState().threads, listed.id);
+  if (existing) return existing.id;
+
+  const thread: AgentThread = {
+    ...listed,
+    daemonThreadId,
+  };
+  useAgentStore.setState((state) => {
+    if (state.threads.some((entry) => entry.id === thread.id || entry.daemonThreadId === daemonThreadId)) {
+      return {};
+    }
+    return {
+      threads: [thread, ...state.threads],
+      messages: {
+        ...state.messages,
+        [thread.id]: state.messages[thread.id] ?? [],
+      },
+      todos: {
+        ...state.todos,
+        [thread.id]: state.todos[thread.id] ?? [],
+      },
+    };
+  });
+  return thread.id;
+}
 
 export async function openThreadTarget(runtime: AgentChatPanelRuntimeValue, targetThreadId: string): Promise<boolean> {
   const target = targetThreadId.trim();

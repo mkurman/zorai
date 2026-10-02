@@ -116,7 +116,7 @@ pub(crate) fn compaction_candidate_with_mode(
         return None;
     }
     if mode == CompactionCandidateMode::Automatic
-        && config.provider == zorai_shared::providers::PROVIDER_ID_CLAUDE_CODE_CLI
+        && crate::agent::types::provider_uses_local_subscription_cli(&config.provider)
     {
         return None;
     }

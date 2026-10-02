@@ -298,4 +298,33 @@ describe("handleWorkspaceCommand close_agent_terminal", () => {
     expect(findPaneIdsForSession(useWorkspaceStore.getState().workspaces, "sess-subagent-1")).toEqual([]);
     expect(useWorkspaceStore.getState().workspaces.find((workspace) => workspace.id === agentWorkspaceId)).toBeTruthy();
   });
+
+  it("removes an agent workspace once its last managed terminal is reclaimed", () => {
+    const store = useWorkspaceStore.getState();
+    const operatorId = store.createWorkspace("Operator workspace", { layoutMode: "canvas", makeActive: true });
+    const agentWorkspaceId = store.createWorkspace("Agent - structural candidate", {
+      layoutMode: "canvas",
+      makeActive: false,
+      agentOwned: true,
+    });
+    useWorkspaceStore.setState((state) => ({
+      workspaces: state.workspaces.map((workspace) => (
+        workspace.id === agentWorkspaceId ? { ...workspace, createdAt: Date.now() - 60_000 } : workspace
+      )),
+    }));
+    const agentSurfaceId = useWorkspaceStore.getState().workspaces.find((workspace) => workspace.id === agentWorkspaceId)
+      ?.activeSurfaceId ?? null;
+    store.createCanvasPanel(agentSurfaceId ?? undefined, {
+      paneName: "Coordinator",
+      sessionId: "sess-agent-1",
+    });
+
+    handleWorkspaceCommand({
+      command: "close_agent_terminal",
+      args: { session_id: "sess-agent-1", reason: "idle" },
+    });
+
+    expect(useWorkspaceStore.getState().workspaces.find((workspace) => workspace.id === agentWorkspaceId)).toBeUndefined();
+    expect(useWorkspaceStore.getState().workspaces.find((workspace) => workspace.id === operatorId)).toBeTruthy();
+  });
 });

@@ -107,6 +107,14 @@ const ANTHROPIC_MODELS: ModelDefinition[] = [
   { id: "claude-3-haiku-20240307", name: "Claude Haiku 3", contextWindow: 200_000, modalities: M_TI },
 ];
 
+const CURSOR_MODELS: ModelDefinition[] = [
+  { id: "auto", name: "Auto", contextWindow: 200_000, modalities: M_TI },
+  { id: "composer-2.5", name: "Composer 2.5", contextWindow: 200_000, modalities: M_TI },
+  { id: "grok-4.7", name: "Grok 4.7", contextWindow: 200_000, modalities: M_TI },
+  { id: "grok-4.6", name: "Grok 4.6", contextWindow: 200_000, modalities: M_TI },
+  { id: "grok-4.5", name: "Grok 4.5", contextWindow: 200_000, modalities: M_TI },
+];
+
 const GITHUB_COPILOT_MODELS: ModelDefinition[] = [
   { id: "gpt-5.4", name: "GPT-5.4", contextWindow: 400_000, modalities: M_TI },
   { id: "gpt-5.5", name: "GPT-5.5", contextWindow: 400_000, modalities: M_TI },
@@ -482,6 +490,7 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
   { id: "xiaomi-mimo-token-plan", name: "Xiaomi MiMo Token Plan", defaultBaseUrl: "https://token-plan-ams.xiaomimimo.com/v1", defaultModel: "mimo-v2.5-pro", apiType: "openai", authMethod: "bearer", models: XIAOMI_MIMO_TOKEN_PLAN_MODELS, supportsModelFetch: false, anthropicBaseUrl: "https://token-plan-ams.xiaomimimo.com/anthropic", supportedTransports: ["chat_completions", "anthropic_messages"], defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: false },
   { id: "opencode-zen", name: "OpenCode Zen", defaultBaseUrl: "https://opencode.ai/zen/v1", defaultModel: "claude-sonnet-4-5", apiType: "anthropic", authMethod: "bearer", models: OPENCODE_ZEN_MODELS, supportsModelFetch: true, supportedTransports: CHAT_AND_ANTHROPIC_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: false },
   { id: "opencode-go", name: "OpenCode Go", defaultBaseUrl: "https://opencode.ai/zen/go/v1", defaultModel: "glm-5.1", apiType: "anthropic", authMethod: "bearer", models: OPENCODE_GO_MODELS, supportsModelFetch: true, supportedTransports: CHAT_AND_ANTHROPIC_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: false },
+  { id: "cursor", name: "Cursor", defaultBaseUrl: "", defaultModel: "auto", apiType: "openai", authMethod: "bearer", models: CURSOR_MODELS, supportsModelFetch: false, supportedTransports: ["native_assistant"], defaultTransport: "native_assistant", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", nativeTransportKind: "cursor_cli", supportsResponseContinuity: false },
   { id: "custom", name: "Custom", defaultBaseUrl: "", defaultModel: "", apiType: "openai", authMethod: "bearer", models: EMPTY_MODELS, supportsModelFetch: false, supportedTransports: RESPONSES_AND_CHAT_TRANSPORTS, defaultTransport: "responses", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
 ];
 
@@ -544,7 +553,9 @@ function normalizeProviderCatalogEntry(raw: any): ProviderDefinition | null {
     defaultTransport,
     supportedAuthSources,
     defaultAuthSource,
-    nativeTransportKind: raw.native_transport_kind === "alibaba_assistant_api" ? "alibaba_assistant_api" : undefined,
+    nativeTransportKind: raw.native_transport_kind === "alibaba_assistant_api" || raw.native_transport_kind === "cursor_cli"
+      ? raw.native_transport_kind
+      : undefined,
     nativeBaseUrl: typeof raw.native_base_url === "string" ? raw.native_base_url : undefined,
     supportsResponseContinuity: Boolean(raw.supports_response_continuity),
   };

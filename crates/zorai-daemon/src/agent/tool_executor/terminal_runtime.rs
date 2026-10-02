@@ -186,8 +186,13 @@ pub(crate) fn bash_command_should_force_background(args: &serde_json::Value) -> 
     // An explicitly requested wait flag is authoritative: only the >600s
     // auto-background cap may override it. If the caller explicitly asked to
     // wait, never silently rewrite that into a background dispatch.
-    let wait_explicitly_requested = args.get("wait_for_completion").and_then(|value| value.as_bool())
-        .or_else(|| args.get("wait_for_response").and_then(|value| value.as_bool()));
+    let wait_explicitly_requested = args
+        .get("wait_for_completion")
+        .and_then(|value| value.as_bool())
+        .or_else(|| {
+            args.get("wait_for_response")
+                .and_then(|value| value.as_bool())
+        });
     if wait_explicitly_requested == Some(true) {
         let requested_timeout = args
             .get("timeout_seconds")

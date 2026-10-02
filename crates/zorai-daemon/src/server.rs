@@ -234,6 +234,7 @@ fn client_message_variant_name(msg: &ClientMessage) -> &'static str {
         AgentListTasks => "AgentListTasks",
         AgentListGoalRuns { .. } => "AgentListGoalRuns",
         AgentGetThread { .. } => "AgentGetThread",
+        AgentForceCompact { .. } => "AgentForceCompact",
         AgentRequestConciergeWelcome => "AgentRequestConciergeWelcome",
         AgentDismissConciergeWelcome => "AgentDismissConciergeWelcome",
         AgentGetConciergeConfig => "AgentGetConciergeConfig",

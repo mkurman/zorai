@@ -41,30 +41,85 @@ export function parseHandoffSystemEvent(content: string): HandoffSystemEvent | n
   }
 }
 
+type BuiltDisplayItems = {
+  messages: AgentMessage[];
+  items: ChatDisplayItem[];
+  itemStarts: number[];
+  itemEnds: number[];
+};
+
+const recentDisplayBuilds: BuiltDisplayItems[] = [];
+
 export function buildDisplayItems(messages: AgentMessage[]): ChatDisplayItem[] {
-  const items: ChatDisplayItem[] = [];
+  if (messages.length === 0) return [];
+
+  let best: BuiltDisplayItems | null = null;
+  let bestShared = 0;
+  for (const candidate of recentDisplayBuilds) {
+    const limit = Math.min(candidate.messages.length, messages.length);
+    let shared = 0;
+    while (shared < limit && candidate.messages[shared] === messages[shared]) shared += 1;
+    if (shared > bestShared) {
+      best = candidate;
+      bestShared = shared;
+    }
+  }
+
+  if (best && bestShared === messages.length && bestShared === best.messages.length) {
+    return best.items;
+  }
+
+  const built = best && bestShared > 0
+    ? rebuildDisplayItems(messages, best, bestShared)
+    : buildDisplayItemsFrom(messages, 0, emptyDisplayBuild(messages));
+  recentDisplayBuilds.unshift(built);
+  if (recentDisplayBuilds.length > 4) recentDisplayBuilds.length = 4;
+  return built.items;
+}
+
+function emptyDisplayBuild(messages: AgentMessage[]): BuiltDisplayItems {
+  return { messages, items: [], itemStarts: [], itemEnds: [] };
+}
+
+function rebuildDisplayItems(messages: AgentMessage[], previous: BuiltDisplayItems, shared: number): BuiltDisplayItems {
+  let keep = 0;
+  while (keep < previous.items.length && previous.itemEnds[keep] < shared) keep += 1;
+  const restart = keep < previous.items.length ? previous.itemStarts[keep] : shared;
+  return buildDisplayItemsFrom(messages, restart, {
+    messages,
+    items: previous.items.slice(0, keep),
+    itemStarts: previous.itemStarts.slice(0, keep),
+    itemEnds: previous.itemEnds.slice(0, keep),
+  });
+}
+
+function buildDisplayItemsFrom(messages: AgentMessage[], from: number, built: BuiltDisplayItems): BuiltDisplayItems {
   let groups = new Map<string, ToolEventGroup>();
   let pendingToolList: ToolEventGroup[] | null = null;
   let pendingToolListKey: string | null = null;
   let pendingToolAttribution: ToolEventAttribution | undefined;
+  let pendingToolStart = -1;
   let nextToolAttribution: ToolEventAttribution | undefined;
 
-  const flushToolList = () => {
+  const flushToolList = (endIndex: number) => {
     if (pendingToolList && pendingToolList.length > 0) {
-      items.push({
+      built.items.push({
         type: "toolList",
         key: pendingToolListKey ?? `tool-list:${pendingToolList[0].key}`,
         groups: pendingToolList,
         attribution: pendingToolAttribution,
       });
+      built.itemStarts.push(pendingToolStart);
+      built.itemEnds.push(endIndex);
     }
     pendingToolList = null;
     pendingToolListKey = null;
     pendingToolAttribution = undefined;
+    pendingToolStart = -1;
     groups = new Map<string, ToolEventGroup>();
   };
 
-  for (let index = 0; index < messages.length; index += 1) {
+  for (let index = from; index < messages.length; index += 1) {
     const message = messages[index];
     if (isAssistantToolCallEnvelope(message)) {
       if (!pendingToolList) {
@@ -72,6 +127,7 @@ export function buildDisplayItems(messages: AgentMessage[]): ChatDisplayItem[] {
           authorAgentName: message.authorAgentName,
           createdAt: message.createdAt,
         };
+        if (pendingToolStart < 0) pendingToolStart = index;
       }
       continue;
     }
@@ -80,9 +136,12 @@ export function buildDisplayItems(messages: AgentMessage[]): ChatDisplayItem[] {
     }
 
     if (message.role !== "tool") {
-      flushToolList();
+      flushToolList(index - 1);
       nextToolAttribution = undefined;
-      items.push({ type: "message", message });
+      pendingToolStart = -1;
+      built.items.push({ type: "message", message });
+      built.itemStarts.push(index);
+      built.itemEnds.push(index);
       continue;
     }
 
@@ -106,6 +165,7 @@ export function buildDisplayItems(messages: AgentMessage[]): ChatDisplayItem[] {
         pendingToolListKey = `tool-list:${message.id}`;
         pendingToolAttribution = nextToolAttribution;
         nextToolAttribution = undefined;
+        if (pendingToolStart < 0) pendingToolStart = index;
       }
       pendingToolList.push(initialGroup);
       continue;
@@ -123,9 +183,8 @@ export function buildDisplayItems(messages: AgentMessage[]): ChatDisplayItem[] {
     existing.createdAt = Math.min(existing.createdAt, message.createdAt);
   }
 
-  flushToolList();
-
-  return items;
+  flushToolList(messages.length - 1);
+  return built;
 }
 
 export function assistantMessageHasVisibleContent(content: string): boolean {

@@ -125,10 +125,7 @@ impl LibsqlConn {
             set_stmts.push("PRAGMA synchronous = NORMAL");
         }
         set_stmts.push("PRAGMA temp_store = MEMORY");
-        let cache_sql = format!(
-            "PRAGMA cache_size = {}",
-            super::SQLITE_PAGE_CACHE_KIB
-        );
+        let cache_sql = format!("PRAGMA cache_size = {}", super::SQLITE_PAGE_CACHE_KIB);
         set_stmts.push(cache_sql.as_str());
         for stmt in set_stmts {
             if let Err(e) = self.conn.execute(stmt, ()).await {

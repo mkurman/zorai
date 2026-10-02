@@ -6,10 +6,10 @@ use crate::agent::{
 };
 use crate::session_manager::SessionManager;
 use std::sync::{Arc, Mutex};
-use tokio_util::sync::CancellationToken;
 use tempfile::tempdir;
 use tokio::sync::broadcast;
 use tokio::time::{timeout, Duration};
+use tokio_util::sync::CancellationToken;
 use zorai_protocol::tool_names;
 use zorai_protocol::{DaemonMessage, GatewaySendResult};
 
@@ -3522,24 +3522,24 @@ async fn spawn_subagent_assigns_unique_persona_per_parent_scope() {
     let persona_id_for = |result: String| {
         let engine = engine.clone();
         async move {
-        let tasks = engine.list_tasks().await;
-        let task = tasks
-            .iter()
-            .find(|task| result.contains(&task.id))
-            .expect("spawned subagent should exist");
-        let prompt = task
-            .override_system_prompt
-            .as_deref()
-            .expect("spawned subagent should carry a persona prompt");
-        prompt
-            .lines()
-            .find_map(|line: &str| {
-                line.trim()
-                    .strip_prefix("Agent persona id:")
-                    .map(str::trim)
-                    .map(str::to_string)
-            })
-            .expect("persona prompt should expose the persona id")
+            let tasks = engine.list_tasks().await;
+            let task = tasks
+                .iter()
+                .find(|task| result.contains(&task.id))
+                .expect("spawned subagent should exist");
+            let prompt = task
+                .override_system_prompt
+                .as_deref()
+                .expect("spawned subagent should carry a persona prompt");
+            prompt
+                .lines()
+                .find_map(|line: &str| {
+                    line.trim()
+                        .strip_prefix("Agent persona id:")
+                        .map(str::trim)
+                        .map(str::to_string)
+                })
+                .expect("persona prompt should expose the persona id")
         }
     };
 
@@ -3658,7 +3658,10 @@ async fn message_agent_routes_sibling_dm_to_active_task_thread() {
     );
     let payload: serde_json::Value =
         serde_json::from_str(&result.content).expect("sibling DM result should be JSON");
-    assert_eq!(payload["sibling_task_id"], serde_json::json!(sibling_task.id));
+    assert_eq!(
+        payload["sibling_task_id"],
+        serde_json::json!(sibling_task.id)
+    );
     assert_eq!(payload["thread_id"], serde_json::json!(sibling_thread_id));
     assert!(
         !engine
@@ -3750,10 +3753,10 @@ async fn message_agent_rejects_spawned_subagent_dm_to_unused_global_persona() {
         result.content
     );
     assert!(
-        result
-            .content
-            .contains("no active sibling subagent named") 
-            || result.content.contains("only internal-DM their active siblings"),
+        result.content.contains("no active sibling subagent named")
+            || result
+                .content
+                .contains("only internal-DM their active siblings"),
         "rejection should explain scope rules: {}",
         result.content
     );

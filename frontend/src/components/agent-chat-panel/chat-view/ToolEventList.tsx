@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import type { ToolEventAttribution, ToolEventGroup } from "./types";
-import { MemoizedToolEventRow } from "./ToolEventRow";
+import { MemoizedToolEventRow, sameToolEventGroup } from "./ToolEventRow";
 
-export function ToolEventList({
+export const ToolEventList = memo(function ToolEventList({
   groups,
   attribution,
   fallbackAuthorName,
@@ -12,16 +12,13 @@ export function ToolEventList({
   fallbackAuthorName?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const summary = summarizeToolGroups(groups);
 
-  if (groups.length === 0) {
+  if (groups.length === 0 || !summary) {
     return null;
   }
 
-  const doneCount = groups.filter((group) => group.status === "done").length;
-  const working = groups.some(
-    (group) => group.status === "requested" || group.status === "executing",
-  );
-  const title = groups[groups.length - 1]?.toolName?.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ") || "Tools";
+  const { doneCount, working, title } = summary;
 
   return (
     <div className="acp-tool-list">
@@ -56,6 +53,32 @@ export function ToolEventList({
       )}
     </div>
   );
+}, (prev, next) => (
+  prev.fallbackAuthorName === next.fallbackAuthorName
+  && prev.attribution?.authorAgentName === next.attribution?.authorAgentName
+  && prev.attribution?.createdAt === next.attribution?.createdAt
+  && sameToolEventGroups(prev.groups, next.groups)
+));
+
+function sameToolEventGroups(prev: ToolEventGroup[], next: ToolEventGroup[]): boolean {
+  if (prev.length !== next.length) return false;
+  for (let index = 0; index < prev.length; index += 1) {
+    if (!sameToolEventGroup(prev[index], next[index])) return false;
+  }
+  return true;
+}
+
+function summarizeToolGroups(groups: ToolEventGroup[]): { doneCount: number; working: boolean; title: string } | null {
+  if (groups.length === 0) return null;
+  let doneCount = 0;
+  let working = false;
+  for (const group of groups) {
+    if (group.status === "done") doneCount += 1;
+    else if (group.status === "requested" || group.status === "executing") working = true;
+  }
+  const rawName = groups[groups.length - 1]?.toolName || "Tools";
+  const title = rawName.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+  return { doneCount, working, title };
 }
 
 function formatToolEventTime(timestamp: number): string {

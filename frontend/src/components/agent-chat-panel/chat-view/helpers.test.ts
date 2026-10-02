@@ -211,4 +211,26 @@ describe("buildDisplayItems", () => {
     expect(assistantMessageHasVisibleContent("Calling tools...")).toBe(false);
     expect(assistantMessageHasVisibleContent("The command completed.")).toBe(true);
   });
+
+  it("reuses earlier tool groups when only the streaming tail changes", () => {
+    const user = message({ id: "user", role: "user", content: "Run ls", createdAt: 1 });
+    const tool = message({
+      id: "tool-1",
+      role: "tool",
+      toolCallId: "call-1",
+      toolName: "bash_command",
+      toolStatus: "done",
+      content: "ok",
+      createdAt: 2,
+    });
+    const draft = message({ id: "assistant", role: "assistant", content: "Working", createdAt: 3, isStreaming: true });
+    const first = buildDisplayItems([user, tool, draft]);
+    const streamed = { ...draft, content: "Working." };
+    const second = buildDisplayItems([user, tool, streamed]);
+    const firstTools = first.find((item) => item.type === "toolList");
+    const secondTools = second.find((item) => item.type === "toolList");
+
+    expect(secondTools).toBe(firstTools);
+    expect(second.at(-1)).toMatchObject({ type: "message", message: streamed });
+  });
 });

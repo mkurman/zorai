@@ -194,10 +194,6 @@ async function runOlderThreadHistoryLoad(
       scroller.scrollTop = scroller.scrollHeight - previousHeight + previousTop;
     }
     endProgrammaticThreadHistoryScroll();
-    const stillUnscrollable = scroller.scrollHeight <= scroller.clientHeight + THREAD_HISTORY_SCROLL_THRESHOLD_PX;
-    if (stillUnscrollable || scroller.scrollTop <= THREAD_HISTORY_SCROLL_THRESHOLD_PX) {
-      scheduleOlderThreadHistoryLoad(scroller, loadOlder, olderLoadCooldownUntil);
-    }
   });
 }
 

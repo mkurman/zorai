@@ -4,7 +4,7 @@ import { getAgentDbApi } from "@/lib/agentStore/history";
 import { getAgentBridge, shouldUseDaemonRuntime } from "@/lib/agentDaemonConfig";
 import { fetchAgentRuns, isSubagentRun, type AgentRun } from "@/lib/agentRuns";
 import { fetchThreadTodos } from "@/lib/agentTodos";
-import { beginThreadLoading } from "@/zorai/features/threads/threadLoadingStore";
+import { beginThreadLoadingFor } from "@/zorai/features/threads/threadLoadingStore";
 import { isLeadOnlyPersona, LEAD_PERSONA_SPAWN_ERROR } from "@/zorai/features/threads/leadPersonas";
 import { sameAgentRunSnapshot } from "@/zorai/features/threads/sessionCooperation";
 import {
@@ -488,11 +488,14 @@ export function useAgentChatPanelProviderValue(): {
     });
   }, [activeThreadId]);
 
-  const stopStreaming = useCallback((threadId?: string | null) => {
+  const stopStreaming = useCallback((threadId?: string | null, daemonThreadIdOverride?: string | null) => {
     const targetThreadId = threadId ?? activeThreadId;
-    if (!targetThreadId) return;
+    if (!targetThreadId && !daemonThreadIdOverride) return;
 
-    const daemonThreadId = resolveTargetDaemonThreadId(targetThreadId);
+    const resolvedDaemonThreadId = targetThreadId
+      ? resolveTargetDaemonThreadId(targetThreadId)
+      : null;
+    const daemonThreadId = daemonThreadIdOverride?.trim() || resolvedDaemonThreadId;
     if (daemonThreadId) {
       suppressThreadRetryStatus(daemonThreadId);
     }
@@ -500,15 +503,19 @@ export function useAgentChatPanelProviderValue(): {
     if (shouldUseDaemonRuntime(agentSettings.agent_backend)) {
       const zorai = getAgentBridge();
       if (daemonThreadId && zorai?.agentStopStream) {
-        beginThreadStopBarrier(targetThreadId);
+        if (targetThreadId) beginThreadStopBarrier(targetThreadId);
         void zorai.agentStopStream(daemonThreadId).then((result) => {
           const accepted = result && typeof result === "object" && "ok" in result
             ? result.ok !== false
             : result !== false;
-          if (!accepted) completeThreadStopBarrier(targetThreadId);
-        }).catch(() => completeThreadStopBarrier(targetThreadId));
+          if (!accepted && targetThreadId) completeThreadStopBarrier(targetThreadId);
+        }).catch(() => {
+          if (targetThreadId) completeThreadStopBarrier(targetThreadId);
+        });
       }
     }
+
+    if (!targetThreadId) return;
 
     abortThreadStream(targetThreadId);
     if (abortRef.current) {
@@ -933,10 +940,14 @@ export function useAgentChatPanelProviderValue(): {
   ): Promise<boolean> => {
     const replaceEpoch = direction === "latest" ? threadHistoryReplaceEpoch(threadId) : undefined;
     const thread = useAgentStore.getState().threads.find((entry) => entry.id === threadId);
+    const trackedThreadIds = [threadId, thread?.daemonThreadId]
+      .map((id) => id?.trim())
+      .filter((id): id is string => Boolean(id));
+    const uniqueTrackedThreadIds = [...new Set(trackedThreadIds)];
     const finishLoading = direction === "latest"
       && thread?.daemonThreadId
       && getAgentBridge()?.agentGetThread
-      ? beginThreadLoading(threadId)
+      ? beginThreadLoadingFor(uniqueTrackedThreadIds)
       : () => {};
     const runThreadPageLoad = async (): Promise<boolean> => {
       try {

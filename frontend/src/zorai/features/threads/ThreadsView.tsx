@@ -1,6 +1,6 @@
 import { LoadingState } from "@/components/LoadingState";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type UIEvent } from "react";
-import { ToolEventRow } from "@/components/agent-chat-panel/chat-view/ToolEventRow";
+import { MemoizedToolEventRow } from "@/components/agent-chat-panel/chat-view/ToolEventRow";
 import { ToolEventList } from "@/components/agent-chat-panel/chat-view/ToolEventList";
 import { buildDisplayItems } from "@/components/agent-chat-panel/chat-view/helpers";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
@@ -14,13 +14,15 @@ import {
   shouldFollowThreadHistoryBottom,
   threadHasOlderHistory,
 } from "@/components/agent-chat-panel/runtime/threadHistoryScroll";
-import { useAgentStore, type AgentThread } from "@/lib/agentStore";
+import { useAgentStore, type AgentMessage, type AgentThread } from "@/lib/agentStore";
 import { fetchAgentTasks, type AgentQueueTask } from "@/lib/agentTaskQueue";
 import { ThreadFilePreviewOverlay } from "./ThreadFilePreviewOverlay";
 import { ThreadComposer } from "./ThreadComposer";
 import { ThreadCompactSessionBar } from "./ThreadCompactSessionBar";
 import { ThreadActivityRow } from "./ThreadActivityRow";
 import { classifyThreadActivityMessage } from "./threadActivityModel";
+import { endThreadCompaction, messageTimeMs, useThreadCompaction } from "./threadCompactionStatus";
+import { isCompactionArtifactMessage } from "@/components/agent-chat-panel/chat-view/compactionArtifact";
 import { ThreadHandoffControl } from "./ThreadHandoffControl";
 import { ThreadParticipantsDrawer } from "./ThreadParticipantsDrawer";
 import { buildThreadAgentOptions } from "./threadHandoffModel";
@@ -36,7 +38,7 @@ import { ThreadRetryStatusBanner } from "./ThreadRetryStatusBanner";
 import { useThreadRetryStatus } from "./threadRetryStatus";
 import { resolveThreadOwnerRuntimeProfile } from "./threadOwnerRuntime";
 import type { ZoraiReturnTarget } from "../../shell/zoraiNavigationEvents";
-import { shouldShowConversationSkeleton, useThreadLoadingStore } from "./threadLoadingStore";
+import { isThreadLoading, shouldShowConversationSkeleton, useThreadLoadingStore } from "./threadLoadingStore";
 import { threadReadKey, useThreadReadStateStore } from "./threadReadStateStore";
 import { DelegatedSessionSlot } from "./DelegatedSessionBar";
 import { ThreadSessionTabs } from "./SessionTabStrip";
@@ -68,6 +70,7 @@ export function ThreadsView({
   compactHeaderActions?: ReactNode;
 } = {}) {
   const threadLoadingPending = useThreadLoadingStore((state) => state.pending);
+  const threadLoadingByThreadId = useThreadLoadingStore((state) => state.byThreadId);
   const runtime = useAgentChatPanelRuntime();
   const [pinLimitResult, setPinLimitResult] = useState<ZoraiThreadMessagePinResult | null>(null);
   const [participantsOpen, setParticipantsOpen] = useState(false);
@@ -87,14 +90,9 @@ export function ThreadsView({
       ? activity.operations.filter((operation) => operation.state === "accepted" || operation.state === "started")
       : [];
   }), [runtime.messages]);
-  const latestUserMessage = useMemo(
-    () => [...runtime.messages].reverse().find((message) => message.role === "user" && message.content.trim()),
-    [runtime.messages],
-  );
-  const latestAssistantMessageId = useMemo(
-    () => [...runtime.messages].reverse().find((message) => message.role === "assistant")?.id,
-    [runtime.messages],
-  );
+  const threadEnds = useMemo(() => latestThreadEnds(runtime.messages), [runtime.messages]);
+  const latestUserMessage = threadEnds.latestUserMessage;
+  const latestAssistantMessageId = threadEnds.latestAssistantMessageId;
   const regenerateAssistantMessage = useCallback((messageId: string) => {
     const index = runtime.messages.findIndex((entry) => entry.id === messageId);
     if (index <= 0) return;
@@ -120,6 +118,15 @@ export function ThreadsView({
     runtime.activeThread?.daemonThreadId,
     runtime.activeThread?.id,
   );
+  const compactionStatus = useThreadCompaction(runtime.activeThread?.daemonThreadId ?? runtime.activeThread?.id);
+  useEffect(() => {
+    if (!compactionStatus) return;
+    const arrived = runtime.messages.some((message) => (
+      isCompactionArtifactMessage(message)
+      && messageTimeMs(message.createdAt) >= compactionStatus.startedAt - 5_000
+    ));
+    if (arrived) endThreadCompaction(compactionStatus.daemonThreadId);
+  }, [compactionStatus, runtime.messages]);
 
   // Global shortcuts for the thread surface:
   //   Ctrl+L — speak/stop the latest assistant message
@@ -205,8 +212,12 @@ export function ThreadsView({
     endProgrammaticThreadHistoryScroll();
   }, [activeThreadId, runtime.messages]);
 
+  const activeThreadLoading = runtime.activeThread
+    ? isThreadLoading(threadLoadingByThreadId, runtime.activeThread.id, runtime.activeThread.daemonThreadId)
+    : false;
   const showConversationSkeleton = shouldShowConversationSkeleton({
     pending: threadLoadingPending,
+    activeThreadLoading,
     hasActiveThread: Boolean(runtime.activeThread),
     loadedMessageCount: runtime.messages.length,
     knownHistory: Boolean(
@@ -230,7 +241,6 @@ export function ThreadsView({
     threadLoadingPending,
     runtime.activeThread,
     runtime.loadOlderThreadMessages,
-    runtime.messages.length,
   ]);
 
   if (showConversationSkeleton && !runtime.activeThread) {
@@ -374,7 +384,7 @@ export function ThreadsView({
             );
           }
           if (item.type === "tool") {
-            return <ToolEventRow key={`tool_${item.group.key}`} group={item.group} />;
+            return <MemoizedToolEventRow key={`tool_${item.group.key}`} group={item.group} />;
           }
 
           const message = item.message;
@@ -415,11 +425,14 @@ export function ThreadsView({
           <ThreadRetryStatusBanner
             status={retryStatus}
             onRetryNow={() => runtime.retryStreamNow(runtime.activeThreadId)}
-            onStop={() => runtime.stopStreaming(runtime.activeThreadId)}
+            onStop={() => runtime.stopStreaming(runtime.activeThreadId, retryStatus.daemonThreadId)}
           />
+        ) : null}
+        {compactionStatus ? (
+          <ThinkingIndicator label="Compaction" />
         ) : runtime.isStreamingResponse ? (
           <ThinkingIndicator
-            agentName={runtime.activeThread.agent_name}
+            label={runtime.activeThread.agent_name}
             continueAttributedTurn={streamingContinuesAttributedToolSet}
           />
         ) : null}
@@ -450,6 +463,25 @@ export function ThreadsView({
       <ThreadFilePreviewOverlay />
     </section>
   );
+}
+
+function latestThreadEnds(messages: AgentMessage[]): {
+  latestUserMessage: AgentMessage | undefined;
+  latestAssistantMessageId: string | undefined;
+} {
+  let latestUserMessage: AgentMessage | undefined;
+  let latestAssistantMessageId: string | undefined;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!latestAssistantMessageId && message.role === "assistant") {
+      latestAssistantMessageId = message.id;
+    }
+    if (!latestUserMessage && message.role === "user" && message.content.trim()) {
+      latestUserMessage = message;
+    }
+    if (latestUserMessage && latestAssistantMessageId) break;
+  }
+  return { latestUserMessage, latestAssistantMessageId };
 }
 
 function actualThreadResponderLabel(thread: AgentThread): string {
@@ -537,10 +569,10 @@ function ThreadRuntimeSummary({ thread }: { thread: AgentThread }) {
 }
 
 function ThinkingIndicator({
-  agentName,
+  label,
   continueAttributedTurn = false,
 }: {
-  agentName: string;
+  label: string;
   continueAttributedTurn?: boolean;
 }) {
   return (
@@ -548,11 +580,11 @@ function ThinkingIndicator({
       className={["zorai-thinking", continueAttributedTurn ? "zorai-thinking--continued" : ""].filter(Boolean).join(" ")}
       role="status"
       aria-live="polite"
-      aria-label={continueAttributedTurn ? `${agentName} is still working` : undefined}
+      aria-label={continueAttributedTurn ? `${label} is still working` : `${label} in progress`}
     >
       <div className="zorai-thinking__body">
         <div className="zorai-thinking__label">
-          {continueAttributedTurn ? null : <strong>{agentName}</strong>}
+          {continueAttributedTurn ? null : <strong>{label}</strong>}
           <span className="zorai-thinking__dots" aria-hidden="true">
             <span />
             <span />

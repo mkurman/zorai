@@ -474,6 +474,10 @@ impl DaemonClient {
         })
     }
 
+    pub fn logout_provider(&self, provider_id: String) -> Result<()> {
+        self.send(ClientMessage::AgentLogoutProvider { provider_id })
+    }
+
     pub fn validate_provider(
         &self,
         provider_id: String,

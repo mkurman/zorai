@@ -416,12 +416,12 @@ impl TuiModel {
                 ..
             } => {
                 let payload_json = match verdict.as_str() {
-                    "soft_reject" => Some(
-                        "{\"explanation\":\"Supervisor requested more work.\"}".to_string(),
-                    ),
-                    "hard_reject" => Some(
-                        "{\"explanation\":\"Supervisor rejected the goal.\"}".to_string(),
-                    ),
+                    "soft_reject" => {
+                        Some("{\"explanation\":\"Supervisor requested more work.\"}".to_string())
+                    }
+                    "hard_reject" => {
+                        Some("{\"explanation\":\"Supervisor rejected the goal.\"}".to_string())
+                    }
                     _ => None,
                 };
                 self.send_daemon_command(DaemonCommand::ControlGoalRun {

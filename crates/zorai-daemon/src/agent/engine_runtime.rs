@@ -421,6 +421,10 @@ impl AgentEngine {
     }
 
     pub async fn stop_stream(&self, thread_id: &str) -> bool {
+        self.operator_stopped_streams
+            .lock()
+            .await
+            .insert(thread_id.to_string());
         let token = {
             let streams = self.stream_cancellations.lock().await;
             streams.get(thread_id).map(|entry| entry.token.clone())
@@ -442,6 +446,17 @@ impl AgentEngine {
         }
     }
 
+    pub(crate) async fn clear_operator_stream_stop(&self, thread_id: &str) {
+        self.operator_stopped_streams.lock().await.remove(thread_id);
+    }
+
+    pub(crate) async fn operator_stream_stop_requested(&self, thread_id: &str) -> bool {
+        self.operator_stopped_streams
+            .lock()
+            .await
+            .contains(thread_id)
+    }
+
     pub async fn notify_stream_retry_waiters(&self, thread_id: &str) {
         let retry_now = {
             let streams = self.stream_cancellations.lock().await;
@@ -455,9 +470,9 @@ impl AgentEngine {
     pub async fn retry_stream_now(self: &Arc<Self>, thread_id: &str) -> bool {
         let active_retry_now = {
             let streams = self.stream_cancellations.lock().await;
-            streams.get(thread_id).and_then(|entry| {
-                (!entry.token.is_cancelled()).then(|| entry.retry_now.clone())
-            })
+            streams
+                .get(thread_id)
+                .and_then(|entry| (!entry.token.is_cancelled()).then(|| entry.retry_now.clone()))
         };
 
         if let Some(retry_now) = active_retry_now {

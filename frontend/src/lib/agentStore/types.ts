@@ -111,6 +111,7 @@ export type BuiltinAgentProviderId =
   | "xiaomi-mimo-token-plan"
   | "opencode-zen"
   | "opencode-go"
+  | "cursor"
   | "custom";
 
 export type AgentProviderId = BuiltinAgentProviderId | (string & {});
@@ -149,6 +150,7 @@ export const AGENT_PROVIDER_IDS: BuiltinAgentProviderId[] = [
   "xiaomi-mimo-token-plan",
   "opencode-zen",
   "opencode-go",
+  "cursor",
   "custom",
 ];
 
@@ -217,7 +219,7 @@ export type ApiTransportMode =
   | "responses"
   | "anthropic_messages"
   | "chat_completions";
-export type NativeTransportKind = "alibaba_assistant_api";
+export type NativeTransportKind = "alibaba_assistant_api" | "cursor_cli";
 export type Modality = "text" | "image" | "video" | "audio" | "embedding";
 export type AgentBackend = "daemon";
 

@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const { loadWindowIcon, resolveWindowFrameOptions, resolveWindowIcon } = require("./main/window-runtime.cjs");
+const { loadWindowIcon, resolveWindowFrameOptions, resolveWindowIcon, shouldOpenDevTools } = require("./main/window-runtime.cjs");
 
 test("Linux windows use the PNG app icon", () => {
     assert.equal(
@@ -75,6 +75,12 @@ test("File menu opens another Zorai window from the first item", () => {
     assert.ok(newWindow >= 0);
     assert.ok(newWindow < newWorkspace);
     assert.match(fileMenu, /label: 'New Window'[\s\S]*click: \(\) => createWindow\(\)/);
+});
+
+test("dev builds do not auto-open DevTools unless ZORAI_DEVTOOLS is set", () => {
+    assert.equal(shouldOpenDevTools({ isPackaged: false, env: {} }), false);
+    assert.equal(shouldOpenDevTools({ isPackaged: false, env: { ZORAI_DEVTOOLS: "1" } }), true);
+    assert.equal(shouldOpenDevTools({ isPackaged: true, env: { ZORAI_DEVTOOLS: "1" } }), false);
 });
 
 test("macOS preserves its existing hidden title bar", () => {

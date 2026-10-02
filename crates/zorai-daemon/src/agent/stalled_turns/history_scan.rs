@@ -23,9 +23,7 @@ impl AgentEngine {
             }
         }
         let wakeups = self.timer_wakeups.lock().await;
-        wakeups
-            .values()
-            .any(|wakeup| wakeup.thread_id == thread_id)
+        wakeups.values().any(|wakeup| wakeup.thread_id == thread_id)
     }
 
     pub(super) async fn collect_stalled_turn_observations(&self) -> Vec<ThreadStallObservation> {

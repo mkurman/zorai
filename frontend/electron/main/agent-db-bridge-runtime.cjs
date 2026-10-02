@@ -1,3 +1,20 @@
+const MAX_BRIDGE_STDOUT_CHARS = 256 * 1024 * 1024;
+
+function takeBridgeLines(buffer, chunk, maxChars = MAX_BRIDGE_STDOUT_CHARS) {
+    let next = buffer + chunk.toString("utf8");
+    const lines = [];
+    while (true) {
+        const newline = next.indexOf("\n");
+        if (newline < 0) break;
+        lines.push(next.slice(0, newline).replace(/\r$/, ""));
+        next = next.slice(newline + 1);
+    }
+    if (next.length > maxChars) {
+        next = "";
+    }
+    return { buffer: next, lines };
+}
+
 function isActionableConciergeWelcomeEvent(event) {
     return event?.type !== 'concierge_welcome'
         || (Array.isArray(event.actions) && event.actions.length > 0);
@@ -90,9 +107,9 @@ function createAgentDbBridgeRuntime(options) {
         agentBridge = { process: bridgeProcess, ready: false, pending: new Map(), stdoutBuffer: '' };
 
         bridgeProcess.stdout.on('data', (chunk) => {
-            agentBridge.stdoutBuffer += chunk.toString('utf8');
-            const lines = agentBridge.stdoutBuffer.split(/\r?\n/);
-            agentBridge.stdoutBuffer = lines.pop() ?? '';
+            const taken = takeBridgeLines(agentBridge.stdoutBuffer, chunk);
+            agentBridge.stdoutBuffer = taken.buffer;
+            const lines = taken.lines;
 
             for (const line of lines) {
                 if (!line.trim()) continue;
@@ -245,9 +262,9 @@ function createAgentDbBridgeRuntime(options) {
         dbBridge = { process: bridgeProcess, ready: false, pending: new Map(), stdoutBuffer: '' };
 
         bridgeProcess.stdout.on('data', (chunk) => {
-            dbBridge.stdoutBuffer += chunk.toString('utf8');
-            const lines = dbBridge.stdoutBuffer.split(/\r?\n/);
-            dbBridge.stdoutBuffer = lines.pop() ?? '';
+            const taken = takeBridgeLines(dbBridge.stdoutBuffer, chunk);
+            dbBridge.stdoutBuffer = taken.buffer;
+            const lines = taken.lines;
             for (const line of lines) {
                 if (!line.trim()) continue;
                 let event;
@@ -390,4 +407,4 @@ function createAgentDbBridgeRuntime(options) {
     };
 }
 
-module.exports = { createAgentDbBridgeRuntime, isActionableConciergeWelcomeEvent };
+module.exports = { createAgentDbBridgeRuntime, isActionableConciergeWelcomeEvent, takeBridgeLines };

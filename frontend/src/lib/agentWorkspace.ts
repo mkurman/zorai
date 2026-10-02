@@ -224,6 +224,7 @@ export async function provisionAgentWorkspaceTerminals(opts: {
     const workspaceId = store.createWorkspace(workspaceName, {
         layoutMode: "canvas",
         makeActive: false,
+        agentOwned: true,
     });
     const workspace = findWorkspaceById(workspaceId);
     const surfaceId = workspace?.activeSurfaceId ?? workspace?.surfaces[0]?.id ?? null;

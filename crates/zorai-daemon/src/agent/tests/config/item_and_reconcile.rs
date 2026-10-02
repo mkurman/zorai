@@ -542,10 +542,9 @@ async fn prepare_agent_provider_model_json_accepts_openrouter_fetched_models() {
 
     let mut config = engine.get_config().await;
     config.api_key = "sk-test".to_string();
-    config.sub_agents.push(test_user_sub_agent(
-        "subagent-openrouter",
-        "OpenRouterSub",
-    ));
+    config
+        .sub_agents
+        .push(test_user_sub_agent("subagent-openrouter", "OpenRouterSub"));
     config.providers.insert(
         PROVIDER_ID_OPENROUTER.to_string(),
         ProviderConfig {
@@ -605,10 +604,9 @@ async fn prepare_agent_provider_model_json_accepts_custom_subagent_models() {
 
     let mut config = engine.get_config().await;
     config.api_key = "sk-test".to_string();
-    config.sub_agents.push(test_user_sub_agent(
-        "subagent-custom",
-        "CustomSub",
-    ));
+    config
+        .sub_agents
+        .push(test_user_sub_agent("subagent-custom", "CustomSub"));
     config.providers.insert(
         PROVIDER_ID_ANTHROPIC.to_string(),
         ProviderConfig {

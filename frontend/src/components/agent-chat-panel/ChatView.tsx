@@ -9,7 +9,7 @@ import {
   summarizeSessionUsage,
 } from "./chat-view/helpers";
 import { ToolEventList } from "./chat-view/ToolEventList";
-import { ToolEventRow } from "./chat-view/ToolEventRow";
+import { MemoizedToolEventRow } from "./chat-view/ToolEventRow";
 import {
   buildTtsCacheKey,
   findLatestAgentToolTextToSpeechPlayback,
@@ -71,7 +71,7 @@ export function ChatView({
       });
     });
     return () => cancelAnimationFrame(frame);
-  }, [activeThread, messages.length, onLoadOlderMessages]);
+  }, [activeThread, onLoadOlderMessages]);
 
   const handleSendClick = () => {
     const text = readComposerDraftInput().trim();
@@ -347,7 +347,7 @@ export function ChatView({
             );
           }
           if (item.type === "tool") {
-            return <ToolEventRow key={`tool_${item.group.key}`} group={item.group} />;
+            return <MemoizedToolEventRow key={`tool_${item.group.key}`} group={item.group} />;
           }
 
           const message = item.message;

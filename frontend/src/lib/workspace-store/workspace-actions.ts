@@ -32,6 +32,7 @@ export function createWorkspaceActions(
       const layoutMode = opts?.layoutMode ?? "bsp";
       const makeActive = opts?.makeActive ?? true;
       const ws = createDefaultWorkspace(safeName || undefined, layoutMode);
+      if (opts?.agentOwned) ws.agentOwned = true;
       ctx.set((state) => {
         const workspaceBrowserState = {
           ...state.workspaceBrowserState,
@@ -117,6 +118,9 @@ export function createWorkspaceActions(
     setActiveWorkspace: (id) => ctx.set((state) => ({
       activeWorkspaceId: id,
       zoomedPaneId: null,
+      workspaces: state.workspaces.map((workspace) => (
+        workspace.id === id ? { ...workspace, lastActivityAt: Date.now() } : workspace
+      )),
       ...ctx.activateWorkspaceBrowserState(state.workspaceBrowserState, id),
     })),
 

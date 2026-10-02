@@ -188,7 +188,9 @@ pub(crate) fn push_active_thread_execution_profile_to_daemon(
         "model".to_string(),
         serde_json::Value::String(model_id.trim().to_string()),
     );
-    if let Some(reasoning_effort) = reasoning_effort.map(str::trim).filter(|value| !value.is_empty())
+    if let Some(reasoning_effort) = reasoning_effort
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
     {
         profile.insert(
             "reasoning_effort".to_string(),

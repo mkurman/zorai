@@ -346,6 +346,10 @@ function checkMcpHealth(_event, servers = {}) {
     return checks;
 }
 
+function shouldInjectRendererCorsHeaders(url) {
+    return typeof url === "string" && /^https?:\/\//i.test(url);
+}
+
 function getDaemonEndpoint() {
     if (process.platform === 'win32') {
         return { host: DAEMON_TCP_HOST, port: DAEMON_TCP_PORT };
@@ -609,6 +613,10 @@ app.whenReady().then(async () => {
     // Allow cross-origin API calls from the renderer (LLM providers, etc.)
     // Desktop apps don't need browser CORS restrictions.
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+        if (!shouldInjectRendererCorsHeaders(details.url)) {
+            callback({ responseHeaders: details.responseHeaders });
+            return;
+        }
         callback({
             responseHeaders: {
                 ...details.responseHeaders,

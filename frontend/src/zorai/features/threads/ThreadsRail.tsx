@@ -17,7 +17,7 @@ import {
   type DateFilterId,
   type ThreadFilterTab,
 } from "./threadFilterModel";
-import { openThreadTarget } from "./openThreadTarget";
+import { openListedThread } from "./openThreadTarget";
 import { isThreadLoading, useThreadLoadingStore } from "./threadLoadingStore";
 import { threadReadKey, useThreadReadStateStore } from "./threadReadStateStore";
 import {
@@ -276,7 +276,7 @@ export function ThreadsRail() {
               activity={sessionActivityLabel(thread.updatedAt, now)}
               history={threadHistoryLabel(thread)}
               editing={editingThreadId === thread.id}
-              onOpen={() => void openThreadTarget(runtime, thread.daemonThreadId || thread.id)}
+              onOpen={() => void openListedThread(runtime, thread)}
               onStartRename={() => setEditingThreadId(thread.id)}
               onRename={(title) => {
                 updateThreadTitle(thread.id, title);

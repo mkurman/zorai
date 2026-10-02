@@ -25,6 +25,7 @@ pub const PROVIDER_ID_AZURE_OPENAI: &str = "azure-openai";
 pub const PROVIDER_ID_CEREBRAS: &str = "cerebras";
 pub const PROVIDER_ID_CHUTES: &str = "chutes";
 pub const PROVIDER_ID_CLAUDE_CODE_CLI: &str = "claude-code-cli";
+pub const PROVIDER_ID_CURSOR: &str = "cursor";
 pub const PROVIDER_ID_CUSTOM: &str = "custom";
 pub const PROVIDER_ID_DEEPSEEK: &str = "deepseek";
 pub const PROVIDER_ID_ELEVENLABS: &str = "elevenlabs";

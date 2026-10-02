@@ -55,7 +55,7 @@ export interface WorkspaceState {
   webBrowserHistory: string[];
   webBrowserHistoryIndex: number;
   webBrowserReloadToken: number;
-  createWorkspace: (name?: string, opts?: { layoutMode?: SurfaceLayoutMode; makeActive?: boolean }) => WorkspaceId;
+  createWorkspace: (name?: string, opts?: { layoutMode?: SurfaceLayoutMode; makeActive?: boolean; agentOwned?: boolean }) => WorkspaceId;
   renameWorkspace: (id: WorkspaceId, name: string) => void;
   setWorkspaceIcon: (id: WorkspaceId, icon: string) => void;
   closeWorkspace: (id: WorkspaceId) => void;

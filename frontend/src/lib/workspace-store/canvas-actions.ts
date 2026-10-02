@@ -446,6 +446,11 @@ export function createCanvasActions(
           surfaces,
           activeSurfaceId,
           createdAt: Date.now(),
+          agentOwned: workspace.agentOwned === true
+            || (typeof workspace.name === "string" && workspace.name.startsWith("Agent - ")),
+          lastActivityAt: typeof workspace.lastActivityAt === "number" && Number.isFinite(workspace.lastActivityAt)
+            ? workspace.lastActivityAt
+            : undefined,
         };
       });
 

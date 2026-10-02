@@ -126,6 +126,7 @@ export interface AgentSettings {
   "xiaomi-mimo-token-plan": AgentProviderConfig;
   "opencode-zen": AgentProviderConfig;
   "opencode-go": AgentProviderConfig;
+  cursor: AgentProviderConfig;
   custom: AgentProviderConfig;
   enable_bash_tool: boolean;
   managed_sandbox_enabled: boolean;
@@ -263,6 +264,7 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   "xiaomi-mimo-token-plan": { base_url: "https://token-plan-ams.xiaomimimo.com/v1", model: "mimo-v2.5-pro", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "chat_completions", auth_source: "api_key", context_window_tokens: null },
   "opencode-zen": { base_url: "https://opencode.ai/zen/v1", model: "claude-sonnet-4-5", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "chat_completions", auth_source: "api_key", context_window_tokens: null },
   "opencode-go": { base_url: "https://opencode.ai/zen/go/v1", model: "glm-5.1", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "chat_completions", auth_source: "api_key", context_window_tokens: null },
+  cursor: { base_url: "", model: "auto", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "native_assistant", auth_source: "api_key", context_window_tokens: null },
   custom: { base_url: "", model: "", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "responses", auth_source: "api_key", context_window_tokens: 128_000 },
   enable_bash_tool: true,
   managed_sandbox_enabled: false,
@@ -751,6 +753,7 @@ export function normalizeAgentSettingsFromSource(source: DiskAgentSettings): Age
     "xiaomi-mimo-token-plan": providerConfigFromRaw("xiaomi-mimo-token-plan", source),
     "opencode-zen": providerConfigFromRaw("opencode-zen", source),
     "opencode-go": providerConfigFromRaw("opencode-go", source),
+    cursor: providerConfigFromRaw("cursor", source),
     custom: providerConfigFromRaw("custom", source),
     system_prompt: source.system_prompt ?? DEFAULT_AGENT_SETTINGS.system_prompt,
     audio_stt_enabled: source.audio?.stt?.enabled ?? source.audio_stt_enabled ?? DEFAULT_AGENT_SETTINGS.audio_stt_enabled,

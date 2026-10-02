@@ -1,7 +1,5 @@
 use super::render_streaming_markdown_to_message_block_style::*;
-use crate::state::chat::{
-    AgentMessage, ChatHitTarget, ChatState, MessageRole, TranscriptMode,
-};
+use crate::state::chat::{AgentMessage, ChatHitTarget, ChatState, MessageRole, TranscriptMode};
 use crate::theme::ThemeTokens;
 use crate::widgets::message::wrap_text;
 use ratatui::text::{Line, Span};
@@ -321,8 +319,8 @@ pub(crate) fn classify_message_lines(
                         visible_line_count,
                     ));
                     if reasoning_expanded {
-                        let detail_line_count = rendered_message_line_count
-                            .saturating_sub(1 + visible_line_count);
+                        let detail_line_count =
+                            rendered_message_line_count.saturating_sub(1 + visible_line_count);
                         kinds.extend(std::iter::repeat_n(
                             RenderedLineKind::ReasoningContent,
                             detail_line_count.max(1),

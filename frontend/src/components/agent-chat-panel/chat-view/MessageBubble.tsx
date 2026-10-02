@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import type { AgentMessage } from "../../../lib/agentStore";
 import { parseHandoffSystemEvent } from "./helpers";
 import { MarkdownContent } from "./markdown";
@@ -22,6 +22,14 @@ export {
   compactionArtifactDisplayText,
   isCompactionArtifactMessage,
 } from "./compactionArtifact";
+
+function formatToolJson(raw: string): string {
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
+}
 
 function ActionBtn({ label, onClick }: { label: string; onClick: () => void }) {
   return (
@@ -92,27 +100,36 @@ export function MessageBubble({
   const [expandedCompaction, setExpandedCompaction] = useState(false);
   const [expandedHandoff, setExpandedHandoff] = useState(false);
   const [expandedProviderResult, setExpandedProviderResult] = useState(false);
-  const handoffEvent = isSystem && typeof message.content === "string"
-    ? parseHandoffSystemEvent(message.content)
-    : null;
-  const providerFinalResult = buildProviderFinalResultPresentation(
-    message.providerFinalResult,
+  const handoffEvent = useMemo(
+    () => (isSystem && typeof message.content === "string" ? parseHandoffSystemEvent(message.content) : null),
+    [isSystem, message.content],
   );
-  const toolDiff = isTool && message.toolName && message.toolArguments
-    ? getToolDiffPresentation(message.toolName, message.toolArguments)
-    : null;
-  const fileTarget = isTool && message.toolName && message.toolArguments
-    ? getToolFileTarget(message.toolName, message.toolArguments)
-    : null;
-  const structuredArgs = isTool && message.toolName && message.toolArguments
-    ? getToolStructuredFields(message.toolName, message.toolArguments, "arguments")
-    : null;
-  const structuredArgDetails = fileTarget && structuredArgs
-    ? structuredArgs.filter((field) => field.key !== "path")
-    : structuredArgs;
-  const structuredResult = isTool && message.toolName && message.content
-    ? getToolStructuredFields(message.toolName, message.content, "result")
-    : null;
+  const providerFinalResult = useMemo(
+    () => buildProviderFinalResultPresentation(message.providerFinalResult),
+    [message.providerFinalResult],
+  );
+  const toolDetails = useMemo(() => {
+    if (!isTool || !message.toolName) return null;
+    const toolDiff = message.toolArguments
+      ? getToolDiffPresentation(message.toolName, message.toolArguments)
+      : null;
+    const fileTarget = message.toolArguments
+      ? getToolFileTarget(message.toolName, message.toolArguments)
+      : null;
+    const structuredArgs = message.toolArguments
+      ? getToolStructuredFields(message.toolName, message.toolArguments, "arguments")
+      : null;
+    const structuredArgDetails = fileTarget && structuredArgs
+      ? structuredArgs.filter((field) => field.key !== "path")
+      : structuredArgs;
+    const structuredResult = message.content
+      ? getToolStructuredFields(message.toolName, message.content, "result")
+      : null;
+    const formattedArguments = !fileTarget && !toolDiff && !structuredArgDetails && message.toolArguments
+      ? formatToolJson(message.toolArguments)
+      : null;
+    return { toolDiff, fileTarget, structuredArgDetails, structuredResult, formattedArguments };
+  }, [isTool, message.content, message.toolArguments, message.toolName]);
   const displayContent = (() => {
     if (!isUser || typeof message.content !== "string") return message.content;
     if (!message.content.startsWith("[Gateway Context]")) return message.content;
@@ -267,27 +284,19 @@ export function MessageBubble({
               <span className="acp-pill">{toolStatusLabel}</span>
             </div>
 
-            {fileTarget ? (
-              <ToolFileTargetView label="file" path={fileTarget.path} summaryText={message.content || undefined} />
-            ) : toolDiff ? (
-              <ToolDiffView sections={toolDiff} />
-            ) : structuredArgDetails ? (
-              <ToolStructuredValueView label="args" fields={structuredArgDetails} />
-            ) : message.toolArguments ? (
-              <pre className="acp-pre">
-                {(() => {
-                  try {
-                    return JSON.stringify(JSON.parse(message.toolArguments), null, 2);
-                  } catch {
-                    return message.toolArguments;
-                  }
-                })()}
-              </pre>
+            {toolDetails?.fileTarget ? (
+              <ToolFileTargetView label="file" path={toolDetails.fileTarget.path} summaryText={message.content || undefined} />
+            ) : toolDetails?.toolDiff ? (
+              <ToolDiffView sections={toolDetails.toolDiff} />
+            ) : toolDetails?.structuredArgDetails ? (
+              <ToolStructuredValueView label="args" fields={toolDetails.structuredArgDetails} />
+            ) : toolDetails?.formattedArguments ? (
+              <pre className="acp-pre">{toolDetails.formattedArguments}</pre>
             ) : null}
 
-            {!fileTarget && structuredResult ? (
-              <ToolStructuredValueView label="result" fields={structuredResult} />
-            ) : !fileTarget && message.content ? (
+            {toolDetails && !toolDetails.fileTarget && toolDetails.structuredResult ? (
+              <ToolStructuredValueView label="result" fields={toolDetails.structuredResult} />
+            ) : toolDetails && !toolDetails.fileTarget && message.content ? (
               <div className="acp-tool-result">{message.content}</div>
             ) : null}
           </div>

@@ -63,6 +63,7 @@ pub enum AuthSource {
 pub enum NativeTransportKind {
     AlibabaAssistantApi,
     ClaudeCodeCli,
+    CursorCli,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -172,6 +173,39 @@ pub const CLAUDE_CODE_MODELS: &[ModelDefinition] = &[
         id: "fable",
         name: "Fable (CLI)",
         context_window: 1_000_000,
+        modalities: TEXT_IMAGE,
+    },
+];
+
+pub const CURSOR_MODELS: &[ModelDefinition] = &[
+    ModelDefinition {
+        id: "auto",
+        name: "Auto",
+        context_window: 200_000,
+        modalities: TEXT_IMAGE,
+    },
+    ModelDefinition {
+        id: "composer-2.5",
+        name: "Composer 2.5",
+        context_window: 200_000,
+        modalities: TEXT_IMAGE,
+    },
+    ModelDefinition {
+        id: "grok-4.7",
+        name: "Grok 4.7",
+        context_window: 200_000,
+        modalities: TEXT_IMAGE,
+    },
+    ModelDefinition {
+        id: "grok-4.6",
+        name: "Grok 4.6",
+        context_window: 200_000,
+        modalities: TEXT_IMAGE,
+    },
+    ModelDefinition {
+        id: "grok-4.5",
+        name: "Grok 4.5",
+        context_window: 200_000,
         modalities: TEXT_IMAGE,
     },
 ];

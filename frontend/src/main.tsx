@@ -1,7 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import { loadSession } from "./lib/sessionPersistence";
+import { reclaimIdleAgentWorkspaces } from "./lib/agentWorkspaceReclaim";
+import { loadSession, saveSession } from "./lib/sessionPersistence";
 import { hydrateCommandLogStore } from "./lib/commandLogStore";
 import { hydrateAgentMissionStore } from "./lib/agentMissionStore";
 import { hydrateKeybindStore } from "./lib/keybindStore";
@@ -61,6 +62,8 @@ async function bootstrap() {
   if (persistedSession) {
     useWorkspaceStore.getState().hydrateSession(persistedSession);
   }
+  await reclaimIdleAgentWorkspaces();
+  saveSession();
 
   setBootStatus("Launching interface…");
   renderRoot();

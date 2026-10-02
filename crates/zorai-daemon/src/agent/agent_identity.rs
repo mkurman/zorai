@@ -62,7 +62,6 @@ impl PersonaSeed {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub(crate) struct ResolvedAgentTarget {
     pub(super) scope_id: String,

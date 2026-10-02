@@ -21,23 +21,22 @@ impl AgentEngine {
         if is_explicit_builtin_persona_scope(&def.id)
             || is_explicit_builtin_persona_scope(&def.name)
         {
-            let agent_id = canonical_agent_id(
-                if is_explicit_builtin_persona_scope(&def.id) {
-                    def.id.as_str()
-                } else {
-                    def.name.as_str()
-                },
-            )
+            let agent_id = canonical_agent_id(if is_explicit_builtin_persona_scope(&def.id) {
+                def.id.as_str()
+            } else {
+                def.name.as_str()
+            })
             .to_string();
             {
                 let mut config = self.config.write().await;
                 apply_builtin_persona_overrides_from_sub_agent(&mut config, &def)?;
-                config.sub_agents.retain(|entry| {
-                    canonical_agent_id(&entry.id) != canonical_agent_id(&agent_id)
-                });
+                config
+                    .sub_agents
+                    .retain(|entry| canonical_agent_id(&entry.id) != canonical_agent_id(&agent_id));
             }
             self.persist_config().await;
-            self.sync_thread_execution_profiles_for_agent(&agent_id).await;
+            self.sync_thread_execution_profiles_for_agent(&agent_id)
+                .await;
             return Ok(());
         }
 
@@ -50,7 +49,8 @@ impl AgentEngine {
         }
         drop(config);
         self.persist_config().await;
-        self.sync_thread_execution_profiles_for_agent(&agent_id).await;
+        self.sync_thread_execution_profiles_for_agent(&agent_id)
+            .await;
         Ok(())
     }
 

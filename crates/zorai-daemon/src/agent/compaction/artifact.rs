@@ -26,6 +26,11 @@ impl std::fmt::Display for CompactionLlmFailureWithCapacity {
 
 impl std::error::Error for CompactionLlmFailureWithCapacity {}
 
+fn weles_compaction_target_is_explicit(config: &AgentConfig) -> bool {
+    !config.compaction.weles.provider.trim().is_empty()
+        || !config.compaction.weles.model.trim().is_empty()
+}
+
 impl AgentEngine {
     pub(crate) async fn build_compaction_artifact(
         &self,
@@ -45,6 +50,10 @@ impl AgentEngine {
         let mut structural_refs = Vec::new();
         let payload = match strategy_used {
             CompactionStrategy::Heuristic => {
+                tracing::info!(
+                    thread_id,
+                    "compaction using heuristic strategy; no model request"
+                );
                 let rule_based = self
                     .build_rule_based_compaction_payload(
                         thread_id,
@@ -59,8 +68,23 @@ impl AgentEngine {
                 rule_based.payload
             }
             CompactionStrategy::Weles => {
-                let (provider_id, provider_config) =
-                    self.resolve_weles_compaction_provider(config)?;
+                let (provider_id, provider_config) = if weles_compaction_target_is_explicit(config)
+                {
+                    self.resolve_weles_compaction_provider(config)?
+                } else if let Some(resolved) = self
+                    .thread_profile_compaction_provider(thread_id, config)
+                    .await?
+                {
+                    resolved
+                } else {
+                    self.resolve_weles_compaction_provider(config)?
+                };
+                tracing::info!(
+                    thread_id,
+                    provider_id,
+                    model = %provider_config.model,
+                    "compaction LLM request starting"
+                );
                 self.compact_with_llm_or_fallback(
                     CompactionStrategy::Weles,
                     "WELES",
@@ -506,6 +530,46 @@ impl AgentEngine {
             return Ok(content.trim().to_string());
         }
         anyhow::bail!("compaction LLM returned empty output")
+    }
+
+    pub(crate) async fn thread_profile_compaction_provider(
+        &self,
+        thread_id: &str,
+        config: &AgentConfig,
+    ) -> Result<Option<(String, ProviderConfig)>> {
+        let Some(profile) = self.get_thread_execution_profile(thread_id).await else {
+            return Ok(None);
+        };
+        let provider_id = profile
+            .provider
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string);
+        let model = profile
+            .model
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string);
+        if provider_id.is_none() && model.is_none() {
+            return Ok(None);
+        }
+        let provider_id = provider_id.unwrap_or_else(|| config.provider.clone());
+        let mut provider_config =
+            resolve_provider_config_for(config, &provider_id, model.as_deref())?;
+        if let Some(effort) = profile
+            .reasoning_effort
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            provider_config.reasoning_effort = effort.to_string();
+        }
+        if let Some(window) = profile.context_window_tokens.filter(|window| *window > 0) {
+            provider_config.context_window_tokens = window;
+        }
+        Ok(Some((provider_id, provider_config)))
     }
 
     pub(crate) fn resolve_weles_compaction_provider(

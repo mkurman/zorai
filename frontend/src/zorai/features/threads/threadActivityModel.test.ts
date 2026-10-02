@@ -396,4 +396,27 @@ Operation results saved to file.
       rawText: content,
     });
   });
+
+  it("classifies a compaction artifact as a compaction activity row", () => {
+    const artifact = {
+      ...message("Pre-compaction context: ~12 / 20 tokens (threshold 10)\nTrigger: manual", "assistant"),
+      messageKind: "compaction_artifact" as const,
+      compactionPayload: "Older context compacted for continuity",
+    };
+
+    expect(classifyThreadActivityMessage(artifact)).toEqual({
+      kind: "compaction",
+      title: "Compaction",
+      rawText: "Pre-compaction context: ~12 / 20 tokens (threshold 10)\nTrigger: manual\n\nContent:\nOlder context compacted for continuity",
+    });
+  });
+
+  it("classifies a compaction notice appended after a skipped compact", () => {
+    const content = "Compaction\nManual compaction skipped; there was no older context slice to compact.";
+    expect(classifyThreadActivityMessage(message(content))).toEqual({
+      kind: "compaction",
+      title: "Compaction",
+      rawText: "Manual compaction skipped; there was no older context slice to compact.",
+    });
+  });
 });

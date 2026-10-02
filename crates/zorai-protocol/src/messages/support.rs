@@ -368,6 +368,10 @@ pub struct WorkspaceTopology {
 pub struct WorkspaceTopologyEntry {
     pub workspace_id: WorkspaceId,
     pub workspace_name: String,
+    #[serde(default)]
+    pub agent_owned: bool,
+    #[serde(default)]
+    pub last_activity_at: u64,
     pub surfaces: Vec<SurfaceTopologyEntry>,
 }
 

@@ -1,7 +1,7 @@
 use super::super::super::*;
 use super::super::events_activity::{
-    auto_compaction_reload_window, compaction_token_snapshot, normalized_skill_workflow_notice,
-    parse_collaboration_sessions,
+    auto_compaction_reload_window, compaction_artifact_from_notice, compaction_token_snapshot,
+    normalized_skill_workflow_notice, parse_collaboration_sessions,
 };
 use super::super::*;
 
@@ -364,6 +364,43 @@ impl TuiModel {
                         .saturating_sub(span_start)
                         .max(post_compaction_tail_len);
                     self.request_thread_page(thread_id.to_string(), message_limit, 0, false);
+                }
+            }
+            if let (Some(thread_id), Some(artifact)) = (
+                thread_id.as_deref(),
+                compaction_artifact_from_notice(details_ref),
+            ) {
+                let already_present = self.chat.threads().iter().any(|thread| {
+                    thread.id == thread_id
+                        && thread.messages.iter().any(|message| {
+                            message.id.as_deref() == Some(artifact.id.as_str())
+                                || (message.message_kind == "compaction_artifact"
+                                    && message.content == artifact.content)
+                        })
+                });
+                if !already_present
+                    && self
+                        .chat
+                        .threads()
+                        .iter()
+                        .any(|thread| thread.id == thread_id)
+                {
+                    self.chat.reduce(chat::ChatAction::AppendMessage {
+                        thread_id: thread_id.to_string(),
+                        message: chat::AgentMessage {
+                            id: Some(artifact.id),
+                            role: chat::MessageRole::Assistant,
+                            content: artifact.content,
+                            message_kind: "compaction_artifact".to_string(),
+                            compaction_strategy: artifact.strategy,
+                            compaction_payload: artifact.payload,
+                            timestamp: std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .map(|duration| duration.as_millis() as u64)
+                                .unwrap_or(0),
+                            ..Default::default()
+                        },
+                    });
                 }
             }
         }

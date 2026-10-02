@@ -188,13 +188,9 @@ function summarizeStringValue(
         return summarizeContentValue(value);
     }
 
-    if (value.includes("\n")) {
-        return summarizeMultilineValue(value);
-    }
-
-    if (value.length > 180) {
-        return `${value.slice(0, 180)}... (+${value.length - 180} chars)`;
-    }
+    // if (value.includes("\n")) {
+    //     return summarizeMultilineValue(value);
+    // }
 
     return value;
 }
@@ -204,14 +200,14 @@ function summarizeContentValue(value: string): string {
     return `${value.length} chars, ${lineCount} line${lineCount === 1 ? "" : "s"}`;
 }
 
-function summarizeMultilineValue(value: string): string {
-    const lines = value.split(/\r\n?|\n/);
-    const preview = lines.slice(0, 3).join(" ").trim();
-    if (preview.length > 180) {
-        return `${preview.slice(0, 180)}... (+${lines.length - 3} more lines)`;
-    }
-    return `${preview}${lines.length > 3 ? ` ... (+${lines.length - 3} more lines)` : ""}`;
-}
+// function summarizeMultilineValue(value: string): string {
+//     const lines = value.split(/\r\n?|\n/);
+//     const preview = lines.slice(0, 3).join(" ").trim();
+//     if (preview.length > 180) {
+//         return `${preview.slice(0, 180)}... (+${lines.length - 3} more lines)`;
+//     }
+//     return `${preview}${lines.length > 3 ? ` ... (+${lines.length - 3} more lines)` : ""}`;
+// }
 
 function summarizeArrayValue(value: unknown[]): string {
     if (value.length === 0) {

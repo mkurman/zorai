@@ -459,6 +459,22 @@ pub async fn validate_provider_connection(
         base_url.trim().to_string()
     };
 
+    if provider_id == zorai_shared::providers::PROVIDER_ID_CURSOR {
+        if !crate::agent::cursor_auth::cursor_cli_available() {
+            anyhow::bail!(
+                "Cursor CLI (`agent`) was not found on PATH. Install the Cursor CLI and run `agent login`."
+            );
+        }
+        if api_key.trim().is_empty()
+            && !crate::agent::cursor_auth::cursor_subscription_authenticated()
+        {
+            anyhow::bail!(
+                "Cursor subscription is not logged in. Use Subscription login or run `agent login`."
+            );
+        }
+        return Ok(None);
+    }
+
     if provider_id == zorai_shared::providers::PROVIDER_ID_AZURE_OPENAI {
         let models = fetch_models(provider_id, &resolved_base_url, api_key, None).await?;
         return Ok(Some(models));

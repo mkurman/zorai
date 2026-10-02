@@ -1,3 +1,9 @@
+function shouldOpenDevTools({ isPackaged, env = process.env } = {}) {
+    if (isPackaged) return false;
+    const flag = String(env.ZORAI_DEVTOOLS ?? "").trim().toLowerCase();
+    return flag === "1" || flag === "true";
+}
+
 function resolveWindowFrameOptions(platform = process.platform) {
     const useNativeFrame = platform === 'win32' || platform === 'linux';
     return {
@@ -152,7 +158,9 @@ function createWindowRuntime(options) {
         });
         Menu.setApplicationMenu(buildAppMenu());
         mainWindow.once('ready-to-show', () => mainWindow.show());
-        if (!app.isPackaged) mainWindow.webContents.openDevTools();
+        if (shouldOpenDevTools({ isPackaged: app.isPackaged })) {
+            mainWindow.webContents.openDevTools({ mode: "detach" });
+        }
         mainWindow.on('focus', () => setMainWindow(mainWindow));
         mainWindow.on('maximize', () => mainWindow.webContents.send('window-state', 'maximized'));
         mainWindow.on('unmaximize', () => mainWindow.webContents.send('window-state', 'normal'));
@@ -171,4 +179,10 @@ function createWindowRuntime(options) {
     return { createWindow, setWindowOpacity };
 }
 
-module.exports = { createWindowRuntime, loadWindowIcon, resolveWindowFrameOptions, resolveWindowIcon };
+module.exports = {
+    createWindowRuntime,
+    loadWindowIcon,
+    resolveWindowFrameOptions,
+    resolveWindowIcon,
+    shouldOpenDevTools,
+};

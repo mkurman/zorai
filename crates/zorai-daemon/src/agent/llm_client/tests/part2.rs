@@ -1869,6 +1869,13 @@ fn claude_code_cli_request_transport_is_forced_to_native_subprocess() {
         ApiTransport::NativeAssistant
     );
     assert_eq!(
+        coerce_transport_for_provider(
+            zorai_shared::providers::PROVIDER_ID_CURSOR,
+            ApiTransport::ChatCompletions
+        ),
+        ApiTransport::NativeAssistant
+    );
+    assert_eq!(
         coerce_transport_for_provider(PROVIDER_ID_OPENAI, ApiTransport::ChatCompletions),
         ApiTransport::ChatCompletions,
         "other providers keep whatever transport was resolved"

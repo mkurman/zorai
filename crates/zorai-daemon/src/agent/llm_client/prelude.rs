@@ -99,6 +99,19 @@ impl fmt::Display for UpstreamFailureError {
 
 impl std::error::Error for UpstreamFailureError {}
 
+pub(crate) fn is_exhausted_provider_usage_limit(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    lower.contains("usage limit has been reached")
+        || lower.contains("usage limit reached")
+        || lower.contains("insufficient_quota")
+        || lower.contains("insufficient quota")
+        || lower.contains("quota exceeded")
+        || lower.contains("quota exhausted")
+        || lower.contains("billing hard limit")
+        || lower.contains("exceeded your current quota")
+        || lower.contains("weekly/monthly limit exhausted")
+}
+
 pub(crate) fn parse_structured_upstream_failure(
     message: &str,
 ) -> Option<StructuredUpstreamFailure> {

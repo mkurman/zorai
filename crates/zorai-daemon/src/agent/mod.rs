@@ -35,6 +35,7 @@ mod consensus;
 mod consolidation;
 pub(crate) mod copilot_auth;
 mod critique;
+pub(crate) mod cursor_auth;
 mod debate;
 mod dispatcher;
 mod dream_state_runtime;
