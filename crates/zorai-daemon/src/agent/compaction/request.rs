@@ -43,10 +43,10 @@ pub(crate) fn prepare_llm_request_with_reused_user_message(
         compacted.clone()
     };
 
-    let is_claude_code_cli =
-        config.provider == zorai_shared::providers::PROVIDER_ID_CLAUDE_CODE_CLI;
+    let resumes_local_cli_session =
+        crate::agent::types::provider_uses_local_subscription_cli(&config.provider);
     if selected_transport == ApiTransport::NativeAssistant
-        && (is_claude_code_cli
+        && (resumes_local_cli_session
             || (!compaction_active && !provider_config.assistant_id.trim().is_empty()))
     {
         let latest_user_message = messages
@@ -55,7 +55,7 @@ pub(crate) fn prepare_llm_request_with_reused_user_message(
             .find(|message| message.role == MessageRole::User)
             .cloned();
         if let Some(user_message) = latest_user_message {
-            let assistant_id_matches = is_claude_code_cli
+            let assistant_id_matches = resumes_local_cli_session
                 || thread.upstream_assistant_id.as_deref()
                     == Some(provider_config.assistant_id.as_str());
             return PreparedLlmRequest {
@@ -156,7 +156,6 @@ pub(crate) fn prepare_llm_request_with_reused_user_message(
     }
 }
 
-
 /// Build an LLM request from an explicit message slice instead of `thread.messages`.
 /// Used when the caller has already patched the user message content without cloning
 /// the whole AgentThread — avoids per-turn O(thread_len) heap churn on megathreads.
@@ -195,10 +194,10 @@ pub(crate) fn prepare_llm_request_from_messages(
         compacted.clone()
     };
 
-    let is_claude_code_cli =
-        config.provider == zorai_shared::providers::PROVIDER_ID_CLAUDE_CODE_CLI;
+    let resumes_local_cli_session =
+        crate::agent::types::provider_uses_local_subscription_cli(&config.provider);
     if selected_transport == ApiTransport::NativeAssistant
-        && (is_claude_code_cli
+        && (resumes_local_cli_session
             || (!compaction_active && !provider_config.assistant_id.trim().is_empty()))
     {
         let latest_user_message = messages
@@ -207,7 +206,7 @@ pub(crate) fn prepare_llm_request_from_messages(
             .find(|message| message.role == MessageRole::User)
             .cloned();
         if let Some(user_message) = latest_user_message {
-            let assistant_id_matches = is_claude_code_cli
+            let assistant_id_matches = resumes_local_cli_session
                 || thread.upstream_assistant_id.as_deref()
                     == Some(provider_config.assistant_id.as_str());
             return PreparedLlmRequest {

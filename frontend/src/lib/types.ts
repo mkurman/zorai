@@ -66,6 +66,8 @@ export interface Workspace {
   surfaces: Surface[];
   activeSurfaceId: SurfaceId | null;
   createdAt: number;
+  agentOwned?: boolean;
+  lastActivityAt?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -377,6 +379,8 @@ export interface PersistedWorkspace {
   browser?: PersistedWorkspaceBrowser;
   surfaces: PersistedSurface[];
   activeSurfaceId: SurfaceId | null;
+  agentOwned?: boolean;
+  lastActivityAt?: number;
 }
 
 export interface PersistedWorkspaceBrowser {

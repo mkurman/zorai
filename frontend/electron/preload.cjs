@@ -223,6 +223,7 @@ const bridgeApi = {
     cloneTerminalSession: (payload) => ipcRenderer.invoke('terminal-clone-session', payload),
     resizeTerminalSession: (paneId, cols, rows) => ipcRenderer.invoke('terminal-resize', paneId, cols, rows),
     stopTerminalSession: (paneId, killSession) => ipcRenderer.invoke('terminal-stop', paneId, killSession),
+    listBusyTerminalPanes: () => ipcRenderer.invoke('terminal-busy-panes'),
     dbAppendCommandLog: (entry) => ipcRenderer.invoke('db-append-command-log', entry),
     dbCompleteCommandLog: (id, exitCode, durationMs) => ipcRenderer.invoke('db-complete-command-log', id, exitCode, durationMs),
     dbQueryCommandLog: (opts) => ipcRenderer.invoke('db-query-command-log', opts),

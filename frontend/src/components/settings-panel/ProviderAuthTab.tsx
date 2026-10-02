@@ -19,6 +19,7 @@ export function ProviderAuthTab() {
     const [loginTarget, setLoginTarget] = useState<string | null>(null);
     const [loginKey, setLoginKey] = useState("");
     const [validating, setValidating] = useState<string | null>(null);
+    const [cursorLoginNote, setCursorLoginNote] = useState<string | null>(null);
     const [validationResult, setValidationResult] = useState<Record<string, { valid: boolean; error?: string }>>({});
 
     // ChatGPT subscription auth state
@@ -207,6 +208,7 @@ export function ProviderAuthTab() {
                         const vr = validationResult[state.provider_id];
                         const isOpenAI = state.provider_id === "openai";
                         const isGithubCopilot = state.provider_id === "github-copilot";
+                        const isCursor = state.provider_id === "cursor";
                         const canUseChatgptSubscription = isOpenAI && authCapability.chatgptSubscriptionAvailable;
                         const configuredOpenAIAuthSource = isOpenAI
                             ? agentSettings.openai?.auth_source ?? state.auth_source
@@ -304,6 +306,34 @@ export function ProviderAuthTab() {
                                                     {validating === state.provider_id ? "Testing..." : "Test"}
                                                 </button>
                                             </>
+                                        ) : isCursor ? (
+                                            <>
+                                                {state.authenticated ? (
+                                                    <button
+                                                        onClick={() => handleLogout(state.provider_id)}
+                                                        style={{ ...smallBtnStyle, fontSize: "var(--text-sm)", color: "#ef4444" }}
+                                                    >
+                                                        Logout
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => {
+                                                            setCursorLoginNote("Finish Cursor login in the browser, then refresh auth status.");
+                                                            void loginProvider(state.provider_id, "", state.base_url);
+                                                        }}
+                                                        style={{ ...smallBtnStyle, fontSize: "var(--text-sm)", color: "var(--accent)" }}
+                                                    >
+                                                        Subscription
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => handleTest(state.provider_id)}
+                                                    disabled={validating === state.provider_id}
+                                                    style={{ ...smallBtnStyle, fontSize: "var(--text-sm)" }}
+                                                >
+                                                    {validating === state.provider_id ? "Testing..." : "Test"}
+                                                </button>
+                                            </>
                                         ) : (
                                             <>
                                                 {rowState.showApiKeyLogin && (
@@ -337,6 +367,11 @@ export function ProviderAuthTab() {
                                         {vr.valid ? "Connection OK" : `Error: ${vr.error || "unknown"}`}
                                     </div>
                                 )}
+                                {isCursor && cursorLoginNote && !state.authenticated ? (
+                                    <div style={{ fontSize: "var(--text-sm)", marginTop: 4, color: "var(--text-secondary)" }}>
+                                        {cursorLoginNote}
+                                    </div>
+                                ) : null}
                                 {isOpenAI && !authCapability.chatgptSubscriptionAvailable && (
                                     <div style={{ fontSize: "var(--text-sm)", marginTop: 4, color: "var(--text-secondary)" }}>
                                         ChatGPT Subscription is unavailable for the current backend. Switch to daemon-backed execution to enable it.

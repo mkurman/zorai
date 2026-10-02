@@ -190,10 +190,7 @@ fn goal_workspace_active_agent_mode_restores_assignments_and_threads() {
     let plain = render_chat_plain(&mut model);
 
     assert!(plain.contains("Supervisor review"), "{plain}");
-    assert!(
-        plain.contains("No supervisor review is pending"),
-        "{plain}"
-    );
+    assert!(plain.contains("No supervisor review is pending"), "{plain}");
 }
 
 #[test]

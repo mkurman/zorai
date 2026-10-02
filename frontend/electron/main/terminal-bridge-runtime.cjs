@@ -124,6 +124,13 @@ function createTerminalBridgeRuntime(options) {
         }
         return true;
     }
+    function busyTerminalPaneIds() {
+        const paneIds = [];
+        for (const [paneId, bridge] of terminalBridges) {
+            if (bridge?.commandActive) paneIds.push(paneId);
+        }
+        return paneIds;
+    }
     function stopAllTerminalBridges(killSessions = false, force = false) {
         for (const paneId of [...terminalBridges.keys()]) {
             stopTerminalBridge(paneId, killSessions, force);
@@ -143,20 +150,24 @@ function createTerminalBridgeRuntime(options) {
                 emitTerminalEvent(paneId, { type: 'output', sessionId, data: event.data });
                 return;
             case 'session-exited':
+                bridge.commandActive = false;
                 emitTerminalEvent(paneId, { type: 'session-exited', sessionId, exitCode: event.exit_code });
                 paneSessionHints.delete(paneId);
                 terminalBridges.delete(paneId);
                 return;
             case 'command-finished':
+                bridge.commandActive = false;
                 emitTerminalEvent(paneId, { type: 'command-finished', sessionId, exitCode: event.exit_code });
                 return;
             case 'command-started':
+                bridge.commandActive = true;
                 emitTerminalEvent(paneId, { type: 'command-started', sessionId, commandB64: event.command_b64 });
                 return;
             case 'cwd-changed':
                 emitTerminalEvent(paneId, { type: 'cwd-changed', sessionId, cwd: event.cwd });
                 return;
             case 'managed-queued':
+                bridge.commandActive = true;
                 emitTerminalEvent(paneId, {
                     type: 'managed-queued',
                     sessionId,
@@ -166,6 +177,7 @@ function createTerminalBridgeRuntime(options) {
                 });
                 return;
             case 'approval-required':
+                bridge.commandActive = true;
                 emitTerminalEvent(paneId, { type: 'approval-required', sessionId, approval: event.approval });
                 return;
             case 'approval-resolved':
@@ -177,6 +189,7 @@ function createTerminalBridgeRuntime(options) {
                 });
                 return;
             case 'managed-started':
+                bridge.commandActive = true;
                 emitTerminalEvent(paneId, {
                     type: 'managed-started',
                     sessionId,
@@ -186,6 +199,7 @@ function createTerminalBridgeRuntime(options) {
                 });
                 return;
             case 'managed-finished':
+                bridge.commandActive = false;
                 emitTerminalEvent(paneId, {
                     type: 'managed-finished',
                     sessionId,
@@ -197,6 +211,7 @@ function createTerminalBridgeRuntime(options) {
                 });
                 return;
             case 'managed-rejected':
+                bridge.commandActive = false;
                 emitTerminalEvent(paneId, {
                     type: 'managed-rejected',
                     sessionId,
@@ -376,6 +391,7 @@ function createTerminalBridgeRuntime(options) {
             sessionId: requestedSessionId || null,
             ready: false,
             closing: false,
+            commandActive: false,
             outputHistory: [],
             outputHistoryBytes: 0,
             stdoutBuffer: '',
@@ -482,6 +498,7 @@ function createTerminalBridgeRuntime(options) {
         return true;
     }
     return {
+        busyTerminalPaneIds,
         cloneTerminalSession,
         executeManagedCommand,
         findManagedSymbol,

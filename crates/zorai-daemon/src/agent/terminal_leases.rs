@@ -5,7 +5,7 @@
 //! closes them when the owning task finishes, the owning thread is deleted, or
 //! the lane sits idle with no active command.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -66,6 +66,45 @@ pub(crate) struct AgentTerminalSweepView {
     pub has_active_command: bool,
 }
 
+pub(crate) const AGENT_WORKSPACE_NAME_PREFIX: &str = "Agent - ";
+
+pub(crate) fn is_reclaimable_agent_workspace_name(name: &str) -> bool {
+    name.starts_with(AGENT_WORKSPACE_NAME_PREFIX)
+}
+
+pub(crate) fn note_reclaimable_agent_workspaces(
+    known: &mut HashSet<String>,
+    topology: Option<&zorai_protocol::WorkspaceTopology>,
+) {
+    let Some(topology) = topology else {
+        return;
+    };
+    for workspace in &topology.workspaces {
+        if workspace.agent_owned || is_reclaimable_agent_workspace_name(&workspace.workspace_name) {
+            known.insert(workspace.workspace_id.clone());
+        }
+    }
+}
+
+pub(crate) fn should_reclaim_unleased_session(
+    has_workspace: bool,
+    agent_owned_workspace: bool,
+    tracked_by_ui: bool,
+    busy: bool,
+    leased: bool,
+    last_activity_at_ms: u64,
+    now_ms: u64,
+    idle_timeout_ms: u64,
+) -> bool {
+    if !has_workspace || busy || leased {
+        return false;
+    }
+    if !agent_owned_workspace && tracked_by_ui {
+        return false;
+    }
+    now_ms.saturating_sub(last_activity_at_ms) >= idle_timeout_ms
+}
+
 pub(crate) fn close_reason_for_lease(
     lease: &AgentTerminalLease,
     view: &AgentTerminalSweepView,
@@ -98,6 +137,7 @@ impl AgentEngine {
         tokio::spawn(async move {
             let mut events = engine.internal_event_tx.subscribe();
             let mut interval = tokio::time::interval(AGENT_TERMINAL_SWEEP_INTERVAL);
+            let mut known_agent_workspaces = HashSet::new();
             interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
             interval.tick().await;
             loop {
@@ -113,6 +153,13 @@ impl AgentEngine {
                     }
                     _ = interval.tick() => {
                         engine.sweep_agent_terminal_leases().await;
+                        note_reclaimable_agent_workspaces(
+                            &mut known_agent_workspaces,
+                            engine.session_manager.read_workspace_topology().as_ref(),
+                        );
+                        engine
+                            .reclaim_idle_agent_sessions(&known_agent_workspaces, now_millis())
+                            .await;
                     }
                 }
             }
@@ -160,12 +207,63 @@ impl AgentEngine {
         .await;
     }
 
+    pub(crate) async fn reclaim_idle_agent_sessions(
+        &self,
+        agent_workspace_ids: &HashSet<String>,
+        now_ms: u64,
+    ) {
+        if agent_workspace_ids.is_empty() {
+            return;
+        }
+        let leased = {
+            let leases = self.agent_terminal_leases.lock().await;
+            leases.keys().copied().collect::<HashSet<_>>()
+        };
+        let topology = self.session_manager.read_workspace_topology();
+        let snapshots = self.session_manager.session_activity_snapshots().await;
+        let mut due = Vec::new();
+        for snapshot in snapshots {
+            let Some(workspace_id) = snapshot.workspace_id.as_deref() else {
+                continue;
+            };
+            let agent_owned = agent_workspace_ids.contains(workspace_id);
+            let tracked_by_ui = match topology.as_ref() {
+                Some(topology) => topology
+                    .workspaces
+                    .iter()
+                    .any(|workspace| workspace.workspace_id == workspace_id),
+                None => true,
+            };
+            if should_reclaim_unleased_session(
+                true,
+                agent_owned,
+                tracked_by_ui,
+                snapshot.busy,
+                leased.contains(&snapshot.id),
+                snapshot.last_activity_at_ms,
+                now_ms,
+                AGENT_TERMINAL_IDLE_TIMEOUT_MS,
+            ) {
+                due.push(snapshot.id);
+            }
+        }
+        if !due.is_empty() {
+            self.release_agent_terminal_sessions(&due, AgentTerminalCloseReason::Idle)
+                .await;
+        }
+    }
+
     pub(crate) async fn sweep_agent_terminal_leases(&self) {
         let now_ms = now_millis();
-        let snapshots = self.session_manager.list().await;
-        let sessions: HashMap<SessionId, bool> = snapshots
+        let snapshots = self.session_manager.session_activity_snapshots().await;
+        let sessions: HashMap<SessionId, (bool, u64)> = snapshots
             .iter()
-            .map(|session| (session.id, session.active_command.is_some()))
+            .map(|session| {
+                (
+                    session.id,
+                    (session.has_active_command, session.last_activity_at_ms),
+                )
+            })
             .collect();
 
         let task_terminal_by_id = {
@@ -180,15 +278,18 @@ impl AgentEngine {
         {
             let mut leases = self.agent_terminal_leases.lock().await;
             for lease in leases.values_mut() {
-                let session_busy = sessions.get(&lease.session_id).copied();
-                let session_alive = session_busy.is_some();
-                let has_active_command = session_busy.unwrap_or(false);
+                let session_state = sessions.get(&lease.session_id).copied();
+                let session_alive = session_state.is_some();
+                let has_active_command = session_state.map(|(busy, _)| busy).unwrap_or(false);
+                let last_activity_at_ms = session_state.map(|(_, activity)| activity).unwrap_or(0);
                 if has_active_command {
                     if lease.busy_since.is_none() {
                         lease.busy_since = Some(now_ms);
                     }
                 } else if lease.busy_since.take().is_some() {
                     lease.last_idle_at = now_ms;
+                } else if last_activity_at_ms > lease.last_idle_at {
+                    lease.last_idle_at = last_activity_at_ms;
                 }
 
                 let owner_task_is_terminal = match lease.owner_task_id.as_deref() {
@@ -248,6 +349,8 @@ impl AgentEngine {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use super::super::types::{AgentConfig, TaskStatus};
     use super::*;
     use crate::session_manager::SessionManager;
@@ -323,6 +426,124 @@ mod tests {
             ),
             None
         );
+    }
+
+    #[test]
+    fn unleased_idle_agent_session_is_reclaimed() {
+        assert!(should_reclaim_unleased_session(
+            true,
+            true,
+            true,
+            false,
+            false,
+            1,
+            1 + AGENT_TERMINAL_IDLE_TIMEOUT_MS,
+            AGENT_TERMINAL_IDLE_TIMEOUT_MS,
+        ));
+    }
+
+    #[test]
+    fn detached_idle_session_is_reclaimed_when_the_ui_no_longer_tracks_it() {
+        assert!(should_reclaim_unleased_session(
+            true,
+            false,
+            false,
+            false,
+            false,
+            1,
+            1 + AGENT_TERMINAL_IDLE_TIMEOUT_MS,
+            AGENT_TERMINAL_IDLE_TIMEOUT_MS,
+        ));
+    }
+
+    #[test]
+    fn unleased_agent_session_stays_while_busy_or_recent_or_operator_owned() {
+        assert!(!should_reclaim_unleased_session(
+            true,
+            true,
+            true,
+            true,
+            false,
+            1,
+            1 + AGENT_TERMINAL_IDLE_TIMEOUT_MS,
+            AGENT_TERMINAL_IDLE_TIMEOUT_MS,
+        ));
+        assert!(!should_reclaim_unleased_session(
+            true,
+            true,
+            true,
+            false,
+            false,
+            1,
+            1 + AGENT_TERMINAL_IDLE_TIMEOUT_MS - 1,
+            AGENT_TERMINAL_IDLE_TIMEOUT_MS,
+        ));
+        assert!(!should_reclaim_unleased_session(
+            true,
+            false,
+            true,
+            false,
+            false,
+            1,
+            1 + AGENT_TERMINAL_IDLE_TIMEOUT_MS,
+            AGENT_TERMINAL_IDLE_TIMEOUT_MS,
+        ));
+        assert!(!should_reclaim_unleased_session(
+            true,
+            true,
+            true,
+            false,
+            true,
+            1,
+            1 + AGENT_TERMINAL_IDLE_TIMEOUT_MS,
+            AGENT_TERMINAL_IDLE_TIMEOUT_MS,
+        ));
+        assert!(!should_reclaim_unleased_session(
+            false,
+            false,
+            false,
+            false,
+            false,
+            1,
+            1 + AGENT_TERMINAL_IDLE_TIMEOUT_MS,
+            AGENT_TERMINAL_IDLE_TIMEOUT_MS,
+        ));
+    }
+
+    #[test]
+    fn topology_remembers_agent_workspaces_by_flag_or_name() {
+        let topology = zorai_protocol::WorkspaceTopology {
+            workspaces: vec![
+                zorai_protocol::WorkspaceTopologyEntry {
+                    workspace_id: "ws-flag".into(),
+                    workspace_name: "Renamed".into(),
+                    agent_owned: true,
+                    last_activity_at: 0,
+                    surfaces: Vec::new(),
+                },
+                zorai_protocol::WorkspaceTopologyEntry {
+                    workspace_id: "ws-name".into(),
+                    workspace_name: "Agent - training".into(),
+                    agent_owned: false,
+                    last_activity_at: 0,
+                    surfaces: Vec::new(),
+                },
+                zorai_protocol::WorkspaceTopologyEntry {
+                    workspace_id: "ws-operator".into(),
+                    workspace_name: "Default".into(),
+                    agent_owned: false,
+                    last_activity_at: 0,
+                    surfaces: Vec::new(),
+                },
+            ],
+        };
+        let mut known = HashSet::new();
+        note_reclaimable_agent_workspaces(&mut known, Some(&topology));
+        assert!(known.contains("ws-flag"));
+        assert!(known.contains("ws-name"));
+        assert!(!known.contains("ws-operator"));
+        note_reclaimable_agent_workspaces(&mut known, None);
+        assert!(known.contains("ws-flag"));
     }
 
     #[test]
@@ -414,5 +635,47 @@ mod tests {
             Some("session_gone")
         );
         assert!(engine.agent_terminal_leases.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn sweep_reclaims_idle_unleased_session_in_an_agent_workspace() {
+        let root = tempdir().expect("tempdir");
+        let manager = SessionManager::new_test(root.path()).await;
+        let engine =
+            super::super::AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+        let (session_id, _rx) = engine
+            .session_manager
+            .spawn(
+                Some("/bin/cat".to_string()),
+                None,
+                Some("ws-agent".to_string()),
+                None,
+                80,
+                24,
+            )
+            .await
+            .expect("spawn idle session");
+        assert!(
+            engine
+                .session_manager
+                .set_session_last_activity_for_test(session_id, 1)
+                .await
+        );
+        let mut events = engine.subscribe();
+        let known = HashSet::from(["ws-agent".to_string()]);
+        engine
+            .reclaim_idle_agent_sessions(&known, 1 + AGENT_TERMINAL_IDLE_TIMEOUT_MS)
+            .await;
+        let args = wait_for_close_command(&mut events, session_id).await;
+        assert_eq!(
+            args.get("reason").and_then(|value| value.as_str()),
+            Some("idle")
+        );
+        assert!(engine
+            .session_manager
+            .list()
+            .await
+            .iter()
+            .all(|session| session.id != session_id));
     }
 }

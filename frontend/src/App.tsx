@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { startAgentWorkspaceReclaim } from "./lib/agentWorkspaceReclaim";
 import { startAutoSave } from "./lib/sessionPersistence";
 import { coerceThemeNameForAppearance } from "./lib/themes";
 import { applyAppShellTheme, getAppShellTheme } from "./lib/themesAppShell";
@@ -27,6 +28,7 @@ export default function App() {
   }, [createWorkspace, workspaces.length]);
 
   useEffect(() => startAutoSave(30_000), []);
+  useEffect(() => startAgentWorkspaceReclaim(), []);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") {

@@ -429,7 +429,7 @@ pub(crate) fn auth_row_action_offsets(
 }
 
 use zorai_shared::providers::{
-    PROVIDER_ID_CLAUDE_CODE_CLI, PROVIDER_ID_GITHUB_COPILOT, PROVIDER_ID_OPENAI,
+    PROVIDER_ID_CLAUDE_CODE_CLI, PROVIDER_ID_CURSOR, PROVIDER_ID_GITHUB_COPILOT, PROVIDER_ID_OPENAI,
 };
 
 pub(crate) fn auth_primary_label(entry: &crate::state::auth::ProviderAuthEntry) -> &'static str {
@@ -441,6 +441,8 @@ pub(crate) fn auth_primary_label(entry: &crate::state::auth::ProviderAuthEntry) 
         (PROVIDER_ID_GITHUB_COPILOT, false, "github_copilot") => "[Token]",
         (PROVIDER_ID_CLAUDE_CODE_CLI, true, _) => "[Ready]",
         (PROVIDER_ID_CLAUDE_CODE_CLI, false, _) => "[Install]",
+        (PROVIDER_ID_CURSOR, true, _) => "[Logout]",
+        (PROVIDER_ID_CURSOR, false, _) => "[Login]",
         (_, true, _) => "[Logout]",
         _ => "[API Key]",
     }
@@ -455,6 +457,7 @@ pub(crate) fn auth_secondary_label(entry: &crate::state::auth::ProviderAuthEntry
         (PROVIDER_ID_OPENAI, false, _) => "[ChatGPT]",
         (PROVIDER_ID_GITHUB_COPILOT, false, "github_copilot") => "[Browser]",
         (PROVIDER_ID_CLAUDE_CODE_CLI, _, _) => "[Recheck]",
+        (PROVIDER_ID_CURSOR, _, _) => "[Recheck]",
         _ => "[Test]",
     }
 }

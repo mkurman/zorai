@@ -324,7 +324,7 @@ export function buildHydratedRemoteMessage(
       : typeof message.cost_usd === "number" && Number.isFinite(message.cost_usd)
       ? message.cost_usd
       : undefined,
-    reasoning: typeof message.reasoning === "string" ? message.reasoning : undefined,
+    reasoning: typeof message.reasoning === "string" ? boundRendererText(message.reasoning) : undefined,
     isCompactionSummary: isCompactionArtifact,
     messageKind: isCompactionArtifact ? "compaction_artifact" : (message.message_kind ?? "normal"),
     compactionStrategy: message.compaction_strategy ?? undefined,
@@ -782,7 +782,7 @@ export function deserializeMessage(message: AgentDbMessageRecord): AgentMessage 
     inputTokens: message.input_tokens ?? 0,
     outputTokens: message.output_tokens ?? 0,
     totalTokens: message.total_tokens ?? 0,
-    reasoning: message.reasoning ?? undefined,
+    reasoning: typeof message.reasoning === "string" ? boundRendererText(message.reasoning) : undefined,
     reasoningTokens: (metadata.reasoningTokens as number) ?? undefined,
     audioTokens: (metadata.audioTokens as number) ?? undefined,
     videoTokens: (metadata.videoTokens as number) ?? undefined,

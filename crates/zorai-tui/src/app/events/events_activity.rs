@@ -24,6 +24,48 @@ pub(super) struct CompactionTokenSnapshot {
     pub(super) post_compaction_window_end: usize,
 }
 
+pub(super) struct CompactionArtifactNotice {
+    pub(super) id: String,
+    pub(super) content: String,
+    pub(super) payload: Option<String>,
+    pub(super) strategy: Option<String>,
+}
+
+pub(super) fn compaction_artifact_from_notice(
+    details: Option<&str>,
+) -> Option<CompactionArtifactNotice> {
+    let parsed = parse_workflow_notice_details(details)?;
+    let content = parsed
+        .get("artifact_content")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())?
+        .to_string();
+    let id = parsed
+        .get("artifact_id")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("compaction-artifact")
+        .to_string();
+    let payload = parsed
+        .get("artifact_payload")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let strategy = parsed
+        .get("artifact_strategy")
+        .and_then(|value| value.as_str())
+        .map(str::to_string);
+    Some(CompactionArtifactNotice {
+        id,
+        content,
+        payload,
+        strategy,
+    })
+}
+
 pub(super) fn compaction_token_snapshot(details: Option<&str>) -> Option<CompactionTokenSnapshot> {
     let parsed = parse_workflow_notice_details(details)?;
     let post_compaction_total_tokens = parsed.get("post_compaction_total_tokens")?.as_u64()?;
@@ -146,11 +188,18 @@ pub(super) fn normalized_skill_workflow_notice(
                 "skill review".to_string()
             }),
         )),
-        "manual-compaction" | "auto-compaction" => Some((
-            kind.to_string(),
-            message.to_string(),
-            Some("compacting".to_string()),
-        )),
+        "manual-compaction" | "auto-compaction" => {
+            let lower = message.to_ascii_lowercase();
+            let still_compacting = !lower.contains("applied")
+                && !lower.contains("skipped")
+                && !lower.contains("fail")
+                && !lower.contains("compacted");
+            Some((
+                kind.to_string(),
+                message.to_string(),
+                still_compacting.then(|| "compacting".to_string()),
+            ))
+        }
         _ => None,
     }
 }
@@ -181,6 +230,18 @@ mod tests {
             "manual-compaction must produce an agent_activity so the spinner stays visible",
         );
         assert_eq!(activity.as_deref(), Some("compacting"));
+    }
+
+    #[test]
+    fn applied_compaction_notice_clears_the_compacting_activity() {
+        let result = normalized_skill_workflow_notice(
+            "manual-compaction",
+            "Manual compaction applied using heuristic. Pre-compaction context",
+            None,
+        );
+        let (_kind, _status, activity) =
+            result.expect("applied compaction stays a workflow notice");
+        assert!(activity.is_none());
     }
 
     #[test]

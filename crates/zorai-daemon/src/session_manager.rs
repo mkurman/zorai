@@ -84,6 +84,15 @@ pub struct BackgroundTaskStatus {
     pub snapshot_path: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct SessionActivitySnapshot {
+    pub id: SessionId,
+    pub workspace_id: Option<String>,
+    pub last_activity_at_ms: u64,
+    pub has_active_command: bool,
+    pub busy: bool,
+}
+
 impl SessionManager {
     #[cfg(test)]
     pub async fn new_test(root: &std::path::Path) -> Arc<Self> {

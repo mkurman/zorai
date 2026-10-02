@@ -208,6 +208,7 @@ pub struct AgentEngine {
     pub(super) weles_health: RwLock<WelesHealthStatus>,
     /// Active cancellation tokens per thread for stop-stream behavior.
     pub stream_cancellations: Mutex<HashMap<String, StreamCancellationEntry>>,
+    pub(crate) operator_stopped_streams: Mutex<HashSet<String>>,
     pub stream_generation: AtomicU64,
     pub(super) stalled_turn_candidates:
         Mutex<HashMap<String, crate::agent::stalled_turns::StalledTurnCandidate>>,
@@ -472,6 +473,7 @@ impl AgentEngine {
                 checked_at: 0,
             }),
             stream_cancellations: Mutex::new(HashMap::new()),
+            operator_stopped_streams: Mutex::new(HashSet::new()),
             stream_generation: AtomicU64::new(1),
             stalled_turn_candidates: Mutex::new(HashMap::new()),
             operation_wakeups: Mutex::new(HashMap::new()),

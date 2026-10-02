@@ -842,7 +842,12 @@ fn footer_segments(
     } else {
         latest_worker_todos(tasks, goal_run_id)
             .into_iter()
-            .find(|todo| matches!(todo.status, Some(crate::state::task::TodoStatus::InProgress)))
+            .find(|todo| {
+                matches!(
+                    todo.status,
+                    Some(crate::state::task::TodoStatus::InProgress)
+                )
+            })
             .map(|todo| todo.content)
             .unwrap_or_else(|| "Goal".to_string())
     };
@@ -975,7 +980,9 @@ fn center_rows(
     match state.mode() {
         GoalWorkspaceMode::Work => work_rows(tasks, goal_run_id, theme),
         GoalWorkspaceMode::Review => review_rows(tasks, goal_run_id, theme),
-        GoalWorkspaceMode::Activity => timeline_rows(tasks, goal_run_id, width, theme, tick_counter),
+        GoalWorkspaceMode::Activity => {
+            timeline_rows(tasks, goal_run_id, width, theme, tick_counter)
+        }
         GoalWorkspaceMode::Threads => thread_rows(tasks, goal_run_id, theme),
         GoalWorkspaceMode::Files => goal_file_rows(goal_run_id, width, theme),
     }
@@ -1058,11 +1065,7 @@ fn latest_worker_todos(tasks: &TaskState, goal_run_id: &str) -> Vec<crate::state
     Vec::new()
 }
 
-fn work_rows(
-    tasks: &TaskState,
-    goal_run_id: &str,
-    theme: &ThemeTokens,
-) -> Vec<WorkspaceVisualRow> {
+fn work_rows(tasks: &TaskState, goal_run_id: &str, theme: &ThemeTokens) -> Vec<WorkspaceVisualRow> {
     let mut rows = Vec::new();
     let worker_thread = tasks
         .goal_run_by_id(goal_run_id)
@@ -1162,7 +1165,10 @@ fn review_rows(
                         Span::styled(segment, theme.fg_active),
                     ])
                 } else {
-                    Line::from(vec![Span::raw("  "), Span::styled(segment, theme.fg_active)])
+                    Line::from(vec![
+                        Span::raw("  "),
+                        Span::styled(segment, theme.fg_active),
+                    ])
                 },
             });
         }
@@ -1662,7 +1668,13 @@ fn detail_lines(
                 );
             }
             if let Some(error) = run.and_then(|run| run.last_error.as_deref()) {
-                push_detail_wrapped(&mut rows, &mut visual_row, error, theme.accent_danger, width);
+                push_detail_wrapped(
+                    &mut rows,
+                    &mut visual_row,
+                    error,
+                    theme.accent_danger,
+                    width,
+                );
             }
         }
         GoalWorkspaceMode::Review => {
@@ -2013,10 +2025,10 @@ pub(crate) fn goal_thread_entries(
     let mut entries = Vec::new();
     let mut known = std::collections::BTreeSet::new();
     let push_entry = |entries: &mut Vec<GoalThreadEntry>,
-                       known: &mut std::collections::BTreeSet<String>,
-                       label: String,
-                       thread_id: String,
-                       summary: String| {
+                      known: &mut std::collections::BTreeSet<String>,
+                      label: String,
+                      thread_id: String,
+                      summary: String| {
         if thread_id.is_empty() || !known.insert(thread_id.clone()) {
             return;
         }
@@ -2068,13 +2080,10 @@ pub(crate) fn goal_thread_entries(
         );
     }
 
-    for thread_id in [
-        run.active_thread_id.clone(),
-        run.root_thread_id.clone(),
-    ]
-    .into_iter()
-    .flatten()
-    .chain(run.execution_thread_ids.iter().cloned())
+    for thread_id in [run.active_thread_id.clone(), run.root_thread_id.clone()]
+        .into_iter()
+        .flatten()
+        .chain(run.execution_thread_ids.iter().cloned())
     {
         known.insert(thread_id);
     }

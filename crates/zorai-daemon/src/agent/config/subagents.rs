@@ -16,7 +16,9 @@ pub(super) fn apply_builtin_persona_overrides_from_sub_agent(
     } else if is_explicit_builtin_persona_scope(&def.name) {
         def.name.as_str()
     } else {
-        return Err(protected_mutation_error("unexpected built-in persona target"));
+        return Err(protected_mutation_error(
+            "unexpected built-in persona target",
+        ));
     };
     let Some(overrides) = builtin_persona_overrides_mut(config, alias) else {
         return Err(protected_mutation_error(format!(

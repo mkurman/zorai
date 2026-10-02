@@ -43,7 +43,13 @@ impl TuiModel {
     pub(crate) fn is_explicit_builtin_persona(&self, agent_alias: &str) -> bool {
         matches!(
             agent_alias.trim().to_ascii_lowercase().as_str(),
-            "swarozyc" | "radogost" | "domowoj" | "swietowit" | "perun" | "mokosh" | "dazhbog"
+            "swarozyc"
+                | "radogost"
+                | "domowoj"
+                | "swietowit"
+                | "perun"
+                | "mokosh"
+                | "dazhbog"
                 | "rod"
         )
     }

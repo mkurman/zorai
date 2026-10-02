@@ -68,8 +68,14 @@ async fn wal_pragmas_applied() -> Result<()> {
     assert_eq!(pragmas.2, 1);
     assert_eq!(pragmas.3, 1000);
     assert_eq!(pragmas.4, 5000);
-    assert_eq!(pragmas.5, -4096, "page cache must stay at 4 MiB per connection");
-    assert_eq!(pragmas.6, 16_777_216, "mmap window must stay at 16 MiB per connection");
+    assert_eq!(
+        pragmas.5, -4096,
+        "page cache must stay at 4 MiB per connection"
+    );
+    assert_eq!(
+        pragmas.6, 16_777_216,
+        "mmap window must stay at 16 MiB per connection"
+    );
     fs::remove_dir_all(root)?;
     Ok(())
 }

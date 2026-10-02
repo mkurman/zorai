@@ -278,6 +278,9 @@ pub enum DaemonCommand {
         api_key: String,
         base_url: String,
     },
+    LogoutProvider {
+        provider_id: String,
+    },
     ValidateProvider {
         provider_id: String,
         base_url: String,

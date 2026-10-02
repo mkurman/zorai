@@ -134,7 +134,9 @@ impl TuiModel {
                 KeyCode::Char('3') => {
                     Some(crate::state::goal_workspace::GoalWorkspaceMode::Activity)
                 }
-                KeyCode::Char('4') => Some(crate::state::goal_workspace::GoalWorkspaceMode::Threads),
+                KeyCode::Char('4') => {
+                    Some(crate::state::goal_workspace::GoalWorkspaceMode::Threads)
+                }
                 KeyCode::Char('5') => Some(crate::state::goal_workspace::GoalWorkspaceMode::Files),
                 _ => None,
             };

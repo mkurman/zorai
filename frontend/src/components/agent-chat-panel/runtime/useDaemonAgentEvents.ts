@@ -18,6 +18,7 @@ import {
   syncWelesHealth,
   trimFollowedThreadToHistoryWindow,
 } from "./daemonHelpers";
+import { getThreadCompaction, handleCompactionWorkflowNotice } from "@/zorai/features/threads/threadCompactionStatus";
 import {
   handleDivergentStartEvent,
   handleGatewayIncomingEvent,
@@ -535,7 +536,8 @@ export function useDaemonAgentEvents({
             const turnActive = localThreadId
               ? shouldDeferThreadReload(useAgentStore.getState().getThreadMessages(localThreadId))
               : false;
-            if (localThreadId && turnActive) {
+            const compacting = Boolean(getThreadCompaction(reloadThreadId));
+            if (localThreadId && turnActive && !compacting) {
               deferThreadReload(localThreadId);
               break;
             }
@@ -589,6 +591,11 @@ export function useDaemonAgentEvents({
         }
         case "workflow_notice":
           recordDaemonWorkflowNotice({ event, activePaneId, activeWorkspace });
+          void handleCompactionWorkflowNotice(event, (daemonThreadId) => refreshDaemonThreadMessagesIntoLocalState({
+            daemonThreadId,
+            setThreadTodos,
+            setDaemonTodosByThread,
+          }));
           if (event.kind === "operator-profile-warning") {
             handleOperatorProfileWarning({ event, activePaneId, activeWorkspace, addNotification });
           }

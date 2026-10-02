@@ -635,9 +635,9 @@ fn slash_provider_model_on_new_subagent_thread_queues_execution_profile_for_firs
     let mut saw_execution_profile = false;
     while let Ok(command) = daemon_rx.try_recv() {
         match command {
-            DaemonCommand::SetThreadExecutionProfile {
-                profile_json, ..
-            } if profile_json.contains(PROVIDER_ID_XAI) && profile_json.contains("grok-4") => {
+            DaemonCommand::SetThreadExecutionProfile { profile_json, .. }
+                if profile_json.contains(PROVIDER_ID_XAI) && profile_json.contains("grok-4") =>
+            {
                 saw_execution_profile = true;
             }
             DaemonCommand::SendMessage { .. } | DaemonCommand::DismissConciergeWelcome => {}
@@ -658,15 +658,17 @@ fn target_agent_model_picker_excludes_stale_models_from_other_providers() {
     let (mut model, _daemon_rx) = make_model();
     seed_active_weles_thread(&mut model);
     model.start_new_thread_view_for_agent(Some("weles"));
-    model.config.reduce(crate::state::config::ConfigAction::ModelsFetched(vec![
-        crate::state::config::FetchedModel {
-            id: "grok-4".to_string(),
-            name: Some("Grok 4".to_string()),
-            context_window: None,
-            pricing: None,
-            metadata: None,
-        },
-    ]));
+    model
+        .config
+        .reduce(crate::state::config::ConfigAction::ModelsFetched(vec![
+            crate::state::config::FetchedModel {
+                id: "grok-4".to_string(),
+                name: Some("Grok 4".to_string()),
+                context_window: None,
+                pricing: None,
+                metadata: None,
+            },
+        ]));
     assert!(model.execute_slash_command_line("/model"));
     assert!(
         !model
@@ -683,15 +685,17 @@ fn target_agent_model_picker_includes_remote_models_for_active_provider() {
     seed_active_weles_thread(&mut model);
     model.start_new_thread_view_for_agent(Some("weles"));
     assert!(model.execute_slash_command_line("/model"));
-    model.config.reduce(crate::state::config::ConfigAction::ModelsFetched(vec![
-        crate::state::config::FetchedModel {
-            id: "gpt-5.4-mini".to_string(),
-            name: Some("GPT-5.4 mini".to_string()),
-            context_window: Some(128_000),
-            pricing: None,
-            metadata: None,
-        },
-    ]));
+    model
+        .config
+        .reduce(crate::state::config::ConfigAction::ModelsFetched(vec![
+            crate::state::config::FetchedModel {
+                id: "gpt-5.4-mini".to_string(),
+                name: Some("GPT-5.4 mini".to_string()),
+                context_window: Some(128_000),
+                pricing: None,
+                metadata: None,
+            },
+        ]));
     assert!(
         model
             .available_model_picker_models()

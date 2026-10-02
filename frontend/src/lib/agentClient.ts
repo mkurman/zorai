@@ -48,6 +48,14 @@ export async function* sendChatCompletion(
   req: ChatRequest,
 ): AsyncGenerator<ChatChunk> {
   try {
+    if (req.provider === "cursor") {
+      yield {
+        type: "error",
+        content: "Cursor subscription runs in the daemon. Set the agent backend to daemon, then use Subscription login in Auth settings.",
+      };
+      return;
+    }
+
     const resolvedAuth = await resolveProviderAuth(req);
     const resolvedRequest: ChatRequest = {
       ...req,

@@ -8,9 +8,9 @@ use super::types::*;
 
 #[path = "goal_parsing/parsing.rs"]
 mod parsing;
-pub(super) use parsing::parse_json_block;
 #[cfg(test)]
 pub(super) use parsing::goal_plan_json_schema;
+pub(super) use parsing::parse_json_block;
 
 #[cfg(test)]
 #[path = "goal_parsing/tests.rs"]

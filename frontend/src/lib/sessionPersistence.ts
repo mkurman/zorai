@@ -7,6 +7,10 @@ import {
 import { allLeafIds, findLeaf } from "./bspTree";
 import { useWorkspaceStore } from "./workspaceStore";
 import {
+  isReclaimableAgentWorkspace,
+  workspaceLastActivityAt,
+} from "./agentWorkspaceReclaim";
+import {
   deletePersistedPath,
   readPersistedJson,
   scheduleJsonWrite,
@@ -38,6 +42,8 @@ export function captureSession(): PersistedSession {
         icon: ws.icon,
         accentColor: ws.accentColor,
         cwd: ws.cwd,
+        agentOwned: isReclaimableAgentWorkspace(ws) || undefined,
+        lastActivityAt: workspaceLastActivityAt(ws) || undefined,
         browser: (() => {
           const defaultUrl = "https://google.com";
           const fallbackUrl = ws.id === state.activeWorkspaceId ? state.webBrowserUrl : defaultUrl;
@@ -130,6 +136,8 @@ function captureWorkspaceTopology() {
       return {
         workspace_id: ws.id,
         workspace_name: ws.name,
+        agent_owned: isReclaimableAgentWorkspace(ws),
+        last_activity_at: workspaceLastActivityAt(ws),
         surfaces: ws.surfaces.map((sf) => {
           const isActiveSurface = sf.id === ws.activeSurfaceId;
           const canvasPanelMap = new Map(

@@ -646,6 +646,58 @@ impl SessionManager {
         serde_json::from_str(&data).ok()
     }
 
+    pub(crate) async fn session_activity_snapshots(&self) -> Vec<SessionActivitySnapshot> {
+        let pending_sessions: std::collections::HashSet<SessionId> = self
+            .pending_approvals
+            .read()
+            .await
+            .values()
+            .map(|pending| pending.session_id)
+            .collect();
+        let sessions: Vec<(SessionId, Arc<Mutex<PtySession>>)> = self
+            .sessions
+            .read()
+            .await
+            .iter()
+            .map(|(id, session)| (*id, session.clone()))
+            .collect();
+
+        let mut snapshots = Vec::with_capacity(sessions.len());
+        for (id, session) in sessions {
+            let session = session.lock().await;
+            if session.is_dead() {
+                continue;
+            }
+            let has_active_command = session.active_command().is_some();
+            let busy =
+                has_active_command || session.has_managed_work() || pending_sessions.contains(&id);
+            snapshots.push(SessionActivitySnapshot {
+                id,
+                workspace_id: session.workspace_id().map(ToOwned::to_owned),
+                last_activity_at_ms: session.last_activity_at_ms(),
+                has_active_command,
+                busy,
+            });
+        }
+        snapshots
+    }
+
+    #[cfg(test)]
+    pub async fn set_session_last_activity_for_test(
+        &self,
+        id: SessionId,
+        activity_at_ms: u64,
+    ) -> bool {
+        let Some(session) = self.sessions.read().await.get(&id).cloned() else {
+            return false;
+        };
+        session
+            .lock()
+            .await
+            .set_last_activity_at_ms_for_test(activity_at_ms);
+        true
+    }
+
     pub async fn list(&self) -> Vec<SessionInfo> {
         self.list_filtered(None).await
     }

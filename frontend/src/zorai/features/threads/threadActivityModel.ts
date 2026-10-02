@@ -1,3 +1,7 @@
+import {
+  compactionArtifactDisplayText,
+  isCompactionArtifactMessage,
+} from "@/components/agent-chat-panel/chat-view/compactionArtifact";
 import type { AgentMessage } from "@/lib/agentStore";
 
 const HANDOFF_EVENT_MARKER = "[[handoff_event]]";
@@ -46,12 +50,22 @@ export type ThreadActivity =
       kind: "replan";
       title: string;
       rawText: string;
+    }
+  | {
+      kind: "compaction";
+      title: string;
+      rawText: string;
     };
 
 type JsonRecord = Record<string, unknown>;
 type OperationState = OperationActivityItem["state"];
 
 export function classifyThreadActivityMessage(message: AgentMessage): ThreadActivity | null {
+  const compaction = classifyCompaction(message);
+  if (compaction) {
+    return compaction;
+  }
+
   if (message.role !== "system") {
     return null;
   }
@@ -78,6 +92,25 @@ export function classifyThreadActivityMessage(message: AgentMessage): ThreadActi
   }
 
   return classifyOperation(rawText);
+}
+
+function classifyCompaction(message: AgentMessage): ThreadActivity | null {
+  if (isCompactionArtifactMessage(message)) {
+    return {
+      kind: "compaction",
+      title: "Compaction",
+      rawText: compactionArtifactDisplayText(message),
+    };
+  }
+  if (message.role !== "system") return null;
+  const rawText = message.content.trimStart();
+  if (!rawText.startsWith("Compaction\n")) return null;
+  const body = rawText.slice("Compaction\n".length).trim();
+  return {
+    kind: "compaction",
+    title: "Compaction",
+    rawText: body || rawText,
+  };
 }
 
 function classifyBudget(rawText: string): ThreadActivity | null {

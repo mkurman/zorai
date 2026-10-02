@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useAgentStore, type AgentThread, type AgentMessage } from "@/lib/agentStore";
 import { getBridge } from "@/lib/bridge";
 import { pushToast } from "@/lib/toastStore";
+import { requestManualCompaction, useThreadCompaction } from "./threadCompactionStatus";
 import { summarizeSessionUsage } from "@/components/agent-chat-panel/chat-view/helpers";
 import { resolveThreadOwnerRuntimeProfile } from "./threadOwnerRuntime";
 
@@ -48,7 +49,8 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
   const subAgents = useAgentStore((state) => state.subAgents);
   const [open, setOpen] = useState(false);
   const [autoBusy, setAutoBusy] = useState(false);
-  const [compacting, setCompacting] = useState(false);
+  const compactionStatus = useThreadCompaction(thread?.daemonThreadId);
+  const compacting = Boolean(compactionStatus);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const btnRef = useRef<HTMLButtonElement | null>(null);
 
@@ -115,21 +117,8 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
   }, [open]);
 
   const doCompact = async () => {
-    const daemonId = thread?.daemonThreadId?.trim();
-    if (!daemonId) {
-      pushToast("Compact needs a daemon-linked thread — send one message first.", "info");
-      return;
-    }
-    setCompacting(true);
-    try {
-      await (getBridge() as unknown as { agentForceCompact?: (id: string) => Promise<unknown> })?.agentForceCompact?.(daemonId);
-      pushToast("Compaction started — like /compact in the TUI.", "info");
-      setOpen(false);
-    } catch (error) {
-      pushToast(error instanceof Error ? error.message : "Could not start compaction.", "error");
-    } finally {
-      window.setTimeout(() => setCompacting(false), 900);
-    }
+    setOpen(false);
+    await requestManualCompaction(thread?.daemonThreadId);
   };
 
   const toggleAuto = async (next: boolean) => {

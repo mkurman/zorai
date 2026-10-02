@@ -721,7 +721,12 @@ fn spawn_lancedb_indexer_runtime(
                     )
                     .await;
                 });
-                let _ = tokio::join!(embedding_handle, semantic_handle, sync_handle, checkpoint_handle);
+                let _ = tokio::join!(
+                    embedding_handle,
+                    semantic_handle,
+                    sync_handle,
+                    checkpoint_handle
+                );
             });
             tracing::info!("lancedb indexer runtime exiting");
         });

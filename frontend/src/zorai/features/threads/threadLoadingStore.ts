@@ -34,6 +34,14 @@ export const useThreadLoadingStore = create<ThreadLoadingState>((set) => ({
   }),
 }));
 
+export function beginThreadLoadingFor(threadIds: Array<string | null | undefined>): () => void {
+  const finishers = [...new Set(threadIds.map((id) => id?.trim()).filter((id): id is string => Boolean(id)))]
+    .map((id) => beginThreadLoading(id));
+  return () => {
+    for (const finish of finishers) finish();
+  };
+}
+
 export function beginThreadLoading(threadId?: string | null): () => void {
   useThreadLoadingStore.getState().begin(threadId);
   let finished = false;
@@ -55,11 +63,13 @@ export function isThreadLoading(
 
 export function shouldShowConversationSkeleton(input: {
   pending: number;
+  activeThreadLoading?: boolean;
   hasActiveThread: boolean;
   loadedMessageCount: number;
   knownHistory: boolean;
 }): boolean {
   if (input.loadedMessageCount > 0) return false;
+  if (input.activeThreadLoading) return true;
   if (input.pending > 0) return true;
   if (!input.hasActiveThread) return false;
   return input.knownHistory;

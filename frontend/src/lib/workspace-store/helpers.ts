@@ -121,6 +121,8 @@ export function createDefaultWorkspace(
     surfaces: [surface],
     activeSurfaceId: surface.id,
     createdAt: Date.now(),
+    agentOwned: false,
+    lastActivityAt: Date.now(),
   };
 }
 

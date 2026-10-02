@@ -6,20 +6,37 @@ async fn wait_for_retry_delay_or_abort(
     tx: &mpsc::Sender<Result<CompletionChunk>>,
     delay_ms: u64,
     retry_now: Option<&Arc<tokio::sync::Notify>>,
+    cancel: Option<&tokio_util::sync::CancellationToken>,
 ) -> bool {
-    if tx.is_closed() {
+    if tx.is_closed() || cancel.is_some_and(|token| token.is_cancelled()) {
         return false;
     }
     let delay_ms = delay_ms.max(1);
+    let cancel = cancel.cloned();
+    let cancel_for_wait = cancel.clone();
+    let cancelled = async move {
+        if let Some(token) = cancel_for_wait {
+            token.cancelled().await;
+        } else {
+            std::future::pending::<()>().await;
+        }
+    };
+    let still_open = |cancel: &Option<tokio_util::sync::CancellationToken>| {
+        !tx.is_closed() && cancel.as_ref().is_none_or(|token| !token.is_cancelled())
+    };
     match retry_now {
         Some(retry_now) => tokio::select! {
+            biased;
             _ = tx.closed() => false,
-            _ = retry_now.notified() => !tx.is_closed(),
-            _ = tokio::time::sleep(std::time::Duration::from_millis(delay_ms)) => !tx.is_closed(),
+            _ = cancelled => false,
+            _ = retry_now.notified() => still_open(&cancel),
+            _ = tokio::time::sleep(std::time::Duration::from_millis(delay_ms)) => still_open(&cancel),
         },
         None => tokio::select! {
+            biased;
             _ = tx.closed() => false,
-            _ = tokio::time::sleep(std::time::Duration::from_millis(delay_ms)) => !tx.is_closed(),
+            _ = cancelled => false,
+            _ = tokio::time::sleep(std::time::Duration::from_millis(delay_ms)) => still_open(&cancel),
         },
     }
 }
@@ -93,7 +110,9 @@ pub(crate) fn analyze_retry_failure(err: &anyhow::Error) -> RetryFailureAnalysis
     let retry_after_ms = structured_failure
         .and_then(|failure| failure.diagnostics.get("retry_after_ms"))
         .and_then(|value| value.as_u64());
-    let is_rate_limited = matches!(structured_class, Some(UpstreamFailureClass::RateLimit));
+    let usage_limit_exhausted = is_exhausted_provider_usage_limit(&err.to_string());
+    let is_rate_limited =
+        !usage_limit_exhausted && matches!(structured_class, Some(UpstreamFailureClass::RateLimit));
     let is_transient_transport = matches!(
         structured_class,
         Some(UpstreamFailureClass::TransientTransport)
@@ -153,6 +172,7 @@ pub(crate) struct CompletionRequestOptions {
     pub working_dir: Option<String>,
     pub claude_permission_mode: Option<String>,
     pub retry_now: Option<Arc<tokio::sync::Notify>>,
+    pub cancel: Option<tokio_util::sync::CancellationToken>,
     pub opencode_session_id: Option<String>,
 }
 
@@ -190,7 +210,10 @@ pub(crate) fn coerce_transport_for_provider(
 ) -> ApiTransport {
     if matches!(
         get_provider_definition(provider).and_then(|definition| definition.native_transport_kind),
-        Some(crate::agent::types::NativeTransportKind::ClaudeCodeCli)
+        Some(
+            crate::agent::types::NativeTransportKind::ClaudeCodeCli
+                | crate::agent::types::NativeTransportKind::CursorCli
+        )
     ) {
         ApiTransport::NativeAssistant
     } else {
@@ -226,6 +249,14 @@ pub(crate) fn send_completion_request_with_options(
     tokio::spawn(async move {
         let mut retry_attempt = 0u32;
         loop {
+            if tx.is_closed()
+                || options
+                    .cancel
+                    .as_ref()
+                    .is_some_and(|token| token.is_cancelled())
+            {
+                break;
+            }
             let target = effective_attempt_target(&provider, &config, transport);
             let attempt_number = retry_attempt.saturating_add(1);
             tracing::info!(
@@ -279,6 +310,12 @@ pub(crate) fn send_completion_request_with_options(
                                 &tx,
                             )
                             .await
+                        } else if matches!(
+                            get_provider_definition(&provider)
+                                .and_then(|definition| definition.native_transport_kind),
+                            Some(crate::agent::types::NativeTransportKind::CursorCli)
+                        ) {
+                            run_cursor_cli(&provider, &config, &system_prompt, &messages, &tx).await
                         } else {
                             run_native_assistant(
                                 &client,
@@ -398,7 +435,14 @@ pub(crate) fn send_completion_request_with_options(
                                         message: retry_message.clone(),
                                     }))
                                     .await;
-                                if !wait_for_retry_delay_or_abort(&tx, delay_ms, options.retry_now.as_ref()).await {
+                                if !wait_for_retry_delay_or_abort(
+                                    &tx,
+                                    delay_ms,
+                                    options.retry_now.as_ref(),
+                                    options.cancel.as_ref(),
+                                )
+                                .await
+                                {
                                     break;
                                 }
                                 continue;
@@ -431,7 +475,14 @@ pub(crate) fn send_completion_request_with_options(
                                         message: retry_message.clone(),
                                     }))
                                     .await;
-                                if !wait_for_retry_delay_or_abort(&tx, delay_ms, options.retry_now.as_ref()).await {
+                                if !wait_for_retry_delay_or_abort(
+                                    &tx,
+                                    delay_ms,
+                                    options.retry_now.as_ref(),
+                                    options.cancel.as_ref(),
+                                )
+                                .await
+                                {
                                     break;
                                 }
                                 continue;

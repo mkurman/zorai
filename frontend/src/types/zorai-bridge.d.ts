@@ -721,6 +721,7 @@ declare global {
             rows?: number;
         }) => Promise<{ sessionId: string; activeCommand?: string }>;
         stopTerminalSession?: (paneId: string, killSession?: boolean) => Promise<boolean>;
+        listBusyTerminalPanes?: () => Promise<string[]>;
         executeManagedCommand?: (paneId: string | null, payload: unknown) => Promise<boolean | { output?: string }>;
         agentSendMessage?: (threadId: string | null, content: string, sessionId?: string | null, contextMessages?: unknown[], contentBlocksJson?: string | null, targetAgentId?: string | null) => Promise<{ ok?: boolean; error?: string } | unknown>;
         agentEnqueuePrompt?: (payload: {

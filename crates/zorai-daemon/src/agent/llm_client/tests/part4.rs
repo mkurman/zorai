@@ -382,6 +382,23 @@ fn retry_failure_analysis_marks_invalid_http_version_as_transport_retry() {
     assert!(analysis.retry_after_ms.is_none());
 }
 
+#[test]
+fn exhausted_usage_limit_is_not_retried_as_a_rate_limit() {
+    let error: anyhow::Error = UpstreamFailureError::new(
+        UpstreamFailureClass::RateLimit,
+        "openai API returned 429: The usage limit has been reached",
+        serde_json::json!({
+            "raw_message": "The usage limit has been reached",
+        }),
+    )
+    .into();
+
+    let analysis = analyze_retry_failure(&error);
+
+    assert!(!analysis.is_rate_limited);
+    assert_eq!(analysis.failure_class, "non_retryable");
+}
+
 #[tokio::test]
 async fn minimax_anthropic_retry_recovers_after_malformed_http_response() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};

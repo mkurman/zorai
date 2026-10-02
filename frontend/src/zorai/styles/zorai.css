@@ -335,9 +335,9 @@
 .zorai-primary-button,
 .zorai-ghost-button,
 .zorai-icon-button {
-  border-radius: 8px;
+  border-radius: 16px;
   border: 1px solid var(--zorai-border-strong);
-  background: var(--zorai-bg-elevated);
+  background: transparent;
   color: var(--zorai-text);
   cursor: pointer;
   font-weight: 500;
@@ -422,6 +422,9 @@
 .zorai-ghost-button:focus-visible,
 .zorai-icon-button:focus-visible {
   outline: 2px solid var(--zorai-accent);
+  background: var(--zorai-bg-elevated);
+  color: var(--zorai-accent);
+  border-radius: 16px;
   outline-offset: 2px;
 }
 
@@ -477,7 +480,7 @@
 
 .zorai-ghost-button,
 .zorai-icon-button {
-  padding: 4px 10px;
+  padding: 4px 16px;
 }
 
 .zorai-stop-button {
@@ -2035,7 +2038,7 @@
   background: transparent;
   color: var(--zorai-text);
   padding: 12px 14px 6px;
-  font-size: var(--text-sm-plus);
+  font-size: var(--text-sm);
   line-height: 1.5;
   box-sizing: border-box;
 }
@@ -3395,8 +3398,9 @@
   white-space: pre-wrap;
   word-break: break-word;
   border-radius: 8px;
-  background: var(--zorai-bg);
-  font-size: var(--text-sm);
+  background: transparent;
+  font-size: var(--text-xs);
+  border: 1px solid var(--zorai-border);
 }
 
 .zorai-tool-artifacts {
@@ -3440,8 +3444,8 @@
   padding: 8px;
   border: 1px solid var(--zorai-border);
   border-radius: 8px;
-  background: var(--zorai-bg);
-  font-size: var(--text-sm);
+  background: transparent;
+  font-size: var(--text-xs);
 }
 
 .zorai-raw-tool-payload summary {

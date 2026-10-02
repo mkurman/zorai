@@ -888,11 +888,9 @@ fn get_background_task_status_alias_is_hidden_from_catalog() {
     let config = AgentConfig::default();
     let temp_dir = std::env::temp_dir();
     let tools = get_available_tools(&config, &temp_dir, false);
-    assert!(
-        !tools
-            .iter()
-            .any(|tool| tool.function.name == "get_background_task_status")
-    );
+    assert!(!tools
+        .iter()
+        .any(|tool| tool.function.name == "get_background_task_status"));
     assert!(tools
         .iter()
         .any(|tool| tool.function.name == "get_operation_status"));

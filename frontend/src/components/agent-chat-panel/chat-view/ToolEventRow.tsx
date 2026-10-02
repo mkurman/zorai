@@ -20,22 +20,14 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
     [group.resultContent, group.toolArguments],
   );
   const statusLabel = group.status.toUpperCase();
-  const toolDiff = group.toolArguments
-    ? getToolDiffPresentation(group.toolName, group.toolArguments)
-    : null;
-  const fileTarget = group.toolArguments
-    ? getToolFileTarget(group.toolName, group.toolArguments)
-    : null;
-  const structuredArgs = group.toolArguments
-    ? getToolStructuredFields(group.toolName, group.toolArguments, "arguments")
-    : null;
-  const structuredArgDetails = fileTarget && structuredArgs
-    ? structuredArgs.filter((field) => field.key !== "path")
-    : structuredArgs;
-  const structuredResult = group.resultContent
-    ? getToolStructuredFields(group.toolName, group.resultContent, "result")
-    : null;
-  const reviewPresentation = buildToolReviewPresentation(group.welesReview);
+  const reviewPresentation = useMemo(
+    () => buildToolReviewPresentation(group.welesReview),
+    [group.welesReview],
+  );
+  const details = useMemo(
+    () => (collapsed ? null : expandedToolDetails(group.toolName, group.toolArguments, group.resultContent)),
+    [collapsed, group.toolName, group.toolArguments, group.resultContent],
+  );
   const reviewToneClass = reviewPresentation?.tone === "blocked"
     ? "acp-tool-review--blocked"
     : "acp-tool-review--flagged";
@@ -97,30 +89,22 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
             <ToolArtifactChips artifacts={artifacts} createdAt={group.createdAt} />
           ) : null}
 
-          {fileTarget ? (
-            <ToolFileTargetView label="file" path={fileTarget.path} summaryText={group.resultContent} />
-          ) : toolDiff ? (
-            <ToolDiffView sections={toolDiff} />
-          ) : structuredArgDetails ? (
-            <ToolStructuredValueView label="args" fields={structuredArgDetails} />
-          ) : group.toolArguments ? (
+          {details?.fileTarget ? (
+            <ToolFileTargetView label="file" path={details.fileTarget.path} summaryText={group.resultContent} />
+          ) : details?.toolDiff ? (
+            <ToolDiffView sections={details.toolDiff} />
+          ) : details?.structuredArgDetails ? (
+            <ToolStructuredValueView label="args" fields={details.structuredArgDetails} />
+          ) : details?.formattedArguments ? (
             <div>
               <div className="acp-field-label">args</div>
-              <pre className="acp-pre">
-                {(() => {
-                  try {
-                    return JSON.stringify(JSON.parse(group.toolArguments), null, 2);
-                  } catch {
-                    return group.toolArguments;
-                  }
-                })()}
-              </pre>
+              <pre className="acp-pre">{details.formattedArguments}</pre>
             </div>
           ) : null}
 
-          {!fileTarget && structuredResult ? (
-            <ToolStructuredValueView label="result" fields={structuredResult} />
-          ) : !fileTarget && group.resultContent ? (
+          {details && !details.fileTarget && details.structuredResult ? (
+            <ToolStructuredValueView label="result" fields={details.structuredResult} />
+          ) : details && !details.fileTarget && group.resultContent ? (
             <div>
               <div className="acp-field-label">result</div>
               <div className="acp-tool-result">{group.resultContent}</div>
@@ -145,18 +129,52 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
   );
 }
 
+export function sameToolEventGroup(prev: ToolEventGroup, next: ToolEventGroup): boolean {
+  return prev.toolCallId === next.toolCallId
+    && prev.toolName === next.toolName
+    && prev.toolArguments === next.toolArguments
+    && prev.resultContent === next.resultContent
+    && prev.status === next.status
+    && prev.createdAt === next.createdAt
+    && prev.welesReview === next.welesReview
+    && prev.key === next.key;
+}
+
+function expandedToolDetails(toolName: string, toolArguments: string, resultContent: string) {
+  const toolDiff = toolArguments
+    ? getToolDiffPresentation(toolName, toolArguments)
+    : null;
+  const fileTarget = toolArguments
+    ? getToolFileTarget(toolName, toolArguments)
+    : null;
+  const structuredArgs = toolArguments
+    ? getToolStructuredFields(toolName, toolArguments, "arguments")
+    : null;
+  const structuredArgDetails = fileTarget && structuredArgs
+    ? structuredArgs.filter((field) => field.key !== "path")
+    : structuredArgs;
+  const structuredResult = resultContent
+    ? getToolStructuredFields(toolName, resultContent, "result")
+    : null;
+  const formattedArguments = !fileTarget && !toolDiff && !structuredArgDetails && toolArguments
+    ? formatToolJson(toolArguments)
+    : null;
+  return { toolDiff, fileTarget, structuredArgDetails, structuredResult, formattedArguments };
+}
+
+function formatToolJson(raw: string): string {
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
+}
+
 /**
  * Memoized tool row: `buildDisplayItems` returns fresh group objects on every
  * rebuild, but groups for completed tool calls are content-stable, so compare
- * by value instead of identity. Without this, every streaming frame re-runs
- * JSON.parse on tool arguments/results for every historical tool row.
+ * by value instead of identity. Body JSON is parsed only after the row is expanded.
  */
 export const MemoizedToolEventRow = memo(ToolEventRow, (prev, next) =>
-  prev.group.toolCallId === next.group.toolCallId
-  && prev.group.toolName === next.group.toolName
-  && prev.group.toolArguments === next.group.toolArguments
-  && prev.group.resultContent === next.group.resultContent
-  && prev.group.status === next.group.status
-  && prev.group.createdAt === next.group.createdAt
-  && prev.group.welesReview === next.group.welesReview,
+  sameToolEventGroup(prev.group, next.group),
 );

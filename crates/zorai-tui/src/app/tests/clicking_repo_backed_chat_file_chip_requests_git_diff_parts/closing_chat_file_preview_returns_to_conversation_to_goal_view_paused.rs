@@ -350,7 +350,9 @@ fn goal_view_renders_live_activity_with_tools_files_and_todos() {
         goal_run_id: "goal-1".to_string(),
         step_id: None,
     });
-    model.goal_workspace.set_mode(crate::state::goal_workspace::GoalWorkspaceMode::Activity);
+    model
+        .goal_workspace
+        .set_mode(crate::state::goal_workspace::GoalWorkspaceMode::Activity);
 
     let plain = render_task_view(&mut model);
 

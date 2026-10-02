@@ -1,5 +1,7 @@
 use super::super::*;
-use crate::agent::{claude_code_auth, copilot_auth, openai_codex_auth, provider_resolution};
+use crate::agent::{
+    claude_code_auth, copilot_auth, cursor_auth, openai_codex_auth, provider_resolution,
+};
 use zorai_shared::providers::{PROVIDER_ID_GITHUB_COPILOT, PROVIDER_ID_OPENAI};
 
 impl AgentEngine {
@@ -109,8 +111,12 @@ impl AgentEngine {
         model: &str,
     ) -> Result<AgentConfig> {
         let current = self.get_config().await;
-        let selection =
-            provider_resolution::resolve_provider_model_switch(&current, provider_id, model, false)?;
+        let selection = provider_resolution::resolve_provider_model_switch(
+            &current,
+            provider_id,
+            model,
+            false,
+        )?;
 
         let mut updated = current;
         updated.provider = selection.provider_id;
@@ -315,6 +321,25 @@ impl AgentEngine {
                         .filter(|model| !model.trim().is_empty())
                         .unwrap_or_else(|| def.default_model.to_string()),
                     base_url: pc.map(|pc| pc.base_url.clone()).unwrap_or_default(),
+                });
+                continue;
+            }
+            if def.id == zorai_shared::providers::PROVIDER_ID_CURSOR {
+                let pc = config.providers.get(def.id);
+                let has_key = pc.map(|pc| !pc.api_key.trim().is_empty()).unwrap_or(false)
+                    || (use_legacy_top_level_fallback
+                        && config.provider == def.id
+                        && !config.api_key.trim().is_empty());
+                states.push(ProviderAuthState {
+                    provider_id: def.id.to_string(),
+                    provider_name: def.name.to_string(),
+                    authenticated: cursor_auth::cursor_subscription_authenticated() || has_key,
+                    auth_source: AuthSource::default(),
+                    model: pc
+                        .map(|pc| pc.model.clone())
+                        .filter(|model| !model.trim().is_empty())
+                        .unwrap_or_else(|| def.default_model.to_string()),
+                    base_url: String::new(),
                 });
                 continue;
             }

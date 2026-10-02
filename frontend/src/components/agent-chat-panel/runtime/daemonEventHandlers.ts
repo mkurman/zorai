@@ -4,6 +4,7 @@ import { fetchGoalRuns, normalizeGoalRun } from "@/lib/goalRuns";
 import { useAgentMissionStore } from "@/lib/agentMissionStore";
 import { useSnippetStore } from "@/lib/snippetStore";
 import { closePanesForSession, provisionTerminalPaneInWorkspace } from "@/lib/agentWorkspace";
+import { closeAgentWorkspacesWithoutSessions } from "@/lib/agentWorkspaceReclaim";
 import { useWorkspaceStore } from "@/lib/workspaceStore";
 import { useWorkspaceContextStore } from "@/lib/workspaceContextStore";
 import { fetchThreadTodos } from "@/lib/agentTodos";
@@ -426,6 +427,7 @@ export function handleWorkspaceCommand(event: any) {
       case "close_agent_terminal":
         if (typeof args.session_id === "string" && args.session_id) {
           closePanesForSession(args.session_id);
+          closeAgentWorkspacesWithoutSessions();
         }
         break;
       case TOOL_NAMES.createSnippet:

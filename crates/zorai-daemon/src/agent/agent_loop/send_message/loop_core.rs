@@ -151,8 +151,8 @@ impl<'a> SendMessageRunner<'a> {
         // on every LLM loop. Hold the read guard and only clone messages when we must patch
         // the last user message content. This cuts per-turn heap churn from O(thread len)
         // to O(1) in the common case (stored == llm content).
-        let needs_patch = self.llm_user_content != self.stored_user_content
-            && !self.reuse_existing_user_message;
+        let needs_patch =
+            self.llm_user_content != self.stored_user_content && !self.reuse_existing_user_message;
         // Megathread warning — surfaces unbounded growth before it hits 13 GB again.
         if thread.messages.len() > 2048 && self.loop_count <= 2 {
             tracing::warn!(
@@ -204,11 +204,9 @@ impl<'a> SendMessageRunner<'a> {
         let api_len = prepared.messages.len();
         let api_transport = prepared.transport;
         if !self.recorded_compaction_provenance {
-            if let Some(candidate) = compaction_candidate(
-                effective_messages,
-                &self.config,
-                &self.provider_config,
-            ) {
+            if let Some(candidate) =
+                compaction_candidate(effective_messages, &self.config, &self.provider_config)
+            {
                 let thread_len = thread.messages.len();
                 // Need to drop the read guard before awaiting (borrow checker + deadlock avoidance)
                 drop(threads);
@@ -319,7 +317,9 @@ impl<'a> SendMessageRunner<'a> {
         };
         let is_claude_code_cli =
             self.config.provider == zorai_shared::providers::PROVIDER_ID_CLAUDE_CODE_CLI;
-        let working_dir = if is_claude_code_cli {
+        let uses_local_subscription_cli =
+            crate::agent::types::provider_uses_local_subscription_cli(&self.config.provider);
+        let working_dir = if uses_local_subscription_cli {
             self.engine
                 .resolve_thread_repo_root(&self.tid)
                 .await
@@ -349,6 +349,7 @@ impl<'a> SendMessageRunner<'a> {
                 working_dir,
                 claude_permission_mode,
                 retry_now: Some(self.stream_retry_now.clone()),
+                cancel: Some(self.stream_cancel_token.clone()),
                 opencode_session_id: Some(self.tid.clone()),
             },
         );
@@ -363,6 +364,7 @@ impl<'a> SendMessageRunner<'a> {
 
         loop {
             tokio::select! {
+                biased;
                 _ = self.stream_cancel_token.cancelled() => {
                     self.was_cancelled = true;
                     break;
@@ -622,15 +624,18 @@ impl<'a> SendMessageRunner<'a> {
                                     .get("retry_after_ms")
                                     .and_then(|value| value.as_u64())
                             });
-                            let structured_retryable = structured_failure
-                                .as_ref()
-                                .map(|failure| {
-                                    matches!(
-                                        failure.class.as_str(),
-                                        "rate_limit" | "temporary_upstream" | "transient_transport"
-                                    )
-                                })
-                                .unwrap_or(false);
+                            let usage_limit_exhausted =
+                                crate::agent::llm_client::is_exhausted_provider_usage_limit(&message);
+                            let structured_retryable = !usage_limit_exhausted
+                                && structured_failure
+                                    .as_ref()
+                                    .map(|failure| {
+                                        matches!(
+                                            failure.class.as_str(),
+                                            "rate_limit" | "temporary_upstream" | "transient_transport"
+                                        )
+                                    })
+                                    .unwrap_or(false);
                             if provider_is_anthropic
                                 && (structured_retryable || is_transient_retry_message(&message))
                             {
@@ -733,8 +738,10 @@ impl<'a> SendMessageRunner<'a> {
                                     _ => {}
                                 }
                             }
+                            let live_auto_retry = self.engine.config.read().await.auto_retry;
                             if self.task_id.is_none()
-                                && self.config.auto_retry
+                                && live_auto_retry
+                                && !self.engine.operator_stream_stop_requested(&self.tid).await
                                 && is_transient_retry_message(&message)
                             {
                                 let delay_ms = if cfg!(test) {
@@ -768,6 +775,7 @@ impl<'a> SendMessageRunner<'a> {
                                 self.retry_status_visible = true;
                                 self.scheduled_retry_cycles = attempt;
                                 tokio::select! {
+                                    biased;
                                     _ = self.stream_cancel_token.cancelled() => {
                                         self.was_cancelled = true;
                                         break;
@@ -829,6 +837,13 @@ impl<'a> SendMessageRunner<'a> {
                                         });
                                     }
                                     _ = tokio::time::sleep(std::time::Duration::from_millis(delay_ms)) => {
+                                        if self.stream_cancel_token.is_cancelled()
+                                            || self.engine.operator_stream_stop_requested(&self.tid).await
+                                            || !self.engine.config.read().await.auto_retry
+                                        {
+                                            self.was_cancelled = true;
+                                            break;
+                                        }
                                         tracing::info!(
                                             thread_id = %self.tid,
                                             provider = %self.config.provider,

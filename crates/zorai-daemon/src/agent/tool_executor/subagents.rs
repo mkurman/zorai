@@ -203,7 +203,11 @@ fn is_global_service_target(resolved_target_id: &str) -> bool {
     )
 }
 
-fn sibling_task_matches_target(task: &AgentTask, raw_target: &str, resolved_target_id: &str) -> bool {
+fn sibling_task_matches_target(
+    task: &AgentTask,
+    raw_target: &str,
+    resolved_target_id: &str,
+) -> bool {
     let normalized = raw_target.trim().to_ascii_lowercase();
     if task.id.eq_ignore_ascii_case(raw_target.trim()) {
         return true;
@@ -642,12 +646,11 @@ pub(crate) async fn execute_spawn_subagent(
             .to_ascii_lowercase();
         let siblings = active_sibling_subagent_tasks(agent, task_id, thread_id).await;
         let duplicate = siblings.iter().find(|task| {
-            crate::agent::agent_identity::extract_persona_id(
-                task.override_system_prompt.as_deref(),
-            )
-            .map(|persona_id| persona_id.eq_ignore_ascii_case(&def_scope_id))
-            .unwrap_or(false)
-                || task.sub_agent_def_id
+            crate::agent::agent_identity::extract_persona_id(task.override_system_prompt.as_deref())
+                .map(|persona_id| persona_id.eq_ignore_ascii_case(&def_scope_id))
+                .unwrap_or(false)
+                || task
+                    .sub_agent_def_id
                     .as_deref()
                     .map(|id| id.eq_ignore_ascii_case(&def.id))
                     .unwrap_or(false)
@@ -831,8 +834,7 @@ pub(crate) async fn execute_spawn_subagent(
         // Persona names must stay unique within a parent scope: two active
         // siblings sharing a persona made message_agent route sibling DMs into
         // one shared context-free internal-dm thread keyed by persona names.
-        let siblings =
-            active_sibling_subagent_tasks(agent, task_id, thread_id).await;
+        let siblings = active_sibling_subagent_tasks(agent, task_id, thread_id).await;
         let taken_persona_ids = active_sibling_persona_ids(&siblings).await;
         let persona = crate::agent::agent_identity::pick_unique_spawned_persona_seed(
             &subagent.id,
@@ -2311,20 +2313,22 @@ pub(crate) async fn execute_message_agent(
         match matches.len() {
             1 => {
                 let sibling = matches[0];
-                let sibling_thread_id = sibling
-                    .thread_id
-                    .clone()
-                    .ok_or_else(|| anyhow::anyhow!(
+                let sibling_thread_id = sibling.thread_id.clone().ok_or_else(|| {
+                    anyhow::anyhow!(
                         "sibling subagent task {} has no reserved thread",
                         sibling.id
-                    ))?;
+                    )
+                })?;
                 let sender_name = crate::agent::agent_identity::canonical_agent_name(&sender);
                 let continuation_prompt = format!(
                     "Internal DM from sibling subagent {sender_name} (task context). This is asynchronous mailbox delivery to your task thread, not a new operator request.\n\n{}\n\nIntegrate this into your assigned work and continue. Do not take over the sender's task; reply via message_agent only if the sender explicitly asked for an answer.",
                     message
                 );
                 let agent_id = agent
-                    .agent_scope_id_for_turn(Some(sibling_thread_id.as_str()), Some(sibling.id.as_str()))
+                    .agent_scope_id_for_turn(
+                        Some(sibling_thread_id.as_str()),
+                        Some(sibling.id.as_str()),
+                    )
                     .await;
                 agent
                     .enqueue_visible_thread_continuation(
@@ -2344,7 +2348,10 @@ pub(crate) async fn execute_message_agent(
                         },
                     )
                     .await;
-                if agent.thread_is_idle_for_subagent_wakeup(&sibling_thread_id).await {
+                if agent
+                    .thread_is_idle_for_subagent_wakeup(&sibling_thread_id)
+                    .await
+                {
                     let _ = agent.stop_stream(&sibling_thread_id).await;
                 }
                 if let Err(error) = agent

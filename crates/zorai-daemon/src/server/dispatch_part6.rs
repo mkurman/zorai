@@ -755,6 +755,28 @@ pub(crate) async fn dispatch_part6(
             api_key,
             base_url,
         } => {
+            if provider_id == zorai_shared::providers::PROVIDER_ID_CURSOR
+                && api_key.trim().is_empty()
+            {
+                match crate::agent::cursor_auth::begin_cursor_subscription_login() {
+                    Ok(()) => {
+                        let states = agent.get_provider_auth_states().await;
+                        let json = serde_json::to_string(&states).unwrap_or_default();
+                        framed
+                            .send(DaemonMessage::AgentProviderAuthStates { states_json: json })
+                            .await?;
+                    }
+                    Err(error) => {
+                        framed
+                            .send(DaemonMessage::Error {
+                                message: error.to_string(),
+                            })
+                            .await?;
+                    }
+                }
+                return Ok(true);
+            }
+
             if provider_id == zorai_shared::providers::PROVIDER_ID_GITHUB_COPILOT
                 && api_key.trim().is_empty()
             {
@@ -861,6 +883,9 @@ pub(crate) async fn dispatch_part6(
             }
             if provider_id == zorai_shared::providers::PROVIDER_ID_CLAUDE_CODE_CLI {
                 let _ = crate::agent::claude_code_auth::logout_claude_code_cli();
+            }
+            if provider_id == zorai_shared::providers::PROVIDER_ID_CURSOR {
+                let _ = crate::agent::cursor_auth::logout_cursor_subscription();
             }
             let mut config = agent.get_config().await;
             if let Some(entry) = config.providers.get_mut(&provider_id) {

@@ -9,6 +9,10 @@ pub(super) fn known_models_for_provider_auth(
         PROVIDER_ID_OPENAI if auth_source == "chatgpt_subscription" => &[
             ("gpt-5.5", "GPT-5.5", 1_000_000),
             ("gpt-6-astra", "GPT-6 Astra", 1_050_000),
+            ("gpt-6.1-sol", "GPT-6.1 Sol", 1_000_000),
+            ("gpt-6-sol", "GPT-6 Sol", 1_000_000),
+            ("gpt-6-terra", "GPT-6 Terra", 1_000_000),
+            ("gpt-6-luna", "GPT-6 Luna", 1_000_000),
             ("gpt-5.6-sol", "GPT-5.6 Sol", 1_000_000),
             ("gpt-5.6-sol-pro", "GPT-5.6 Sol Pro", 1_000_000),
             ("gpt-5.6-terra", "GPT-5.6 Terra", 1_000_000),
@@ -25,6 +29,10 @@ pub(super) fn known_models_for_provider_auth(
         PROVIDER_ID_OPENAI => &[
             ("gpt-5.5", "GPT-5.5", 1_000_000),
             ("gpt-6-astra", "GPT-6 Astra", 1_050_000),
+            ("gpt-6.1-sol", "GPT-6.1 Sol", 1_000_000),
+            ("gpt-6-sol", "GPT-6 Sol", 1_000_000),
+            ("gpt-6-terra", "GPT-6 Terra", 1_000_000),
+            ("gpt-6-luna", "GPT-6 Luna", 1_000_000),
             ("gpt-5.6-sol", "GPT-5.6 Sol", 1_000_000),
             ("gpt-5.6-terra", "GPT-5.6 Terra", 1_000_000),
             ("gpt-5.6-luna", "GPT-5.6 Luna", 1_000_000),
@@ -52,6 +60,11 @@ pub(super) fn known_models_for_provider_auth(
             ("gpt-4o-mini", "GPT-4o Mini", 128_000),
         ],
         PROVIDER_ID_ANTHROPIC => &[
+            ("claude-fable-5-1", "Claude Fable 5.1", 1_000_000),
+            ("claude-opus-5-5", "Claude Opus 5.5", 1_000_000),
+            ("claude-opus-5", "Claude Opus 5", 1_000_000),
+            ("claude-sonnet-5-5", "Claude Sonnet 5.5", 1_000_000),
+            ("claude-sonnet-5", "Claude Sonnet 5", 1_000_000),
             ("claude-opus-4-7", "Claude Opus 4.7", 1_000_000),
             ("claude-opus-4-6", "Claude Opus 4.6", 1_000_000),
             ("claude-opus-4-5-20251101", "Claude Opus 4.5", 200_000),

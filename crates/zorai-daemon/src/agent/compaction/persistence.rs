@@ -85,6 +85,12 @@ impl AgentEngine {
             )
             .await;
         let (artifact, strategy_used, fallback_notice) = artifact_result?;
+        let artifact_notice = serde_json::json!({
+            "artifact_id": artifact.id,
+            "artifact_content": artifact.content,
+            "artifact_payload": artifact.compaction_payload,
+            "artifact_strategy": strategy_used,
+        });
         let compaction_trigger_summary = build_compaction_visible_content(
             pre_compaction_total_tokens,
             effective_context_window_tokens,
@@ -170,6 +176,10 @@ impl AgentEngine {
             "target_tokens": candidate.target_tokens,
             "trigger": compaction_trigger_detail_value(candidate.trigger),
             "strategy": strategy_used,
+            "artifact_id": artifact_notice.get("artifact_id").and_then(|value| value.as_str()),
+            "artifact_content": artifact_notice.get("artifact_content").and_then(|value| value.as_str()),
+            "artifact_payload": artifact_notice.get("artifact_payload"),
+            "artifact_strategy": artifact_notice.get("artifact_strategy"),
         })
         .to_string();
 
@@ -400,7 +410,7 @@ impl AgentEngine {
     }
 
     pub async fn force_compact_and_continue(self: &Arc<Self>, thread_id: &str) -> Result<bool> {
-        if !self.threads.read().await.contains_key(thread_id) {
+        if !self.ensure_thread_messages_loaded(thread_id).await {
             anyhow::bail!("thread not found: {thread_id}");
         }
 
@@ -444,6 +454,7 @@ impl AgentEngine {
             let streams = self.stream_cancellations.lock().await;
             streams.contains_key(thread_id)
         };
+        tracing::info!(thread_id, was_streaming, "manual compaction requested");
         self.enqueue_visible_thread_continuation(thread_id, continuation)
             .await;
 
@@ -459,13 +470,37 @@ impl AgentEngine {
             details: None,
         });
 
-        if was_streaming && self.stop_stream(thread_id).await {
-            return Ok(true);
+        if was_streaming {
+            let stopped = self.stop_stream(thread_id).await;
+            tracing::info!(
+                thread_id,
+                stopped,
+                "manual compaction waiting for the active stream to leave"
+            );
+            self.wait_for_stream_slot_to_clear(thread_id).await;
         }
 
         self.flush_deferred_visible_thread_continuations(thread_id)
             .await?;
         Ok(true)
+    }
+
+    async fn wait_for_stream_slot_to_clear(&self, thread_id: &str) {
+        for _ in 0..120 {
+            if !self
+                .stream_cancellations
+                .lock()
+                .await
+                .contains_key(thread_id)
+            {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        tracing::warn!(
+            thread_id,
+            "manual compaction is continuing while the previous stream slot is still registered"
+        );
     }
 
     async fn try_compact_claude_code_cli_session(

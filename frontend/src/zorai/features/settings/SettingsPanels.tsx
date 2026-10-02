@@ -322,12 +322,16 @@ function AuthPanel() {
           const providerValidation = validationResult[state.provider_id];
           const isTestingProvider = providerValidation?.state === "testing";
 
-          const usesLocalCliAuth = state.provider_id === "claude-code-cli";
+          const usesCursorSubscription = state.provider_id === "cursor";
+          const usesLocalCliAuth = state.provider_id === "claude-code-cli" || usesCursorSubscription;
 
           return (
             <div key={`${state.provider_id}-${state.auth_source}`} className="zorai-setting-row">
               <div><strong>{state.authenticated ? "●" : "○"} {state.provider_name}</strong><span>{state.model ? `${state.model} / ` : ""}{state.auth_source}</span>{providerValidation ? <span>{providerValidation.message}</span> : null}</div>
               <div className="zorai-card-actions">
+                {usesCursorSubscription && !state.authenticated ? (
+                  <button type="button" className="zorai-ghost-button" onClick={() => void loginProvider(state.provider_id, "", state.base_url)}>Subscription</button>
+                ) : null}
                 {usesLocalCliAuth ? null : (
                   <button type="button" className="zorai-ghost-button" onClick={() => {
                     setLoginTarget(loginTarget === state.provider_id ? null : state.provider_id);

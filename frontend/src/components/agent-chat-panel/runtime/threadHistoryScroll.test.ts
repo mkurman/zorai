@@ -128,7 +128,7 @@ describe("consumeThreadHistoryScroll", () => {
     expect(loadOlder).toHaveBeenCalledTimes(2);
   });
 
-  it("continues paging while prepended tool rows do not move the viewport away from the top", async () => {
+  it("loads one older page per scroll instead of walking the whole thread", async () => {
     vi.useFakeTimers();
     const scroller = makeScroller(0);
     const loadOlder = vi.fn()
@@ -139,7 +139,7 @@ describe("consumeThreadHistoryScroll", () => {
     await vi.advanceTimersByTimeAsync(THREAD_HISTORY_OLDER_LOAD_DEBOUNCE_MS);
     await vi.runAllTimersAsync();
 
-    expect(loadOlder).toHaveBeenCalledTimes(2);
+    expect(loadOlder).toHaveBeenCalledTimes(1);
   });
 
   it("resets exhausted pagination when the active thread changes", async () => {

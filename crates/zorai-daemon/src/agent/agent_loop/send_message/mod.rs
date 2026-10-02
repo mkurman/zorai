@@ -334,6 +334,9 @@ impl AgentEngine {
         let mut record_operator = initial_record_operator;
         let mut reuse_existing_user_message = initial_reuse_existing_user_message;
         let mut scheduled_retry_cycles = 0u32;
+        if let Some(thread_id) = thread_id.as_deref() {
+            self.clear_operator_stream_stop(thread_id).await;
+        }
 
         loop {
             let runner = SendMessageRunner::initialize(

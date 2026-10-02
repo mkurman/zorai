@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useAgentStore, type AgentThread, type AgentMessage } from "@/lib/agentStore";
 import { getBridge } from "@/lib/bridge";
 import { pushToast } from "@/lib/toastStore";
+import { requestManualCompaction, useThreadCompaction } from "../threads/threadCompactionStatus";
 import { resolveThreadOwnerRuntimeProfile } from "../threads/threadOwnerRuntime";
 
 function formatTokens(n: number): string {
@@ -29,7 +30,8 @@ export function CodeContextWindowMeter({ thread, messages }: Props) {
   const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
   const subAgents = useAgentStore((state) => state.subAgents);
   const autoCompact = agentSettings.auto_compact_context === true;
-  const [compacting, setCompacting] = useState(false);
+  const compactionStatus = useThreadCompaction(thread?.daemonThreadId);
+  const compacting = Boolean(compactionStatus);
   const [autoBusy, setAutoBusy] = useState(false);
 
   const contextWindowTokens = useMemo(() => {
@@ -42,22 +44,7 @@ export function CodeContextWindowMeter({ thread, messages }: Props) {
   const pct = contextWindowTokens > 0 ? Math.min(100, Math.round((used / contextWindowTokens) * 100)) : 0;
   const tone: "ok" | "warn" | "danger" = pct >= 90 ? "danger" : pct >= 75 ? "warn" : "ok";
 
-  const doCompact = async () => {
-    const daemonId = thread?.daemonThreadId?.trim();
-    if (!daemonId) {
-      pushToast("Compact needs a daemon-linked thread — send one message first.", "info");
-      return;
-    }
-    setCompacting(true);
-    try {
-      await getBridge()?.agentForceCompact?.(daemonId);
-      pushToast("Compaction started — like /compact in the TUI.", "info");
-    } catch (error) {
-      pushToast(error instanceof Error ? error.message : "Could not start compaction.", "error");
-    } finally {
-      window.setTimeout(() => setCompacting(false), 900);
-    }
-  };
+  const doCompact = () => requestManualCompaction(thread?.daemonThreadId);
 
   const toggleAuto = async (next: boolean) => {
     setAutoBusy(true);

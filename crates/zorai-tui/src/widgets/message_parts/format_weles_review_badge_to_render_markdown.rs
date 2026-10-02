@@ -513,8 +513,7 @@ pub(crate) fn render_markdown(content: &str, width: usize) -> Vec<Line<'static>>
     }
 
     let cache_key = markdown_cache_key(content, width);
-    if let Some(cached) =
-        MARKDOWN_LINE_CACHE.with(|cache| cache.borrow().get(&cache_key).cloned())
+    if let Some(cached) = MARKDOWN_LINE_CACHE.with(|cache| cache.borrow().get(&cache_key).cloned())
     {
         return cached;
     }

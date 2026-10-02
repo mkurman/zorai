@@ -277,14 +277,18 @@
 
 .acp-btn--ghost {
   background: transparent;
+  font-size: var(--text-2xs);
+  border-radius: 16px;
+  border: 1px solid var(--zorai-border);
   color: var(--text-muted);
   font-weight: 400;
+  padding: 4px 16px;
 }
 
 .acp-btn--ghost:hover:not(:disabled) {
   color: var(--text-primary);
-  border-color: var(--border-strong);
-  background: transparent;
+  border-color: var(--zorai-accent);
+  background: var(--zorai-bg-elevated);
 }
 
 .acp-btn--danger {
@@ -328,9 +332,9 @@
 
 .acp-pill--outline {
   border: 1px solid currentColor;
-  border-radius: 2px;
-  padding: 1px 6px;
-  font-size: 10px;
+  border-radius: 8px;
+  padding: 2px 8px;
+  font-size: var(--text-2xs);
 }
 
 /* ── Messages ───────────────────────────────────────────────────────────── */
@@ -837,7 +841,7 @@
 .acp-tool-list__stats {
   margin-left: auto;
   flex-shrink: 0;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -881,11 +885,12 @@
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
+  font-size: var(--text-xs);
 }
 
 .acp-tool-review__title {
-  font-size: var(--text-sm-plus);
   font-weight: 700;
+  font-size: var(--text-xs);
 }
 
 .acp-tool-review__audit {
@@ -894,7 +899,7 @@
 }
 
 .acp-tool-review__reason {
-  font-size: var(--text-sm);
+  font-size: var(--text-2xs);
   line-height: 1.45;
 }
 
@@ -907,12 +912,13 @@
 
 /* Structured key/value grid */
 .acp-struct {
-  border: 1px solid var(--border);
-  background: var(--zorai-bg-panel);
-  border-radius: 2px;
+  border: 1px solid var(--zorai-border);
+  background: transparent;
+  border-radius: 8px;
   padding: 8px;
   display: grid;
   gap: 8px;
+  font-size: var(--text-xs);
 }
 
 .acp-struct__row {
@@ -920,22 +926,23 @@
   grid-template-columns: minmax(112px, max-content) minmax(0, 1fr);
   gap: 8px;
   align-items: start;
+  font-size: var(--text-xs);
 }
 
 .acp-struct__key {
   color: var(--text-muted);
-  font-size: var(--text-xs);
   font-family: var(--font-mono);
   word-break: break-word;
+  font-size: var(--text-xs);
 }
 
 .acp-struct__value {
   color: var(--text-primary);
-  font-size: var(--text-sm);
   line-height: 1.45;
   font-family: var(--font-mono);
   white-space: pre-wrap;
   word-break: break-word;
+  font-size: var(--text-xs);
 }
 
 /* File target link */

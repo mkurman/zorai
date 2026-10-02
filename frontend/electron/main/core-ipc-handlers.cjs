@@ -172,6 +172,7 @@ function registerCoreIpcHandlers(ipcMain, options) {
     ipcMain.handle('terminal-clone-session', terminalBridgeRuntime.cloneTerminalSession);
     ipcMain.handle('terminal-resize', terminalBridgeRuntime.resizeTerminalSession);
     ipcMain.handle('terminal-stop', (_event, paneId, killSession) => terminalBridgeRuntime.stopTerminalBridge(paneId, Boolean(killSession)));
+    ipcMain.handle('terminal-busy-panes', () => terminalBridgeRuntime.busyTerminalPaneIds());
     ipcMain.handle('window-minimize', () => windowState()?.minimize());
     ipcMain.handle('window-maximize', () => {
         if (windowState()?.isMaximized()) windowState().unmaximize();

@@ -756,6 +756,25 @@ fn claude_code_cli_routes_through_native_subprocess_transport() {
 }
 
 #[test]
+fn cursor_subscription_routes_through_native_subprocess_transport() {
+    use zorai_shared::providers::PROVIDER_ID_CURSOR;
+    let provider = get_provider_definition(PROVIDER_ID_CURSOR).expect("cursor provider");
+    assert_eq!(provider.name, "Cursor");
+    assert_eq!(provider.default_model, "auto");
+    assert_eq!(provider.default_transport, ApiTransport::NativeAssistant);
+    assert_eq!(
+        provider.native_transport_kind,
+        Some(NativeTransportKind::CursorCli)
+    );
+    assert_eq!(
+        provider.supported_transports,
+        &[ApiTransport::NativeAssistant]
+    );
+    assert!(provider_allows_unlisted_models(PROVIDER_ID_CURSOR));
+    assert!(provider_uses_local_subscription_cli(PROVIDER_ID_CURSOR));
+}
+
+#[test]
 fn nvidia_provider_exposes_fetchable_openai_defaults() {
     let provider = get_provider_definition(PROVIDER_ID_NVIDIA).expect("nvidia provider");
     assert_eq!(

@@ -2176,12 +2176,21 @@ fn reused_user_message_is_appended_when_history_already_has_a_user_turn() {
     );
 
     assert_eq!(prepared.transport, ApiTransport::ChatCompletions);
-    assert_eq!(prepared.messages.last().map(|message| message.role.as_str()), Some("user"));
     assert_eq!(
-        prepared.messages.last().and_then(|message| match &message.content {
-            ApiContent::Text(content) => Some(content.as_str()),
-            ApiContent::Blocks(_) => None,
-        }),
+        prepared
+            .messages
+            .last()
+            .map(|message| message.role.as_str()),
+        Some("user")
+    );
+    assert_eq!(
+        prepared
+            .messages
+            .last()
+            .and_then(|message| match &message.content {
+                ApiContent::Text(content) => Some(content.as_str()),
+                ApiContent::Blocks(_) => None,
+            }),
         Some("A background operation finished. Continue the original task.")
     );
     assert_eq!(

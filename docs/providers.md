@@ -41,6 +41,7 @@ The daemon is the source of truth. TUI and React request the hydrated provider c
 | Nous Portal | `nous-portal` | `nousresearch/hermes-4-70b` | `nousresearch/hermes-4-70b`, `nousresearch/hermes-4-405b`, `nousresearch/hermes-3-llama-3.1-70b`, `nousresearch/hermes-3-llama-3.1-405b` |
 | OpenCode Zen | `opencode-zen` | `claude-sonnet-4-6` | `claude-opus-4-6`, `claude-sonnet-4-5`, `claude-sonnet-4`, `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.3-codex`, `minimax-m2.5`, `glm-5`, `kimi-k2.6`, `kimi-k2.5`; remote fetch supported |
 | OpenCode Go | `opencode-go` | `glm-5.1` | `glm-5.1`, `glm-5`, `kimi-k2.7-code`, `kimi-k2.6`, `deepseek-v4-pro`, `deepseek-v4-flash`, `mimo-v2.5`, `mimo-v2.5-pro`, `minimax-m3`, `minimax-m2.7`, `minimax-m2.5`, `qwen3.7-max`, `qwen3.7-plus`, `qwen3.6-plus`; remote fetch supported |
+| Cursor | `cursor` | `auto` | `auto`, `composer-2.5`, `grok-4.7`, `grok-4.6`, `grok-4.5`; uses the local `agent` CLI subscription login |
 | Custom | `custom` | user-defined | user-defined single-provider fallback |
 
 Providers marked with remote fetch support can load additional models from their `/models` endpoint when the provider exposes one.

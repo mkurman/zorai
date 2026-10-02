@@ -567,6 +567,18 @@ describe("frontend curated media provider catalog", () => {
   });
 });
 
+describe("frontend Cursor subscription provider", () => {
+  it("uses the local Cursor CLI subscription instead of an HTTP base URL", () => {
+    expect(getDefaultModelForProvider("cursor")).toBe("auto");
+    expect(DEFAULT_AGENT_SETTINGS.cursor.model).toBe("auto");
+    expect(DEFAULT_AGENT_SETTINGS.cursor.base_url).toBe("");
+    expect(DEFAULT_AGENT_SETTINGS.cursor.api_transport).toBe("native_assistant");
+    expect(getProviderDefinition("cursor")?.nativeTransportKind).toBe("cursor_cli");
+    expect(getProviderModels("cursor").map((model) => model.id)).toContain("composer-2.5");
+    expect(normalizeApiTransport("cursor", "chat_completions")).toBe("native_assistant");
+  });
+});
+
 describe("frontend GitHub Copilot provider routing", () => {
   it("defaults to GPT-5.4 and keeps GPT-5.5 selectable in the fallback catalog", () => {
     expect(getDefaultModelForProvider("github-copilot")).toBe("gpt-5.4");

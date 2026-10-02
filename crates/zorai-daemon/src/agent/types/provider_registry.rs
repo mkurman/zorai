@@ -585,6 +585,22 @@ pub const PROVIDER_DEFINITIONS: &[ProviderDefinition] = &[
         supports_response_continuity: false,
     },
     ProviderDefinition {
+        id: PROVIDER_ID_CURSOR,
+        name: "Cursor",
+        default_base_url: "",
+        default_model: "auto",
+        api_type: ApiType::OpenAI,
+        auth_method: AuthMethod::Bearer,
+        models: CURSOR_MODELS,
+        supports_model_fetch: false,
+        anthropic_base_url: None,
+        supported_transports: &[ApiTransport::NativeAssistant],
+        default_transport: ApiTransport::NativeAssistant,
+        native_transport_kind: Some(NativeTransportKind::CursorCli),
+        native_base_url: None,
+        supports_response_continuity: false,
+    },
+    ProviderDefinition {
         id: PROVIDER_ID_CUSTOM,
         name: "Custom",
         default_base_url: "",
@@ -648,7 +664,18 @@ pub fn provider_uses_configurable_base_url(provider_id: &str) -> bool {
 pub fn provider_allows_unlisted_models(provider_id: &str) -> bool {
     matches!(
         provider_id,
-        PROVIDER_ID_OLLAMA | PROVIDER_ID_LMSTUDIO | PROVIDER_ID_HUGGINGFACE | PROVIDER_ID_CUSTOM
+        PROVIDER_ID_OLLAMA
+            | PROVIDER_ID_LMSTUDIO
+            | PROVIDER_ID_HUGGINGFACE
+            | PROVIDER_ID_CUSTOM
+            | PROVIDER_ID_CURSOR
+    )
+}
+
+pub fn provider_uses_local_subscription_cli(provider_id: &str) -> bool {
+    matches!(
+        provider_id,
+        PROVIDER_ID_CLAUDE_CODE_CLI | PROVIDER_ID_CURSOR
     )
 }
 

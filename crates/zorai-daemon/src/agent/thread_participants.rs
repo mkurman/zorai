@@ -743,6 +743,12 @@ impl AgentEngine {
         queued.get(thread_id).cloned().unwrap_or_default()
     }
 
+    async fn goal_blocks_visible_continuation(&self, thread_id: &str) -> bool {
+        self.goal_for_execution_thread(thread_id)
+            .await
+            .is_some_and(|goal| goal.status == GoalRunStatus::Paused || goal.status.is_terminal())
+    }
+
     async fn goal_for_execution_thread(&self, thread_id: &str) -> Option<GoalRun> {
         let refs = self
             .history
@@ -757,10 +763,30 @@ impl AgentEngine {
         &self,
         thread_id: &str,
     ) -> Result<()> {
+        let force_compaction_queued = {
+            let queued = self.deferred_visible_thread_continuations.lock().await;
+            queued.get(thread_id).is_some_and(|items| {
+                items
+                    .iter()
+                    .any(|continuation| continuation.force_compaction)
+            })
+        };
         if let Some(goal) = self.goal_for_execution_thread(thread_id).await {
-            if goal.status == GoalRunStatus::Paused || goal.status.is_terminal() {
+            if (goal.status == GoalRunStatus::Paused || goal.status.is_terminal())
+                && !force_compaction_queued
+            {
                 tracing::debug!(goal_run_id = %goal.id, thread_id, "not flushing deferred continuation for paused or terminal goal");
                 return Ok(());
+            }
+            if force_compaction_queued
+                && (goal.status == GoalRunStatus::Paused || goal.status.is_terminal())
+            {
+                tracing::info!(
+                    goal_run_id = %goal.id,
+                    thread_id,
+                    status = ?goal.status,
+                    "flushing operator compaction on a paused or finished goal"
+                );
             }
         }
         {
@@ -894,7 +920,7 @@ impl AgentEngine {
 
         if force_compaction {
             let config = self.config.read().await.clone();
-            let provider_config = if let Some(task_id) = task_id {
+            let (provider_config, task_override_applied) = if let Some(task_id) = task_id {
                 let override_provider = self.task_provider_override_for_compaction(task_id).await;
                 if let Some((provider_id, model_override)) = override_provider {
                     let mut provider_config =
@@ -906,17 +932,31 @@ impl AgentEngine {
                             model_override,
                         );
                     }
-                    provider_config
+                    (provider_config, true)
                 } else {
-                    self.resolve_provider_config(&config)?
+                    (self.resolve_provider_config(&config)?, false)
                 }
             } else {
-                self.resolve_provider_config(&config)?
+                (self.resolve_provider_config(&config)?, false)
+            };
+            let provider_config = if task_override_applied {
+                provider_config
+            } else if let Some((_, profile_provider)) = self
+                .thread_profile_compaction_provider(thread_id, &config)
+                .await?
+            {
+                profile_provider
+            } else {
+                provider_config
             };
             let compacted = self
                 .force_persist_compaction_artifact(thread_id, task_id, &config, &provider_config)
                 .await?;
             if !compacted {
+                tracing::info!(
+                    thread_id,
+                    "manual compaction skipped; no older context slice"
+                );
                 let _ = self.event_tx.send(AgentEvent::WorkflowNotice {
                     thread_id: thread_id.to_string(),
                     kind: "manual-compaction".to_string(),
@@ -924,6 +964,23 @@ impl AgentEngine {
                         "Manual compaction skipped; there was no older context slice to compact."
                             .to_string(),
                     details: None,
+                });
+            }
+            if self.goal_blocks_visible_continuation(thread_id).await {
+                tracing::info!(
+                    thread_id,
+                    "compaction finished without resuming a paused or finished goal"
+                );
+                return Ok(SendMessageOutcome {
+                    thread_id: thread_id.to_string(),
+                    stream_generation: 0,
+                    interrupted_for_approval: false,
+                    terminated_for_budget: false,
+                    subagent_report: None,
+                    upstream_message: None,
+                    provider_final_result: None,
+                    fresh_runner_retry: None,
+                    handoff_restart: None,
                 });
             }
         }
@@ -938,10 +995,11 @@ impl AgentEngine {
 
         loop {
             let thread_for_turn = current_thread_id.clone();
+            let continuation_thread_id = thread_for_turn.clone();
             let stored_user_content_for_turn = stored_user_content.clone();
             let llm_user_content_for_turn = current_llm_user_content.clone();
             let client_surface_for_turn = self.get_thread_client_surface(&thread_for_turn).await;
-            let outcome = Box::pin(run_with_agent_scope(
+            let outcome = match Box::pin(run_with_agent_scope(
                 current_agent_scope_id.clone(),
                 async move {
                     Box::pin(self.run_internal_send_loop(
@@ -959,7 +1017,33 @@ impl AgentEngine {
                     .await
                 },
             ))
-            .await?;
+            .await
+            {
+                Ok(outcome) => outcome,
+                Err(error) if force_compaction => {
+                    tracing::warn!(
+                        thread_id = %continuation_thread_id,
+                        error = %error,
+                        "post-compaction continuation failed after the artifact was saved"
+                    );
+                    let _ = self.event_tx.send(AgentEvent::Error {
+                        thread_id: continuation_thread_id.clone(),
+                        message: error.to_string(),
+                    });
+                    return Ok(SendMessageOutcome {
+                        thread_id: continuation_thread_id,
+                        stream_generation: 0,
+                        interrupted_for_approval: false,
+                        terminated_for_budget: false,
+                        subagent_report: None,
+                        upstream_message: None,
+                        provider_final_result: None,
+                        fresh_runner_retry: None,
+                        handoff_restart: None,
+                    });
+                }
+                Err(error) => return Err(error),
+            };
 
             if let Some(restart) = outcome.handoff_restart.clone() {
                 current_thread_id = outcome.thread_id.clone();
@@ -1085,9 +1169,11 @@ impl AgentEngine {
                 auto_response_request_text(),
             )
             .await?;
-        let Some((_, message)) = crate::agent::thread_participant_runner::parse_participant_suggestion_response(
-            &generated,
-        ) else {
+        let Some((_, message)) =
+            crate::agent::thread_participant_runner::parse_participant_suggestion_response(
+                &generated,
+            )
+        else {
             return Ok(None);
         };
         if crate::agent::thread_participant_runner::participant_message_is_status_ack(&message) {

@@ -14,6 +14,30 @@ pub const OPENAI_MODELS: &[ModelDefinition] = &[
         modalities: TEXT_IMAGE,
     },
     ModelDefinition {
+        id: "gpt-6.1-sol",
+        name: "GPT-6.1 Sol",
+        context_window: 1_000_000,
+        modalities: TEXT_IMAGE,
+    },
+    ModelDefinition {
+        id: "gpt-6-sol",
+        name: "GPT-6 Sol",
+        context_window: 1_000_000,
+        modalities: TEXT_IMAGE,
+    },
+    ModelDefinition {
+        id: "gpt-6-terra",
+        name: "GPT-6 Terra",
+        context_window: 1_000_000,
+        modalities: TEXT_IMAGE,
+    },
+    ModelDefinition {
+        id: "gpt-6-luna",
+        name: "GPT-6 Luna",
+        context_window: 1_000_000,
+        modalities: TEXT_IMAGE,
+    },
+    ModelDefinition {
         id: "gpt-5.6-sol",
         name: "GPT-5.6 Sol",
         context_window: 1_000_000,

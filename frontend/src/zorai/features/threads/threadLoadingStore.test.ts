@@ -29,6 +29,16 @@ describe("conversation skeleton visibility", () => {
     })).toBe(false);
   });
 
+  it("shows a loader while the opened thread's messages are still in flight", () => {
+    expect(shouldShowConversationSkeleton({
+      pending: 0,
+      activeThreadLoading: true,
+      hasActiveThread: true,
+      loadedMessageCount: 0,
+      knownHistory: false,
+    })).toBe(true);
+  });
+
   it("does not treat a brand-new empty thread as loading", () => {
     expect(shouldShowConversationSkeleton({
       pending: 0,

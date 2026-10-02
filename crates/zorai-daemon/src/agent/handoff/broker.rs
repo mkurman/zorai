@@ -12,11 +12,9 @@ use super::profiles::{
     select_by_embedding, select_specialist, SPECIALIST_EMBEDDING_FLOOR,
     SPECIALIST_EMBEDDING_MARGIN,
 };
-use super::{
-    AcceptanceCriteria, ContextBundle, HandoffResult, RoutingMethod, SpecialistProfile,
-};
 #[cfg(test)]
 use super::ValidationResult;
+use super::{AcceptanceCriteria, ContextBundle, HandoffResult, RoutingMethod, SpecialistProfile};
 use crate::agent::background_workers::domain_routing::select_snapshot_candidate;
 use crate::agent::background_workers::protocol::{
     BackgroundWorkerCommand, BackgroundWorkerKind, BackgroundWorkerResult,

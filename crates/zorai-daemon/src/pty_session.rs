@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use std::io::{Read, Write};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -36,6 +36,7 @@ pub struct PtySession {
     cwd: Option<String>,
     workspace_id: Option<String>,
     created_at: u64,
+    last_activity_at_ms: Arc<AtomicU64>,
     scrollback: Arc<std::sync::Mutex<Vec<u8>>>,
     dead: Arc<AtomicBool>,
     managed_lane: Arc<std::sync::Mutex<ManagedLaneState>>,
@@ -157,6 +158,7 @@ impl PtySession {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
+        let last_activity_at_ms = Arc::new(AtomicU64::new(unix_millis()));
 
         {
             let tx = tx.clone();
@@ -166,6 +168,7 @@ impl PtySession {
             let managed_lane = managed_lane.clone();
             let active_command = active_command.clone();
             let tracked_cwd = tracked_cwd.clone();
+            let last_activity_at_ms = last_activity_at_ms.clone();
             let workspace_id = workspace_id.clone();
             let cwd = cwd.clone();
             let rt_handle = tokio::runtime::Handle::current();
@@ -182,6 +185,7 @@ impl PtySession {
                         managed_lane,
                         active_command,
                         tracked_cwd,
+                        last_activity_at_ms,
                         history,
                         workspace_id,
                         cwd,
@@ -202,6 +206,7 @@ impl PtySession {
             cwd,
             workspace_id,
             created_at,
+            last_activity_at_ms,
             scrollback,
             dead,
             managed_lane,
@@ -212,6 +217,7 @@ impl PtySession {
 
     /// Write raw bytes into the PTY's stdin.
     pub fn write(&mut self, data: &[u8]) -> Result<()> {
+        self.touch_activity();
         let mut writer = self.master_write.lock().unwrap();
         writer.write_all(data)?;
         writer.flush()?;
@@ -224,6 +230,7 @@ impl PtySession {
         request: ManagedCommandRequest,
         snapshot: Option<SnapshotInfo>,
     ) -> Result<usize> {
+        self.touch_activity();
         let mut lane = self.managed_lane.lock().unwrap();
         if lane.active.is_none() {
             dispatch_managed_command(&self.master_write, &request, self.cwd.as_deref())?;
@@ -409,6 +416,25 @@ impl PtySession {
         self.created_at
     }
 
+    pub fn last_activity_at_ms(&self) -> u64 {
+        self.last_activity_at_ms.load(Ordering::Relaxed)
+    }
+
+    pub fn has_managed_work(&self) -> bool {
+        let lane = self.managed_lane.lock().unwrap();
+        lane.active.is_some() || !lane.queue.is_empty()
+    }
+
+    fn touch_activity(&self) {
+        self.last_activity_at_ms
+            .store(unix_millis(), Ordering::Relaxed);
+    }
+
+    #[cfg(test)]
+    pub fn set_last_activity_at_ms_for_test(&self, ms: u64) {
+        self.last_activity_at_ms.store(ms, Ordering::Relaxed);
+    }
+
     pub fn is_dead(&self) -> bool {
         self.dead.load(Ordering::SeqCst)
     }
@@ -419,4 +445,11 @@ impl PtySession {
     pub fn active_command(&self) -> Option<String> {
         self.active_command.lock().unwrap().clone()
     }
+}
+
+fn unix_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
 }

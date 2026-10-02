@@ -620,7 +620,10 @@ async fn apply_reused_pivot_does_not_reinject_strategy_refresh_message() {
             })
             .count()
     };
-    assert_eq!(replan_count, 1, "fresh pivot should inject one strategy refresh message");
+    assert_eq!(
+        replan_count, 1,
+        "fresh pivot should inject one strategy refresh message"
+    );
 
     let reused = engine
         .apply_orchestrator_policy_decision(

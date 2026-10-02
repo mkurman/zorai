@@ -1256,6 +1256,9 @@ fn start_daemon_bridge(
                             } => {
                                 let _ = client.login_provider(provider_id, api_key, base_url);
                             }
+                            DaemonCommand::LogoutProvider { provider_id } => {
+                                let _ = client.logout_provider(provider_id);
+                            }
                             DaemonCommand::ValidateProvider { provider_id, base_url, api_key, auth_source } => {
                                 let _ = client.validate_provider(provider_id, base_url, api_key, auth_source);
                             }

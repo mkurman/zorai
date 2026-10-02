@@ -1,4 +1,5 @@
 import type { MutableRefObject } from "react";
+import { notePaneCommandActivity } from "@/lib/agentWorkspaceReclaim";
 import type { Terminal } from "@xterm/xterm";
 import { useAgentMissionStore } from "@/lib/agentMissionStore";
 import {
@@ -219,6 +220,7 @@ export function createTerminalEventHandler({
     }
 
     if (event.type === "approval-required") {
+      notePaneCommandActivity(paneId, true);
       setSharedCursorMode("approval");
       const approval = event.approval;
       const approvalId = approval.approvalId ?? approval.approval_id;
@@ -260,6 +262,7 @@ export function createTerminalEventHandler({
     }
 
     if (event.type === "approval-resolved") {
+      notePaneCommandActivity(paneId, false);
       setSharedCursorMode("idle");
       clearCanvasPanelStatus(paneId);
       clearPaneNotifications(paneId, "approval");
@@ -284,12 +287,14 @@ export function createTerminalEventHandler({
     }
 
     if (event.type === "managed-started") {
+      notePaneCommandActivity(paneId, true);
       setSharedCursorMode(event.source === "human" ? "human" : "agent");
       setCanvasPanelStatus(paneId, "running");
       return;
     }
 
     if (event.type === "managed-queued") {
+      notePaneCommandActivity(paneId, true);
       const command = String(event.snapshot?.command ?? "").trim();
       if (command) {
         addCommandLogEntry({
@@ -312,6 +317,7 @@ export function createTerminalEventHandler({
     }
 
     if (event.type === "managed-finished") {
+      notePaneCommandActivity(paneId, false);
       setSharedCursorMode("idle");
       setCanvasPanelStatus(paneId, "running");
       if (event.snapshot) {
@@ -324,6 +330,7 @@ export function createTerminalEventHandler({
     }
 
     if (event.type === "managed-rejected") {
+      notePaneCommandActivity(paneId, false);
       setSharedCursorMode("idle");
       setCanvasPanelStatus(paneId, "idle");
       recordError({
@@ -358,6 +365,7 @@ export function createTerminalEventHandler({
     }
 
     if (event.type === "session-exited") {
+      notePaneCommandActivity(paneId, false);
       completeLatestPendingEntry({
         paneId,
         exitCode: event.exitCode ?? null,
@@ -382,6 +390,7 @@ export function createTerminalEventHandler({
     if (event.type === "command-started") {
       const command = decodeBase64ToText(event.commandB64 ?? "").trim();
       if (!command) return;
+      notePaneCommandActivity(paneId, true);
 
       lastShellCommandRef.current = {
         command,
@@ -409,6 +418,7 @@ export function createTerminalEventHandler({
     }
 
     if (event.type === "command-finished") {
+      notePaneCommandActivity(paneId, false);
       completeLatestPendingEntry({
         paneId,
         exitCode: event.exitCode ?? null,

@@ -185,9 +185,7 @@ pub(super) fn resolve_provider_config_for(
         return Ok(finalize_resolved_provider(provider_id, resolved, config));
     }
 
-    if provider_id != config.provider
-        && provider_id != zorai_shared::providers::PROVIDER_ID_CLAUDE_CODE_CLI
-    {
+    if provider_id != config.provider && !provider_uses_local_subscription_cli(provider_id) {
         anyhow::bail!(
             "No credentials configured for provider '{}'. Log in via Auth settings.",
             provider_id
@@ -202,7 +200,7 @@ pub(super) fn resolve_provider_config_for(
         requested_model.to_string()
     };
     let base_url = get_provider_base_url(provider_id, &model, &config.base_url);
-    if base_url.is_empty() && provider_id != zorai_shared::providers::PROVIDER_ID_CLAUDE_CODE_CLI {
+    if base_url.is_empty() && !provider_uses_local_subscription_cli(provider_id) {
         anyhow::bail!(
             "No base URL configured for provider '{}'. Configure in agent settings.",
             provider_id
@@ -329,6 +327,13 @@ pub(super) fn resolve_provider_model_switch(
                 provider_id
             );
         }
+    } else if provider_id == zorai_shared::providers::PROVIDER_ID_CURSOR {
+        if !super::cursor_auth::cursor_cli_available() {
+            bail!(
+                "Cursor CLI not found on PATH. Install the Cursor CLI and run `agent login` to use provider '{}'.",
+                provider_id
+            );
+        }
     } else {
         match config.auth_source {
             AuthSource::ApiKey => {
@@ -435,6 +440,22 @@ providers:
             resolved.base_url.is_empty(),
             "the local CLI provider has no HTTP base URL by design"
         );
+    }
+
+    #[test]
+    fn cursor_subscription_resolves_without_api_key_or_base_url() {
+        use zorai_shared::providers::PROVIDER_ID_CURSOR;
+        let mut config = AgentConfig::default();
+        config.provider = PROVIDER_ID_CURSOR.to_string();
+        config.model = "auto".to_string();
+        config.api_key = String::new();
+        config.base_url = String::new();
+
+        let resolved = resolve_provider_config_for(&config, PROVIDER_ID_CURSOR, None)
+            .expect("cursor subscription must resolve with no pasted key and no base URL");
+        assert_eq!(resolved.api_transport, ApiTransport::NativeAssistant);
+        assert_eq!(resolved.model, "auto");
+        assert!(resolved.base_url.is_empty());
     }
 
     #[test]
