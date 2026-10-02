@@ -84,6 +84,14 @@ function emptyDisplayBuild(messages: AgentMessage[]): BuiltDisplayItems {
 function rebuildDisplayItems(messages: AgentMessage[], previous: BuiltDisplayItems, shared: number): BuiltDisplayItems {
   let keep = 0;
   while (keep < previous.items.length && previous.itemEnds[keep] < shared) keep += 1;
+  if (
+    keep > 0
+    && previous.items[keep - 1]?.type === "toolList"
+    && previous.itemEnds[keep - 1] === shared - 1
+    && continuesToolRun(messages[shared])
+  ) {
+    keep -= 1;
+  }
   const restart = keep < previous.items.length ? previous.itemStarts[keep] : shared;
   return buildDisplayItemsFrom(messages, restart, {
     messages,
@@ -91,6 +99,13 @@ function rebuildDisplayItems(messages: AgentMessage[], previous: BuiltDisplayIte
     itemStarts: previous.itemStarts.slice(0, keep),
     itemEnds: previous.itemEnds.slice(0, keep),
   });
+}
+
+function continuesToolRun(message: AgentMessage | undefined): boolean {
+  if (!message) return false;
+  return message.role === "tool"
+    || isAssistantToolCallEnvelope(message)
+    || shouldHideAssistantDisplayMessage(message);
 }
 
 function buildDisplayItemsFrom(messages: AgentMessage[], from: number, built: BuiltDisplayItems): BuiltDisplayItems {

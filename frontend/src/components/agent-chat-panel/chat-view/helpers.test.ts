@@ -233,4 +233,49 @@ describe("buildDisplayItems", () => {
     expect(secondTools).toBe(firstTools);
     expect(second.at(-1)).toMatchObject({ type: "message", message: streamed });
   });
+
+  it("keeps appending tool calls in the same list instead of freezing the earlier array", () => {
+    const user = message({ id: "user", role: "user", content: "Investigate", createdAt: 1 });
+    const envelopeA = message({
+      id: "assistant-batch-1",
+      role: "assistant",
+      content: "",
+      toolCalls: [{ id: "call-a", name: "python", arguments: "{\"code\":\"1\"}" }],
+      createdAt: 2,
+    });
+    const toolA = message({
+      id: "tool-a",
+      role: "tool",
+      toolCallId: "call-a",
+      toolName: "python",
+      toolStatus: "requested",
+      toolArguments: "{\"code\":\"1\"}",
+      content: "",
+      createdAt: 3,
+    });
+    const first = buildDisplayItems([user, envelopeA, toolA]);
+    const envelopeB = message({
+      id: "assistant-batch-2",
+      role: "assistant",
+      content: "",
+      toolCalls: [{ id: "call-b", name: "python", arguments: "{\"code\":\"2\"}" }],
+      createdAt: 4,
+    });
+    const toolB = message({
+      id: "tool-b",
+      role: "tool",
+      toolCallId: "call-b",
+      toolName: "python",
+      toolStatus: "requested",
+      toolArguments: "{\"code\":\"2\"}",
+      content: "",
+      createdAt: 5,
+    });
+    const second = buildDisplayItems([user, envelopeA, toolA, envelopeB, toolB]);
+    const toolLists = second.filter((item) => item.type === "toolList");
+
+    expect(toolLists).toHaveLength(1);
+    expect(toolLists[0].groups.map((group) => group.toolCallId)).toEqual(["call-a", "call-b"]);
+    expect(first.filter((item) => item.type === "toolList")).toHaveLength(1);
+  });
 });
