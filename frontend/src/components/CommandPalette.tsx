@@ -41,7 +41,7 @@ export function CommandPalette({ style, className }: CommandPaletteProps = {}) {
       category: "Navigate",
       action: () => navigateZorai({ view: item.id }),
     })),
-    { id: "new-thread", label: "New Thread", category: "Threads", shortcut: shortcutFor("newSurface"), action: () => { handleZoraiAppCommand("new-surface"); } },
+    { id: "new-thread", label: "+ New Thread", category: "Threads", shortcut: shortcutFor("newSurface"), action: () => { handleZoraiAppCommand("new-surface"); } },
     { id: "search-threads", label: "Search Threads", category: "Threads", shortcut: shortcutFor("toggleSearch"), action: () => { handleZoraiAppCommand("toggle-search"); } },
     { id: "toggle-context", label: "Toggle Context Panel", category: "View", shortcut: shortcutFor("toggleSidebar"), action: () => { handleZoraiAppCommand("toggle-sidebar"); } },
     ...zoraiTools.map((tool) => ({

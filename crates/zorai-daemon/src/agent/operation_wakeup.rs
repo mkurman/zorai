@@ -375,6 +375,10 @@ impl AgentEngine {
         wakeups: &[(OperationWakeup, serde_json::Value)],
     ) -> Result<OperationWakeupPayloadRef> {
         let payload_id = uuid::Uuid::new_v4().to_string();
+        let payload_handle =
+            crate::agent::tool_executor::ensure_payload_slug(self, thread_id, &payload_id)
+                .await
+                .unwrap_or_else(|_| payload_id.clone());
         let payload_path = self.history.offloaded_payload_path(thread_id, &payload_id);
         let results = wakeups
             .iter()
@@ -418,7 +422,7 @@ impl AgentEngine {
         }
 
         Ok(OperationWakeupPayloadRef {
-            payload_id,
+            payload_id: payload_handle,
             file_path: payload_path.to_string_lossy().into_owned(),
             operation_count: wakeups.len(),
         })

@@ -4,8 +4,8 @@ use crate::session_manager::SessionManager;
 use std::fs;
 use tempfile::tempdir;
 use zorai_shared::providers::{
-    PROVIDER_ID_ALIBABA_CODING_PLAN, PROVIDER_ID_GITHUB_COPILOT, PROVIDER_ID_OPENAI,
-    PROVIDER_ID_OPENROUTER,
+    PROVIDER_ID_ALIBABA_CODING_PLAN, PROVIDER_ID_GEMINI, PROVIDER_ID_GITHUB_COPILOT,
+    PROVIDER_ID_OPENAI, PROVIDER_ID_OPENROUTER,
 };
 
 fn sample_provider_config() -> ProviderConfig {
@@ -1797,6 +1797,53 @@ fn openai_responses_request_keeps_previous_response_id_when_compaction_artifact_
     assert_eq!(prepared.previous_response_id.as_deref(), Some("resp_123"));
     assert_eq!(prepared.messages.len(), 1);
     assert_eq!(prepared.messages[0].role, "user");
+}
+
+#[test]
+fn gemini_continuation_sends_only_the_new_turn_with_the_stored_interaction_id() {
+    let mut config = AgentConfig::default();
+    config.provider = PROVIDER_ID_GEMINI.to_string();
+    let mut provider = sample_provider_config();
+    provider.model = "gemini-3.8-flash".to_string();
+    provider.base_url = "https://generativelanguage.googleapis.com/v1beta".to_string();
+
+    let mut assistant = AgentMessage::user("answer", 2);
+    assistant.role = MessageRole::Assistant;
+    assistant.provider = Some(PROVIDER_ID_GEMINI.to_string());
+    assistant.model = Some("gemini-3.8-flash".to_string());
+    assistant.response_id = Some("v1_stored".to_string());
+
+    let thread = sample_thread(vec![
+        AgentMessage::user("first", 1),
+        assistant,
+        AgentMessage::user("continue", 3),
+    ]);
+    let prepared = prepare_llm_request(&thread, &config, &provider);
+    assert_eq!(prepared.transport, ApiTransport::ChatCompletions);
+    assert_eq!(prepared.previous_response_id.as_deref(), Some("v1_stored"));
+    assert_eq!(prepared.messages.len(), 1);
+    assert_eq!(prepared.messages[0].role, "user");
+}
+
+#[test]
+fn gemini_compaction_starts_a_fresh_stored_interaction() {
+    let mut config = AgentConfig::default();
+    config.provider = PROVIDER_ID_GEMINI.to_string();
+    let mut provider = sample_provider_config();
+    provider.model = "gemini-3.8-flash".to_string();
+
+    let mut summary = AgentMessage::user("[Compacted earlier context] old turns", 1);
+    summary.message_kind = AgentMessageKind::CompactionArtifact;
+    let mut assistant = AgentMessage::user("answer", 2);
+    assistant.role = MessageRole::Assistant;
+    assistant.provider = Some(PROVIDER_ID_GEMINI.to_string());
+    assistant.model = Some("gemini-3.8-flash".to_string());
+    assistant.response_id = Some("v1_stored".to_string());
+
+    let thread = sample_thread(vec![summary, assistant, AgentMessage::user("continue", 3)]);
+    let prepared = prepare_llm_request(&thread, &config, &provider);
+    assert!(prepared.previous_response_id.is_none());
+    assert!(prepared.messages.len() > 1);
 }
 
 #[test]

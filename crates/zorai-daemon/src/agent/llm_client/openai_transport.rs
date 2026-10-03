@@ -278,7 +278,7 @@ pub(crate) fn apply_dashscope_coding_plan_sdk_headers(
 
     let sdk_version = match api_type {
         ApiType::Anthropic => "0.73.0",
-        ApiType::OpenAI => "4.3.0",
+        ApiType::OpenAI | ApiType::Gemini => "4.3.0",
     };
     req.header("User-Agent", api_type.sdk_user_agent())
         .header("x-stainless-lang", "js")

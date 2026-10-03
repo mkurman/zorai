@@ -19,4 +19,12 @@ describe("resolveComposerThreadCost", () => {
       totalCost: 0.01,
     });
   });
+
+  it("leaves cost unknown when the provider did not return one", () => {
+    const loadedPage = [{ role: "assistant", inputTokens: 1_000_000, outputTokens: 1_000 }] as AgentMessage[];
+    expect(resolveComposerThreadCost(null, loadedPage)).toEqual({
+      hasCost: false,
+      totalCost: 0,
+    });
+  });
 });

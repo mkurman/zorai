@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback, type CSSProperties, type ReactNode } from "react";
+import { RefreshIcon } from "@/zorai/shell/RefreshButton";
 import { getBridge } from "@/lib/bridge";
 import { themesForAppearance } from "../../lib/themes";
 import type { ZoraiSettings } from "../../lib/types";
@@ -522,8 +523,10 @@ export function ModelSelector({ providerId, value, customName, onChange, disable
                         disabled={isFetching}
                         style={smallBtnStyle}
                         title="Fetch models from provider"
+                        aria-label="Fetch models from provider"
+                        aria-busy={isFetching}
                     >
-                        {isFetching ? "..." : "↻"}
+                        <RefreshIcon />
                     </button>
                 )}
             </div>

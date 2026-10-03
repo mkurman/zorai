@@ -182,7 +182,9 @@ async fn ask_parent_enqueues_a_parent_wakeup_so_the_parent_can_answer() {
     .expect("ask_parent succeeds");
     let parsed: serde_json::Value = serde_json::from_str(&result).expect("json result");
     let ask_id = parsed["ask_id"].as_str().expect("ask_id returned");
+    let ask_slug = parsed["ask_slug"].as_str().expect("ask_slug returned");
     assert!(!ask_id.is_empty());
+    assert_eq!(ask_slug, "q1");
 
     let queued = engine
         .deferred_visible_thread_continuations_for("thread-parent")
@@ -193,7 +195,16 @@ async fn ask_parent_enqueues_a_parent_wakeup_so_the_parent_can_answer() {
         "parent must get a continuation so it can call answer_child instead of waiting for timeout"
     );
     assert!(queued[0].llm_user_content.contains("answer_child"));
-    assert!(queued[0].llm_user_content.contains(ask_id));
+    assert!(queued[0].llm_user_content.contains("child_task_id `child`"));
+    assert!(queued[0].llm_user_content.contains("ask_id `q1`"));
+    assert!(
+        !queued[0].llm_user_content.contains(ask_id),
+        "the parent prompt must not make the model copy the ask uuid"
+    );
+    assert!(
+        !queued[0].llm_user_content.contains(&child.id),
+        "the parent prompt must not make the model copy the task uuid"
+    );
     assert!(queued[0]
         .llm_user_content
         .contains("Should I use plan A or plan B?"));
@@ -308,4 +319,140 @@ async fn answer_child_targets_one_open_ask_and_keeps_the_child_blocked_until_all
         .await
         .expect("child exists");
     assert_ne!(unblocked.status, TaskStatus::Blocked);
+}
+
+#[tokio::test]
+async fn answer_child_accepts_short_handles_and_disambiguates_duplicate_titles() {
+    let (_root, engine) = setup().await;
+    let parent = engine
+        .enqueue_task(
+            "Parent".into(),
+            "coordination".into(),
+            "normal",
+            None,
+            None,
+            Vec::new(),
+            None,
+            "user",
+            None,
+            None,
+            Some("thread-parent".into()),
+            None,
+        )
+        .await;
+    let mut first = engine
+        .enqueue_task(
+            "Researcher".into(),
+            "first".into(),
+            "normal",
+            None,
+            None,
+            Vec::new(),
+            None,
+            "subagent",
+            None,
+            Some(parent.id.clone()),
+            Some("thread-parent".into()),
+            None,
+        )
+        .await;
+    first.thread_id = Some("thread-researcher-a".into());
+    persist_task_update(&engine, &first, None)
+        .await
+        .expect("persist first");
+    let mut second = engine
+        .enqueue_task(
+            "Researcher".into(),
+            "second".into(),
+            "normal",
+            None,
+            None,
+            Vec::new(),
+            None,
+            "subagent",
+            None,
+            Some(parent.id.clone()),
+            Some("thread-parent".into()),
+            None,
+        )
+        .await;
+    second.thread_id = Some("thread-researcher-b".into());
+    persist_task_update(&engine, &second, None)
+        .await
+        .expect("persist second");
+
+    let first_ask = execute_ask_parent(
+        &ask_args("First question?"),
+        &engine,
+        "thread-researcher-a",
+        Some(&first.id),
+    )
+    .await
+    .expect("first ask");
+    let second_ask = execute_ask_parent(
+        &ask_args("Second question?"),
+        &engine,
+        "thread-researcher-b",
+        Some(&second.id),
+    )
+    .await
+    .expect("second ask");
+    let first_slug = serde_json::from_str::<serde_json::Value>(&first_ask).expect("json")
+        ["ask_slug"]
+        .as_str()
+        .expect("slug")
+        .to_string();
+    let second_slug = serde_json::from_str::<serde_json::Value>(&second_ask).expect("json")
+        ["ask_slug"]
+        .as_str()
+        .expect("slug")
+        .to_string();
+    assert_eq!(first_slug, "q1");
+    assert_eq!(second_slug, "q1");
+
+    execute_answer_child(
+        &serde_json::json!({
+            "child_task_id": "researcher",
+            "ask_id": "q1",
+            "answer": "answer the first researcher",
+        }),
+        &engine,
+        "thread-parent",
+        Some(&parent.id),
+    )
+    .await
+    .expect("first handle resolves");
+    execute_answer_child(
+        &serde_json::json!({
+            "child_task_id": "researcher-2",
+            "ask_id": "Q1",
+            "answer": "answer the second researcher",
+        }),
+        &engine,
+        "thread-parent",
+        Some(&parent.id),
+    )
+    .await
+    .expect("suffixed handle resolves");
+
+    let first_record = list_ask_records(&engine, &first.id)
+        .await
+        .expect("records")
+        .into_iter()
+        .next()
+        .expect("first ask stored");
+    let second_record = list_ask_records(&engine, &second.id)
+        .await
+        .expect("records")
+        .into_iter()
+        .next()
+        .expect("second ask stored");
+    assert_eq!(
+        first_record.1.answer.as_deref(),
+        Some("answer the first researcher")
+    );
+    assert_eq!(
+        second_record.1.answer.as_deref(),
+        Some("answer the second researcher")
+    );
 }

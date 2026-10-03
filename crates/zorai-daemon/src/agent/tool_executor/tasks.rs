@@ -223,6 +223,11 @@ pub(crate) async fn execute_list_subagents(
                 serde_json::json!(exhausted_limits),
             );
         }
+        if let Ok(handle) = ensure_task_slug(agent, &task).await {
+            if let Some(obj) = value.as_object_mut() {
+                obj.insert("handle".to_string(), serde_json::json!(handle));
+            }
+        }
         payload.push(value);
     }
     Ok(serde_json::to_string_pretty(&payload).unwrap_or_else(|_| "[]".to_string()))
@@ -642,8 +647,20 @@ pub(crate) async fn execute_start_goal_run(
             launch_assignments,
         )
         .await;
+    let handle = ensure_goal_slug(
+        agent,
+        &goal_run.id,
+        &goal_run.title,
+        goal_run.thread_id.as_deref(),
+    )
+    .await
+    .unwrap_or_else(|_| goal_run.id.clone());
+    let mut value = serde_json::to_value(&goal_run).unwrap_or_else(|_| serde_json::json!({}));
+    if let Some(obj) = value.as_object_mut() {
+        obj.insert("handle".to_string(), serde_json::json!(handle));
+    }
 
-    Ok(serde_json::to_string_pretty(&goal_run).unwrap_or_else(|_| "{}".to_string()))
+    Ok(serde_json::to_string_pretty(&value).unwrap_or_else(|_| "{}".to_string()))
 }
 
 fn parse_goal_launch_assignments(
@@ -742,7 +759,18 @@ pub(crate) async fn execute_list_tasks(
         })
         .await;
 
-    Ok(serde_json::to_string_pretty(&tasks).unwrap_or_else(|_| "[]".to_string()))
+    let mut items = Vec::with_capacity(tasks.len());
+    for task in tasks {
+        let mut value = serde_json::to_value(&task).unwrap_or_else(|_| serde_json::json!({}));
+        if let Ok(handle) = ensure_task_slug(agent, &task).await {
+            if let Some(obj) = value.as_object_mut() {
+                obj.insert("handle".to_string(), serde_json::json!(handle));
+            }
+        }
+        items.push(value);
+    }
+
+    Ok(serde_json::to_string_pretty(&items).unwrap_or_else(|_| "[]".to_string()))
 }
 
 pub(crate) async fn execute_list_goal_runs(
@@ -758,7 +786,23 @@ pub(crate) async fn execute_list_goal_runs(
         .get("offset")
         .and_then(|value| value.as_u64())
         .unwrap_or(0) as usize;
-    let (items, total) = agent.list_goal_runs_paginated_for_tool(limit, offset).await;
+    let (goal_runs, total) = agent.list_goal_runs_paginated_for_tool(limit, offset).await;
+    let mut items = Vec::with_capacity(goal_runs.len());
+    for goal_run in goal_runs {
+        let handle = ensure_goal_slug(
+            agent,
+            &goal_run.id,
+            &goal_run.title,
+            goal_run.thread_id.as_deref(),
+        )
+        .await
+        .unwrap_or_else(|_| goal_run.id.clone());
+        let mut value = serde_json::to_value(&goal_run).unwrap_or_else(|_| serde_json::json!({}));
+        if let Some(obj) = value.as_object_mut() {
+            obj.insert("handle".to_string(), serde_json::json!(handle));
+        }
+        items.push(value);
+    }
     let returned = items.len();
     let next_offset = offset.saturating_add(returned);
     let has_more = next_offset < total;
@@ -806,6 +850,7 @@ pub(crate) async fn execute_request_goal_review(
         .map(str::trim)
         .filter(|value| !value.is_empty())
     {
+        let provided = resolve_goal_id(agent, provided, Some(_thread_id)).await?;
         if provided != goal_run_id {
             anyhow::bail!(
                 "goal_run_id mismatch: worker is on '{goal_run_id}' but tool received '{provided}'"
@@ -836,6 +881,8 @@ pub(crate) async fn execute_submit_goal_review(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .ok_or_else(|| anyhow::anyhow!("missing 'goal_run_id' argument"))?;
+    let resolved_goal_run_id = resolve_goal_id(agent, goal_run_id, Some(thread_id)).await?;
+    let goal_run_id = resolved_goal_run_id.as_str();
     let verdict = parse_goal_supervisor_verdict(
         args.get("verdict")
             .and_then(|value| value.as_str())
@@ -1650,12 +1697,25 @@ async fn ensure_goal_run_cancel_allowed(
 pub(crate) async fn execute_cancel_task(
     args: &serde_json::Value,
     agent: &AgentEngine,
+    thread_id: &str,
     caller_task_id: Option<&str>,
 ) -> Result<String> {
-    let task_id = args
+    let requested = args
         .get("task_id")
         .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
         .ok_or_else(|| anyhow::anyhow!("missing 'task_id' argument"))?;
+    let task_id = match resolve_child_reference(agent, requested, thread_id, caller_task_id).await {
+        Ok(task) => task.id,
+        Err(error) if error.to_string().contains("not found") => {
+            lookup_operation_id(agent, thread_id, requested)
+                .await?
+                .unwrap_or_else(|| requested.to_string())
+        }
+        Err(error) => return Err(error),
+    };
+    let task_id = task_id.as_str();
     ensure_goal_run_cancel_allowed(agent, caller_task_id, task_id).await?;
     let cancelled = agent.cancel_task(task_id).await;
     if cancelled {
@@ -1787,11 +1847,16 @@ pub(crate) async fn execute_schedule_wakeup(
         .and_then(|value| value.as_str())
         .unwrap_or("generic")
         .trim();
-    let goal_run_id = args
+    let resolved_goal_run_id = match args
         .get("goal_run_id")
         .and_then(|value| value.as_str())
         .map(str::trim)
-        .filter(|value| !value.is_empty());
+        .filter(|value| !value.is_empty())
+    {
+        Some(goal_run_id) => Some(resolve_goal_id(agent, goal_run_id, Some(thread_id)).await?),
+        None => None,
+    };
+    let goal_run_id = resolved_goal_run_id.as_deref();
     if wakeup_kind == "goal_supervision" {
         if goal_run_id.is_none() {
             return Err(anyhow::anyhow!("goal supervision requires 'goal_run_id'"));

@@ -335,9 +335,7 @@ async fn resolve_target_spawned_task(
         .map(str::trim)
         .filter(|value| !value.is_empty())
     {
-        let task = task_by_id_for_tool_scope(agent, child_task_id)
-            .await
-            .ok_or_else(|| anyhow::anyhow!("child task not found: {child_task_id}"))?;
+        let task = resolve_child_reference(agent, child_task_id, thread_id, task_id).await?;
         if !task.is_spawned_subagent() {
             anyhow::bail!("task `{child_task_id}` is not a spawned subagent");
         }

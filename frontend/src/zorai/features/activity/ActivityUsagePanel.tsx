@@ -1,5 +1,5 @@
 import { LoadingPanel, LoadingState } from "@/components/LoadingState";
-import { Children, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Children, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getBridge } from "@/lib/bridge";
 import {
   fillDailyRange,
@@ -7,6 +7,7 @@ import {
   formatDate,
   type UsageStats,
 } from "./ActivityUsageStats";
+import { mergeStatisticsSessionPage, statisticsSessionPageMatches } from "./activitySessionPage";
 import { CostAreaChart, DailyTokenChart, ShareDonut, TotalsSplitBar, UsageBarList } from "./ActivityUsageCharts";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import { openThreadTarget } from "../threads/openThreadTarget";
@@ -36,8 +37,17 @@ export function UsagePanel({ stats }: { stats: UsageStats }) {
   const [snapshot, setSnapshot] = useState<ZoraiAgentStatisticsSnapshot | null>(null);
   const [sessionPageSize, setSessionPageSize] = useState(25);
   const [sessionPage, setSessionPage] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
+  const sessionPageRef = useRef(sessionPage);
+  const pageSizeRef = useRef(sessionPageSize);
+  const appliedSessionRef = useRef<{ window: ZoraiStatisticsWindow; page: number; pageSize: number } | null>(null);
+  const pendingSessionPageRef = useRef<ZoraiAgentStatisticsSnapshot | null>(null);
+  const overviewOwnsFirstPage = useRef(false);
+  sessionPageRef.current = sessionPage;
+  pageSizeRef.current = sessionPageSize;
 
   useEffect(() => {
     const bridge = getBridge();
@@ -47,28 +57,78 @@ export function UsagePanel({ stats }: { stats: UsageStats }) {
       return;
     }
 
+    overviewOwnsFirstPage.current = true;
+    appliedSessionRef.current = null;
+    pendingSessionPageRef.current = null;
     let cancelled = false;
-    setLoading(true);
+    const requestedPageSize = pageSizeRef.current;
+    setStatsLoading(true);
     setError(null);
-    void bridge.agentGetStatistics(windowId, sessionPageSize, sessionPage * sessionPageSize).then((result) => {
-      if (!cancelled) setSnapshot((result ?? null) as ZoraiAgentStatisticsSnapshot | null);
+    void bridge.agentGetStatistics(windowId, requestedPageSize, 0, false).then((result) => {
+      if (cancelled) return;
+      const incoming = (result ?? null) as ZoraiAgentStatisticsSnapshot | null;
+      if (!incoming) {
+        setSnapshot(null);
+        return;
+      }
+      setSnapshot((current) => {
+        const applied = appliedSessionRef.current;
+        const pending = pendingSessionPageRef.current;
+        if (pending && applied?.window === incoming.window && statisticsSessionPageMatches(pending, applied.page * applied.pageSize, applied.pageSize)) {
+          return mergeStatisticsSessionPage(incoming, pending);
+        }
+        if (current && applied?.window === incoming.window && (applied.page !== 0 || applied.pageSize !== incoming.session_limit)) {
+          return mergeStatisticsSessionPage(incoming, current);
+        }
+        return incoming;
+      });
     }).catch((fetchError) => {
       if (!cancelled) {
         setSnapshot(null);
         setError(fetchError?.message || "Statistics request failed.");
       }
     }).finally(() => {
-      if (!cancelled) setLoading(false);
+      if (!cancelled) setStatsLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [windowId]);
+
+  useEffect(() => {
+    if (overviewOwnsFirstPage.current && sessionPage === 0) {
+      overviewOwnsFirstPage.current = false;
+      return;
+    }
+
+    const bridge = getBridge();
+    if (!bridge?.agentGetStatistics) return;
+
+    let cancelled = false;
+    const requestedPage = sessionPage;
+    const requestedPageSize = sessionPageSize;
+    const requestedOffset = requestedPage * requestedPageSize;
+    setSessionsLoading(true);
+    setSessionsError(null);
+    void bridge.agentGetStatistics(windowId, requestedPageSize, requestedOffset, true).then((result) => {
+      if (cancelled) return;
+      const incoming = (result ?? null) as ZoraiAgentStatisticsSnapshot | null;
+      if (!incoming || !statisticsSessionPageMatches(incoming, requestedOffset, requestedPageSize)) return;
+      if (sessionPageRef.current !== requestedPage || pageSizeRef.current !== requestedPageSize) return;
+      appliedSessionRef.current = { window: windowId, page: requestedPage, pageSize: requestedPageSize };
+      pendingSessionPageRef.current = incoming;
+      setSnapshot((current) => current ? mergeStatisticsSessionPage(current, incoming) : current);
+    }).catch((fetchError) => {
+      if (!cancelled) setSessionsError(fetchError?.message || "Session page request failed.");
+    }).finally(() => {
+      if (!cancelled) setSessionsLoading(false);
     });
 
     return () => {
       cancelled = true;
     };
   }, [sessionPage, sessionPageSize, windowId]);
-
-  useEffect(() => {
-    setSessionPage(0);
-  }, [windowId, sessionPageSize]);
 
   const dailyRows = useMemo(() => {
     if (!snapshot) return fillDailyRange(stats.dailyRows, MAX_CHART_DAYS);
@@ -98,14 +158,14 @@ export function UsagePanel({ stats }: { stats: UsageStats }) {
         ))}
         <span className="zorai-inline-note">Window</span>
         {windows.map((item) => (
-          <button key={item.id} type="button" className={["zorai-ghost-button", windowId === item.id ? "zorai-button--active" : ""].filter(Boolean).join(" ")} onClick={() => setWindowId(item.id)}>
+          <button key={item.id} type="button" className={["zorai-ghost-button", windowId === item.id ? "zorai-button--active" : ""].filter(Boolean).join(" ")} onClick={() => { setSessionPage(0); setWindowId(item.id); }}>
             {item.label}
           </button>
         ))}
       </div>
 
-      {loading && !snapshot ? <LoadingPanel label="Loading historical statistics…" /> : null}
-      {loading && snapshot ? <LoadingState size={14} label="Refreshing statistics" /> : null}
+      {statsLoading && !snapshot ? <LoadingPanel label="Loading historical statistics…" /> : null}
+      {statsLoading && snapshot ? <LoadingState size={14} label="Refreshing statistics" /> : null}
       {error ? <div className="zorai-empty-state">{error} Local loaded-message total: {formatCount(stats.totals.totalTokens)} tok.</div> : null}
       {snapshot ? <StatisticsBody snapshot={snapshot} tab={tab} /> : null}
       {tab === "overview" ? <DailyTrendsPanel snapshot={snapshot} stats={stats} dailyRows={dailyRows} /> : null}
@@ -115,7 +175,9 @@ export function UsagePanel({ stats }: { stats: UsageStats }) {
         page={sessionPage}
         pageSize={sessionPageSize}
         onPageChange={setSessionPage}
-        onPageSizeChange={setSessionPageSize}
+        onPageSizeChange={(size) => { setSessionPage(0); setSessionPageSize(size); }}
+        loading={sessionsLoading}
+        error={sessionsError}
       />
     </div>
   );
@@ -283,6 +345,8 @@ function SessionUsageTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
+  loading,
+  error,
 }: {
   rows: ZoraiSessionStatisticsRow[];
   total: number;
@@ -290,6 +354,8 @@ function SessionUsageTable({
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
+  loading: boolean;
+  error: string | null;
 }) {
   const runtime = useAgentChatPanelRuntime();
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
@@ -327,7 +393,9 @@ function SessionUsageTable({
           </tbody>
         </table>
       </div>
+      {error ? <p className="zorai-empty-state">{error}</p> : null}
       <div className="zorai-usage-pagination" aria-label="Session usage pages">
+        {loading ? <LoadingState size={14} label="Refreshing sessions" /> : null}
         <button type="button" className="zorai-ghost-button" disabled={page <= 0} onClick={() => onPageChange(page - 1)}>Previous</button>
         <span>Page {Math.min(page + 1, pageCount)} of {pageCount}</span>
         <button type="button" className="zorai-ghost-button" disabled={page + 1 >= pageCount} onClick={() => onPageChange(page + 1)}>Next</button>

@@ -1,7 +1,8 @@
 use super::{
     budget_overflow_decision, should_emit_deferred_turn_done,
     should_emit_tool_execution_limit_error, should_emit_turn_done_on_text_completion,
-    should_force_budget_report_back, BudgetOverflowDecision,
+    should_force_budget_report_back, terminal_subagent_report_requires_turn_done,
+    BudgetOverflowDecision,
 };
 use crate::agent::types::ContextOverflowAction;
 
@@ -56,6 +57,18 @@ fn continuing_into_budget_report_back_must_not_emit_done() {
     assert!(
         should_emit_turn_done_on_text_completion(false),
         "a finished text completion still ends the turn"
+    );
+}
+
+#[test]
+fn successful_report_break_still_owes_turn_done() {
+    assert!(
+        terminal_subagent_report_requires_turn_done(false),
+        "report_subagent_outcome breaks the tool loop after the UI has already opened a streaming placeholder on the tool result. The task is already terminal, but without a later Done that placeholder keeps the working indicator up. The text-completion report-back path sets this before continuing; the tool-loop budget path does not, so the report itself has to request the deferred Done"
+    );
+    assert!(
+        !terminal_subagent_report_requires_turn_done(true),
+        "a turn that already emitted Done must not request a second one when the report breaks the loop"
     );
 }
 

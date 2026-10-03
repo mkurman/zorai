@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { GoalRun } from "@/lib/goalRuns";
-import { buildGoalWorkspaceModel } from "./goalWorkspaceModel";
+import {
+  buildGoalWorkspaceModel,
+  goalFilesFromWorkContext,
+  mergeGoalWorkspaceFiles,
+} from "./goalWorkspaceModel";
 
 const baseRun: GoalRun = {
   id: "goal-1",
@@ -163,5 +167,54 @@ describe("goalWorkspaceModel", () => {
       targetFilePath: "/home/example/.zorai/goals/goal-1/notes.md",
     });
     expect(files.detailSections[0].rows.map((row) => row.text)).toContain("Size 42 bytes");
+  });
+
+  it("lists created and edited work-context files when the projection directory is empty", () => {
+    const touched = goalFilesFromWorkContext("goal-1", [
+      {
+        path: "/repo/src/new-report.md",
+        source: "create_file",
+        goalRunId: "goal-1",
+        updatedAt: 2,
+      },
+      {
+        path: "src/existing.ts",
+        repoRoot: "/repo",
+        source: "apply_file_patch",
+        goalRunId: null,
+        updatedAt: 3,
+      },
+      {
+        path: "/repo/src/existing.ts",
+        source: "replace_in_file",
+        updatedAt: 1,
+      },
+      {
+        path: "/other/secret.txt",
+        source: "create_file",
+        goalRunId: "goal-2",
+        updatedAt: 4,
+      },
+      {
+        path: "   ",
+        source: "create_file",
+        updatedAt: 5,
+      },
+    ]);
+    const files = buildGoalWorkspaceModel(baseRun, {
+      mode: "files",
+      projectionFiles: mergeGoalWorkspaceFiles([], touched),
+    });
+
+    expect(files.centerRows.map((row) => row.text)).toEqual([
+      "/repo/src/new-report.md",
+      "src/existing.ts",
+    ]);
+    expect(files.centerRows.map((row) => row.meta)).toEqual(["Created", "Edited"]);
+    expect(files.centerRows.map((row) => row.targetFilePath)).toEqual([
+      "/repo/src/new-report.md",
+      "/repo/src/existing.ts",
+    ]);
+    expect(files.centerRows.map((row) => row.text)).not.toContain("/other/secret.txt");
   });
 });

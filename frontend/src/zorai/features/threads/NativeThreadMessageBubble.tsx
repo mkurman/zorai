@@ -9,6 +9,7 @@ import {
 import { assistantMessageHasVisibleContent } from "@/components/agent-chat-panel/chat-view/helpers";
 import { MarkdownContent } from "@/components/agent-chat-panel/chat-view/markdown";
 import type { AgentMessage } from "@/lib/agentStore";
+import { visibleGeminiReasoning } from "@/lib/geminiThought";
 import { AttachmentTiles } from "./attachmentTiles";
 import { splitMessageAttachments } from "./messageAttachments";
 
@@ -120,8 +121,9 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
   const author = message.authorAgentName ?? (fromUser ? "You" : message.role === "assistant" ? (threadAgentName ?? "Zorai") : message.role);
   const tokenText = message.totalTokens > 0 ? `${message.totalTokens.toLocaleString()} tokens` : null;
   const { displayText, tiles } = splitMessageAttachments(message.content, message.contentBlocks);
+  const reasoning = visibleGeminiReasoning(message.reasoning);
   const hasVisibleContent = assistantMessageHasVisibleContent(displayText);
-  const shouldRenderContent = hasVisibleContent || !message.reasoning;
+  const shouldRenderContent = hasVisibleContent || !reasoning;
 
   return (
     <article id={`zorai-message-${message.id}`} className={["zorai-message", fromUser ? "zorai-message--user" : "", message.pinnedForCompaction ? "zorai-message--pinned" : ""].filter(Boolean).join(" ")}>
@@ -129,8 +131,8 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
         <strong>{author}</strong>
         <span>{formatTime(message.createdAt)}{tokenText ? ` / ${tokenText}` : ""}</span>
       </div>
-      {message.reasoning ? (
-        <ThreadReasoningBlock content={message.reasoning} streaming={Boolean(message.isStreaming)} />
+      {reasoning ? (
+        <ThreadReasoningBlock content={reasoning} streaming={Boolean(message.isStreaming)} />
       ) : null}
       {tiles.length > 0 ? <AttachmentTiles items={tiles} /> : null}
       {shouldRenderContent ? (

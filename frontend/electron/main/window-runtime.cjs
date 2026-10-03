@@ -4,6 +4,19 @@ function shouldOpenDevTools({ isPackaged, env = process.env } = {}) {
     return flag === "1" || flag === "true";
 }
 
+function devToolsAccelerator(platform = process.platform) {
+    return platform === "darwin" ? "Alt+Command+I" : "Ctrl+Shift+I";
+}
+
+function toggleWindowDevTools(webContents) {
+    if (!webContents) return;
+    if (webContents.isDevToolsOpened()) {
+        webContents.closeDevTools();
+        return;
+    }
+    webContents.openDevTools({ mode: "detach" });
+}
+
 function resolveWindowFrameOptions(platform = process.platform) {
     const useNativeFrame = platform === 'win32' || platform === 'linux';
     return {
@@ -75,7 +88,8 @@ function createWindowRuntime(options) {
                 { label: 'Search', accelerator: 'Ctrl+Shift+F', click: () => sendAppCommand('toggle-search') },
                 { label: 'File Manager', accelerator: 'Ctrl+Shift+E', click: () => sendAppCommand('toggle-file-manager') },
                 { label: 'Toggle Sidebar', accelerator: 'Ctrl+B', click: () => sendAppCommand('toggle-sidebar') },
-                { type: 'separator' }, { role: 'reload' }, { role: 'forceReload' }, { role: 'toggleDevTools' },
+                { type: 'separator' }, { role: 'reload' }, { role: 'forceReload' },
+                { label: 'Toggle Developer Tools', accelerator: devToolsAccelerator(), click: () => toggleWindowDevTools(getMainWindow()?.webContents) },
                 { type: 'separator' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'togglefullscreen' },
             ] },
             { label: 'Features', submenu: [
@@ -184,5 +198,7 @@ module.exports = {
     loadWindowIcon,
     resolveWindowFrameOptions,
     resolveWindowIcon,
+    devToolsAccelerator,
     shouldOpenDevTools,
+    toggleWindowDevTools,
 };

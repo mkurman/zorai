@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { useWorkspaceStore } from "../lib/workspaceStore";
 import { useFileManagerStore, type SshProfile } from "../lib/fileManagerStore";
 import { AppConfirmDialog } from "./AppConfirmDialog";
@@ -416,9 +417,7 @@ export function FileManagerPanel({ style, className }: FileManagerPanelProps = {
                 <button type="button" style={secondaryButtonStyle} onClick={() => void handleSwapPanes()}>
                     Swap Panes
                 </button>
-                <button type="button" style={secondaryButtonStyle} onClick={() => void Promise.all([refreshPane("left"), refreshPane("right")])}>
-                    Refresh Both
-                </button>
+                <RefreshButton label="Refresh Both" onClick={() => void Promise.all([refreshPane("left"), refreshPane("right")])} />
 
                 {statusMessage && (
                     <span style={{ color: "var(--text-secondary)", fontSize: "var(--text-xs)", marginLeft: "auto" }}>

@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { getBridge } from "@/lib/bridge";
 import { PRIMARY_AGENT_NAME } from "@/lib/agentNames";
+import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { Section, smallBtnStyle } from "./shared";
 
 type PromptInspectionSection = {
@@ -111,9 +112,7 @@ export function PromptPreviewSection({
                         </button>
                     );
                 })}
-                <button type="button" onClick={() => setReloadTick((value) => value + 1)} style={{ ...smallBtnStyle, marginLeft: "auto" }}>
-                    Refresh
-                </button>
+                <RefreshButton onClick={() => setReloadTick((value) => value + 1)} style={{ marginLeft: "auto" }} />
             </div>
 
             {loading ? <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginBottom: 12 }}>Loading prompt preview...</div> : null}

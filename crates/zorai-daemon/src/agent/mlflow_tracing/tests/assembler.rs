@@ -77,6 +77,9 @@ fn tool_span_uses_exact_call_result_boundaries() {
             arguments: "{\"path\":\"a\"}".into(),
             weles_review: None,
             message_id: None,
+            turn_input_tokens: None,
+            turn_output_tokens: None,
+            turn_cost_usd: None,
         },
         context("t1"),
     );
@@ -178,6 +181,9 @@ fn configured_span_limit_is_hard() {
             arguments: "{}".into(),
             weles_review: None,
             message_id: None,
+            turn_input_tokens: None,
+            turn_output_tokens: None,
+            turn_cost_usd: None,
         },
         context("t"),
     );
@@ -293,6 +299,9 @@ fn interrupt_exports_partial_turn_including_open_tools() {
             arguments: "{}".into(),
             weles_review: None,
             message_id: None,
+            turn_input_tokens: None,
+            turn_output_tokens: None,
+            turn_cost_usd: None,
         },
         context("t1"),
     );

@@ -824,12 +824,14 @@ where
             window,
             session_limit,
             session_offset,
+            sessions_only,
         } => {
             framed
                 .send(ClientMessage::AgentStatisticsQuery {
                     window,
                     session_limit,
                     session_offset,
+                    sessions_only,
                 })
                 .await?;
         }

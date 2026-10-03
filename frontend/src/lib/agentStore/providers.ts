@@ -79,6 +79,12 @@ const ELEVENLABS_MODELS: ModelDefinition[] = [
   { id: "eleven_multilingual_v2", name: "Eleven Multilingual v2", contextWindow: 0, modalities: M_TA },
 ];
 
+const GEMINI_MODELS: ModelDefinition[] = [
+  { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash", contextWindow: 1_048_576, modalities: M_MULTI },
+  { id: "gemini-3.1-pro", name: "Gemini 3.1 Pro", contextWindow: 1_048_576, modalities: M_MULTI },
+  { id: "gemini-3.1-flash-image", name: "Gemini 3.1 Flash Image", contextWindow: 1_048_576, modalities: M_TI },
+];
+
 const DEEPSEEK_MODELS: ModelDefinition[] = [
   { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", contextWindow: 1_048_576 },
   { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", contextWindow: 1_048_576 },
@@ -461,6 +467,7 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
   { id: "anthropic", name: "Anthropic", defaultBaseUrl: "https://api.anthropic.com", defaultModel: "claude-opus-4-7", apiType: "anthropic", authMethod: "x-api-key", models: ANTHROPIC_MODELS, supportsModelFetch: false, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: false },
   { id: "openai", name: "OpenAI / ChatGPT", defaultBaseUrl: "https://api.openai.com/v1", defaultModel: "gpt-5.5", apiType: "openai", authMethod: "bearer", models: OPENAI_API_MODELS, supportsModelFetch: true, supportedTransports: RESPONSES_AND_CHAT_TRANSPORTS, defaultTransport: "responses", supportedAuthSources: OPENAI_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
   { id: "deepseek", name: "DeepSeek", defaultBaseUrl: "https://api.deepseek.com", defaultModel: "deepseek-v4-pro", apiType: "openai", authMethod: "bearer", models: DEEPSEEK_MODELS, supportsModelFetch: true, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: false },
+  { id: "gemini", name: "Gemini", defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta", defaultModel: "gemini-3.8-flash", apiType: "gemini", authMethod: "x-goog-api-key", models: GEMINI_MODELS, supportsModelFetch: false, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
   { id: "xai", name: "xAI", defaultBaseUrl: "https://api.x.ai/v1", defaultModel: "grok-4.6", apiType: "openai", authMethod: "bearer", models: XAI_MODELS, supportsModelFetch: true, supportedTransports: RESPONSES_AND_CHAT_TRANSPORTS, defaultTransport: "responses", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
   { id: "elevenlabs", name: "ElevenLabs", defaultBaseUrl: "https://api.elevenlabs.io", defaultModel: "scribe_v2", apiType: "openai", authMethod: "xi-api-key", models: ELEVENLABS_MODELS, supportsModelFetch: false, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: false },
   { id: "azure-openai", name: "Azure OpenAI", defaultBaseUrl: "https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1", defaultModel: "", apiType: "openai", authMethod: "bearer", models: EMPTY_MODELS, supportsModelFetch: true, supportedTransports: RESPONSES_AND_CHAT_TRANSPORTS, defaultTransport: "responses", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
@@ -544,8 +551,8 @@ function normalizeProviderCatalogEntry(raw: any): ProviderDefinition | null {
     name: raw.name,
     defaultBaseUrl: typeof raw.default_base_url === "string" ? raw.default_base_url : "",
     defaultModel: typeof raw.default_model === "string" ? raw.default_model : "",
-    apiType: raw.api_type === "anthropic" ? "anthropic" : "openai",
-    authMethod: raw.auth_method === "x-api-key" ? "x-api-key" : "bearer",
+    apiType: raw.api_type === "anthropic" || raw.api_type === "gemini" ? raw.api_type : "openai",
+    authMethod: raw.auth_method === "x-api-key" || raw.auth_method === "xi-api-key" || raw.auth_method === "x-goog-api-key" ? raw.auth_method : "bearer",
     models: Array.isArray(raw.models) ? raw.models.map(normalizeProviderCatalogModel).filter(Boolean) as ModelDefinition[] : [],
     supportsModelFetch: Boolean(raw.supports_model_fetch),
     anthropicBaseUrl: typeof raw.anthropic_base_url === "string" ? raw.anthropic_base_url : undefined,

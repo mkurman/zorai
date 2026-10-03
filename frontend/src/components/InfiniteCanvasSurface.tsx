@@ -12,6 +12,7 @@ import type {
   CanvasIconPickerState,
   InfiniteCanvasSurfaceProps,
 } from "./infinite-canvas-surface/types";
+import { canvasPanelIntersectsViewport } from "./infinite-canvas-surface/canvasPanelVisibility";
 import { snapToGrid, useInfiniteCanvasViewport } from "./infinite-canvas-surface/useInfiniteCanvasViewport";
 import { useInfiniteCanvasPaneActions } from "./infinite-canvas-surface/useInfiniteCanvasPaneActions";
 
@@ -24,6 +25,7 @@ export function InfiniteCanvasSurface({ surface }: InfiniteCanvasSurfaceProps) {
   const [iconPicker, setIconPicker] = useState<CanvasIconPickerState | null>(null);
   const [confirmClosePaneIds, setConfirmClosePaneIds] = useState<string[]>([]);
   const [showNewPanelMenu, setShowNewPanelMenu] = useState(false);
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const dragGroupBaseRef = useRef<Map<string, { x: number; y: number }> | null>(null);
 
   const createCanvasPanel = useWorkspaceStore((state) => state.createCanvasPanel);
@@ -82,6 +84,28 @@ export function InfiniteCanvasSurface({ surface }: InfiniteCanvasSurfaceProps) {
     setIconPicker,
     setSelectedPaneIds,
   });
+
+  useEffect(() => {
+    const node = viewportRef.current;
+    if (!node) return;
+    const update = () => setViewportSize({ width: node.clientWidth, height: node.clientHeight });
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [viewportRef]);
+
+  const livePaneIds = useMemo(() => {
+    const live = new Set<string>();
+    if (surface.activePaneId) live.add(surface.activePaneId);
+    if (viewportSize.width <= 0 || viewportSize.height <= 0) return live;
+    for (const panel of panels) {
+      if (canvasPanelIntersectsViewport(panel, surface.canvasState, viewportSize)) {
+        live.add(panel.paneId);
+      }
+    }
+    return live;
+  }, [panels, surface.activePaneId, surface.canvasState, viewportSize]);
 
   useEffect(() => {
     if (!contextMenu && !iconPicker && !showNewPanelMenu) return;
@@ -287,11 +311,13 @@ export function InfiniteCanvasSurface({ surface }: InfiniteCanvasSurfaceProps) {
             onDoubleClick={() => centerOnPanel(panel.paneId, { storePrevious: true, zoomIn: true })}
             onRequestClose={() => setConfirmClosePaneIds(requestClosePanes(panel.paneId))}
           >
-            {panel.panelType === "browser" ? (
-              <CanvasBrowserPane paneId={panel.paneId} initialUrl={panel.url ?? "https://google.com"} />
-            ) : (
-              <TerminalPane paneId={panel.paneId} sessionId={panel.sessionId ?? undefined} hideHeader />
-            )}
+            {livePaneIds.has(panel.paneId) ? (
+              panel.panelType === "browser" ? (
+                <CanvasBrowserPane paneId={panel.paneId} initialUrl={panel.url ?? "https://google.com"} />
+              ) : (
+                <TerminalPane paneId={panel.paneId} sessionId={panel.sessionId ?? undefined} hideHeader />
+              )
+            ) : null}
           </CanvasPanelShell>
         ))}
       </div>

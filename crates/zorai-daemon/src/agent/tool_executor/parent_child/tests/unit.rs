@@ -15,6 +15,7 @@ fn select_open_ask_requires_ask_id_when_several_are_outstanding() {
         state: "open".to_string(),
         answer: None,
         answer_delivered: false,
+        slug: String::new(),
     };
     let open = vec![
         ("ask_parent:child:one".to_string(), record("First?")),
@@ -24,6 +25,10 @@ fn select_open_ask_requires_ask_id_when_several_are_outstanding() {
     assert!(error.to_string().contains("ask_id"));
     let selected = select_open_ask(&open, Some("two")).expect("specific ask");
     assert_eq!(selected.0, "ask_parent:child:two");
+    let mut slugged = open.clone();
+    slugged[0].1.slug = "q1".to_string();
+    let by_slug = select_open_ask(&slugged, Some("Q1")).expect("slug is case-insensitive");
+    assert_eq!(by_slug.0, "ask_parent:child:one");
 }
 
 #[test]
@@ -44,6 +49,7 @@ fn ask_timeout_action_covers_open_default_and_unanswered_paths() {
         state: state.to_string(),
         answer: None,
         answer_delivered: false,
+        slug: String::new(),
     };
 
     assert_eq!(

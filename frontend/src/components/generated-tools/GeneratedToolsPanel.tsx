@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getBridge } from "@/lib/bridge";
+import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { addBtnStyle, smallBtnStyle } from "../settings-panel/shared";
 
 type GeneratedToolParameter = {
@@ -234,13 +235,12 @@ export function GeneratedToolsPanel({ enabled }: { enabled: boolean }) {
                     <div style={{ fontSize: 12, fontWeight: 600 }}>Generated Tools</div>
                     <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{toolCountLabel}</div>
                 </div>
-                <button
+                <RefreshButton
                     onClick={() => void refreshTools()}
-                    style={smallBtnStyle}
                     disabled={busyAction !== null}
-                >
-                    {busyAction === "refresh" ? "Refreshing..." : "Refresh Tools"}
-                </button>
+                    busy={busyAction === "refresh"}
+                    label={busyAction === "refresh" ? "Refreshing..." : "Refresh Tools"}
+                />
             </div>
             {statusText ? (
                 <div style={{ marginTop: 8, fontSize: 11, color: "var(--text-secondary)" }}>

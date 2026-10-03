@@ -821,7 +821,7 @@ declare global {
                 operator_profile_scheduler_fallback?: boolean;
             };
         } | null>;
-        agentGetStatistics?: (window?: ZoraiStatisticsWindow, sessionLimit?: number, sessionOffset?: number) => Promise<ZoraiAgentStatisticsSnapshot | null | unknown>;
+        agentGetStatistics?: (window?: ZoraiStatisticsWindow, sessionLimit?: number, sessionOffset?: number, sessionsOnly?: boolean) => Promise<ZoraiAgentStatisticsSnapshot | null | unknown>;
         agentInspectPrompt?: (agentId?: string | null) => Promise<{
             agent_id: string;
             agent_name: string;

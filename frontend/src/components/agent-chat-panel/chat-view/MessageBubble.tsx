@@ -1,5 +1,6 @@
 import { memo, useMemo, useState } from "react";
 import type { AgentMessage } from "../../../lib/agentStore";
+import { visibleGeminiReasoning } from "../../../lib/geminiThought";
 import { parseHandoffSystemEvent } from "./helpers";
 import { MarkdownContent } from "./markdown";
 import { getToolDiffPresentation, ToolDiffView } from "./toolDiffPresentation";
@@ -227,11 +228,11 @@ export function MessageBubble({
           <div className="acp-message__pinned">pinned</div>
         )}
 
-        {isAssistant && message.reasoning && (
+        {isAssistant && visibleGeminiReasoning(message.reasoning) && (
           <details className="acp-reasoning">
             <summary>Reasoning</summary>
             <div className="acp-reasoning__body">
-              <MarkdownContent content={message.reasoning} streaming={Boolean(message.isStreaming)} />
+              <MarkdownContent content={visibleGeminiReasoning(message.reasoning)} streaming={Boolean(message.isStreaming)} />
             </div>
           </details>
         )}

@@ -1,5 +1,5 @@
 import { readPersistedJson, scheduleJsonWrite } from "../persistence";
-import { boundRendererText } from "./rendererText";
+import { boundContentBlocks, boundRendererText } from "./rendererText";
 import { getBridge } from "../bridge";
 import { PRIMARY_AGENT_NAME } from "../agentNames";
 import { normalizeAgentProviderId, normalizeApiTransport } from "./providers";
@@ -288,7 +288,7 @@ export function buildHydratedRemoteMessage(
     createdAt: Number(message.timestamp ?? Date.now()),
     role: message.role ?? "assistant",
     content,
-    contentBlocks: Array.isArray(message.content_blocks) ? message.content_blocks : undefined,
+    contentBlocks: boundContentBlocks(Array.isArray(message.content_blocks) ? message.content_blocks : undefined),
     authorAgentId: typeof message.author_agent_id === "string" ? message.author_agent_id : undefined,
     authorAgentName: typeof message.author_agent_name === "string" ? message.author_agent_name : undefined,
     provider,
@@ -328,7 +328,7 @@ export function buildHydratedRemoteMessage(
     isCompactionSummary: isCompactionArtifact,
     messageKind: isCompactionArtifact ? "compaction_artifact" : (message.message_kind ?? "normal"),
     compactionStrategy: message.compaction_strategy ?? undefined,
-    compactionPayload: typeof message.compaction_payload === "string" ? message.compaction_payload : undefined,
+    compactionPayload: typeof message.compaction_payload === "string" ? boundRendererText(message.compaction_payload) : undefined,
     pinnedForCompaction: Boolean(message.pinned_for_compaction),
     isStreaming: false,
     feedback: message.feedback === "up" || message.feedback === "down" ? message.feedback : null,
@@ -755,7 +755,7 @@ export function deserializeMessage(message: AgentDbMessageRecord): AgentMessage 
     createdAt: message.created_at,
     role: message.role as AgentRole,
     content: boundRendererText(message.content),
-    contentBlocks,
+    contentBlocks: boundContentBlocks(contentBlocks),
     authorAgentId: typeof metadata.authorAgentId === "string" ? metadata.authorAgentId : undefined,
     authorAgentName: typeof metadata.authorAgentName === "string" ? metadata.authorAgentName : undefined,
     provider: message.provider ?? undefined,
@@ -799,7 +799,7 @@ export function deserializeMessage(message: AgentDbMessageRecord): AgentMessage 
         : undefined,
     compactionPayload:
       typeof metadata.compactionPayload === "string"
-        ? metadata.compactionPayload
+        ? boundRendererText(metadata.compactionPayload)
         : undefined,
     pinnedForCompaction:
       typeof metadata.pinned_for_compaction === "boolean"

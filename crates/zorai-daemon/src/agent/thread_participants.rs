@@ -3,6 +3,22 @@
 use super::*;
 use serde::{Deserialize, Serialize};
 
+const MAX_IDLE_CONTINUATION_DRAIN_MISSES: u32 = 3;
+
+fn continuation_signatures(items: &[DeferredVisibleThreadContinuation]) -> Vec<(String, String)> {
+    items
+        .iter()
+        .map(|item| (item.agent_id.clone(), item.llm_user_content.clone()))
+        .collect()
+}
+
+fn idle_continuation_drain_misses(
+) -> &'static std::sync::Mutex<std::collections::HashMap<String, u32>> {
+    static MISSES: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<String, u32>>> =
+        std::sync::OnceLock::new();
+    MISSES.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ThreadParticipantStatus {
@@ -885,6 +901,11 @@ impl AgentEngine {
             if !self.thread_is_idle_for_subagent_wakeup(&thread_id).await {
                 continue;
             }
+            let queued_before = continuation_signatures(
+                &self
+                    .deferred_visible_thread_continuations_for(&thread_id)
+                    .await,
+            );
             tracing::info!(
                 thread_id = %thread_id,
                 "flushing deferred continuation on idle thread"
@@ -899,6 +920,45 @@ impl AgentEngine {
                     error = %error,
                     "idle deferred continuation flush failed"
                 );
+            }
+            let queued_after = continuation_signatures(
+                &self
+                    .deferred_visible_thread_continuations_for(&thread_id)
+                    .await,
+            );
+            let drop_stuck = {
+                let mut misses = idle_continuation_drain_misses()
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner());
+                if queued_after.is_empty() || queued_after != queued_before {
+                    misses.remove(&thread_id);
+                    false
+                } else {
+                    let count = misses.entry(thread_id.clone()).or_insert(0);
+                    *count = count.saturating_add(1);
+                    if *count >= MAX_IDLE_CONTINUATION_DRAIN_MISSES {
+                        misses.remove(&thread_id);
+                        true
+                    } else {
+                        false
+                    }
+                }
+            };
+            if drop_stuck {
+                let removed = self
+                    .clear_deferred_visible_thread_continuations(&thread_id)
+                    .await;
+                tracing::warn!(
+                    thread_id = %thread_id,
+                    removed,
+                    "dropped stuck deferred continuations after repeated idle drains"
+                );
+                let _ = self.event_tx.send(AgentEvent::WorkflowNotice {
+                    thread_id: thread_id.clone(),
+                    kind: "deferred_continuation_dropped".to_string(),
+                    message: "Stopped retrying a stuck idle continuation.".to_string(),
+                    details: None,
+                });
             }
         }
         Ok(())

@@ -467,6 +467,17 @@ pub const PROVIDERS: &[ProviderDef] = &[
         native_base_url: None,
     },
     ProviderDef {
+        id: PROVIDER_ID_GEMINI,
+        name: "Gemini",
+        default_base_url: "https://generativelanguage.googleapis.com/v1beta",
+        default_model: "gemini-3.8-flash",
+        supported_transports: CHAT_ONLY_TRANSPORTS,
+        default_transport: "chat_completions",
+        supported_auth_sources: API_KEY_ONLY_AUTH_SOURCES,
+        default_auth_source: "api_key",
+        native_base_url: None,
+    },
+    ProviderDef {
         id: PROVIDER_ID_CUSTOM,
         name: "Custom",
         default_base_url: "",

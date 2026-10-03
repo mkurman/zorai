@@ -309,9 +309,10 @@ pub(crate) async fn execute_managed_command(
                 .as_ref()
                 .map(|item| format!(" (snapshot: {})", item.snapshot_id))
                 .unwrap_or_default();
+            let operation_handle = model_operation_id(agent, thread_id, &execution_id).await;
             let queued_summary = format!(
                 "Managed command queued in session {} as {} at lane position {}{}",
-                resolved_session_id, execution_id, position, snapshot_suffix
+                resolved_session_id, operation_handle, position, snapshot_suffix
             );
 
             if !wait_for_completion {
@@ -379,7 +380,7 @@ pub(crate) async fn execute_managed_command(
                     });
                     return Ok((
                         format!(
-                            "{queued_summary}\nbackground_task_id: {execution_id}\noperation_id: {execution_id}\nCommand auto-backgrounded (requested timeout {}s > max 600s). \
+                            "{queued_summary}\nbackground_task_id: {operation_handle}\noperation_id: {operation_handle}\nCommand auto-backgrounded (requested timeout {}s > max 600s). \
                              {BACKGROUND_OPERATION_COMPLETION_GUIDANCE}",
                             requested_timeout,
                         ),
@@ -388,7 +389,7 @@ pub(crate) async fn execute_managed_command(
                 }
                 return Ok((
                     format!(
-                        "{queued_summary}\nbackground_task_id: {execution_id}\noperation_id: {execution_id}\nNot waiting for completion (wait_for_completion=false; non-quick or long-running commands default to background). {BACKGROUND_OPERATION_COMPLETION_GUIDANCE}"
+                        "{queued_summary}\nbackground_task_id: {operation_handle}\noperation_id: {operation_handle}\nNot waiting for completion (wait_for_completion=false; non-quick or long-running commands default to background). {BACKGROUND_OPERATION_COMPLETION_GUIDANCE}"
                     ),
                     None,
                 ));

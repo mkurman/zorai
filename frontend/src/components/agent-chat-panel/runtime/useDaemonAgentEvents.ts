@@ -387,7 +387,16 @@ export function useDaemonAgentEvents({
           const messages = useAgentStore.getState().getThreadMessages(tid);
           const last = messages[messages.length - 1];
           if (last?.role === "assistant" && last.isStreaming) {
-            updateLastAssistantMessage(tid, last.content, false);
+            const turnInput = typeof event.turn_input_tokens === "number" ? event.turn_input_tokens : undefined;
+            const turnOutput = typeof event.turn_output_tokens === "number" ? event.turn_output_tokens : undefined;
+            updateLastAssistantMessage(tid, last.content, false, {
+              inputTokens: turnInput,
+              outputTokens: turnOutput,
+              totalTokens: turnInput != null || turnOutput != null
+                ? (turnInput ?? last.inputTokens) + (turnOutput ?? last.outputTokens)
+                : undefined,
+              cost: typeof event.turn_cost_usd === "number" ? event.turn_cost_usd : undefined,
+            });
           }
           addMessage(tid, {
             role: "tool",

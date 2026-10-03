@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getBridge } from "@/lib/bridge";
+import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { Section, smallBtnStyle } from "./shared";
 
 interface BackendState {
@@ -62,9 +63,7 @@ export function DatabaseTab() {
                     <button type="button" onClick={() => { void onSyncNow(); }} disabled={syncing} style={smallBtnStyle}>
                         Sync now
                     </button>
-                    <button type="button" onClick={refresh} style={smallBtnStyle}>
-                        Refresh
-                    </button>
+                    <RefreshButton onClick={refresh} />
                     {syncStatus && <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>{syncStatus}</span>}
                 </div>
             </Section>

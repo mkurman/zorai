@@ -602,6 +602,24 @@ pub async fn validate_provider_connection(
             )
             .json(&body)
         }
+        ApiType::Gemini => {
+            let url = gemini_interactions_url(&resolved_base_url, false);
+            let body = serde_json::json!({
+                "model": def.default_model,
+                "input": "ok",
+                "store": false,
+            });
+            let req = client
+                .post(url)
+                .header("Content-Type", "application/json")
+                .header("Api-Revision", GEMINI_API_REVISION);
+            let req = if !api_key.is_empty() {
+                def.auth_method.apply(req, api_key)
+            } else {
+                req
+            };
+            req.json(&body)
+        }
     };
 
     let response = request.send().await?;

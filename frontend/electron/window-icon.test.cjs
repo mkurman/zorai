@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const { loadWindowIcon, resolveWindowFrameOptions, resolveWindowIcon, shouldOpenDevTools } = require("./main/window-runtime.cjs");
+const { devToolsAccelerator, loadWindowIcon, resolveWindowFrameOptions, resolveWindowIcon, shouldOpenDevTools, toggleWindowDevTools } = require("./main/window-runtime.cjs");
 
 test("Linux windows use the PNG app icon", () => {
     assert.equal(
@@ -75,6 +75,25 @@ test("File menu opens another Zorai window from the first item", () => {
     assert.ok(newWindow >= 0);
     assert.ok(newWindow < newWorkspace);
     assert.match(fileMenu, /label: 'New Window'[\s\S]*click: \(\) => createWindow\(\)/);
+});
+
+test("developer tools toggle opens a detached window so Linux can inspect the page", () => {
+    assert.equal(devToolsAccelerator("linux"), "Ctrl+Shift+I");
+    assert.equal(devToolsAccelerator("win32"), "Ctrl+Shift+I");
+    assert.equal(devToolsAccelerator("darwin"), "Alt+Command+I");
+
+    const opened = [];
+    const contents = {
+        isDevToolsOpened: () => opened.length > 0,
+        openDevTools(options) { opened.push(options); },
+        closeDevTools() { opened.length = 0; },
+    };
+
+    toggleWindowDevTools(contents);
+    assert.deepEqual(opened, [{ mode: "detach" }]);
+    toggleWindowDevTools(contents);
+    assert.deepEqual(opened, []);
+    toggleWindowDevTools(null);
 });
 
 test("dev builds do not auto-open DevTools unless ZORAI_DEVTOOLS is set", () => {

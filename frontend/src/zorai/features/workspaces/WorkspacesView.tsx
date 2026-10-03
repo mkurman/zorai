@@ -1,4 +1,5 @@
 import { FormEvent, MouseEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import { useAgentStore } from "@/lib/agentStore";
 import {
@@ -33,6 +34,7 @@ import {
 } from "@/lib/workspaceBoard";
 import { navigateZorai } from "../../shell/zoraiNavigationEvents";
 import { openThreadTarget } from "../threads/openThreadTarget";
+import { CollapsibleSummary } from "../collapsibleSummary";
 import { WorkspaceActorPickerControl } from "./WorkspaceActorPickerControl";
 import { WorkspaceCreatePanel } from "./WorkspaceCreatePanel";
 
@@ -110,7 +112,7 @@ export function WorkspacesRail() {
         <WorkspaceCreatePanel onCreated={handleCreated} onCancel={() => setCreateOpen(false)} />
       ) : (
         <button type="button" className="zorai-primary-button" onClick={() => setCreateOpen(true)}>
-          New workspace
+          + New workspace
         </button>
       )}
       <div className="zorai-section-label">Workspaces</div>
@@ -336,7 +338,7 @@ export function WorkspacesView() {
         </div>
         <div className="zorai-card-actions">
           <button type="button" className="zorai-primary-button" onClick={() => setFormOpen((value) => !value)}>New task</button>
-          <button type="button" className="zorai-ghost-button" onClick={() => void refresh()}>Refresh</button>
+          <RefreshButton onClick={() => void refresh()} />
           <button type="button" className="zorai-ghost-button" onClick={toggleOperator}>Toggle operator: {operator}</button>
         </div>
       </div>
@@ -446,7 +448,8 @@ function TaskCard({ task, status, notice, expanded, selected, onSelect, onToggle
         </div>
         <span className="zorai-status-pill">{status.replace("_", " ")}</span>
       </div>
-      {notice ? <p className="zorai-workspace-notice">{notice}</p> : null}
+      {task.description.trim() ? <CollapsibleSummary text={task.description} /> : null}
+      {notice ? <CollapsibleSummary className="zorai-workspace-notice" text={notice} /> : null}
       <div className="zorai-workspace-task__meta">
         <span>assignee: {actorLabel(task.assignee)}</span>
         <span>reviewer: {actorLabel(task.reviewer)}</span>

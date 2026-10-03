@@ -97,6 +97,7 @@ export interface AgentSettings {
   anthropic: AgentProviderConfig;
   openai: AgentProviderConfig;
   deepseek: AgentProviderConfig;
+  gemini: AgentProviderConfig;
   xai: AgentProviderConfig;
   "azure-openai": AgentProviderConfig;
   "github-copilot": AgentProviderConfig;
@@ -235,6 +236,7 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   anthropic: { base_url: "https://api.anthropic.com", model: "claude-opus-4-7", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "chat_completions", auth_source: "api_key", context_window_tokens: null },
   openai: { base_url: "https://api.openai.com/v1", model: "gpt-5.5", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "responses", auth_source: "api_key", context_window_tokens: null },
   deepseek: { base_url: "https://api.deepseek.com", model: "deepseek-v4-pro", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "chat_completions", auth_source: "api_key", context_window_tokens: null },
+  gemini: { base_url: "https://generativelanguage.googleapis.com/v1beta", model: "gemini-3.8-flash", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "chat_completions", auth_source: "api_key", context_window_tokens: null },
   xai: { base_url: "https://api.x.ai/v1", model: "grok-4.6", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "responses", auth_source: "api_key", context_window_tokens: null },
   "azure-openai": { base_url: "https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1", model: "", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "responses", auth_source: "api_key", context_window_tokens: null },
   "github-copilot": { base_url: "https://api.githubcopilot.com", model: "gpt-5.4", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "responses", auth_source: "github_copilot", context_window_tokens: null },
@@ -725,6 +727,7 @@ export function normalizeAgentSettingsFromSource(source: DiskAgentSettings): Age
     featherless: providerConfigFromRaw("featherless", source),
     anthropic: providerConfigFromRaw("anthropic", source),
     openai: providerConfigFromRaw("openai", source),
+    gemini: providerConfigFromRaw("gemini", source),
     xai: providerConfigFromRaw("xai", source),
     "azure-openai": providerConfigFromRaw("azure-openai", source),
     "github-copilot": providerConfigFromRaw("github-copilot", source),

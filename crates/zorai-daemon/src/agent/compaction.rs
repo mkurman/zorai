@@ -6,7 +6,7 @@ use super::llm_client::{messages_to_api_format, ApiToolCall, ApiToolCallFunction
 use super::*;
 use crate::agent::context::structural_memory::{StructuralContextEntry, ThreadStructuralMemory};
 use crate::history::MemoryGraphNeighborRow;
-use zorai_shared::providers::{PROVIDER_ID_GITHUB_COPILOT, PROVIDER_ID_OPENAI};
+use zorai_shared::providers::{PROVIDER_ID_GEMINI, PROVIDER_ID_GITHUB_COPILOT, PROVIDER_ID_OPENAI};
 
 mod artifact;
 mod candidate;

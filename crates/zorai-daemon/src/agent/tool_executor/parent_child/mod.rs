@@ -3,9 +3,16 @@ use crate::agent::types::TaskStatus;
 use serde::{Deserialize, Serialize};
 
 mod context;
+mod handles;
+mod model_handles;
 mod tools;
 mod wakeup;
 
+pub(crate) use handles::{ensure_task_slug, resolve_child_reference, stored_task_slug};
+pub(crate) use model_handles::{
+    ensure_goal_slug, ensure_payload_slug, lookup_operation_id, model_operation_id,
+    resolve_goal_id, resolve_payload_id,
+};
 pub(crate) use tools::{execute_answer_child, execute_ask_parent, execute_note_to_child};
 
 /// blocked_reason prefix that marks a task as blocked on an open `ask_parent`.
@@ -36,6 +43,9 @@ pub(crate) struct AskParentRecord {
     pub answer: Option<String>,
     #[serde(default)]
     pub answer_delivered: bool,
+    /// Short handle the parent passes to `answer_child` (`q1`, `q2`, ...).
+    #[serde(default)]
+    pub slug: String,
 }
 
 /// Pure, I/O-free timeout decision for one ask_parent record.
@@ -217,7 +227,7 @@ fn select_open_ask(
     if let Some(ask_id) = requested_ask_id {
         return open
             .iter()
-            .find(|(key, _)| split_ask_key(key).is_some_and(|(_, id)| id == ask_id))
+            .find(|(key, record)| handles::ask_ref_matches(key, record, ask_id))
             .cloned()
             .ok_or_else(|| {
                 anyhow::anyhow!(

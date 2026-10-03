@@ -15,6 +15,7 @@ pub(crate) async fn execute_get_background_task_status(
     session_manager: &Arc<SessionManager>,
     agent: Option<&AgentEngine>,
     cancel_token: Option<CancellationToken>,
+    thread_id: Option<&str>,
 ) -> Result<String> {
     let background_task_id = args
         .get("background_task_id")
@@ -29,6 +30,7 @@ pub(crate) async fn execute_get_background_task_status(
         true,
         wait_args(args),
         agent,
+        thread_id,
         cancel_token.as_ref(),
     )
     .await
@@ -39,6 +41,7 @@ pub(crate) async fn execute_get_operation_status(
     session_manager: &Arc<SessionManager>,
     agent: Option<&AgentEngine>,
     cancel_token: Option<CancellationToken>,
+    thread_id: Option<&str>,
 ) -> Result<String> {
     let operation_id = args
         .get("operation_id")
@@ -53,6 +56,7 @@ pub(crate) async fn execute_get_operation_status(
         false,
         wait_args(args),
         agent,
+        thread_id,
         cancel_token.as_ref(),
     )
     .await
@@ -90,10 +94,17 @@ async fn execute_operation_status_lookup(
     compatibility_alias: bool,
     wait: WaitArgs,
     agent: Option<&AgentEngine>,
+    thread_id: Option<&str>,
     cancel_token: Option<&CancellationToken>,
 ) -> Result<String> {
-    let (resolved_id, mut payload) =
-        lookup_operation_status_payload(operation_id, session_manager, compatibility_alias).await?;
+    let (resolved_id, mut payload) = lookup_operation_status_payload(
+        operation_id,
+        session_manager,
+        compatibility_alias,
+        agent,
+        thread_id,
+    )
+    .await?;
 
     if !wait.wait || operation_state_is_terminal(&payload) {
         if wait.wait && operation_state_is_terminal(&payload) {
@@ -167,11 +178,28 @@ async fn lookup_operation_status_payload(
     operation_id: &str,
     session_manager: &Arc<SessionManager>,
     compatibility_alias: bool,
+    agent: Option<&AgentEngine>,
+    thread_id: Option<&str>,
 ) -> Result<(String, serde_json::Value)> {
     if let Some(payload) =
         operation_status_payload(operation_id, session_manager, compatibility_alias).await?
     {
         return Ok((operation_id.to_string(), payload));
+    }
+
+    if let (Some(agent), Some(thread_id)) = (agent, thread_id) {
+        if let Some(resolved_id) = lookup_operation_id(agent, thread_id, operation_id).await? {
+            if let Some(mut payload) =
+                operation_status_payload(&resolved_id, session_manager, compatibility_alias).await?
+            {
+                payload["operation_id"] = serde_json::Value::String(operation_id.to_string());
+                if payload.get("background_task_id").is_some() {
+                    payload["background_task_id"] =
+                        serde_json::Value::String(operation_id.to_string());
+                }
+                return Ok((resolved_id, payload));
+            }
+        }
     }
 
     if let Some(resolved_id) =
