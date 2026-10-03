@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getBridge } from "@/lib/bridge";
+import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { addBtnStyle, smallBtnStyle } from "./shared";
 
 type OperatorModelResetResult = {
@@ -133,13 +134,12 @@ export function OperatorModelControls({ enabled }: { enabled: boolean }) {
             background: "var(--zorai-bg-surface)",
         }}>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button
+                <RefreshButton
                     onClick={() => void refreshSnapshot()}
-                    style={smallBtnStyle}
                     disabled={busyAction !== null}
-                >
-                    {busyAction === "refresh" ? "Refreshing..." : "Refresh Snapshot"}
-                </button>
+                    busy={busyAction === "refresh"}
+                    label={busyAction === "refresh" ? "Refreshing..." : "Refresh Snapshot"}
+                />
                 <button
                     onClick={() => void exportSnapshot()}
                     style={smallBtnStyle}

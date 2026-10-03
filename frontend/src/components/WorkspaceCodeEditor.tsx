@@ -1,5 +1,6 @@
 import { Component, Suspense, lazy, useEffect, useRef, type ErrorInfo, type ReactNode } from "react";
 import { getBridge } from "@/lib/bridge";
+import { applyMonacoGuiTheme, readGuiMonoFontFamily, resolveMonacoFontFamily, subscribeMonacoGuiTheme, ZORAI_MONACO_THEME } from "@/lib/monacoGuiTheme";
 import { monaco } from "@/lib/monacoEnvironment";
 import type { OnMount } from "@monaco-editor/react";
 import { useCodeEditorSettingsStore, type CodeEditorSettings } from "@/zorai/features/code/codeEditorSettingsStore";
@@ -10,6 +11,15 @@ import { registerCodeEditorActions } from "@/zorai/features/code/codeEditorActio
 
 const MonacoEditor = lazy(() => import("@monaco-editor/react").then((module) => ({ default: module.default })));
 const MonacoDiffEditor = lazy(() => import("@monaco-editor/react").then((module) => ({ default: module.DiffEditor })));
+
+function useMonacoGuiTheme() {
+  applyMonacoGuiTheme(monaco);
+  useEffect(() => subscribeMonacoGuiTheme(monaco), []);
+}
+
+function editorFontFamily(settings: CodeEditorSettings): string {
+  return resolveMonacoFontFamily(settings.fontFamily, readGuiMonoFontFamily());
+}
 
 type FallbackEditorProps = {
   value: string;
@@ -55,6 +65,7 @@ export function WorkspaceCodeEditor({
   onFormatError?: (message: string) => void;
   settings: CodeEditorSettings;
 }) {
+  useMonacoGuiTheme();
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const monacoRef = useRef<Parameters<OnMount>[1] | null>(null);
   const providerDisposablesRef = useRef<Array<{ dispose: () => void }>>([]);
@@ -98,18 +109,7 @@ export function WorkspaceCodeEditor({
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
-    monaco.editor.defineTheme("zorai-dark", {
-      base: "vs-dark",
-      inherit: true,
-      rules: [],
-      colors: {
-        "minimap.background": "#00000000",
-        "minimapSlider.background": "#ffffff1f",
-        "minimapSlider.hoverBackground": "#ffffff33",
-        "minimapSlider.activeBackground": "#ffffff47",
-      },
-    });
-    monaco.editor.setTheme("zorai-dark");
+    applyMonacoGuiTheme(monaco);
     actionDisposablesRef.current.forEach((disposable) => disposable.dispose());
     actionDisposablesRef.current = registerCodeEditorActions(editor, {
       onSave,
@@ -222,13 +222,13 @@ export function WorkspaceCodeEditor({
           path={monacoModelPath("zorai-workspace", path)}
           value={value}
           language={language || "plaintext"}
-          theme="vs-dark"
+          theme={ZORAI_MONACO_THEME}
           onMount={handleMount}
           onChange={(next) => onChange(next ?? "")}
           options={{
             automaticLayout: true,
             minimap: { enabled: settings.minimap, renderCharacters: true, maxColumn: 72, showSlider: "mouseover", side: "right", size: "proportional" },
-            fontFamily: settings.fontFamily,
+            fontFamily: editorFontFamily(settings),
             fontSize: settings.fontSize,
             lineHeight: settings.lineHeight,
             tabSize: settings.tabSize,
@@ -268,7 +268,7 @@ function viewerOptions(settings: CodeEditorSettings) {
     formatOnPaste: false,
     formatOnType: false,
     minimap: { enabled: settings.minimap, renderCharacters: true, maxColumn: 72, showSlider: "mouseover" as const, side: "right" as const, size: "proportional" as const },
-    fontFamily: settings.fontFamily,
+    fontFamily: editorFontFamily(settings),
     fontSize: settings.fontSize,
     lineHeight: settings.lineHeight,
     tabSize: settings.tabSize,
@@ -288,11 +288,11 @@ function viewerOptions(settings: CodeEditorSettings) {
   };
 }
 
-let previewThemeReady = false;
+let diffLanguageReady = false;
 
-function ensurePreviewTheme() {
-  if (previewThemeReady) return;
-  previewThemeReady = true;
+function ensureDiffLanguage() {
+  if (diffLanguageReady) return;
+  diffLanguageReady = true;
   monaco.languages.register({ id: "diff" });
   monaco.languages.setMonarchTokensProvider("diff", {
     tokenizer: {
@@ -305,22 +305,12 @@ function ensurePreviewTheme() {
       ],
     },
   });
-  monaco.editor.defineTheme("zorai-preview", {
-    base: "vs-dark",
-    inherit: true,
-    rules: [
-      { token: "diff-add", foreground: "3fb950" },
-      { token: "diff-remove", foreground: "f85149" },
-      { token: "diff-hunk", foreground: "79c0ff" },
-      { token: "diff-meta", foreground: "8b949e" },
-    ],
-    colors: {},
-  });
 }
 
 export function MonacoReadOnlyView({ value, path, language }: { value: string; path: string; language: string }) {
+  useMonacoGuiTheme();
   const settings = useCodeEditorSettingsStore((state) => state.settings);
-  ensurePreviewTheme();
+  ensureDiffLanguage();
   const fallback = <pre className="zorai-file-preview-overlay__pre">{value}</pre>;
   return (
     <div className="zorai-monaco-viewer" aria-readonly="true">
@@ -330,7 +320,7 @@ export function MonacoReadOnlyView({ value, path, language }: { value: string; p
             path={monacoModelPath("zorai-preview", path)}
             value={value}
             language={language || "plaintext"}
-            theme="zorai-preview"
+            theme={ZORAI_MONACO_THEME}
             options={viewerOptions(settings)}
             onMount={(editor) => {
               editor.updateOptions({ readOnly: true, domReadOnly: true });
@@ -343,6 +333,8 @@ export function MonacoReadOnlyView({ value, path, language }: { value: string; p
 }
 
 export function WorkspaceDiffEditor({ original, modified, language }: { original: string; modified: string; language: string }) {
+  useMonacoGuiTheme();
+  const settings = useCodeEditorSettingsStore((state) => state.settings);
   const fallback = <div className="zorai-workspace-diff-grid"><pre>{original}</pre><pre>{modified}</pre></div>;
   return (
     <MonacoBoundary fallback={fallback}>
@@ -351,8 +343,17 @@ export function WorkspaceDiffEditor({ original, modified, language }: { original
           original={original}
           modified={modified}
           language={language || "plaintext"}
-          theme="vs-dark"
-          options={{ automaticLayout: true, readOnly: true, renderSideBySide: true, minimap: { enabled: false }, scrollBeyondLastLine: false }}
+          theme={ZORAI_MONACO_THEME}
+          options={{
+            automaticLayout: true,
+            readOnly: true,
+            renderSideBySide: true,
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            fontFamily: editorFontFamily(settings),
+            fontSize: settings.fontSize,
+            lineHeight: settings.lineHeight,
+          }}
         />
       </Suspense>
     </MonacoBoundary>

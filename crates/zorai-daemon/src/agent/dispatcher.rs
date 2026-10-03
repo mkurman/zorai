@@ -1169,8 +1169,7 @@ impl AgentEngine {
     }
 
     async fn execute_dispatched_task(&self, task: AgentTask) -> Result<()> {
-        let mut prompt = build_task_prompt(&task);
-        task_prompt::append_goal_run_context(self, &mut prompt, &task).await;
+        let prompt = task_prompt::build_dispatched_task_prompt(self, &task).await;
         let use_internal_weles_dm = task.sub_agent_def_id.as_deref()
             == Some(crate::agent::agent_identity::WELES_BUILTIN_SUBAGENT_ID)
             && task.source != "workspace_review";
@@ -1792,10 +1791,9 @@ impl AgentEngine {
             .map(|parent| parent.id.clone())
             .or_else(|| child_task.parent_task_id.clone());
 
-        let child_thread_id = child_task
-            .thread_id
-            .as_deref()
-            .unwrap_or("<unknown-child-thread>");
+        let child_slug = crate::agent::tool_executor::ensure_task_slug(self, child_task)
+            .await
+            .unwrap_or_else(|_| child_task.id.clone());
         let child_task_id = child_task.id.as_str();
         let notice = match child_task.status {
             TaskStatus::Completed => {
@@ -1812,10 +1810,10 @@ impl AgentEngine {
                     .unwrap_or_default();
                 Some((
                     format!(
-                        "Spawned thread `{child_thread_id}` (subagent task `{child_task_id}`) finished and reported back.\n\nResult:\n{result_text}{integration_checkpoint}\n\nIntegrate this result against the ledger checkpoint, then report the outcome back to the operator. Use `list_subagents` if you need the full child output."
+                        "Child `{child_slug}` finished and reported back.\n\nResult:\n{result_text}{integration_checkpoint}\n\nIntegrate this result against the ledger checkpoint, then report the outcome back to the operator. Use `list_subagents` if you need the full child output."
                     ),
                     "child-thread-completed",
-                    format!("Spawned thread {child_thread_id} reported back."),
+                    format!("Child {child_slug} reported back."),
                 ))
             }
             TaskStatus::Failed | TaskStatus::Cancelled => {
@@ -1839,7 +1837,7 @@ impl AgentEngine {
                     .unwrap_or("(no job summary recorded)");
                 Some((
                     format!(
-                        "Spawned thread `{child_thread_id}` (subagent task `{child_task_id}`) {outcome}.\n\nStatus: {}\nSummary:\n{result_text}\n\nError:\n{error_text}\n\nDecide whether to retry, call `extend_subagent_budget` if this was a zorai budget issue, or report the failure back to the operator.",
+                        "Child `{child_slug}` {outcome}.\n\nStatus: {}\nSummary:\n{result_text}\n\nError:\n{error_text}\n\nDecide whether to retry, call `extend_subagent_budget` with child_task_id `{child_slug}` if this was a zorai budget issue, or report the failure back to the operator.",
                         if child_task.status == TaskStatus::Cancelled {
                             "cancelled"
                         } else {
@@ -1847,7 +1845,7 @@ impl AgentEngine {
                         }
                     ),
                     "child-thread-failed",
-                    format!("Spawned thread {child_thread_id} {outcome}."),
+                    format!("Child {child_slug} {outcome}."),
                 ))
             }
             TaskStatus::BudgetExceeded => {
@@ -1859,10 +1857,10 @@ impl AgentEngine {
                     .unwrap_or("(the subagent did not record a usable summary)");
                 Some((
                     format!(
-                        "Spawned thread `{child_thread_id}` (subagent task `{child_task_id}`) exhausted its execution budget and reported back.\n\nStatus: error\nSummary:\n{result_text}\n\nIf the work is sufficient, keep it. To continue that same child thread, call `extend_subagent_budget` with child_task_id `{child_task_id}` and additional_tokens. Do not respawn from scratch unless the child result is unusable."
+                        "Child `{child_slug}` exhausted its execution budget and reported back.\n\nStatus: error\nSummary:\n{result_text}\n\nIf the work is sufficient, keep it. To continue that same child thread, call `extend_subagent_budget` with child_task_id `{child_slug}` and additional_tokens. Do not respawn from scratch unless the child result is unusable."
                     ),
                     "child-thread-budget-exceeded",
-                    format!("Spawned thread {child_thread_id} exhausted its budget."),
+                    format!("Child {child_slug} exhausted its budget."),
                 ))
             }
             _ => None,
@@ -1876,21 +1874,24 @@ impl AgentEngine {
             if already_integrated {
                 return;
             }
-            let message_already_present =
-                if self.ensure_thread_messages_loaded(&parent_thread_id).await {
-                    self.threads
-                        .read()
-                        .await
-                        .get(&parent_thread_id)
-                        .is_some_and(|thread| {
-                            thread.messages.iter().any(|message| {
-                                message.role == MessageRole::System
-                                    && message.content.contains(child_task_id)
-                            })
+            let message_already_present = if self
+                .ensure_thread_messages_loaded(&parent_thread_id)
+                .await
+            {
+                self.threads
+                    .read()
+                    .await
+                    .get(&parent_thread_id)
+                    .is_some_and(|thread| {
+                        thread.messages.iter().any(|message| {
+                            message.role == MessageRole::System
+                                && (message.content.contains(child_task_id)
+                                    || message.content.contains(&format!("Child `{child_slug}`")))
                         })
-                } else {
-                    false
-                };
+                    })
+            } else {
+                false
+            };
             if message_already_present
                 || self
                     .append_system_thread_message(&parent_thread_id, parent_message.clone())
@@ -1919,7 +1920,12 @@ impl AgentEngine {
                     .deferred_visible_thread_continuations_for(&parent_thread_id)
                     .await
                     .iter()
-                    .any(|continuation| continuation.llm_user_content.contains(child_task_id));
+                    .any(|continuation| {
+                        continuation.llm_user_content.contains(child_task_id)
+                            || continuation
+                                .llm_user_content
+                                .contains(&format!("Child `{child_slug}`"))
+                    });
                 if !queued {
                     self.mark_child_parent_notification(
                         &child_task.id,
@@ -3842,7 +3848,7 @@ mod tests {
             .expect("parent thread should exist");
         assert!(parent_thread.messages.iter().any(|message| {
             message.role == MessageRole::System
-                && message.content.contains(child_thread_id)
+                && message.content.contains("child_task_id `child`")
                 && message.content.contains("extend_subagent_budget")
         }));
     }

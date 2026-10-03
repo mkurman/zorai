@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useAgentStore, type AgentThread } from "@/lib/agentStore";
 import {
@@ -10,6 +10,33 @@ import {
 } from "./threadEffortModel";
 import { resolveThreadOwnerRuntimeProfile } from "./threadOwnerRuntime";
 import { applyThreadReasoningEffort, threadReasoningEfforts } from "./threadRuntimeActions";
+
+const GAUGE_PIVOT = { x: 12, y: 15.15 };
+
+function gaugePoint(radius: number, degrees: number): [number, number] {
+  const radians = (degrees * Math.PI) / 180;
+  return [
+    GAUGE_PIVOT.x + radius * Math.cos(radians),
+    GAUGE_PIVOT.y - radius * Math.sin(radians),
+  ];
+}
+
+function gaugeRingSegment(startDeg: number, endDeg: number): string {
+  const outer = 8.55;
+  const inner = 5.35;
+  const [x1, y1] = gaugePoint(outer, startDeg);
+  const [x2, y2] = gaugePoint(outer, endDeg);
+  const [x3, y3] = gaugePoint(inner, endDeg);
+  const [x4, y4] = gaugePoint(inner, startDeg);
+  const n = (value: number) => value.toFixed(2);
+  return `M ${n(x1)} ${n(y1)} A ${outer} ${outer} 0 0 1 ${n(x2)} ${n(y2)} L ${n(x3)} ${n(y3)} A ${inner} ${inner} 0 0 0 ${n(x4)} ${n(y4)} Z`;
+}
+
+const EFFORT_GAUGE_FACE = [
+  gaugeRingSegment(198, 138),
+  gaugeRingSegment(120, 60),
+  gaugeRingSegment(42, -18),
+].join(" ");
 
 export function ThreadEffortGauge({ thread }: { thread: AgentThread }) {
   const agentSettings = useAgentStore((state) => state.agentSettings);
@@ -26,10 +53,6 @@ export function ThreadEffortGauge({ thread }: { thread: AgentThread }) {
   const popoverRef = useRef<HTMLDivElement>(null);
   const angle = effortNeedleAngle(effort);
   const fill = effortFillRatio(effort);
-  const needle = useMemo(() => {
-    const radians = (angle * Math.PI) / 180;
-    return { x: 12 + 8 * Math.sin(radians), y: 17 - 8 * Math.cos(radians) };
-  }, [angle]);
 
   useLayoutEffect(() => {
     if (!open || !buttonRef.current) return;
@@ -150,9 +173,11 @@ export function ThreadEffortGauge({ thread }: { thread: AgentThread }) {
         onClick={() => setOpen((current) => !current)}
       >
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-          <path d="M4 17a8 8 0 0 1 20 0" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-          <line x1="12" y1="17" x2={needle.x} y2={needle.y} stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-          <circle cx="12" cy="17" r="1.3" fill="currentColor" />
+          <path d={EFFORT_GAUGE_FACE} fill="currentColor" />
+          <g transform={`rotate(${angle} ${GAUGE_PIVOT.x} ${GAUGE_PIVOT.y})`} fill="currentColor">
+            <path d="M11.4 14.25 L12.05 6.45 L12.75 14.4 Z" />
+            <circle cx={GAUGE_PIVOT.x} cy={GAUGE_PIVOT.y} r="1.72" />
+          </g>
         </svg>
       </button>
       {popover}

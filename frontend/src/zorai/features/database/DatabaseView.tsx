@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { LoadingPanel, LoadingState } from "@/components/LoadingState";
 import { applyDatabaseSelectionDraftValue, buildDatabaseRowUpdates, databaseDraftKey, displayDatabaseValue, getDatabaseSelectedDraftKeys, getLastDatabasePageOffset, getNextDatabaseSort, isBlobPlaceholder, isDatabaseCellSelected, normalizeDatabasePageSize, sortDatabaseRowsForDisplay, type DatabaseCellCoordinate, type DatabaseCellSelection } from "./databaseModel";
 import { executeDatabaseSql, listDatabaseTables, queryDatabaseRows, updateDatabaseRows } from "./databaseBridge";
@@ -300,7 +301,7 @@ export function DatabaseView({ activeTable }: DatabaseViewProps) {
           <button type="button" className="zorai-primary-button" onClick={pushChanges} disabled={loading || dirtyCount === 0}>
             Push{dirtyCount > 0 ? ` ${dirtyCount}` : ""}
           </button>
-          <button type="button" className="zorai-ghost-button" disabled={loading || !page} onClick={refreshVisibleRows}>Refresh</button>
+          <RefreshButton disabled={loading || !page} busy={loading} onClick={refreshVisibleRows} />
           <button type="button" className="zorai-ghost-button" disabled={!canGoPrevious || loading} onClick={() => { setSelection(null); setOffset(0); }}>First</button>
           <button type="button" className="zorai-ghost-button" disabled={!canGoPrevious || loading} onClick={() => { setSelection(null); setOffset(Math.max(0, offset - pageSize)); }}>Prev</button>
           <span>{page ? `${offset + 1}-${Math.min(offset + page.limit, page.totalRows)} / ${page.totalRows}` : "0 / 0"}</span>
@@ -433,7 +434,7 @@ export function DatabaseSqlConsole({
         />
         <button
           type="button"
-          className={running ? "zorai-danger-button" : "zorai-primary-button"}
+          className={running ? "zorai-sql-run-button zorai-danger-button" : "zorai-sql-run-button zorai-primary-button"}
           onClick={running ? onStop : onRun}
         >
           {running ? "Stop" : "Run"}

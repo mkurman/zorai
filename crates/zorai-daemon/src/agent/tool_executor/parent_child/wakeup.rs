@@ -22,6 +22,8 @@ pub(super) async fn wake_parent_for_ask(
     agent: &AgentEngine,
     child: &AgentTask,
     ask_id: &str,
+    ask_slug: &str,
+    child_slug: &str,
     question: &str,
     options: &[String],
 ) {
@@ -43,12 +45,11 @@ pub(super) async fn wake_parent_for_ask(
         format!("\nOptions:\n{listed}")
     };
     let content = format!(
-        "Child task `{child_id}` asked a blocking question and is paused until you answer.\n\n\
-         ask_id: `{ask_id}`\n\
+        "Child `{child_slug}` asked a blocking question and is paused until you answer.\n\n\
+         ask: `{ask_slug}`\n\
          Question: {question}{options_block}\n\n\
-         Call `answer_child` with child_task_id `{child_id}`, ask_id `{ask_id}`, and your answer. \
-         If multiple asks are open, answer each ask_id separately; the child stays blocked until every open ask is resolved.",
-        child_id = child.id
+         Call `answer_child` with child_task_id `{child_slug}`, ask_id `{ask_slug}`, and your answer. \
+         If multiple asks are open, answer each ask separately; the child stays blocked until every open ask is resolved."
     );
     let _ = agent
         .append_system_thread_message(&parent_thread_id, content.clone())
@@ -56,11 +57,13 @@ pub(super) async fn wake_parent_for_ask(
     agent.emit_workflow_notice(
         &parent_thread_id,
         "child-ask-parent",
-        format!("Child {} is awaiting an answer.", child.id),
+        format!("Child {child_slug} is awaiting an answer."),
         Some(
             serde_json::json!({
                 "child_task_id": child.id,
+                "child_slug": child_slug,
                 "ask_id": ask_id,
+                "ask_slug": ask_slug,
             })
             .to_string(),
         ),

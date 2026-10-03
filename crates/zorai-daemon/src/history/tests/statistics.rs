@@ -386,6 +386,17 @@ async fn agent_statistics_sessions_are_sql_paginated_and_skip_deleted_threads_an
     assert_eq!(second.sessions[0].thread_id, "session-old");
     assert!(second.sessions[0].updated_at < first.sessions[0].updated_at);
 
+    let page_only = store
+        .get_agent_session_page(AgentStatisticsWindow::All, Some(1), Some(1))
+        .await?;
+    assert_eq!(page_only.sessions[0].thread_id, "session-old");
+    assert_eq!(page_only.session_offset, 1);
+    assert_eq!(page_only.session_total, 2);
+    assert_eq!(page_only.totals.total_tokens, 0);
+    assert!(page_only.providers.is_empty());
+    assert!(page_only.models.is_empty());
+    assert!(page_only.daily.is_empty());
+
     fs::remove_dir_all(root)?;
     Ok(())
 }

@@ -35,6 +35,7 @@ import {
     normalizeReactChatHistoryPageSize,
     normalizeTuiChatHistoryPageSize,
 } from "../../lib/chatHistoryPageSize";
+import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { addBtnStyle, ModelSelector, NumberInput, PasswordInput, Section, SelectInput, SettingRow, TextInput, Toggle, inputStyle, smallBtnStyle } from "./shared";
 import { OpenRouterProviderRoutingControls } from "./OpenRouterProviderRoutingControls";
 
@@ -540,9 +541,7 @@ export function AgentTab({
                                 ? semanticStatus.error
                                 : `pending ${semanticStatus?.pending_for_model ?? 0} / indexed ${semanticStatus?.completed_for_model ?? 0} / deletes ${semanticStatus?.queued_deletions ?? 0}`}
                         </span>
-                        <button type="button" style={smallBtnStyle} onClick={() => void refreshSemanticIndexStatus()}>
-                            Refresh
-                        </button>
+                        <RefreshButton onClick={() => void refreshSemanticIndexStatus()} />
                         <button
                             type="button"
                             style={addBtnStyle}

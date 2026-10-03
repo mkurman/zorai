@@ -42,7 +42,12 @@ function buttons(node: ReactNode): any[] {
   if (node == null || typeof node === "boolean" || typeof node === "string" || typeof node === "number") return [];
   if (Array.isArray(node)) return node.flatMap(buttons);
   if (!isValidElement(node)) return [];
+  if (typeof node.type === "function") return buttons((node.type as (props: unknown) => ReactNode)(node.props));
   return [node.type === "button" ? node : null, ...Children.toArray(node.props.children).flatMap(buttons)].filter(Boolean);
+}
+
+function buttonName(entry: { props?: { children?: ReactNode; "aria-label"?: string } }): string {
+  return text(entry.props?.children).trim() || String(entry.props?.["aria-label"] ?? "");
 }
 
 function render(activity: ThreadActivity, overrides: Record<string, unknown> = {}) {
@@ -94,13 +99,13 @@ describe("ThreadActivityRow", () => {
   });
 
   it("shows refresh and cancel for a running operation", () => {
-    const labels = buttons(render(operation("started")).tree).map(text);
+    const labels = buttons(render(operation("started")).tree).map(buttonName);
     expect(labels).toContain("Refresh");
     expect(labels).toContain("Cancel");
   });
 
   it("hides cancel for a terminal operation", () => {
-    const labels = buttons(render(operation("completed")).tree).map(text);
+    const labels = buttons(render(operation("completed")).tree).map(buttonName);
     expect(labels).toContain("Refresh");
     expect(labels).not.toContain("Cancel");
   });
@@ -108,7 +113,7 @@ describe("ThreadActivityRow", () => {
   it("routes manual refresh and cancellation to runtime callbacks", async () => {
     const { tree, onRefreshOperation, onCancelOperation } = render(operation("started"));
     const controls = buttons(tree);
-    controls.find((entry) => text(entry) === "Refresh").props.onClick();
+    controls.find((entry) => buttonName(entry) === "Refresh").props.onClick();
     controls.find((entry) => text(entry) === "Cancel").props.onClick();
     await Promise.resolve();
     await Promise.resolve();

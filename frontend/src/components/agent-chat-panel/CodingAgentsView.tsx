@@ -9,7 +9,8 @@ import {
     getCodingAgentLaunchModes,
 } from "../../plugins/coding-agents/agentDefinitions";
 import { useCodingAgentsStore } from "../../plugins/coding-agents/store";
-import { ActionButton, ContextCard, EmptyPanel, MetricRibbon, SectionTitle, inputStyle } from "./shared";
+import { RefreshButton } from "@/zorai/shell/RefreshButton";
+import { ContextCard, EmptyPanel, MetricRibbon, SectionTitle, inputStyle } from "./shared";
 
 export function CodingAgentsView() {
     const workspaces = useWorkspaceStore((state) => state.workspaces);
@@ -118,9 +119,11 @@ export function CodingAgentsView() {
                         Discover supported agent runtimes, inspect their capabilities, and launch them into a selected terminal pane.
                     </div>
                 </div>
-                <ActionButton onClick={() => void refreshAgents()}>
-                    {status === "loading" ? "Scanning..." : "Refresh"}
-                </ActionButton>
+                <RefreshButton
+                    busy={status === "loading"}
+                    label={status === "loading" ? "Scanning..." : "Refresh"}
+                    onClick={() => void refreshAgents()}
+                />
             </div>
 
             <SectionTitle title="Target Surface" subtitle="Choose where the coding agent should start." />

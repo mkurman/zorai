@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useAgentStore } from "../../lib/agentStore";
+import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { Section, SettingRow, Toggle, smallBtnStyle } from "./shared";
 
 export function AboutTab() {
@@ -145,13 +146,7 @@ export function AboutTab() {
                     </div>
 
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <button
-                            type="button"
-                            onClick={() => { void getOperatorProfileSummary(); }}
-                            style={smallBtnStyle}
-                        >
-                            Refresh Profile
-                        </button>
+                        <RefreshButton label="Refresh Profile" onClick={() => { void getOperatorProfileSummary(); }} />
                         <button
                             type="button"
                             onClick={() => {

@@ -12,6 +12,7 @@ export const MIN_CONTEXT_TARGET_TOKENS = 1024;
 export interface ApiChatMessage {
   role: string;
   content: string;
+  reasoning?: string;
   tool_call_id?: string;
   name?: string;
   tool_calls?: ToolCall[];

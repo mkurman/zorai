@@ -1619,8 +1619,14 @@ async fn dispatch_tool_execution(
             }
         }
         tool_names::GET_OPERATION_STATUS => {
-            execute_get_operation_status(args, session_manager, Some(agent), cancel_token.clone())
-                .await
+            execute_get_operation_status(
+                args,
+                session_manager,
+                Some(agent),
+                cancel_token.clone(),
+                Some(thread_id),
+            )
+            .await
         }
         tool_names::GET_BACKGROUND_TASK_STATUS => {
             execute_get_background_task_status(
@@ -1628,6 +1634,7 @@ async fn dispatch_tool_execution(
                 session_manager,
                 Some(agent),
                 cancel_token.clone(),
+                Some(thread_id),
             )
             .await
         }
@@ -1794,7 +1801,7 @@ async fn dispatch_tool_execution(
         tool_names::SHOW_IMPORT_REPORT => execute_show_import_report(args, agent).await,
         tool_names::PREVIEW_SHADOW_RUN => execute_preview_shadow_run(args, agent).await,
         tool_names::GET_TODOS => execute_get_todos(args, agent, thread_id, task_id).await,
-        tool_names::CANCEL_TASK => execute_cancel_task(args, agent, task_id).await,
+        tool_names::CANCEL_TASK => execute_cancel_task(args, agent, thread_id, task_id).await,
         tool_names::TYPE_IN_TERMINAL => execute_type_in_terminal(args, session_manager).await,
         tool_names::SEND_SLACK_MESSAGE
         | tool_names::SEND_DISCORD_MESSAGE

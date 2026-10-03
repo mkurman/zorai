@@ -14,6 +14,7 @@ impl DaemonClient {
             window,
             session_limit: None,
             session_offset: None,
+            sessions_only: false,
         })
     }
 

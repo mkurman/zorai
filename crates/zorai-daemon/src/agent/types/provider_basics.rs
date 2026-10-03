@@ -7,6 +7,7 @@ pub enum ApiType {
     #[serde(rename = "openai", alias = "open_ai")]
     OpenAI,
     Anthropic,
+    Gemini,
 }
 
 impl ApiType {
@@ -74,6 +75,8 @@ pub enum AuthMethod {
     XApiKey,
     #[serde(rename = "xi-api-key", alias = "xi_api_key")]
     XiApiKey,
+    #[serde(rename = "x-goog-api-key", alias = "x_goog_api_key")]
+    XGoogApiKey,
 }
 
 impl AuthMethod {
@@ -83,6 +86,7 @@ impl AuthMethod {
             Self::Bearer => req.header("Authorization", format!("Bearer {}", api_key)),
             Self::XApiKey => req.header("x-api-key", api_key),
             Self::XiApiKey => req.header("xi-api-key", api_key),
+            Self::XGoogApiKey => req.header("x-goog-api-key", api_key),
         }
     }
 }
@@ -206,6 +210,27 @@ pub const CURSOR_MODELS: &[ModelDefinition] = &[
         id: "grok-4.5",
         name: "Grok 4.5",
         context_window: 200_000,
+        modalities: TEXT_IMAGE,
+    },
+];
+
+pub const GEMINI_MODELS: &[ModelDefinition] = &[
+    ModelDefinition {
+        id: "gemini-3.8-flash",
+        name: "Gemini 3.8 Flash",
+        context_window: 1_048_576,
+        modalities: MULTIMODAL,
+    },
+    ModelDefinition {
+        id: "gemini-3.1-pro",
+        name: "Gemini 3.1 Pro",
+        context_window: 1_048_576,
+        modalities: MULTIMODAL,
+    },
+    ModelDefinition {
+        id: "gemini-3.1-flash-image",
+        name: "Gemini 3.1 Flash Image",
+        context_window: 1_048_576,
         modalities: TEXT_IMAGE,
     },
 ];

@@ -12,7 +12,7 @@ import {
 import { normalizeAgentProviderId } from "./providers";
 import type { AgentSettings } from "./settings";
 import type { AgentState, AgentStoreGet, AgentStoreSet } from "./storeTypes";
-import { boundOptionalRendererText, boundRendererText } from "./rendererText";
+import { applyRendererMessageBudget, boundContentBlocks, boundOptionalRendererText, boundRendererText } from "./rendererText";
 import type { AgentMessage } from "./types";
 
 type ThreadActionKeys =
@@ -189,6 +189,8 @@ export function createThreadActions(
       const fullMessage: AgentMessage = {
         ...message,
         content: boundRendererText(message.content),
+        contentBlocks: boundContentBlocks(message.contentBlocks),
+        compactionPayload: typeof message.compactionPayload === "string" ? boundRendererText(message.compactionPayload) : message.compactionPayload,
         toolArguments: typeof message.toolArguments === "string" ? boundRendererText(message.toolArguments) : message.toolArguments,
         reasoning: typeof message.reasoning === "string" ? boundRendererText(message.reasoning) : message.reasoning,
         id: nextMessageId(),
@@ -224,7 +226,10 @@ export function createThreadActions(
             await api?.dbAddMessage?.(serializeMessage(fullMessage));
           })();
         }
-        return next;
+        return {
+          ...next,
+          messages: applyRendererMessageBudget(next.messages, next.activeThreadId),
+        };
       });
     },
     updateLastAssistantMessage: (threadId, content, streaming, meta) => {

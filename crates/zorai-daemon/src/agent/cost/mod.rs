@@ -155,6 +155,14 @@ pub fn compute_cost_from_tokens(input: u64, output: u64, rate: &RateCard) -> f64
         + (output as f64 * rate.output_per_million / 1_000_000.0)
 }
 
+/// Thread cost is the USD figure the provider returned. Missing cost stays missing.
+pub fn reported_turn_cost(enabled: bool, reported_cost_usd: Option<f64>) -> Option<f64> {
+    if !enabled {
+        return None;
+    }
+    reported_cost_usd
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -203,6 +211,13 @@ mod tests {
         assert_eq!(s.total_prompt_tokens, 1000);
         assert_eq!(s.total_completion_tokens, 500);
         assert!((s.estimated_cost_usd.unwrap() - expected).abs() < 1e-10);
+    }
+
+    #[test]
+    fn reported_turn_cost_keeps_only_provider_usd() {
+        assert_eq!(reported_turn_cost(true, Some(0.42)), Some(0.42));
+        assert_eq!(reported_turn_cost(true, None), None);
+        assert_eq!(reported_turn_cost(false, Some(0.42)), None);
     }
 
     #[test]

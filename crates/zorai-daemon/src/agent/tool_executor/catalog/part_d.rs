@@ -87,7 +87,7 @@ pub(crate) fn add_available_tools_part_d(
     tools.push(tool_def(tool_names::READ_OFFLOADED_PAYLOAD, "Read an offloaded tool-result payload by payload ID. Thread-shaped JSON payloads default to a compact messages-only view with total/range metadata; set full=true to return the exact raw stored content.", serde_json::json!({
         "type": "object",
         "properties": {
-            "payload_id": { "type": "string", "description": "Payload ID from an offloaded tool-result thread message" },
+            "payload_id": { "type": "string", "description": "Short handle such as `p1` (preferred) or the full payload id" },
             "message_start": { "type": "integer", "minimum": 0, "description": "Optional absolute start message index for compact thread payloads, inclusive" },
             "message_end": { "type": "integer", "minimum": 0, "description": "Optional absolute end message index for compact thread payloads, exclusive" },
             "start": { "type": "integer", "minimum": 0, "description": "Alias for message_start" },
@@ -128,7 +128,7 @@ pub(crate) fn add_available_tools_part_d(
             "repetitions": { "type": "integer", "description": "How many times to fire (default 1). Goal supervision requires exactly 1 so each triggered turn reassesses whether another follow-up is useful." },
             "message": { "type": "string", "description": "What you want to be reminded to do when the wakeup fires" },
             "kind": { "type": "string", "enum": ["generic", "goal_supervision"], "description": "Wakeup policy. Goal supervision is status-aware and finite." },
-            "goal_run_id": { "type": "string", "description": "Required when kind=goal_supervision; links lifecycle cleanup to the goal." }
+            "goal_run_id": { "type": "string", "description": "Goal handle such as `release-goal` (preferred) or the full goal id. Required when kind=goal_supervision." }
         },
         "required": ["delay"]
     })));
@@ -179,7 +179,7 @@ pub(crate) fn add_available_tools_part_d(
         "type": "object",
         "properties": {
             "report": { "type": "string", "description": "Concrete report of what was delivered" },
-            "goal_run_id": { "type": "string", "description": "Optional guard; must match the active goal worker" }
+            "goal_run_id": { "type": "string", "description": "Optional guard. Goal handle such as `release-goal` (preferred) or the full goal id; must match the active goal worker" }
         },
         "required": ["report"]
     })));
@@ -188,7 +188,7 @@ pub(crate) fn add_available_tools_part_d(
         "properties": {
             "verdict": { "type": "string", "enum": ["accept", "soft_reject", "hard_reject"] },
             "explanation": { "type": "string", "description": "Required for soft_reject and hard_reject" },
-            "goal_run_id": { "type": "string", "description": "Goal run to verdict" }
+            "goal_run_id": { "type": "string", "description": "Goal handle such as `release-goal` (preferred) or the full goal id" }
         },
         "required": ["verdict", "goal_run_id"]
     })));
@@ -434,7 +434,7 @@ pub(crate) fn add_available_tools_part_d(
         serde_json::json!({
             "type": "object",
             "properties": {
-                "task_id": { "type": "string", "description": "Task ID or operation ID to cancel" }
+                "task_id": { "type": "string", "description": "Task or operation handle such as `researcher` or `op1` (preferred), or the full id" }
             },
             "required": ["task_id"]
         }),
@@ -636,8 +636,8 @@ pub(crate) fn add_available_tools_part_d(
     tools.push(tool_def(tool_names::ANSWER_CHILD, "Answer one of a child task's open ask_parent questions. Validates that the caller is the child's parent (parent task or parent thread). Pass ask_id when the child has multiple open asks; the child stays blocked until every open ask is answered or times out. The answer is injected verbatim into the child's next-turn context.", serde_json::json!({
         "type": "object",
         "properties": {
-            "child_task_id": { "type": "string", "description": "ID of the child task that asked the question" },
-            "ask_id": { "type": "string", "description": "ID of the specific open ask to answer; required when the child has more than one open ask" },
+            "child_task_id": { "type": "string", "description": "Child handle such as `researcher` (preferred) or the full task id" },
+            "ask_id": { "type": "string", "description": "Ask handle such as `q1` (preferred) or the full ask id; required when more than one ask is open" },
             "answer": { "type": "string", "description": "Verbatim answer delivered to the child" }
         },
         "required": ["child_task_id", "answer"]
@@ -645,7 +645,7 @@ pub(crate) fn add_available_tools_part_d(
     tools.push(tool_def(tool_names::NOTE_TO_CHILD, "Append a non-blocking guidance note to a child task. Validates that the caller is the child's parent (parent task or parent thread). The note is injected into the child's next-turn context as a [parent note] block; the child's task status is not changed. At most 20 notes (2000 chars each) are kept per child.", serde_json::json!({
         "type": "object",
         "properties": {
-            "child_task_id": { "type": "string", "description": "ID of the child task to note" },
+            "child_task_id": { "type": "string", "description": "Child handle such as `researcher` (preferred) or the full task id" },
             "note": { "type": "string", "description": "Guidance note for the child (truncated to 2000 chars)" }
         },
         "required": ["child_task_id", "note"]

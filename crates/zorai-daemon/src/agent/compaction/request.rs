@@ -145,6 +145,16 @@ pub(crate) fn prepare_llm_request_with_reused_user_message(
         };
     }
 
+    if let Some(prepared) = gemini_stored_interaction_continuation(
+        config,
+        provider_config,
+        &request_messages,
+        compaction_active,
+        reused_user_message,
+    ) {
+        return prepared;
+    }
+
     let mut messages = messages_to_api_format(&request_messages);
     inject_reused_user_message_if_missing(&mut messages, reused_user_message);
     PreparedLlmRequest {
@@ -296,6 +306,16 @@ pub(crate) fn prepare_llm_request_from_messages(
         };
     }
 
+    if let Some(prepared) = gemini_stored_interaction_continuation(
+        config,
+        provider_config,
+        &request_messages,
+        compaction_active,
+        reused_user_message,
+    ) {
+        return prepared;
+    }
+
     let mut messages = messages_to_api_format(&request_messages);
     inject_reused_user_message_if_missing(&mut messages, reused_user_message);
     PreparedLlmRequest {
@@ -305,6 +325,48 @@ pub(crate) fn prepare_llm_request_from_messages(
         upstream_thread_id: None,
         force_connection_close: false,
     }
+}
+
+fn gemini_stored_interaction_continuation(
+    config: &AgentConfig,
+    provider_config: &ProviderConfig,
+    request_messages: &[AgentMessage],
+    compaction_active: bool,
+    reused_user_message: Option<&str>,
+) -> Option<PreparedLlmRequest> {
+    if config.provider != PROVIDER_ID_GEMINI
+        || compaction_active
+        || !supports_response_continuity(&config.provider)
+    {
+        return None;
+    }
+    let (anchor_index, anchor_message) =
+        request_messages
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, message)| {
+                message.role == MessageRole::Assistant
+                    && message
+                        .response_id
+                        .as_ref()
+                        .is_some_and(|id| !id.trim().is_empty())
+                    && message.provider.as_deref() == Some(config.provider.as_str())
+                    && message.model.as_deref() == Some(provider_config.model.as_str())
+            })?;
+    let mut messages =
+        continuation_api_messages(&request_messages[anchor_index + 1..], reused_user_message);
+    inject_reused_user_message_if_missing(&mut messages, reused_user_message);
+    if messages.is_empty() {
+        return None;
+    }
+    Some(PreparedLlmRequest {
+        messages,
+        transport: ApiTransport::ChatCompletions,
+        previous_response_id: anchor_message.response_id.clone(),
+        upstream_thread_id: None,
+        force_connection_close: false,
+    })
 }
 
 pub(crate) fn inject_reused_user_message_if_missing(

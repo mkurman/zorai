@@ -1,3 +1,4 @@
+import { RefreshIcon } from "@/zorai/shell/RefreshButton";
 import { navBtnStyle } from "./shared";
 
 export function BrowserChrome({
@@ -42,7 +43,7 @@ export function BrowserChrome({
             >
                 <button onClick={back} style={navBtnStyle} title="Back">←</button>
                 <button onClick={forward} style={navBtnStyle} title="Forward">→</button>
-                <button onClick={reload} style={navBtnStyle} title="Reload">↻</button>
+                <button onClick={reload} style={navBtnStyle} title="Reload" aria-label="Reload"><RefreshIcon /></button>
                 <input
                     value={address}
                     onChange={(event) => setAddress(event.target.value)}

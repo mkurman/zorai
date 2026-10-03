@@ -932,9 +932,17 @@ pub(crate) async fn execute_spawn_subagent(
         derived_limits.context_budget_tokens.unwrap_or(0),
         derived_limits.max_duration_secs.unwrap_or(0)
     );
-    let thread_suffix = format!("\nReserved thread: {reserved_thread_id}");
+    let child_slug = ensure_task_slug(agent, &subagent).await.unwrap_or_default();
+    let thread_suffix = if child_slug.is_empty() {
+        format!("\nReserved thread: {reserved_thread_id}")
+    } else {
+        format!(
+            "\nHandle: {child_slug} (pass this short name to answer_child, note_to_child, and extend_subagent_budget)"
+        )
+    };
+    let handle_suffix = "";
     Ok(format!(
-        "Spawned subagent {} with runtime {}.{}{}{}{thread_suffix}{budget_suffix}{def_suffix}\nDo not busy-wait on child status. Use `list_subagents` only for occasional snapshots; if no other useful work remains, send a progress update and stop so zorai can resume you when the child reports back.",
+        "Spawned subagent {} with runtime {}.{}{}{}{thread_suffix}{budget_suffix}{def_suffix}{handle_suffix}\nDo not busy-wait on child status. Use `list_subagents` only for occasional snapshots; if no other useful work remains, send a progress update and stop so zorai can resume you when the child reports back.",
         subagent.id, runtime, lane_suffix, persona_suffix, depth_suffix
     ))
 }
@@ -999,6 +1007,7 @@ pub(crate) async fn execute_list_agents(agent: &AgentEngine) -> Result<String> {
     let config = agent.get_config().await;
     let mut rows = vec![
         list_agents_target_row(
+            &config,
             zorai_protocol::AGENT_HANDLE_SVAROG,
             MAIN_AGENT_NAME,
             "main",
@@ -1007,6 +1016,7 @@ pub(crate) async fn execute_list_agents(agent: &AgentEngine) -> Result<String> {
             true,
         ),
         list_agents_target_row(
+            &config,
             CONCIERGE_AGENT_ID,
             CONCIERGE_AGENT_NAME,
             "concierge",
@@ -1023,6 +1033,7 @@ pub(crate) async fn execute_list_agents(agent: &AgentEngine) -> Result<String> {
             true,
         ),
         list_agents_target_row(
+            &config,
             crate::agent::agent_identity::WELES_AGENT_ID,
             crate::agent::agent_identity::WELES_AGENT_NAME,
             "builtin",
@@ -1041,67 +1052,90 @@ pub(crate) async fn execute_list_agents(agent: &AgentEngine) -> Result<String> {
             true,
         ),
         list_agents_target_row(
+            &config,
             crate::agent::agent_identity::SWAROZYC_AGENT_ID,
             crate::agent::agent_identity::SWAROZYC_AGENT_NAME,
             "builtin",
-            serde_json::json!(config.builtin_sub_agents.swarozyc.provider),
-            serde_json::json!(config.builtin_sub_agents.swarozyc.model),
+            listing_target_value(
+                &config.builtin_sub_agents.swarozyc.provider,
+                &config.provider,
+            ),
+            listing_target_value(&config.builtin_sub_agents.swarozyc.model, &config.model),
             true,
         ),
         list_agents_target_row(
+            &config,
             crate::agent::agent_identity::RADOGOST_AGENT_ID,
             crate::agent::agent_identity::RADOGOST_AGENT_NAME,
             "builtin",
-            serde_json::json!(config.builtin_sub_agents.radogost.provider),
-            serde_json::json!(config.builtin_sub_agents.radogost.model),
+            listing_target_value(
+                &config.builtin_sub_agents.radogost.provider,
+                &config.provider,
+            ),
+            listing_target_value(&config.builtin_sub_agents.radogost.model, &config.model),
             true,
         ),
         list_agents_target_row(
+            &config,
             crate::agent::agent_identity::DOMOWOJ_AGENT_ID,
             crate::agent::agent_identity::DOMOWOJ_AGENT_NAME,
             "builtin",
-            serde_json::json!(config.builtin_sub_agents.domowoj.provider),
-            serde_json::json!(config.builtin_sub_agents.domowoj.model),
+            listing_target_value(
+                &config.builtin_sub_agents.domowoj.provider,
+                &config.provider,
+            ),
+            listing_target_value(&config.builtin_sub_agents.domowoj.model, &config.model),
             true,
         ),
         list_agents_target_row(
+            &config,
             crate::agent::agent_identity::SWIETOWIT_AGENT_ID,
             crate::agent::agent_identity::SWIETOWIT_AGENT_NAME,
             "builtin",
-            serde_json::json!(config.builtin_sub_agents.swietowit.provider),
-            serde_json::json!(config.builtin_sub_agents.swietowit.model),
+            listing_target_value(
+                &config.builtin_sub_agents.swietowit.provider,
+                &config.provider,
+            ),
+            listing_target_value(&config.builtin_sub_agents.swietowit.model, &config.model),
             true,
         ),
         list_agents_target_row(
+            &config,
             crate::agent::agent_identity::PERUN_AGENT_ID,
             crate::agent::agent_identity::PERUN_AGENT_NAME,
             "builtin",
-            serde_json::json!(config.builtin_sub_agents.perun.provider),
-            serde_json::json!(config.builtin_sub_agents.perun.model),
+            listing_target_value(&config.builtin_sub_agents.perun.provider, &config.provider),
+            listing_target_value(&config.builtin_sub_agents.perun.model, &config.model),
             true,
         ),
         list_agents_target_row(
+            &config,
             crate::agent::agent_identity::MOKOSH_AGENT_ID,
             crate::agent::agent_identity::MOKOSH_AGENT_NAME,
             "builtin",
-            serde_json::json!(config.builtin_sub_agents.mokosh.provider),
-            serde_json::json!(config.builtin_sub_agents.mokosh.model),
+            listing_target_value(&config.builtin_sub_agents.mokosh.provider, &config.provider),
+            listing_target_value(&config.builtin_sub_agents.mokosh.model, &config.model),
             true,
         ),
         list_agents_target_row(
+            &config,
             crate::agent::agent_identity::DAZHBOG_AGENT_ID,
             crate::agent::agent_identity::DAZHBOG_AGENT_NAME,
             "builtin",
-            serde_json::json!(config.builtin_sub_agents.dazhbog.provider),
-            serde_json::json!(config.builtin_sub_agents.dazhbog.model),
+            listing_target_value(
+                &config.builtin_sub_agents.dazhbog.provider,
+                &config.provider,
+            ),
+            listing_target_value(&config.builtin_sub_agents.dazhbog.model, &config.model),
             true,
         ),
         list_agents_target_row(
+            &config,
             crate::agent::agent_identity::ROD_AGENT_ID,
             crate::agent::agent_identity::ROD_AGENT_NAME,
             "builtin",
-            serde_json::json!(config.builtin_sub_agents.rod.provider),
-            serde_json::json!(config.builtin_sub_agents.rod.model),
+            listing_target_value(&config.builtin_sub_agents.rod.provider, &config.provider),
+            listing_target_value(&config.builtin_sub_agents.rod.model, &config.model),
             true,
         ),
     ];
@@ -1111,6 +1145,7 @@ pub(crate) async fn execute_list_agents(agent: &AgentEngine) -> Result<String> {
             continue;
         }
         let mut row = list_agents_target_row(
+            &config,
             &sub_agent.id,
             &sub_agent.name,
             if sub_agent.builtin {
@@ -1142,7 +1177,107 @@ pub(crate) async fn execute_list_agents(agent: &AgentEngine) -> Result<String> {
         .map_err(|error| anyhow::anyhow!("failed to serialize agent targets: {error}"))
 }
 
+fn listing_target_value(explicit: &Option<String>, fallback: &str) -> serde_json::Value {
+    serde_json::Value::String(
+        explicit
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or(fallback)
+            .to_string(),
+    )
+}
+
+fn listing_reasoning_effort(
+    config: &AgentConfig,
+    provider_id: &str,
+    explicit: Option<String>,
+) -> String {
+    if let Some(effort) = explicit
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
+        return effort;
+    }
+    if let Some(effort) = config
+        .providers
+        .get(provider_id)
+        .map(|provider| provider.reasoning_effort.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
+        return effort;
+    }
+    let fallback = config.reasoning_effort.trim();
+    if fallback.is_empty() {
+        crate::agent::types::default_reasoning_effort()
+    } else {
+        fallback.to_string()
+    }
+}
+
+fn listing_context_window_tokens(
+    config: &AgentConfig,
+    provider_id: &str,
+    model_id: &str,
+    explicit: Option<u32>,
+) -> u32 {
+    if let Some(tokens) = explicit.filter(|tokens| *tokens > 0) {
+        return tokens;
+    }
+    if let Some(window) = crate::agent::types::get_provider_definition(provider_id)
+        .and_then(|definition| definition.models.iter().find(|model| model.id == model_id))
+        .map(|model| model.context_window)
+        .filter(|tokens| *tokens > 0)
+    {
+        return window;
+    }
+    config
+        .providers
+        .get(provider_id)
+        .map(|provider| provider.context_window_tokens)
+        .filter(|tokens| *tokens > 0)
+        .unwrap_or(config.context_window_tokens)
+        .max(1)
+}
+
+fn listing_runtime_overrides(
+    config: &AgentConfig,
+    agent_id: &str,
+) -> (Option<String>, Option<u32>) {
+    if crate::agent::agent_identity::is_main_agent_scope(agent_id) {
+        return (
+            Some(config.reasoning_effort.clone()),
+            (config.context_window_tokens > 0).then_some(config.context_window_tokens),
+        );
+    }
+    if crate::agent::agent_identity::is_concierge_target(agent_id) {
+        return (config.concierge.reasoning_effort.clone(), None);
+    }
+    if crate::agent::agent_identity::is_weles_agent_scope(agent_id) {
+        let weles = &config.builtin_sub_agents.weles;
+        return (weles.reasoning_effort.clone(), weles.context_window_tokens);
+    }
+    if let Some(overrides) =
+        crate::agent::agent_identity::builtin_persona_overrides(config, agent_id)
+    {
+        return (
+            overrides.reasoning_effort.clone(),
+            overrides.context_window_tokens,
+        );
+    }
+    if let Some(sub_agent) = config.sub_agents.iter().find(|candidate| {
+        candidate.id.eq_ignore_ascii_case(agent_id) || candidate.name.eq_ignore_ascii_case(agent_id)
+    }) {
+        return (
+            sub_agent.reasoning_effort.clone(),
+            sub_agent.context_window_tokens,
+        );
+    }
+    (None, None)
+}
+
 fn list_agents_target_row(
+    config: &AgentConfig,
     agent: &str,
     name: &str,
     kind: &str,
@@ -1150,12 +1285,20 @@ fn list_agents_target_row(
     model: serde_json::Value,
     switchable: bool,
 ) -> serde_json::Value {
+    let provider_id = provider.as_str().unwrap_or("").trim();
+    let model_id = model.as_str().unwrap_or("").trim();
+    let (reasoning_override, context_window_override) = listing_runtime_overrides(config, agent);
+    let reasoning_effort = listing_reasoning_effort(config, provider_id, reasoning_override);
+    let context_window_tokens =
+        listing_context_window_tokens(config, provider_id, model_id, context_window_override);
     serde_json::json!({
         "agent": agent,
         "name": name,
         "kind": kind,
         "provider": provider,
         "model": model,
+        "reasoning_effort": reasoning_effort,
+        "context_window_tokens": context_window_tokens,
         "switchable": switchable,
         "spawnable": false
     })

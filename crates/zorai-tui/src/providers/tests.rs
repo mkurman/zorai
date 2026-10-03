@@ -10,7 +10,7 @@ use zorai_shared::providers::{
 
 #[test]
 fn provider_count_matches_builtin_catalog() {
-    assert_eq!(PROVIDERS.len(), 34);
+    assert_eq!(PROVIDERS.len(), 35);
 }
 
 #[test]

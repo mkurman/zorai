@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { useAgentStore } from "../lib/agentStore";
 import { normalizeOperatorProfileInputKind } from "../lib/agentStore/operatorProfile";
 
@@ -190,14 +191,11 @@ export function OperatorProfileOnboardingPanel() {
           </div>
 
           <div className="zorai-onboarding-actions__group">
-            <button
-              type="button"
+            <RefreshButton
               onClick={() => void fetchNextQuestion()}
-              className="zorai-onboarding-button"
               disabled={operatorProfile.loading || !operatorProfile.sessionId}
-            >
-              Refresh
-            </button>
+              busy={operatorProfile.loading}
+            />
             <button
               type="button"
               onClick={() => void submitValue()}

@@ -2,6 +2,7 @@ use super::*;
 
 const OFFLOAD_SUMMARY_KEY_FINDING_LINES: usize = 3;
 const OFFLOAD_SUMMARY_LINE_CHAR_LIMIT: usize = 160;
+const OFFLOAD_JSON_ARRAY_FINDING_LIMIT: usize = 40;
 
 /// Clip an oversized tool result to a bounded head+tail window on char
 /// boundaries. Used only when persisting the payload (offload or preview file)
@@ -123,18 +124,15 @@ fn format_tool_output_preview_body(result: &ToolResult, tool_arguments: Option<&
 }
 
 fn extract_offload_key_findings(raw_payload: &str) -> Vec<String> {
+    if let Some(findings) = json_array_key_findings(raw_payload) {
+        return findings;
+    }
+
     let findings = raw_payload
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty())
-        .map(|line| {
-            let truncated: String = line.chars().take(OFFLOAD_SUMMARY_LINE_CHAR_LIMIT).collect();
-            if line.chars().count() > OFFLOAD_SUMMARY_LINE_CHAR_LIMIT {
-                format!("{truncated}...")
-            } else {
-                truncated
-            }
-        })
+        .map(truncate_finding_line)
         .take(OFFLOAD_SUMMARY_KEY_FINDING_LINES)
         .collect::<Vec<_>>();
 
@@ -142,6 +140,80 @@ fn extract_offload_key_findings(raw_payload: &str) -> Vec<String> {
         vec!["(no non-empty lines)".to_string()]
     } else {
         findings
+    }
+}
+
+fn json_array_key_findings(raw_payload: &str) -> Option<Vec<String>> {
+    let value: serde_json::Value = serde_json::from_str(raw_payload).ok()?;
+    let items = value.as_array()?;
+    if items.is_empty() || !items.iter().all(serde_json::Value::is_object) {
+        return None;
+    }
+
+    let mut findings = items
+        .iter()
+        .take(OFFLOAD_JSON_ARRAY_FINDING_LIMIT)
+        .map(summarize_json_record)
+        .collect::<Vec<_>>();
+    if items.len() > OFFLOAD_JSON_ARRAY_FINDING_LIMIT {
+        findings.push(format!(
+            "+{} more",
+            items.len() - OFFLOAD_JSON_ARRAY_FINDING_LIMIT
+        ));
+    }
+    Some(findings)
+}
+
+fn summarize_json_record(value: &serde_json::Value) -> String {
+    let Some(object) = value.as_object() else {
+        return truncate_finding_line(&value.to_string());
+    };
+    let label = ["title", "name", "path", "id"]
+        .into_iter()
+        .find_map(|key| json_display(object.get(key)))
+        .unwrap_or_else(|| "item".to_string());
+    let mut parts = vec![label.clone()];
+    for key in [
+        "id",
+        "agent_name",
+        "agent",
+        "provider",
+        "model",
+        "status",
+        "kind",
+        "role",
+    ] {
+        let Some(text) = json_display(object.get(key)) else {
+            continue;
+        };
+        if text == label {
+            continue;
+        }
+        parts.push(text);
+    }
+    if object.get("pinned").and_then(serde_json::Value::as_bool) == Some(true) {
+        parts.push("pinned".to_string());
+    }
+    truncate_finding_line(&parts.join(" · "))
+}
+
+fn json_display(value: Option<&serde_json::Value>) -> Option<String> {
+    let value = value?;
+    let text = match value {
+        serde_json::Value::String(text) => text.trim().to_string(),
+        serde_json::Value::Number(number) => number.to_string(),
+        serde_json::Value::Bool(flag) => flag.to_string(),
+        _ => return None,
+    };
+    (!text.is_empty()).then_some(text)
+}
+
+fn truncate_finding_line(line: &str) -> String {
+    let truncated: String = line.chars().take(OFFLOAD_SUMMARY_LINE_CHAR_LIMIT).collect();
+    if line.chars().count() > OFFLOAD_SUMMARY_LINE_CHAR_LIMIT {
+        format!("{truncated}...")
+    } else {
+        truncated
     }
 }
 
@@ -730,6 +802,50 @@ mod clip_tests {
         assert!(clipped.starts_with("HEAD-START"), "head is preserved");
         assert!(clipped.ends_with("TAIL-END"), "tail is preserved");
         assert!(clipped.contains("bytes dropped"), "drop marker present");
+    }
+
+    #[test]
+    fn offload_key_findings_summarize_thread_records_instead_of_json_preamble() {
+        let payload = serde_json::to_string_pretty(&serde_json::json!([
+            {
+                "id": "thread_a",
+                "title": "Heartbeat",
+                "agent_name": "Svarog",
+                "pinned": true
+            },
+            {
+                "id": "thread_b",
+                "title": "SEPIQ",
+                "agent_name": "Rarog",
+                "pinned": false
+            }
+        ]))
+        .expect("thread list json");
+
+        assert_eq!(
+            extract_offload_key_findings(&payload),
+            vec![
+                "Heartbeat · thread_a · Svarog · pinned".to_string(),
+                "SEPIQ · thread_b · Rarog".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn offload_key_findings_cap_long_json_arrays_and_keep_plain_text_short() {
+        let items = (0..45)
+            .map(|index| serde_json::json!({ "title": format!("T{index}"), "id": format!("id-{index}") }))
+            .collect::<Vec<_>>();
+        let findings =
+            extract_offload_key_findings(&serde_json::to_string(&items).expect("json array"));
+        assert_eq!(findings.len(), OFFLOAD_JSON_ARRAY_FINDING_LIMIT + 1);
+        assert_eq!(findings[0], "T0 · id-0");
+        assert_eq!(findings.last().map(String::as_str), Some("+5 more"));
+
+        assert_eq!(
+            extract_offload_key_findings("one\ntwo\nthree\nfour\n"),
+            vec!["one".to_string(), "two".to_string(), "three".to_string()]
+        );
     }
 
     #[test]

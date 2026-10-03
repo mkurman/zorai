@@ -76,6 +76,7 @@
   border: 1px solid var(--zorai-border-strong);
   background: var(--zorai-bg-panel);
   color: var(--zorai-text);
+  font-size: var(--text-xs);
   padding: 8px 9px;
 }
 
@@ -97,15 +98,14 @@
   gap: 8px;
   border: 1px solid var(--zorai-border);
   background: var(--zorai-bg-panel);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.32);
   padding: 10px;
 }
 
 .zorai-database-sql-editor-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 8px;
-  align-items: start;
 }
 
 .zorai-database-sql-textarea {
@@ -124,6 +124,12 @@
   resize: vertical;
   white-space: pre;
   overflow: auto;
+}
+
+.zorai-sql-run-button {
+  width: 180px;
+  min-width: 180px;
+  max-width: 180px;
 }
 
 .zorai-danger-button {
@@ -353,7 +359,9 @@ select.zorai-input:disabled option {
 
 .zorai-goal-list,
 .zorai-activity-list {
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .zorai-run-card,
@@ -394,6 +402,7 @@ select.zorai-input:disabled option {
 
 .zorai-run-card__header span,
 .zorai-run-card p,
+.zorai-workspace-task > p:not(.zorai-workspace-notice),
 .zorai-activity-item span,
 .zorai-activity-item p,
 .zorai-setting-row span {
@@ -403,9 +412,21 @@ select.zorai-input:disabled option {
 }
 
 .zorai-run-card p,
-.zorai-activity-item p {
+.zorai-activity-item p,
+.zorai-workspace-task > p:not(.zorai-workspace-notice) {
   margin: 0;
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+.zorai-run-card__more {
+  margin-left: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--zorai-accent);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
 }
 
 .zorai-status-pill {
@@ -735,6 +756,9 @@ select.zorai-input:disabled option {
   gap: 12px;
   align-items: center;
   font-size: var(--text-sm);
+  border: 1px solid var(--zorai-border);
+  padding: 12px;
+  border-radius: 8px;
 }
 
 .zorai-goal-workspace__header {
@@ -1406,6 +1430,8 @@ select.zorai-input:disabled option {
 
 .zorai-workspace-column {
   min-width: 0;
+  min-height: 0;
+  overflow: auto;
   border: 1px solid var(--zorai-border);
   background: var(--zorai-bg-panel);
   padding: 10px;
@@ -1428,12 +1454,17 @@ select.zorai-input:disabled option {
 }
 
 .zorai-workspace-task {
+  min-width: 0;
   border: 1px solid var(--zorai-border);
   background: var(--zorai-bg-panel);
   padding: 12px;
   display: grid;
   gap: 10px;
   cursor: pointer;
+}
+
+.zorai-workspace-task > * {
+  min-width: 0;
 }
 
 .zorai-workspace-task--active {
@@ -1450,9 +1481,9 @@ select.zorai-input:disabled option {
 
 .zorai-workspace-notice {
   margin: 0;
-  color: var(--zorai-accent);
   font-size: var(--text-sm);
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .zorai-workspace-actions {
@@ -1957,6 +1988,7 @@ select.zorai-input:disabled option {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 10px;
+  font-size: var(--text-xs);
 }
 
 .zorai-activity-provenance {

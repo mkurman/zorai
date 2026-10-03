@@ -14,10 +14,12 @@ import {
   type GoalRun,
 } from "@/lib/goalRuns";
 import { useAgentStore } from "@/lib/agentStore";
+import { ThreadFilePreviewOverlay } from "../threads/ThreadFilePreviewOverlay";
 import { GoalWorkspacePanel } from "./GoalWorkspacePanel";
 import { GoalLaunchPanel } from "./GoalLaunchPanel";
 import { openThreadTarget } from "../threads/openThreadTarget";
 import { navigateZorai, type ZoraiReturnTarget } from "../../shell/zoraiNavigationEvents";
+import { CollapsibleSummary } from "../collapsibleSummary";
 
 const activeStatuses = new Set(["queued", "planning", "running", "awaiting_approval", "awaiting_review", "paused"]);
 const GOAL_LAUNCH_EVENT = "zorai-goal-launch";
@@ -33,7 +35,7 @@ export function GoalsRail() {
         className="zorai-primary-button"
         onClick={() => window.dispatchEvent(new Event(GOAL_LAUNCH_EVENT))}
       >
-        Start goal
+        + New goal
       </button>
       <div className="zorai-section-label">Active Goals</div>
       {activeGoals.length === 0 ? (
@@ -227,6 +229,7 @@ export function GoalsView({
           </div>
         </div>
         <GoalWorkspacePanel run={selectedRun} onRefresh={refresh} onMessage={setMessage} onOpenThread={openGoalThread} />
+        <ThreadFilePreviewOverlay />
         {message ? <div className="zorai-inline-note">{message}</div> : null}
         {launchOverlay}
       </section>
@@ -316,7 +319,7 @@ function GoalRunCard({
         </div>
         <span className="zorai-status-pill">{formatGoalRunStatus(run.status)}</span>
       </div>
-      <p>{run.result || run.error || run.plan_summary || run.goal}</p>
+      <CollapsibleSummary text={run.result || run.error || run.plan_summary || run.goal} />
       <div className="zorai-run-card__meta">
         <span>{run.thread_id ? "Worker attached" : "No worker thread"}</span>
         <span>{formatGoalRunDuration(run.duration_ms)}</span>

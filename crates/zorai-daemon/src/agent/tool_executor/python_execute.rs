@@ -51,7 +51,10 @@ pub(crate) async fn execute_python_execute(
             cwd,
             requested_timeout,
             auto_background,
-        );
+            agent,
+            thread_id,
+        )
+        .await;
     }
 
     let mut process = tokio::process::Command::new(&python_bin);
@@ -124,13 +127,14 @@ pub(crate) async fn execute_python_execute(
                 stdout_capture,
                 stderr_capture,
             );
+            let operation_handle = model_operation_id(agent, thread_id, &operation_id).await;
             let cwd_suffix = cwd
                 .as_ref()
                 .map(|path| format!(" in {}", path.display()))
                 .unwrap_or_default();
             return Ok((
                 format!(
-                    "Python execution detached{cwd_suffix} as background operation {operation_id} after {}s foreground grace.\nbackground_task_id: {operation_id}\noperation_id: {operation_id}\nwait_for_completion=true exceeded the TUI foreground grace window. {BACKGROUND_OPERATION_COMPLETION_GUIDANCE}",
+                    "Python execution detached{cwd_suffix} as background operation {operation_handle} after {}s foreground grace.\nbackground_task_id: {operation_handle}\noperation_id: {operation_handle}\nwait_for_completion=true exceeded the TUI foreground grace window. {BACKGROUND_OPERATION_COMPLETION_GUIDANCE}",
                     foreground_wait.as_secs()
                 ),
                 None,
@@ -188,12 +192,14 @@ pub(crate) async fn execute_python_execute(
     }
 }
 
-fn spawn_python_execute_background(
+async fn spawn_python_execute_background(
     python_bin: &str,
     code: &str,
     cwd: Option<PathBuf>,
     requested_timeout: u64,
     auto_background: bool,
+    agent: &AgentEngine,
+    thread_id: &str,
 ) -> Result<(String, Option<ToolPendingApproval>)> {
     let operation =
         crate::server::operation_registry().accept_operation(tool_names::PYTHON_EXECUTE, None);
@@ -243,14 +249,15 @@ fn spawn_python_execute_background(
         .as_ref()
         .map(|path| format!(" in {}", path.display()))
         .unwrap_or_default();
+    let operation_handle = model_operation_id(agent, thread_id, &operation_id).await;
     let queued_summary = format!(
-        "Python execution queued{cwd_suffix} as background operation {operation_id} (interpreter: {python_bin})."
+        "Python execution queued{cwd_suffix} as background operation {operation_handle} (interpreter: {python_bin})."
     );
 
     if auto_background {
         Ok((
             format!(
-                "{queued_summary}\nbackground_task_id: {operation_id}\noperation_id: {operation_id}\nPython execution auto-backgrounded (requested timeout {}s > max 600s). {BACKGROUND_OPERATION_COMPLETION_GUIDANCE}",
+                "{queued_summary}\nbackground_task_id: {operation_handle}\noperation_id: {operation_handle}\nPython execution auto-backgrounded (requested timeout {}s > max 600s). {BACKGROUND_OPERATION_COMPLETION_GUIDANCE}",
                 requested_timeout,
             ),
             None,
@@ -258,7 +265,7 @@ fn spawn_python_execute_background(
     } else {
         Ok((
             format!(
-                "{queued_summary}\nbackground_task_id: {operation_id}\noperation_id: {operation_id}\nNot waiting for completion (wait_for_completion=false; non-quick or long-running commands default to background). {BACKGROUND_OPERATION_COMPLETION_GUIDANCE}"
+                "{queued_summary}\nbackground_task_id: {operation_handle}\noperation_id: {operation_handle}\nNot waiting for completion (wait_for_completion=false; non-quick or long-running commands default to background). {BACKGROUND_OPERATION_COMPLETION_GUIDANCE}"
             ),
             None,
         ))

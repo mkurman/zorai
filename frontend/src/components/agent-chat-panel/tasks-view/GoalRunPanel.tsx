@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { GoalRun } from "../../../lib/goalRuns";
 import type { AgentRun } from "../../../lib/agentRuns";
+import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { ActionButton, EmptyPanel, SectionTitle } from "../shared";
 import { GoalRunCard, GoalRunDetail } from "./GoalRunSection";
 import { inputBlockStyle, inputRowStyle, sectionLabelStyle } from "./styles";
@@ -93,7 +94,7 @@ export function GoalRunPanel({
           />
         </div>
         <div style={{ paddingTop: "var(--space-4)" }}>
-          <ActionButton onClick={onRefreshGoalRuns}>Refresh</ActionButton>
+          <RefreshButton onClick={onRefreshGoalRuns} />
         </div>
       </div>
 

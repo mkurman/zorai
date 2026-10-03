@@ -1,4 +1,5 @@
 import { LoadingState, ThreadListSkeleton } from "@/components/LoadingState";
+import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import { fetchAgentRuns, type AgentRun } from "@/lib/agentRuns";
@@ -199,14 +200,12 @@ export function ThreadsRail() {
             runtime.setView("chat");
           }}
         >
-          New Thread
+          + New Thread
         </button>
-        <button type="button" className="zorai-ghost-button" onClick={refreshSelectedTab} disabled={loadingTab !== null} aria-busy={loadingTab !== null}>
-          Refresh
-        </button>
+        <RefreshButton onClick={refreshSelectedTab} disabled={loadingTab !== null} busy={loadingTab !== null} />
       </div>
       <input ref={searchInputRef} className="zorai-search-input" value={runtime.searchQuery} onChange={(event) => runtime.setSearchQuery(event.target.value)} placeholder="Search threads" />
-      <details className="zorai-thread-filters">
+      <div className="zorai-thread-filters">
         <summary>Filters</summary>
       <div className="zorai-thread-filter-tabs" aria-label="Thread source filters">
         {fixedThreadTabs.map((item) => (
@@ -247,7 +246,7 @@ export function ThreadsRail() {
           </>
         ) : null}
       </div>
-      </details>
+      </div>
       <div className="zorai-thread-list" aria-busy={loadingTab !== null}>
         {loadingTab && daemonFilteredThreads === null ? (
           <ThreadListSkeleton />

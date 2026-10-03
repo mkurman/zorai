@@ -25,6 +25,12 @@ pub enum AgentEvent {
         /// client-local placeholder id.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         message_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        turn_input_tokens: Option<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        turn_output_tokens: Option<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        turn_cost_usd: Option<f64>,
     },
     ToolResult {
         thread_id: String,

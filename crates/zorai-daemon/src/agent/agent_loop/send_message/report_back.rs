@@ -57,6 +57,10 @@ pub(super) fn should_emit_deferred_turn_done(
     needs_turn_done && !interrupted_for_approval
 }
 
+pub(super) fn terminal_subagent_report_requires_turn_done(turn_done_already_emitted: bool) -> bool {
+    !turn_done_already_emitted
+}
+
 pub(super) fn should_emit_tool_execution_limit_error(
     was_cancelled: bool,
     max_loops: u32,
@@ -318,6 +322,9 @@ impl<'a> SendMessageRunner<'a> {
             });
             self.terminated_for_budget = false;
             self.exit_report_back_phase();
+            if terminal_subagent_report_requires_turn_done(self.turn_done_emitted) {
+                self.needs_turn_done = true;
+            }
             return Some(ToolCallDisposition::BreakLoop);
         }
         if tool_name == zorai_protocol::tool_names::EXTEND_SUBAGENT_BUDGET {

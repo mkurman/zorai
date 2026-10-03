@@ -66,6 +66,8 @@ async fn headless_shell_command_can_be_cancelled() {
             "bash_command",
             Some(token),
             None,
+            None,
+            None,
         )
         .await
     });
@@ -95,6 +97,8 @@ async fn cancel_headless_operation_kills_backgrounded_command_by_operation_id() 
         &session_manager,
         None,
         "bash_command",
+        None,
+        None,
         None,
         None,
     )

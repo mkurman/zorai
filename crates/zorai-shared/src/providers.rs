@@ -30,6 +30,7 @@ pub const PROVIDER_ID_CUSTOM: &str = "custom";
 pub const PROVIDER_ID_DEEPSEEK: &str = "deepseek";
 pub const PROVIDER_ID_ELEVENLABS: &str = "elevenlabs";
 pub const PROVIDER_ID_FEATHERLESS: &str = "featherless";
+pub const PROVIDER_ID_GEMINI: &str = "gemini";
 pub const PROVIDER_ID_GITHUB_COPILOT: &str = "github-copilot";
 pub const PROVIDER_ID_GROQ: &str = "groq";
 pub const PROVIDER_ID_HERMES_AGENT_API: &str = "hermes-agent-api";
@@ -77,6 +78,9 @@ pub const DEEPSEEK_PROVIDER: ProviderRef = ProviderRef {
 };
 pub const ELEVENLABS_PROVIDER: ProviderRef = ProviderRef {
     id: PROVIDER_ID_ELEVENLABS,
+};
+pub const GEMINI_PROVIDER: ProviderRef = ProviderRef {
+    id: PROVIDER_ID_GEMINI,
 };
 pub const GITHUB_COPILOT_PROVIDER: ProviderRef = ProviderRef {
     id: PROVIDER_ID_GITHUB_COPILOT,

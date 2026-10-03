@@ -62,6 +62,15 @@ export interface GoalProjectionFile {
   relativePath: string;
   absolutePath: string;
   sizeBytes?: number | null;
+  source?: string | null;
+}
+
+export interface GoalWorkContextFile {
+  path: string;
+  repoRoot?: string | null;
+  source?: string | null;
+  goalRunId?: string | null;
+  updatedAt?: number;
 }
 
 const modeTabs: Array<{ id: GoalWorkspaceMode; label: string; center: string }> = [
@@ -265,8 +274,9 @@ function eventRows(event: GoalRunEvent): GoalWorkspaceRow[] {
 function fileRows(run: GoalRun, selectedIndex: number, projectionFiles: GoalProjectionFile[]): GoalWorkspaceRow[] {
   if (projectionFiles.length > 0) {
     return projectionFiles.map((file, index) => ({
-      id: `file-${file.relativePath}`,
+      id: `file-${file.absolutePath}`,
       text: file.relativePath,
+      meta: file.source ? fileActivityLabel(file.source) : undefined,
       selected: index === selectedIndex,
       targetFilePath: file.absolutePath,
       tone: index === selectedIndex ? "accent" : "normal",
@@ -321,6 +331,82 @@ function buildFooterActions(run: GoalRun): GoalWorkspaceAction[] {
   }
   actions.push({ id: "refresh", label: "Refresh", enabled: true });
   return actions;
+}
+
+export function goalFileThreadIds(run: GoalRun, tasks: AgentQueueTask[] = []): string[] {
+  const ids: string[] = [];
+  const push = (threadId?: string | null) => {
+    if (threadId && !ids.includes(threadId)) ids.push(threadId);
+  };
+  push(workerThread(run));
+  push(run.root_thread_id);
+  push(run.active_thread_id);
+  for (const threadId of run.execution_thread_ids ?? []) push(threadId);
+  for (const task of tasks) push(task.thread_id);
+  return ids;
+}
+
+export function goalFilesFromWorkContext(goalRunId: string, entries: GoalWorkContextFile[]): GoalProjectionFile[] {
+  const seen = new Set<string>();
+  const files: GoalProjectionFile[] = [];
+  const ordered = [...entries].sort((left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0));
+  for (const entry of ordered) {
+    if (entry.goalRunId && entry.goalRunId !== goalRunId) continue;
+    const absolutePath = absoluteWorkContextPath(entry);
+    if (!absolutePath || seen.has(absolutePath)) continue;
+    seen.add(absolutePath);
+    files.push({
+      relativePath: entry.repoRoot && !isAbsolutePath(entry.path) ? entry.path : absolutePath,
+      absolutePath,
+      sizeBytes: null,
+      source: entry.source ?? null,
+    });
+  }
+  return files.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+}
+
+export function mergeGoalWorkspaceFiles(
+  projectionFiles: GoalProjectionFile[],
+  touchedFiles: GoalProjectionFile[],
+): GoalProjectionFile[] {
+  const seen = new Set<string>();
+  const merged: GoalProjectionFile[] = [];
+  for (const file of [...touchedFiles, ...projectionFiles]) {
+    if (!file.absolutePath || seen.has(file.absolutePath)) continue;
+    seen.add(file.absolutePath);
+    merged.push(file);
+  }
+  return merged.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+}
+
+function absoluteWorkContextPath(entry: GoalWorkContextFile): string {
+  const path = entry.path.trim();
+  if (!path) return "";
+  if (!entry.repoRoot || isAbsolutePath(path)) return path;
+  const root = entry.repoRoot.replace(/[/\\]+$/, "");
+  const relative = path.replace(/^[/\\]+/, "");
+  return relative ? `${root}/${relative}` : root;
+}
+
+function isAbsolutePath(path: string): boolean {
+  return path.startsWith("/") || path.startsWith("\\") || /^[A-Za-z]:[\\/]/.test(path);
+}
+
+function fileActivityLabel(source: string): string {
+  switch (source) {
+    case "create_file":
+      return "Created";
+    case "write_file":
+      return "Written";
+    case "append_to_file":
+      return "Appended";
+    case "replace_in_file":
+    case "apply_file_patch":
+    case "apply_patch":
+      return "Edited";
+    default:
+      return source.replace(/_/g, " ");
+  }
 }
 
 function workerThread(run: GoalRun): string | null {

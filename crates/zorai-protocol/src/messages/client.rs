@@ -225,6 +225,8 @@ pub enum ClientMessage {
         session_limit: Option<usize>,
         #[serde(default)]
         session_offset: Option<usize>,
+        #[serde(default)]
+        sessions_only: bool,
     },
     AgentListTools { #[serde(default)] limit: Option<usize>, #[serde(default)] offset: Option<usize> },
     AgentSearchTools { query: String, #[serde(default)] limit: Option<usize>, #[serde(default)] offset: Option<usize> },

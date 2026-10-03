@@ -193,6 +193,76 @@ impl HistoryStore {
             })
             .collect::<Result<Vec<_>>>()?;
 
+        let (sessions, session_total) = self
+            .load_session_statistics(window, session_limit, session_offset)
+            .await?;
+
+        Ok(AgentStatisticsSnapshot {
+            window,
+            generated_at: current_time_ms(),
+            has_incomplete_cost_history: totals_row.missing_cost_rows > 0,
+            totals: AgentStatisticsTotals {
+                input_tokens: totals_row.input_tokens.max(0) as u64,
+                output_tokens: totals_row.output_tokens.max(0) as u64,
+                total_tokens: totals_row.total_tokens.max(0) as u64,
+                cost_usd: totals_row.cost_usd,
+                provider_count: totals_row.provider_count.max(0) as u64,
+                model_count: totals_row.model_count.max(0) as u64,
+            },
+            providers,
+            models: sorted_models,
+            top_models_by_tokens,
+            top_models_by_cost,
+            daily,
+            sessions,
+            session_total,
+            session_limit: session_limit as u64,
+            session_offset: session_offset as u64,
+        })
+    }
+
+    pub async fn get_agent_session_page(
+        &self,
+        window: AgentStatisticsWindow,
+        session_limit: Option<usize>,
+        session_offset: Option<usize>,
+    ) -> Result<AgentStatisticsSnapshot> {
+        let session_limit = session_limit.unwrap_or(25).clamp(1, 100);
+        let session_offset = session_offset.unwrap_or(0);
+        let (sessions, session_total) = self
+            .load_session_statistics(window, session_limit, session_offset)
+            .await?;
+        Ok(AgentStatisticsSnapshot {
+            window,
+            generated_at: current_time_ms(),
+            has_incomplete_cost_history: false,
+            totals: AgentStatisticsTotals {
+                input_tokens: 0,
+                output_tokens: 0,
+                total_tokens: 0,
+                cost_usd: 0.0,
+                provider_count: 0,
+                model_count: 0,
+            },
+            providers: Vec::new(),
+            models: Vec::new(),
+            top_models_by_tokens: Vec::new(),
+            top_models_by_cost: Vec::new(),
+            daily: Vec::new(),
+            sessions,
+            session_total,
+            session_limit: session_limit as u64,
+            session_offset: session_offset as u64,
+        })
+    }
+
+    async fn load_session_statistics(
+        &self,
+        window: AgentStatisticsWindow,
+        session_limit: usize,
+        session_offset: usize,
+    ) -> Result<(Vec<SessionStatisticsRow>, u64)> {
+        let cutoff_ms = window_cutoff_ms(window);
         let session_total_row = self
             .read_db
             .query_opt(
@@ -270,29 +340,7 @@ impl HistoryStore {
                 })
             })
             .collect::<Result<Vec<_>>>()?;
-
-        Ok(AgentStatisticsSnapshot {
-            window,
-            generated_at: current_time_ms(),
-            has_incomplete_cost_history: totals_row.missing_cost_rows > 0,
-            totals: AgentStatisticsTotals {
-                input_tokens: totals_row.input_tokens.max(0) as u64,
-                output_tokens: totals_row.output_tokens.max(0) as u64,
-                total_tokens: totals_row.total_tokens.max(0) as u64,
-                cost_usd: totals_row.cost_usd,
-                provider_count: totals_row.provider_count.max(0) as u64,
-                model_count: totals_row.model_count.max(0) as u64,
-            },
-            providers,
-            models: sorted_models,
-            top_models_by_tokens,
-            top_models_by_cost,
-            daily,
-            sessions,
-            session_total,
-            session_limit: session_limit as u64,
-            session_offset: session_offset as u64,
-        })
+        Ok((sessions, session_total))
     }
 }
 

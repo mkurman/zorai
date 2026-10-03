@@ -14,6 +14,7 @@ import {
 } from "./agentStore";
 import { resolveProviderAuth } from "./agent-client/auth";
 import { sendAnthropic } from "./agent-client/anthropic";
+import { sendGemini } from "./agent-client/gemini";
 import {
   buildApiMessagesForRequest,
   messagesToApiFormat,
@@ -90,13 +91,16 @@ export async function* sendChatCompletion(
       ? resolvedRequest.config.api_transport
       : getDefaultApiTransport(resolvedRequest.provider);
 
-    if (
+    const providerApiType = getProviderApiType(
+      resolvedRequest.provider,
+      resolvedRequest.config.model,
+      resolvedRequest.config.base_url,
+    );
+    if (providerApiType === "gemini") {
+      yield* sendGemini(resolvedRequest);
+    } else if (
       selectedTransport === "anthropic_messages" ||
-      getProviderApiType(
-        resolvedRequest.provider,
-        resolvedRequest.config.model,
-        resolvedRequest.config.base_url,
-      ) === "anthropic"
+      providerApiType === "anthropic"
     ) {
       yield* sendAnthropic(resolvedRequest);
     } else if (selectedTransport === "native_assistant") {

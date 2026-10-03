@@ -1156,13 +1156,19 @@ impl AgentEngine {
         if !self.ensure_thread_messages_loaded(thread_id).await {
             return false;
         }
+        let handle = crate::agent::tool_executor::stored_task_slug(self, task_id).await;
         let threads = self.threads.read().await;
         let Some(thread) = threads.get(thread_id) else {
             return false;
         };
         thread.messages.iter().any(|message| {
             message.role == MessageRole::User
-                && task_prompt::content_has_task_dispatch_prompt(&message.content, task_id)
+                && (task_prompt::content_has_task_dispatch_prompt(&message.content, task_id)
+                    || handle.as_deref().is_some_and(|handle| {
+                        message
+                            .content
+                            .contains(&task_prompt::task_dispatch_prompt_marker(handle))
+                    }))
         })
     }
 

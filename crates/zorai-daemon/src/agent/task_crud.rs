@@ -681,7 +681,11 @@ fn cap_goal_run_window_for_ipc(
     None
 }
 
-fn goal_run_thread_context_message(goal_run: &GoalRun, source_thread_id: Option<&str>) -> String {
+fn goal_run_thread_context_message(
+    goal_run: &GoalRun,
+    goal_handle: &str,
+    source_thread_id: Option<&str>,
+) -> String {
     let source_line = source_thread_id
         .map(str::trim)
         .filter(|value| !value.is_empty())
@@ -689,13 +693,13 @@ fn goal_run_thread_context_message(goal_run: &GoalRun, source_thread_id: Option<
         .unwrap_or_else(|| "- Source thread: direct goal launch".to_string());
     format!(
         "Dedicated goal thread initialized.\n\n\
-         - Goal run: {}\n\
+         - Goal handle: {goal_handle}\n\
          - Title: {}\n\
          - Big picture: {}\n\
-         {}\n\
+         {source_line}\n\
          This is the sole worker thread for the goal. Do the work here. Spawned helpers keep their \
-         own threads. Completeness is decided only by the owner supervisor via `request_goal_review`.",
-        goal_run.id, goal_run.title, goal_run.goal, source_line
+         own threads. Pass `{goal_handle}` as goal_run_id when a tool asks for the goal. Completeness is decided only by the owner supervisor via `request_goal_review`.",
+        goal_run.title, goal_run.goal
     )
 }
 
@@ -756,9 +760,17 @@ impl AgentEngine {
             thread.updated_at = now_millis();
         }
         self.persist_thread_by_id(goal_thread_id).await;
+        let goal_handle = crate::agent::tool_executor::ensure_goal_slug(
+            self,
+            &goal_run.id,
+            &goal_run.title,
+            Some(goal_thread_id),
+        )
+        .await
+        .unwrap_or_else(|_| goal_run.id.clone());
         self.append_system_thread_message(
             goal_thread_id,
-            goal_run_thread_context_message(goal_run, source_thread_id),
+            goal_run_thread_context_message(goal_run, &goal_handle, source_thread_id),
         )
         .await;
     }

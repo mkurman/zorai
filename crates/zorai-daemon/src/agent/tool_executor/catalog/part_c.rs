@@ -308,7 +308,7 @@ pub(crate) fn add_available_tools_part_c(
     tools.push(tool_def(tool_names::GET_OPERATION_STATUS, "Look up an asynchronous operation by operation_id. Do not poll this tool. If you need the result before doing more work, set wait=true so the daemon blocks until completion (or timeout) and returns the final payload in one call. Otherwise continue other work; this thread auto-resumes when the operation finishes. Snapshot-only calls (wait=false) are for a single check, not a loop. For background terminal commands, pass the returned operation_id; `background_task_id` is the same value for compatibility. When a background headless shell command completes or fails, this response includes `terminal_result` with the captured payload and exit code.", serde_json::json!({
         "type": "object",
         "properties": {
-            "operation_id": { "type": "string", "description": "Asynchronous operation handle returned by a non-blocking tool or daemon operation" },
+            "operation_id": { "type": "string", "description": "Short handle such as `op1` (preferred) or the full operation id" },
             "wait": { "type": "boolean", "description": "When true, block in the daemon until the operation reaches completed/failed/cancelled or timeout_seconds elapses (default: false). Use this instead of polling." },
             "timeout_seconds": { "type": "integer", "minimum": 0, "maximum": 3600, "description": "Max seconds to wait when wait=true (default: 600, max: 3600). Ignored when wait=false." }
         },
@@ -398,7 +398,7 @@ pub(crate) fn add_available_tools_part_c(
     tools.push(tool_def(tool_names::EXTEND_SUBAGENT_BUDGET, "Raise a spawned child's visible-output token budget on that child thread. Child may self-call; parent may pass child_task_id or child_thread_id.", serde_json::json!({
         "type": "object",
         "properties": {
-            "child_task_id": { "type": "string", "description": "Target child task; omit when calling from the child itself" },
+            "child_task_id": { "type": "string", "description": "Child handle such as `researcher` (preferred) or the full task id; omit when calling from the child itself" },
             "child_thread_id": { "type": "string", "description": "Target child thread; omit when calling from the child itself" },
             "additional_tokens": { "type": "integer", "description": "Extra visible output tokens to add to the child ceiling" },
             "additional_wall_time_secs": { "type": "integer", "description": "Optional extra wall-clock seconds" },

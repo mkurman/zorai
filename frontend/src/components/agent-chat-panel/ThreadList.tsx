@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AgentThread } from "../../lib/agentStore";
-import { ActionButton, DEFAULT_PAGE_SIZE, iconButtonStyle, inputStyle, PageSizeSelect, PaginationControls } from "./shared";
+import { DEFAULT_PAGE_SIZE, iconButtonStyle, inputStyle, PageSizeSelect, PaginationControls } from "./shared";
+import { RefreshButton } from "@/zorai/shell/RefreshButton";
 
 export function ThreadListToolbar({
     searchQuery,
@@ -35,7 +36,7 @@ export function ThreadListToolbar({
                 style={{ ...inputStyle, flex: "0 0 auto", minWidth: 170 }}
             />
             <PageSizeSelect value={pageSize} onChange={onPageSizeChange} />
-            <ActionButton onClick={onRefresh}>Refresh</ActionButton>
+            <RefreshButton onClick={onRefresh} />
         </div>
     );
 }

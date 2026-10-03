@@ -17,6 +17,7 @@ async fn timeout_sweep_defaults_and_unanswers_without_failing_the_child() {
         state: "open".to_string(),
         answer: None,
         answer_delivered: false,
+        slug: String::new(),
     };
     let defaulted_key = format!("ask_parent:{}:seed-defaulted", with_default.id);
     let unanswered_key = format!("ask_parent:{}:seed-unanswered", without_default.id);
@@ -115,6 +116,7 @@ async fn timeout_sweep_leaves_child_blocked_while_other_asks_are_still_open() {
         state: "open".to_string(),
         answer: None,
         answer_delivered: false,
+        slug: String::new(),
     };
     let live = AskParentRecord {
         question: "Still waiting?".to_string(),
@@ -125,6 +127,7 @@ async fn timeout_sweep_leaves_child_blocked_while_other_asks_are_still_open() {
         state: "open".to_string(),
         answer: None,
         answer_delivered: false,
+        slug: String::new(),
     };
     engine
         .history

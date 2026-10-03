@@ -523,6 +523,8 @@ pub(super) enum AgentBridgeCommand {
         session_limit: Option<usize>,
         #[serde(default)]
         session_offset: Option<usize>,
+        #[serde(default)]
+        sessions_only: bool,
     },
     EnqueuePrompt {
         thread_id: String,

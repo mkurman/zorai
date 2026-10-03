@@ -427,7 +427,7 @@ pub(crate) async fn execute_read_offloaded_payload(
     agent: &AgentEngine,
     thread_id: &str,
 ) -> Result<String> {
-    let payload_id = match args.get("payload_id") {
+    let requested_payload_id = match args.get("payload_id") {
         Some(value) => value
             .as_str()
             .map(str::trim)
@@ -435,6 +435,8 @@ pub(crate) async fn execute_read_offloaded_payload(
             .ok_or_else(|| anyhow::anyhow!("'payload_id' must be a non-empty string"))?,
         None => anyhow::bail!("missing 'payload_id' argument"),
     };
+    let resolved_payload_id = resolve_payload_id(agent, thread_id, requested_payload_id).await?;
+    let payload_id = resolved_payload_id.as_str();
     validate_offloaded_payload_id(payload_id)?;
     let full = parse_optional_bool_arg(args, "full")?.unwrap_or(false);
     let message_start = parse_message_window_bound(args, "message_start", "start")?;

@@ -184,7 +184,7 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
           <dl className="zorai-composer-context-circle__facts">
             <div><dt>Window</dt><dd>{formatTokens(contextWindowTokens)} tok</dd></div>
             <div><dt>Used</dt><dd>{formatTokens(used)} tok ({pct}%)</dd></div>
-            <div><dt>Cost</dt><dd>{sessionHasCost ? `${formatCost(sessionCost)} this thread` : "— this thread"}</dd></div>
+            <div><dt>Cost</dt><dd>{sessionHasCost ? `${formatCost(sessionCost)} this thread` : "no info"}</dd></div>
             {typeof sessionAvgTps === "number" ? <div><dt>Avg TPS</dt><dd>{sessionAvgTps.toFixed(1)} tok/s</dd></div> : null}
           </dl>
           <div className="zorai-composer-context-circle__actions">

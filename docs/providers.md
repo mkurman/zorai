@@ -14,6 +14,7 @@ The daemon is the source of truth. TUI and React request the hydrated provider c
 | Featherless | `featherless` | `meta-llama/Llama-3.3-70B-Instruct` | `meta-llama/Llama-3.3-70B-Instruct` |
 | NVIDIA | `nvidia` | `minimaxai/minimax-m2.7` | `minimaxai/minimax-m2.7` |
 | OpenAI | `openai` | `gpt-5.5` | `gpt-5.5`, `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano`, `gpt-5.3-codex`, `gpt-5.3-codex-spark`, `gpt-5.2-codex`, `gpt-5.2`, `gpt-5.1-codex-max`, `gpt-5.1-codex`, `gpt-5.1-codex-mini`, `gpt-5.1`, `gpt-5-codex`, `gpt-5-codex-mini`, `gpt-5`, `codex-mini-latest`, `o3`, `o4-mini`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-4o`, `gpt-4o-mini` |
+| Gemini | `gemini` | `gemini-3.8-flash` | `gemini-3.8-flash`, `gemini-3.1-pro`, `gemini-3.1-flash-image`; uses the Interactions API with an `x-goog-api-key` |
 | xAI | `xai` | `grok-4.3` | `grok-4.3`, `grok-4`, `grok-code-fast-1` |
 | Azure OpenAI | `azure-openai` | user deployment | fetched from Azure `/models` |
 | Anthropic | `anthropic` | `claude-opus-4-7` | `claude-opus-4-7`, `claude-opus-4-6`, `claude-opus-4-5-20251101`, `claude-opus-4-1-20250805`, `claude-opus-4-20250514`, `claude-sonnet-4-6`, `claude-sonnet-4-5-20250929`, `claude-sonnet-4-20250514`, `claude-3-7-sonnet-20250219`, `claude-haiku-4-5-20251001`, `claude-3-5-haiku-20241022`, `claude-3-opus-20240229`, `claude-3-haiku-20240307` |

@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import { buildHydratedRemoteMessage, buildHydratedRemoteThread, useAgentStore } from "@/lib/agentStore";
+import { applyRendererMessageBudget } from "@/lib/agentStore/rendererText";
 import type {
   AgentMessage,
   AgentProviderConfig,
@@ -299,15 +300,18 @@ export async function loadDaemonThreadPageIntoLocalState({
         ? Math.max(thread.loadedMessageEnd ?? 0, reloadedThread.loadedMessageEnd ?? 0)
         : reloadedThread.loadedMessageEnd,
     } : thread),
-    messages: mergeMode === "metadata"
-      ? state.messages
-      : {
-        ...state.messages,
-        [localThreadId]: reconcileThreadMessages(
-          state.messages[localThreadId] ?? [],
-          reloadedMessages,
-        ),
-      },
+      messages: applyRendererMessageBudget(
+        mergeMode === "metadata"
+          ? state.messages
+          : {
+            ...state.messages,
+            [localThreadId]: reconcileThreadMessages(
+              state.messages[localThreadId] ?? [],
+              reloadedMessages,
+            ),
+          },
+        state.activeThreadId,
+      ),
   }));
 
   if (mergeMode === "append" || mergeMode === "replace") {

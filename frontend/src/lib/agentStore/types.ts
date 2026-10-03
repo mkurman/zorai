@@ -103,6 +103,7 @@ export type BuiltinAgentProviderId =
   | "ollama"
   | "chutes"
   | "deepseek"
+  | "gemini"
   | "huggingface"
   | "minimax"
   | "minimax-coding-plan"
@@ -142,6 +143,7 @@ export const AGENT_PROVIDER_IDS: BuiltinAgentProviderId[] = [
   "ollama",
   "chutes",
   "deepseek",
+  "gemini",
   "huggingface",
   "minimax",
   "minimax-coding-plan",
@@ -211,8 +213,8 @@ export interface SubAgentDefinition {
   created_at: number;
 }
 
-export type ApiType = "openai" | "anthropic";
-export type AuthMethod = "bearer" | "x-api-key" | "xi-api-key";
+export type ApiType = "openai" | "anthropic" | "gemini";
+export type AuthMethod = "bearer" | "x-api-key" | "xi-api-key" | "x-goog-api-key";
 export type AuthSource = "api_key" | "chatgpt_subscription" | "github_copilot";
 export type ApiTransportMode =
   | "native_assistant"

@@ -177,12 +177,20 @@ pub(crate) async fn dispatch_part9(
             window,
             session_limit,
             session_offset,
+            sessions_only,
         } => {
-            match agent
-                .history
-                .get_agent_statistics(window, session_limit, session_offset)
-                .await
-            {
+            let statistics = if sessions_only {
+                agent
+                    .history
+                    .get_agent_session_page(window, session_limit, session_offset)
+                    .await
+            } else {
+                agent
+                    .history
+                    .get_agent_statistics(window, session_limit, session_offset)
+                    .await
+            };
+            match statistics {
                 Ok(snapshot) => {
                     framed
                         .send(DaemonMessage::AgentStatisticsResponse {

@@ -304,7 +304,9 @@ describe("Zorai feature surfaces", () => {
   it("lets the operator collapse the contextual rail from the heading without losing the restore control", () => {
     // Why: the thread/goal list competes with the main canvas. Collapse must
     // start expanded, hide the list, and keep the hamburger in the heading so
-    // the rail can be restored without hunting a second control.
+    // the rail can be restored without hunting a second control. On a narrow
+    // window the strip stays in the grid, and expanding it overlays the canvas
+    // instead of disappearing or squeezing the main view.
     const shellSource = readFeature("../shell/ZoraiShell.tsx");
     const iconSource = readFeature("../shell/ZoraiIcons.tsx");
     const styleSource = readFileSync(new URL("../styles/zorai.css", import.meta.url), "utf8");
@@ -319,6 +321,11 @@ describe("Zorai feature surfaces", () => {
     expect(iconSource).toContain("export function ZoraiHamburgerIcon");
     expect(styleSource).toContain(".zorai-shell--rail-collapsed");
     expect(styleSource).toContain("68px 48px minmax(0, 1fr) auto");
+    expect(shellSource).toContain("zorai-rail-overlay-backdrop");
+    expect(shellSource).toContain('"(max-width: 900px)"');
+    expect(styleSource).toContain("56px 48px minmax(0, 1fr)");
+    expect(styleSource).toContain(".zorai-shell:not(.zorai-shell--rail-collapsed) .zorai-contextual-rail");
+    expect(styleSource).not.toContain(".zorai-contextual-rail,\n  .zorai-context-panel");
   });
 
   it("starts goals through the TUI-compatible Mission Control preflight", () => {
@@ -385,6 +392,8 @@ describe("Zorai feature surfaces", () => {
     expect(usageSource).toContain("Provider / Model");
     expect(usageSource).toContain("Top Models By Tokens");
     expect(usageSource).toContain("SessionUsageTable");
+    expect(usageSource).toContain("mergeStatisticsSessionPage");
+    expect(usageSource).toContain("Refreshing sessions");
     expect(usageSource).toContain("snapshot?.sessions ?? []");
     expect(usageSource).toContain("Provider models");
     expect(surfaceCss).toContain("zorai-usage-grid");

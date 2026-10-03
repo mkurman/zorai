@@ -57,7 +57,8 @@ function findButton(node: ReactNode, label: string): any {
   if (!isValidElement(node)) {
     return null;
   }
-  if (node.type === "button" && elementText(node.props.children).includes(label)) {
+  const accessibleName = `${elementText(node.props.children)} ${node.props["aria-label"] ?? ""} ${node.props.title ?? ""}`;
+  if (node.type === "button" && accessibleName.includes(label)) {
     return node;
   }
   return findButton(node.props.children, label);

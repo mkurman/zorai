@@ -483,6 +483,38 @@
   padding: 4px 16px;
 }
 
+.zorai-refresh-icon {
+  width: 15px;
+  height: 15px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.zorai-icon-button.zorai-refresh-button {
+  display: inline-grid;
+  place-items: center;
+  align-self: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  flex: 0 0 auto;
+}
+
+.zorai-refresh-button[aria-busy="true"] .zorai-refresh-icon,
+[aria-busy="true"] > .zorai-refresh-icon {
+  animation: zorai-button-spin 0.7s linear infinite;
+}
+
+.zorai-code-explorer-actions .zorai-refresh-icon,
+.zorai-code-source-heading .zorai-refresh-icon {
+  width: 13px;
+  height: 13px;
+}
+
 .zorai-stop-button {
   border-color: var(--border-color-strong);
   background: var(--border-color);
@@ -562,6 +594,9 @@
 }
 
 .zorai-thread-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   border: 0;
   color: var(--zorai-muted);
   font-size: var(--text-xs);
@@ -1461,11 +1496,11 @@
   padding: 0 7px;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 2px;
 }
 
 .zorai-composer-autoplay__state {
-  font-size: 9px;
+  font-size: 7px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -2096,7 +2131,7 @@
   height: 30px;
   display: grid;
   place-items: center;
-  border-radius: 8px;
+  border-radius: 50%;
   border: 1px solid transparent;
   background: transparent;
   color: var(--zorai-muted);
@@ -3056,10 +3091,33 @@
 @media (max-width: 900px) {
   .zorai-shell,
   .zorai-shell--rail-collapsed {
-    grid-template-columns: 56px minmax(0, 1fr);
+    position: relative;
+    grid-template-columns: 56px 48px minmax(0, 1fr);
   }
 
-  .zorai-contextual-rail,
+  .zorai-global-rail {
+    position: relative;
+    z-index: 41;
+  }
+
+  .zorai-shell:not(.zorai-shell--rail-collapsed) .zorai-contextual-rail {
+    justify-self: start;
+    width: min(284px, calc(100vw - 72px));
+    z-index: 40;
+    box-shadow: 18px 0 40px rgba(0, 0, 0, 0.48);
+  }
+
+  .zorai-rail-overlay-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    background: color-mix(in srgb, var(--bg-deep, #000) 55%, transparent);
+    cursor: pointer;
+  }
+
   .zorai-context-panel,
   .zorai-context-tab,
   .zorai-code-resize-handle {
@@ -3685,13 +3743,18 @@
 
 .zorai-workspace-editor { flex: 1; min-height: 160px; }
 .zorai-workspace-editor .minimap,
-.zorai-workspace-editor .minimap-decorations-layer {
+.zorai-workspace-editor .minimap-decorations-layer,
+.zorai-monaco-viewer .minimap,
+.zorai-monaco-viewer .minimap-decorations-layer {
   opacity: 0.4;
   background: transparent !important;
 }
-.zorai-workspace-editor .minimap-slider { opacity: 0.55; }
+.zorai-workspace-editor .minimap-slider,
+.zorai-monaco-viewer .minimap-slider { opacity: 0.55; }
 .zorai-workspace-editor .minimap-shadow-visible,
-.zorai-workspace-editor .minimap-shadow-hidden {
+.zorai-workspace-editor .minimap-shadow-hidden,
+.zorai-monaco-viewer .minimap-shadow-visible,
+.zorai-monaco-viewer .minimap-shadow-hidden {
   box-shadow: none;
   width: 0;
 }
@@ -3712,9 +3775,9 @@
   outline: 0;
   padding: 14px 16px;
   tab-size: 2;
-  background: #0d1117;
-  color: #d8dee9;
-  caret-color: var(--zorai-accent-secondary);
+  background: var(--zorai-bg-surface);
+  color: var(--zorai-text);
+  caret-color: var(--zorai-accent);
   font: 13px/1.55 var(--font-mono);
   white-space: pre;
   overflow: auto;
@@ -3735,12 +3798,12 @@
   margin: 0;
   padding: 14px 16px;
   border-right: 1px solid var(--zorai-border);
-  background: #0d1117;
-  color: #d8dee9;
+  background: var(--zorai-bg-surface);
+  color: var(--zorai-text);
   font: 12px/1.55 var(--font-mono);
   white-space: pre;
 }
-.zorai-workspace-diff-grid pre:last-child { border-right: 0; background: #0f1515; }
+.zorai-workspace-diff-grid pre:last-child { border-right: 0; background: var(--zorai-bg-elevated); }
 
 .zorai-workspace-create-row {
   display: grid;
@@ -3856,7 +3919,7 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-workspace-worktree-path { min-width: 0; display: flex; flex-direction: column; border: 0; background: transparent; color: var(--zorai-text); text-align: left; font: 9px var(--font-mono); cursor: pointer; }
 .zorai-workspace-worktree-path span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--zorai-muted); }
 
-.zorai-workspace-editor-loading { width: 100%; height: 100%; display: grid; place-items: center; background: #0d1117; color: var(--zorai-muted); font: 11px var(--font-mono); }
+.zorai-workspace-editor-loading { width: 100%; height: 100%; display: grid; place-items: center; background: var(--zorai-bg-surface); color: var(--zorai-muted); font: 11px var(--font-mono); }
 
 .zorai-workspace-problems { max-height: 34%; overflow: auto; border-block: 1px solid var(--zorai-border); }
 .zorai-workspace-problems summary { position: sticky; top: 0; z-index: 1; padding: 7px 9px; background: var(--zorai-bg-elevated); color: var(--zorai-muted); font-size: 10px; text-transform: uppercase; cursor: pointer; }
@@ -4035,11 +4098,11 @@ button.zorai-composer-context-chip { cursor: pointer; }
   .zorai-shell.zorai-shell--code.zorai-shell--rail-collapsed,
   .zorai-shell.zorai-shell--code.zorai-shell--context-open,
   .zorai-shell.zorai-shell--code.zorai-shell--rail-collapsed.zorai-shell--context-open {
-    grid-template-columns: 56px minmax(0, 1fr);
+    grid-template-columns: 56px 48px minmax(0, 1fr);
   }
 
   .zorai-shell--code .zorai-main {
-    grid-column: 2;
+    grid-column: 3;
   }
 }
 
@@ -4604,10 +4667,9 @@ button.zorai-composer-context-chip { cursor: pointer; }
 /* Composer circle meter */
 .zorai-composer-actions__right { gap: 8px; align-items: center; }
 .zorai-composer-context-circle__btn {
+  border-radius: 50%;
   width: 36px; height: 36px;
   display: grid; place-items: center;
-  border: 1px solid var(--zorai-border-strong);
-  border-radius: 999px;
   background: var(--zorai-bg-panel);
   cursor: pointer;
   padding: 0;
@@ -5593,4 +5655,244 @@ button.zorai-composer-context-chip { cursor: pointer; }
   .zorai-workspace-change-path small { display: none; }
   .zorai-workspace-change-actions { opacity: 1; }
   .zorai-workspace-change-actions button { width: 20px; }
+}
+
+.zorai-subagents {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--zorai-border);
+  border-radius: 7px;
+  background: var(--zorai-bg-panel);
+  color: var(--zorai-text);
+}
+
+.zorai-subagents__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.zorai-subagents__header h2 {
+  margin: 4px 0 0;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.zorai-subagents__empty {
+  margin: 0;
+  color: var(--zorai-muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.zorai-subagents__list {
+  display: grid;
+  gap: 8px;
+}
+
+.zorai-subagent-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--zorai-border);
+  border-radius: 8px;
+  background: transparent;
+  transition: border-color var(--zorai-transition), background var(--zorai-transition);
+}
+
+.zorai-subagent-card:hover {
+  border-color: var(--zorai-border-strong);
+  background: color-mix(in srgb, var(--zorai-bg-active) 55%, var(--zorai-bg));
+}
+
+.zorai-subagent-card__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.zorai-subagent-card__identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.zorai-subagent-card__status {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--text-muted);
+}
+
+.zorai-subagent-card__status.is-enabled {
+  background: var(--success, #4ade80);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success, #4ade80) 22%, transparent);
+}
+
+.zorai-subagent-card__copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.zorai-subagent-card__copy strong {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zorai-subagent-card.is-disabled .zorai-subagent-card__copy strong {
+  color: var(--zorai-muted);
+}
+
+.zorai-subagent-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.zorai-subagent-card__pill {
+  border: 1px solid var(--zorai-border);
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: var(--zorai-bg-panel);
+  color: var(--zorai-muted);
+  font-size: var(--text-xs);
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.zorai-subagent-card__pill--accent {
+  /* border-color: color-mix(in srgb, var(--zorai-accent) 42%, var(--zorai-border)); */
+  /* background: color-mix(in srgb, var(--zorai-accent) 14%, transparent); */
+  color: var(--zorai-accent);
+}
+
+.zorai-subagent-card__pill--warning {
+  border-color: color-mix(in srgb, var(--warning, #fbbf24) 42%, var(--zorai-border));
+  background: color-mix(in srgb, var(--warning, #fbbf24) 14%, transparent);
+  color: var(--warning, #fbbf24);
+}
+
+.zorai-subagent-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.zorai-subagent-card__note {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--zorai-muted);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.zorai-subagents__form {
+  display: grid;
+}
+
+.zorai-subagents__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--zorai-border);
+  font-size: var(--text-sm);
+}
+
+.zorai-subagents__row > span {
+  color: var(--zorai-muted);
+  flex-shrink: 0;
+}
+
+.zorai-subagents__row:has(textarea) {
+  align-items: flex-start;
+}
+
+.zorai-subagents__row:has(textarea) > span {
+  padding-top: 9px;
+}
+
+.zorai-subagents__row > :last-child {
+  width: min(280px, 58%);
+  max-width: 280px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.zorai-subagents .zorai-textarea {
+  min-height: 84px;
+}
+
+.zorai-subagents .zorai-input:focus-visible,
+.zorai-subagents .zorai-textarea:focus-visible {
+  outline: 2px solid var(--zorai-accent);
+  outline-offset: 1px;
+}
+
+.zorai-subagents__hint {
+  color: var(--zorai-muted);
+  font-size: var(--text-xs);
+}
+
+.zorai-subagents__advanced {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+}
+
+.zorai-subagents__advanced > .zorai-ghost-button {
+  justify-self: start;
+}
+
+.zorai-subagents__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 14px;
+}
+
+.zorai-subagents__danger.zorai-ghost-button {
+  border-color: color-mix(in srgb, var(--danger, #f87171) 45%, var(--zorai-border-strong));
+  color: var(--danger, #f87171);
+}
+
+.zorai-subagents__danger.zorai-ghost-button:not(:disabled):hover {
+  background: color-mix(in srgb, var(--danger, #f87171) 14%, transparent);
+  border-color: var(--danger, #f87171);
+  color: var(--danger, #f87171);
+}
+
+@media (max-width: 720px) {
+  .zorai-subagents__header,
+  .zorai-subagent-card__row,
+  .zorai-subagents__row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .zorai-subagent-card__actions {
+    justify-content: flex-start;
+  }
+
+  .zorai-subagents__row > :last-child {
+    width: 100%;
+    max-width: none;
+  }
 }

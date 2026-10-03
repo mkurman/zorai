@@ -58,6 +58,7 @@ export function messagesToApiFormat(messages: AgentMessage[]): ApiChatMessage[] 
         role: "tool",
         content: m.content,
         tool_call_id: m.toolCallId,
+        name: m.toolName,
       });
       continue;
     }
@@ -65,6 +66,7 @@ export function messagesToApiFormat(messages: AgentMessage[]): ApiChatMessage[] 
     apiMessages.push({
       role: m.role,
       content: m.content,
+      reasoning: m.role === "assistant" ? m.reasoning : undefined,
       tool_calls: m.role === "assistant" ? m.toolCalls : undefined,
     });
   }
@@ -177,6 +179,35 @@ export function prepareOpenAIRequest(
         ? thread?.upstreamThreadId ?? thread?.id
         : undefined,
     };
+  }
+
+  if (
+    provider === "gemini" &&
+    !compactionActive &&
+    providerSupportsResponseContinuity(provider)
+  ) {
+    const responseAnchorIndex = [...requestMessages.keys()].reverse().find((index) => {
+      const message = requestMessages[index];
+      return (
+        message.role === "assistant" &&
+        typeof message.responseId === "string" &&
+        message.responseId.trim().length > 0 &&
+        message.provider === provider &&
+        message.model === model
+      );
+    });
+    if (responseAnchorIndex !== undefined) {
+      const trailingMessages = messagesToApiFormat(
+        requestMessages.slice(responseAnchorIndex + 1),
+      );
+      if (trailingMessages.length > 0) {
+        return {
+          messages: trailingMessages,
+          transport: "chat_completions",
+          previousResponseId: requestMessages[responseAnchorIndex]?.responseId,
+        };
+      }
+    }
   }
 
   return {

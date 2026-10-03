@@ -405,13 +405,14 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
         runtime,
     }, 'external-runtime-migration', 15000));
     ipcMain.handle('agent-get-status', async () => { try { return await sendAgentQuery({ type: 'get-status' }, 'status-response'); } catch (err) { logToFile('warn', 'agent-get-status failed', { error: err?.message ?? String(err) }); return null; } });
-    ipcMain.handle('agent-get-statistics', async (_event, window, sessionLimit, sessionOffset) => {
+    ipcMain.handle('agent-get-statistics', async (_event, window, sessionLimit, sessionOffset, sessionsOnly) => {
         try {
             return await sendAgentQuery({
                 type: 'agent-get-statistics',
                 window: typeof window === 'string' && window.trim() ? window.trim() : 'all',
                 session_limit: Number.isFinite(sessionLimit) ? Math.min(100, Math.max(1, Math.trunc(sessionLimit))) : 25,
                 session_offset: Number.isFinite(sessionOffset) ? Math.max(0, Math.trunc(sessionOffset)) : 0,
+                sessions_only: sessionsOnly === true,
             }, 'statistics-response');
         } catch (err) {
             logToFile('warn', 'agent-get-statistics failed', { error: err?.message ?? String(err), window });

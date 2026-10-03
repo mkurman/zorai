@@ -8,7 +8,8 @@ import {
     getAITrainingLaunchModes,
 } from "../../plugins/ai-training/definitions";
 import { useAITrainingStore } from "../../plugins/ai-training/store";
-import { ActionButton, ContextCard, EmptyPanel, MetricRibbon, SectionTitle, inputStyle } from "./shared";
+import { RefreshButton } from "@/zorai/shell/RefreshButton";
+import { ContextCard, EmptyPanel, MetricRibbon, SectionTitle, inputStyle } from "./shared";
 
 export function AITrainingView() {
     const workspaces = useWorkspaceStore((state) => state.workspaces);
@@ -122,9 +123,11 @@ export function AITrainingView() {
                         Inspect supported training runtimes and repository workflows, verify prerequisites, and launch setup or execution commands into a pane.
                     </div>
                 </div>
-                <ActionButton onClick={() => void refreshProfiles(selectedWorkspace?.id ?? activeWorkspaceId ?? null)}>
-                    {status === "loading" ? "Scanning..." : "Refresh"}
-                </ActionButton>
+                <RefreshButton
+                    busy={status === "loading"}
+                    label={status === "loading" ? "Scanning..." : "Refresh"}
+                    onClick={() => void refreshProfiles(selectedWorkspace?.id ?? activeWorkspaceId ?? null)}
+                />
             </div>
 
             <SectionTitle title="Target Surface" subtitle="Choose the workspace, surface, and pane for launch commands." />

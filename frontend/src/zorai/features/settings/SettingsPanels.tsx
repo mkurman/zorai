@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { SubAgentsTab } from "@/components/settings-panel/SubAgentsTab";
 import { ModelSelector } from "@/components/settings-panel/shared";
 import {
@@ -317,7 +318,7 @@ function AuthPanel() {
   return (
     <SettingsGrid extraClassName="zorai-settings-grid--full">
       <Panel section="Auth" title="Authentication" extraClassName="zorai-settings-auth">
-        <button type="button" className="zorai-ghost-button" onClick={() => void refreshAuth()}>Refresh auth status</button>
+        <RefreshButton label="Refresh auth status" onClick={() => void refreshAuth()} />
         {authStates.length === 0 ? <p className="zorai-empty-state">No provider auth status has been reported by the daemon yet.</p> : authStates.map((state) => {
           const providerValidation = validationResult[state.provider_id];
           const isTestingProvider = providerValidation?.state === "testing";
@@ -973,7 +974,7 @@ function PluginsPanel() {
   return (
     <SettingsGrid>
       <Panel section="Plugins" title="Installed extensions">
-        <button type="button" className="zorai-ghost-button" onClick={() => void fetchPlugins()}>{loading ? "Refreshing..." : "Refresh plugins"}</button>
+        <RefreshButton busy={loading} label={loading ? "Refreshing..." : "Refresh plugins"} onClick={() => void fetchPlugins()} />
         <SettingRow label="Add plugin" description="Register an installed plugin directory with the daemon.">
           <div className="zorai-inline-fields">
             <input className="zorai-input" value={newPluginDir} onChange={(event) => setNewPluginDir(event.target.value)} placeholder="dir-name" />

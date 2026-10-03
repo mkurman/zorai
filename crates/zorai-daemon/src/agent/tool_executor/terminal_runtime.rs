@@ -76,6 +76,8 @@ pub(crate) async fn execute_run_terminal_command(
                 tool_names::RUN_TERMINAL_COMMAND,
                 cancel_token,
                 None,
+                Some(agent),
+                Some(thread_id),
             )
             .await;
         }
@@ -99,6 +101,8 @@ pub(crate) async fn execute_run_terminal_command(
             tool_names::RUN_TERMINAL_COMMAND,
             cancel_token,
             None,
+            Some(agent),
+            Some(thread_id),
         )
         .await
     }
@@ -134,6 +138,8 @@ pub(crate) async fn execute_bash_command(
                 tool_names::BASH_COMMAND,
                 cancel_token,
                 foreground_detach_after,
+                Some(agent),
+                Some(thread_id),
             )
             .await;
         }
@@ -157,6 +163,8 @@ pub(crate) async fn execute_bash_command(
             tool_names::BASH_COMMAND,
             cancel_token,
             foreground_detach_after,
+            Some(agent),
+            Some(thread_id),
         )
         .await
     }
@@ -795,6 +803,8 @@ pub(crate) async fn execute_headless_shell_command(
     tool_name: &str,
     cancel_token: Option<CancellationToken>,
     foreground_detach_after: Option<std::time::Duration>,
+    agent: Option<&AgentEngine>,
+    thread_id: Option<&str>,
 ) -> Result<(String, Option<ToolPendingApproval>)> {
     let command = args
         .get("command")
@@ -822,7 +832,10 @@ pub(crate) async fn execute_headless_shell_command(
             tool_name,
             requested_timeout,
             auto_background,
-        );
+            agent,
+            thread_id,
+        )
+        .await;
     }
 
     let mut process = tokio::process::Command::new("bash");
@@ -898,9 +911,15 @@ pub(crate) async fn execute_headless_shell_command(
                 .as_ref()
                 .map(|path| format!(" in {}", path.display()))
                 .unwrap_or_default();
+            let operation_handle = match (agent, thread_id) {
+                (Some(agent), Some(thread_id)) => {
+                    model_operation_id(agent, thread_id, &operation_id).await
+                }
+                _ => operation_id.clone(),
+            };
             return Ok((
                 format!(
-                    "Headless command detached{cwd_suffix} as background operation {operation_id} after {}s foreground grace.\nbackground_task_id: {operation_id}\noperation_id: {operation_id}\nwait_for_completion=true exceeded the TUI foreground grace window. {BACKGROUND_OPERATION_COMPLETION_GUIDANCE}",
+                    "Headless command detached{cwd_suffix} as background operation {operation_handle} after {}s foreground grace.\nbackground_task_id: {operation_handle}\noperation_id: {operation_handle}\nwait_for_completion=true exceeded the TUI foreground grace window. {BACKGROUND_OPERATION_COMPLETION_GUIDANCE}",
                     foreground_wait.as_secs()
                 ),
                 None,
@@ -955,12 +974,14 @@ pub(crate) async fn execute_headless_shell_command(
     }
 }
 
-fn spawn_headless_shell_command_background(
+async fn spawn_headless_shell_command_background(
     command: &str,
     cwd: Option<std::path::PathBuf>,
     tool_name: &str,
     requested_timeout: u64,
     auto_background: bool,
+    agent: Option<&AgentEngine>,
+    thread_id: Option<&str>,
 ) -> Result<(String, Option<ToolPendingApproval>)> {
     let operation = crate::server::operation_registry().accept_operation(tool_name, None);
     let operation_id = operation.operation_id.clone();
@@ -1009,13 +1030,17 @@ fn spawn_headless_shell_command_background(
         .as_ref()
         .map(|path| format!(" in {}", path.display()))
         .unwrap_or_default();
+    let operation_handle = match (agent, thread_id) {
+        (Some(agent), Some(thread_id)) => model_operation_id(agent, thread_id, &operation_id).await,
+        _ => operation_id.clone(),
+    };
     let queued_summary =
-        format!("Headless command queued{cwd_suffix} as background operation {operation_id}.");
+        format!("Headless command queued{cwd_suffix} as background operation {operation_handle}.");
 
     if auto_background {
         Ok((
             format!(
-                "{queued_summary}\nbackground_task_id: {operation_id}\noperation_id: {operation_id}\nCommand auto-backgrounded (requested timeout {}s > max 600s). {BACKGROUND_OPERATION_COMPLETION_GUIDANCE}",
+                "{queued_summary}\nbackground_task_id: {operation_handle}\noperation_id: {operation_handle}\nCommand auto-backgrounded (requested timeout {}s > max 600s). {BACKGROUND_OPERATION_COMPLETION_GUIDANCE}",
                 requested_timeout,
             ),
             None,
@@ -1023,7 +1048,7 @@ fn spawn_headless_shell_command_background(
     } else {
         Ok((
             format!(
-                "{queued_summary}\nbackground_task_id: {operation_id}\noperation_id: {operation_id}\nNot waiting for completion (wait_for_completion=false; non-quick or long-running commands default to background). {BACKGROUND_OPERATION_COMPLETION_GUIDANCE}"
+                "{queued_summary}\nbackground_task_id: {operation_handle}\noperation_id: {operation_handle}\nNot waiting for completion (wait_for_completion=false; non-quick or long-running commands default to background). {BACKGROUND_OPERATION_COMPLETION_GUIDANCE}"
             ),
             None,
         ))

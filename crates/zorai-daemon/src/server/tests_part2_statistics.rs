@@ -53,6 +53,7 @@ async fn agent_statistics_query_returns_daemon_snapshot_payload() {
             window: zorai_protocol::AgentStatisticsWindow::All,
             session_limit: None,
             session_offset: None,
+            sessions_only: false,
         })
         .await
         .expect("request statistics");

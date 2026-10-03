@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useAgentStore, getSupportedApiTransports } from "../../lib/agentStore";
 import type { SubAgentDefinition, AgentProviderId } from "../../lib/agentStore";
 import { getSubAgentCapabilities } from "../../lib/agentStore/providerActions";
 import { selectableProviderAuthStates } from "./agentTabHelpers";
-import { Section, SettingRow, ModelSelector, inputStyle, smallBtnStyle, addBtnStyle } from "./shared";
+import { ModelSelector } from "./shared";
 import { SUB_AGENT_ROLE_PRESETS, findSubAgentRolePreset } from "./subAgentRolePresets";
 import { OpenRouterProviderRoutingControls } from "./OpenRouterProviderRoutingControls";
 
@@ -155,315 +155,290 @@ export function SubAgentsTab() {
         return state?.provider_name || id;
     };
 
+    const closeForm = () => {
+        setShowForm(false);
+        setEditingId(null);
+        setForm(emptyForm);
+    };
+
+    const title = showForm ? (editingId ? "Edit Sub-Agent" : "Add Sub-Agent") : "Sub-Agent Registry";
+
     return (
-        <div>
-            <Section title={showForm ? (editingId ? "Edit Sub-Agent" : "Add Sub-Agent") : "Sub-Agent Registry"}>
-                {showForm ? null : subAgents.length === 0 ? (
-                    <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginBottom: 12 }}>
-                        No sub-agents configured. Add one to enable orchestration dispatch.
-                    </div>
-                ) : null}
-
-                {showForm ? null : (
-                <div style={{ display: "grid", gap: 2, marginBottom: 12 }}>
-                    {subAgents.map((sa) => (
-                        (() => {
-                            const capabilities = getSubAgentCapabilities(sa);
-                            return (
-                                <div key={sa.id} style={{
-                                    border: "1px solid var(--border)",
-                                    background: "var(--bg-tertiary)",
-                                    padding: "8px 12px",
-                                }}>
-                                    <div style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "space-between",
-                                        gap: 8,
-                                    }}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
-                                            <span style={{
-                                                width: 8, height: 8, borderRadius: "50%",
-                                                background: sa.enabled ? "#4ade80" : "#6b7280",
-                                                flexShrink: 0,
-                                            }} />
-                                            <span style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>{sa.name}</span>
-                                            {capabilities.isProtected && (
-                                                <span style={{
-                                                    fontSize: "var(--text-xs)",
-                                                    color: "#fbbf24",
-                                                    background: "var(--zorai-accent-dim)",
-                                                    padding: "1px 6px",
-                                                    borderRadius: 3,
-                                                }}>
-                                                    Built-in
-                                                </span>
-                                            )}
-                                            <span style={{
-                                                fontSize: "var(--text-xs)",
-                                                color: "var(--text-secondary)",
-                                                background: "var(--zorai-bg-panel)",
-                                                padding: "1px 6px",
-                                                borderRadius: 3,
-                                            }}>
-                                                {providerName(sa.provider)} / {sa.model}
-                                            </span>
-                                            {sa.reasoning_effort && (
-                                                <span style={{
-                                                    fontSize: "var(--text-xs)",
-                                                    color: "var(--text-secondary)",
-                                                    background: "var(--zorai-bg-panel)",
-                                                    padding: "1px 6px",
-                                                    borderRadius: 3,
-                                                }}>
-                                                    effort: {sa.reasoning_effort}
-                                                </span>
-                                            )}
-                                            {sa.role && (
-                                                <span style={{
-                                                    fontSize: "var(--text-xs)",
-                                                    color: "var(--accent)",
-                                                    background: "var(--zorai-accent-dim)",
-                                                    padding: "1px 6px",
-                                                    borderRadius: 3,
-                                                }}>
-                                                    {sa.role}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div style={{ display: "flex", gap: 4 }}>
-                                            {capabilities.canToggle && (
-                                                <button onClick={() => handleToggle(sa)} style={{ ...smallBtnStyle, fontSize: "var(--text-xs)" }}>
-                                                    {sa.enabled ? "Disable" : "Enable"}
-                                                </button>
-                                            )}
-                                            <button onClick={() => handleEdit(sa)} style={{ ...smallBtnStyle, fontSize: "var(--text-xs)" }}>
-                                                Edit
-                                            </button>
-                                            {capabilities.canDelete && (
-                                                <button onClick={() => handleDelete(sa.id)} style={{ ...smallBtnStyle, fontSize: "var(--text-xs)", color: "#ef4444" }}>
-                                                    Delete
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                    {capabilities.isProtected && capabilities.protectedReason && (
-                                        <div style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)", marginTop: 8 }}>
-                                            {capabilities.protectedReason}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })()
-                    ))}
+        <section className="zorai-subagents">
+            <header className="zorai-subagents__header">
+                <div>
+                    <div className="zorai-section-label">Sub-Agents</div>
+                    <h2>{title}</h2>
                 </div>
-                )}
-
                 {showForm ? (
-                    <div style={{
-                        border: "1px solid var(--border)",
-                        background: "var(--zorai-bg-panel)",
-                        padding: 14,
-                    }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
-                            <div style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
-                                {editingId ? "Edit Sub-Agent" : "Add Sub-Agent"}
-                            </div>
-                            <button
-                                onClick={() => { setShowForm(false); setEditingId(null); setForm(emptyForm); }}
-                                style={smallBtnStyle}
-                            >
-                                Back
-                            </button>
-                        </div>
-                        <SettingRow label="Name">
-                            <input
-                                value={form.name}
-                                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                                placeholder="e.g., Code Reviewer"
-                                style={{ ...inputStyle, width: 220 }}
-                            />
-                        </SettingRow>
-                        <SettingRow label="Provider">
-                            <select
-                                value={form.provider}
-                                onChange={(e) => setForm({
-                                    ...form,
-                                    provider: e.target.value,
-                                    model: "",
-                                    openrouter_provider_order: [],
-                                    openrouter_provider_ignore: [],
-                                    openrouter_allow_fallbacks: null,
-                                })}
-                                style={{ ...inputStyle, width: 220 }}
-                            >
-                                <option value="">Select provider...</option>
-                                {selectableProviders.map((p) => (
-                                    <option key={p.provider_id} value={p.provider_id}>
-                                        {p.provider_name}
-                                    </option>
-                                ))}
-                            </select>
-                        </SettingRow>
-                        <SettingRow label="Model">
-                            {form.provider ? (
-                                <ModelSelector
-                                    providerId={form.provider as AgentProviderId}
-                                    value={form.model}
-                                    onChange={(model) => setForm({ ...form, model })}
-                                    allowProviderAuthFetch={Boolean(providerAuthStates.find((p) => p.provider_id === form.provider)?.authenticated)}
-                                />
-                            ) : (
-                                <span style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>Select a provider first</span>
-                            )}
-                        </SettingRow>
-                        <SettingRow label="Context">
-                            <input
-                                type="number"
-                                value={form.context_window_tokens}
-                                onChange={(e) => setForm({ ...form, context_window_tokens: e.target.value })}
-                                placeholder="128000"
-                                style={{ ...inputStyle, width: 220 }}
-                            />
-                        </SettingRow>
-                        {form.provider === "openrouter" ? (
-                            <OpenRouterProviderRoutingControls
-                                config={{
-                                    model: form.model,
-                                    openrouter_provider_order: form.openrouter_provider_order,
-                                    openrouter_provider_ignore: form.openrouter_provider_ignore,
-                                    openrouter_allow_fallbacks: form.openrouter_allow_fallbacks,
-                                }}
-                                baseUrl={openRouterProviderState?.base_url || "https://openrouter.ai/api/v1"}
-                                onChange={(next) => setForm({
-                                    ...form,
-                                    openrouter_provider_order: next.openrouter_provider_order ?? [],
-                                    openrouter_provider_ignore: next.openrouter_provider_ignore ?? [],
-                                    openrouter_allow_fallbacks: next.openrouter_allow_fallbacks ?? null,
-                                })}
-                            />
-                        ) : null}
-                        <SettingRow label="Role">
-                            <select
-                                value={form.role}
-                                onChange={(e) => handleRoleChange(e.target.value)}
-                                style={{ ...inputStyle, width: 220 }}
-                            >
-                                <option value="">None</option>
-                                {SUB_AGENT_ROLE_PRESETS.map((preset) => (
-                                    <option key={preset.id} value={preset.id}>{preset.label}</option>
-                                ))}
-                            </select>
-                        </SettingRow>
-                        <SettingRow label="System Prompt">
-                            <textarea
-                                value={form.system_prompt}
-                                onChange={(e) => setForm({ ...form, system_prompt: e.target.value })}
-                                placeholder="Optional system prompt override"
-                                rows={3}
-                                style={{ ...inputStyle, width: 220, resize: "vertical" }}
-                            />
-                        </SettingRow>
-                        <SettingRow label="Reasoning Effort">
-                            <select
-                                value={form.reasoning_effort}
-                                onChange={(e) => setForm({ ...form, reasoning_effort: e.target.value })}
-                                style={{ ...inputStyle, width: 220 }}
-                            >
-                                <option value="">None</option>
-                                <option value="minimal">Minimal</option>
-                                <option value="low">Low</option>
-                                <option value="medium">Medium</option>
-                                <option value="high">High</option>
-                                <option value="xhigh">Extra High</option>
-                                <option value="max">Max</option>
-                            </select>
-                        </SettingRow>
-                        <SettingRow label="API Transport">
-                            <select
-                                value={form.api_transport}
-                                onChange={(e) => setForm({ ...form, api_transport: e.target.value })}
-                                style={{ ...inputStyle, width: 220 }}
-                            >
-                                <option value="">Provider default</option>
-                                {form.provider
-                                    ? getSupportedApiTransports(form.provider as AgentProviderId).map((transport) => (
-                                        <option key={transport} value={transport}>{transport}</option>
-                                    ))
-                                    : null}
-                            </select>
-                        </SettingRow>
-                        <div style={{ marginTop: 6 }}>
-                            <button
-                                onClick={() => setForm({ ...form, showAdvanced: !form.showAdvanced })}
-                                style={{ ...smallBtnStyle, fontSize: "var(--text-xs)", marginBottom: 6 }}
-                            >
-                                {form.showAdvanced ? "Hide Advanced" : "Show Advanced"}
-                            </button>
-                            {form.showAdvanced && (
-                                <div>
-                                    <SettingRow label="Tool Whitelist">
-                                        <input
-                                            value={form.tool_whitelist}
-                                            onChange={(e) => setForm({ ...form, tool_whitelist: e.target.value })}
-                                            placeholder="tool1, tool2"
-                                            style={{ ...inputStyle, width: 220 }}
-                                        />
-                                    </SettingRow>
-                                    <SettingRow label="Tool Blacklist">
-                                        <input
-                                            value={form.tool_blacklist}
-                                            onChange={(e) => setForm({ ...form, tool_blacklist: e.target.value })}
-                                            placeholder="tool1, tool2"
-                                            style={{ ...inputStyle, width: 220 }}
-                                        />
-                                    </SettingRow>
-                                    <SettingRow label="Budget (tokens)">
-                                        <input
-                                            type="number"
-                                            value={form.context_budget_tokens}
-                                            onChange={(e) => setForm({ ...form, context_budget_tokens: e.target.value })}
-                                            placeholder="100000"
-                                            style={{ ...inputStyle, width: 220 }}
-                                        />
-                                    </SettingRow>
-                                    <SettingRow label="Max Duration (s)">
-                                        <input
-                                            type="number"
-                                            value={form.max_duration_secs}
-                                            onChange={(e) => setForm({ ...form, max_duration_secs: e.target.value })}
-                                            placeholder="300"
-                                            style={{ ...inputStyle, width: 220 }}
-                                        />
-                                    </SettingRow>
-                                </div>
-                            )}
-                        </div>
-                        <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-                            <button
-                                onClick={handleSave}
-                                disabled={!form.name || !form.provider || !form.model}
-                                style={addBtnStyle}
-                            >
-                                {editingId ? "Update" : "Add"}
-                            </button>
-                            <button
-                                onClick={() => { setShowForm(false); setEditingId(null); setForm(emptyForm); }}
-                                style={smallBtnStyle}
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
+                    <button type="button" className="zorai-ghost-button" onClick={closeForm}>
+                        Back
+                    </button>
                 ) : (
                     <button
+                        type="button"
+                        className="zorai-primary-button"
                         onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyForm); }}
-                        style={addBtnStyle}
                     >
-                        + Add Sub-Agent
+                        Add Sub-Agent
                     </button>
                 )}
-            </Section>
+            </header>
+
+            {showForm ? null : subAgents.length === 0 ? (
+                <p className="zorai-subagents__empty">
+                    No sub-agents configured. Add one to enable orchestration dispatch.
+                </p>
+            ) : null}
+
+            {!showForm && subAgents.length > 0 && (
+                <div className="zorai-subagents__list">
+                    {subAgents.map((sa) => {
+                        const capabilities = getSubAgentCapabilities(sa);
+                        return (
+                            <article
+                                key={sa.id}
+                                className={["zorai-subagent-card", sa.enabled ? "is-enabled" : "is-disabled"].join(" ")}
+                            >
+                                <div className="zorai-subagent-card__row">
+                                    <div className="zorai-subagent-card__identity">
+                                        <span
+                                            className={["zorai-subagent-card__status", sa.enabled ? "is-enabled" : ""].filter(Boolean).join(" ")}
+                                            aria-hidden
+                                        />
+                                        <div className="zorai-subagent-card__copy">
+                                            <strong>{sa.name}</strong>
+                                            <div className="zorai-subagent-card__meta">
+                                                {capabilities.isProtected && (
+                                                    <span className="zorai-subagent-card__pill zorai-subagent-card__pill--warning">Built-in</span>
+                                                )}
+                                                <span className="zorai-subagent-card__pill">
+                                                    {providerName(sa.provider)} / {sa.model}
+                                                </span>
+                                                {sa.reasoning_effort && (
+                                                    <span className="zorai-subagent-card__pill">effort: {sa.reasoning_effort}</span>
+                                                )}
+                                                {sa.role && (
+                                                    <span className="zorai-subagent-card__pill zorai-subagent-card__pill--accent">{sa.role}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="zorai-subagent-card__actions">
+                                        {capabilities.canToggle && (
+                                            <button type="button" className="zorai-ghost-button" onClick={() => handleToggle(sa)}>
+                                                {sa.enabled ? "Disable" : "Enable"}
+                                            </button>
+                                        )}
+                                        <button type="button" className="zorai-ghost-button" onClick={() => handleEdit(sa)}>
+                                            Edit
+                                        </button>
+                                        {capabilities.canDelete && (
+                                            <button type="button" className="zorai-ghost-button zorai-subagents__danger" onClick={() => handleDelete(sa.id)}>
+                                                Delete
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                                {capabilities.isProtected && capabilities.protectedReason && (
+                                    <p className="zorai-subagent-card__note">{capabilities.protectedReason}</p>
+                                )}
+                            </article>
+                        );
+                    })}
+                </div>
+            )}
+
+            {showForm ? (
+                <div className="zorai-subagents__form">
+                    <Field label="Name">
+                        <input
+                            className="zorai-input"
+                            value={form.name}
+                            onChange={(e) => setForm({ ...form, name: e.target.value })}
+                            placeholder="e.g., Code Reviewer"
+                        />
+                    </Field>
+                    <Field label="Provider">
+                        <select
+                            className="zorai-input"
+                            value={form.provider}
+                            onChange={(e) => setForm({
+                                ...form,
+                                provider: e.target.value,
+                                model: "",
+                                openrouter_provider_order: [],
+                                openrouter_provider_ignore: [],
+                                openrouter_allow_fallbacks: null,
+                            })}
+                        >
+                            <option value="">Select provider...</option>
+                            {selectableProviders.map((p) => (
+                                <option key={p.provider_id} value={p.provider_id}>
+                                    {p.provider_name}
+                                </option>
+                            ))}
+                        </select>
+                    </Field>
+                    <Field label="Model">
+                        {form.provider ? (
+                            <ModelSelector
+                                providerId={form.provider as AgentProviderId}
+                                value={form.model}
+                                onChange={(model) => setForm({ ...form, model })}
+                                allowProviderAuthFetch={Boolean(providerAuthStates.find((p) => p.provider_id === form.provider)?.authenticated)}
+                            />
+                        ) : (
+                            <span className="zorai-subagents__hint">Select a provider first</span>
+                        )}
+                    </Field>
+                    <Field label="Context">
+                        <input
+                            className="zorai-input"
+                            type="number"
+                            value={form.context_window_tokens}
+                            onChange={(e) => setForm({ ...form, context_window_tokens: e.target.value })}
+                            placeholder="128000"
+                        />
+                    </Field>
+                    {form.provider === "openrouter" ? (
+                        <OpenRouterProviderRoutingControls
+                            config={{
+                                model: form.model,
+                                openrouter_provider_order: form.openrouter_provider_order,
+                                openrouter_provider_ignore: form.openrouter_provider_ignore,
+                                openrouter_allow_fallbacks: form.openrouter_allow_fallbacks,
+                            }}
+                            baseUrl={openRouterProviderState?.base_url || "https://openrouter.ai/api/v1"}
+                            onChange={(next) => setForm({
+                                ...form,
+                                openrouter_provider_order: next.openrouter_provider_order ?? [],
+                                openrouter_provider_ignore: next.openrouter_provider_ignore ?? [],
+                                openrouter_allow_fallbacks: next.openrouter_allow_fallbacks ?? null,
+                            })}
+                        />
+                    ) : null}
+                    <Field label="Role">
+                        <select
+                            className="zorai-input"
+                            value={form.role}
+                            onChange={(e) => handleRoleChange(e.target.value)}
+                        >
+                            <option value="">None</option>
+                            {SUB_AGENT_ROLE_PRESETS.map((preset) => (
+                                <option key={preset.id} value={preset.id}>{preset.label}</option>
+                            ))}
+                        </select>
+                    </Field>
+                    <Field label="System Prompt">
+                        <textarea
+                            className="zorai-textarea"
+                            value={form.system_prompt}
+                            onChange={(e) => setForm({ ...form, system_prompt: e.target.value })}
+                            placeholder="Optional system prompt override"
+                            rows={3}
+                        />
+                    </Field>
+                    <Field label="Reasoning Effort">
+                        <select
+                            className="zorai-input"
+                            value={form.reasoning_effort}
+                            onChange={(e) => setForm({ ...form, reasoning_effort: e.target.value })}
+                        >
+                            <option value="">None</option>
+                            <option value="minimal">Minimal</option>
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="xhigh">Extra High</option>
+                            <option value="max">Max</option>
+                        </select>
+                    </Field>
+                    <Field label="API Transport">
+                        <select
+                            className="zorai-input"
+                            value={form.api_transport}
+                            onChange={(e) => setForm({ ...form, api_transport: e.target.value })}
+                        >
+                            <option value="">Provider default</option>
+                            {form.provider
+                                ? getSupportedApiTransports(form.provider as AgentProviderId).map((transport) => (
+                                    <option key={transport} value={transport}>{transport}</option>
+                                ))
+                                : null}
+                        </select>
+                    </Field>
+                    <div className="zorai-subagents__advanced">
+                        <button
+                            type="button"
+                            className="zorai-ghost-button"
+                            onClick={() => setForm({ ...form, showAdvanced: !form.showAdvanced })}
+                        >
+                            {form.showAdvanced ? "Hide Advanced" : "Show Advanced"}
+                        </button>
+                        {form.showAdvanced && (
+                            <div>
+                                <Field label="Tool Whitelist">
+                                    <input
+                                        className="zorai-input"
+                                        value={form.tool_whitelist}
+                                        onChange={(e) => setForm({ ...form, tool_whitelist: e.target.value })}
+                                        placeholder="tool1, tool2"
+                                    />
+                                </Field>
+                                <Field label="Tool Blacklist">
+                                    <input
+                                        className="zorai-input"
+                                        value={form.tool_blacklist}
+                                        onChange={(e) => setForm({ ...form, tool_blacklist: e.target.value })}
+                                        placeholder="tool1, tool2"
+                                    />
+                                </Field>
+                                <Field label="Budget (tokens)">
+                                    <input
+                                        className="zorai-input"
+                                        type="number"
+                                        value={form.context_budget_tokens}
+                                        onChange={(e) => setForm({ ...form, context_budget_tokens: e.target.value })}
+                                        placeholder="100000"
+                                    />
+                                </Field>
+                                <Field label="Max Duration (s)">
+                                    <input
+                                        className="zorai-input"
+                                        type="number"
+                                        value={form.max_duration_secs}
+                                        onChange={(e) => setForm({ ...form, max_duration_secs: e.target.value })}
+                                        placeholder="300"
+                                    />
+                                </Field>
+                            </div>
+                        )}
+                    </div>
+                    <div className="zorai-subagents__actions">
+                        <button
+                            type="button"
+                            className="zorai-primary-button"
+                            onClick={handleSave}
+                            disabled={!form.name || !form.provider || !form.model}
+                        >
+                            {editingId ? "Update" : "Add"}
+                        </button>
+                        <button type="button" className="zorai-ghost-button" onClick={closeForm}>
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            ) : null}
+        </section>
+    );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+    return (
+        <div className="zorai-subagents__row">
+            <span>{label}</span>
+            {children}
         </div>
     );
 }

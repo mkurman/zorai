@@ -337,12 +337,15 @@ impl<'a> SendMessageRunner<'a> {
             .map(ToOwned::to_owned)
             .or_else(|| (!msg_content.trim().is_empty()).then_some(msg_content.clone()));
 
+        let turn_input_tokens = input_tokens.unwrap_or(0);
+        let turn_output_tokens = output_tokens.unwrap_or(0);
         self.persist_assistant_tool_calls_message(
             &tool_calls,
             msg_content,
             msg_reasoning,
             input_tokens,
             output_tokens,
+            None,
             response_id,
             upstream_message,
             provider_final_result.clone(),
@@ -420,6 +423,17 @@ impl<'a> SendMessageRunner<'a> {
                 arguments: tc.function.arguments.clone(),
                 weles_review: tc.weles_review.clone(),
                 message_id: None,
+                turn_input_tokens: if index == 0 {
+                    Some(turn_input_tokens)
+                } else {
+                    None
+                },
+                turn_output_tokens: if index == 0 {
+                    Some(turn_output_tokens)
+                } else {
+                    None
+                },
+                turn_cost_usd: None,
             });
 
             if self.handle_tool_filter_denial(tc).await {
@@ -578,6 +592,7 @@ impl<'a> SendMessageRunner<'a> {
         msg_reasoning: Option<String>,
         input_tokens: Option<u64>,
         output_tokens: Option<u64>,
+        turn_cost: Option<f64>,
         response_id: Option<String>,
         upstream_message: Option<CompletionUpstreamMessage>,
         provider_final_result: Option<CompletionProviderFinalResult>,
@@ -603,7 +618,7 @@ impl<'a> SendMessageRunner<'a> {
                 weles_review: None,
                 input_tokens: input_tokens.unwrap_or(0),
                 output_tokens: output_tokens.unwrap_or(0),
-                cost: None,
+                cost: turn_cost,
                 provider: Some(self.config.provider.clone()),
                 model: Some(self.provider_config.model.clone()),
                 api_transport: Some(effective_transport_for_turn),

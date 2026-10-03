@@ -1,13 +1,14 @@
 use super::super::{
     make_task_log_entry, now_millis, task_by_id_for_tool_scope, AgentEngine, Result, TaskLogLevel,
 };
+use super::handles::next_ask_slug;
 use super::wakeup::{wake_child_thread, wake_parent_for_ask};
 use super::{
     ask_state_prefix, caller_is_parent, list_ask_records, notes_cursor_after_eviction,
     persist_ask_record, persist_task_update, remaining_open_count, resolve_caller_task,
-    select_open_ask, unblock_child_task, AskParentRecord, AWAITING_PARENT_BLOCKED_PREFIX,
-    DEFAULT_TIMEOUT_MINUTES, LOG_PHASE, MAX_NOTES_PER_CHILD, MAX_NOTE_CHARS,
-    MAX_OPEN_ASKS_PER_CHILD, NOTES_CURSOR_STATE_PREFIX, NOTES_STATE_PREFIX,
+    resolve_child_reference, select_open_ask, unblock_child_task, AskParentRecord,
+    AWAITING_PARENT_BLOCKED_PREFIX, DEFAULT_TIMEOUT_MINUTES, LOG_PHASE, MAX_NOTES_PER_CHILD,
+    MAX_NOTE_CHARS, MAX_OPEN_ASKS_PER_CHILD, NOTES_CURSOR_STATE_PREFIX, NOTES_STATE_PREFIX,
 };
 use crate::agent::types::TaskStatus;
 
@@ -65,8 +66,8 @@ pub(crate) async fn execute_ask_parent(
         );
     }
 
-    let open_count = list_ask_records(agent, &task.id)
-        .await?
+    let existing = list_ask_records(agent, &task.id).await?;
+    let open_count = existing
         .iter()
         .filter(|(_, record)| record.state == "open")
         .count();
@@ -78,6 +79,8 @@ pub(crate) async fn execute_ask_parent(
         );
     }
 
+    let ask_slug = next_ask_slug(&existing);
+    let child_slug = super::ensure_task_slug(agent, &task).await?;
     let record = AskParentRecord {
         question: question.clone(),
         options,
@@ -87,6 +90,7 @@ pub(crate) async fn execute_ask_parent(
         state: "open".to_string(),
         answer: None,
         answer_delivered: false,
+        slug: ask_slug.clone(),
     };
     let ask_id = uuid::Uuid::new_v4().to_string();
     let key = format!("{}{ask_id}", ask_state_prefix(&task.id));
@@ -108,12 +112,22 @@ pub(crate) async fn execute_ask_parent(
         Some("Child is awaiting a parent answer".into()),
     )
     .await?;
-    wake_parent_for_ask(agent, &updated, &ask_id, &question, &record.options).await;
+    wake_parent_for_ask(
+        agent,
+        &updated,
+        &ask_id,
+        &ask_slug,
+        &child_slug,
+        &question,
+        &record.options,
+    )
+    .await;
 
     Ok(serde_json::json!({
         "ok": true,
         "state": "open",
         "ask_id": ask_id,
+        "ask_slug": ask_slug,
         "timeout_minutes": timeout_minutes,
         "message": "Task is now blocked awaiting the parent's answer. Stop working and wait to be unblocked; do not retry ask_parent."
     })
@@ -134,9 +148,7 @@ pub(crate) async fn execute_answer_child(
         .map(str::trim)
         .filter(|value| !value.is_empty());
 
-    let child = task_by_id_for_tool_scope(agent, &child_task_id)
-        .await
-        .ok_or_else(|| anyhow::anyhow!("child task {child_task_id} not found"))?;
+    let child = resolve_child_reference(agent, &child_task_id, thread_id, task_id).await?;
     let caller_task = resolve_caller_task(agent, thread_id, task_id).await;
     if !caller_is_parent(&child, caller_task.as_ref(), thread_id) {
         anyhow::bail!(
@@ -148,7 +160,7 @@ pub(crate) async fn execute_answer_child(
         );
     }
 
-    let records = list_ask_records(agent, &child_task_id).await?;
+    let records = list_ask_records(agent, &child.id).await?;
     let open: Vec<(String, AskParentRecord)> = records
         .iter()
         .filter(|(_, record)| record.state == "open")
@@ -216,9 +228,8 @@ pub(crate) async fn execute_note_to_child(
     let child_task_id = required_string_arg(args, "child_task_id")?;
     let note = required_string_arg(args, "note")?;
 
-    let child = task_by_id_for_tool_scope(agent, &child_task_id)
-        .await
-        .ok_or_else(|| anyhow::anyhow!("child task {child_task_id} not found"))?;
+    let child = resolve_child_reference(agent, &child_task_id, thread_id, task_id).await?;
+    let child_task_id = child.id.clone();
     let caller_task = resolve_caller_task(agent, thread_id, task_id).await;
     if !caller_is_parent(&child, caller_task.as_ref(), thread_id) {
         anyhow::bail!(

@@ -261,7 +261,7 @@ export function ThreadsView({
           className="zorai-primary-button"
           onClick={() => runtime.createThread({ workspaceId: runtime.activeWorkspace?.id ?? null })}
         >
-          New Thread
+          + New Thread
         </button>
       </div>
     );
@@ -517,11 +517,20 @@ function ThreadHeader({
   const responderStack = thread.threadHandoffState?.responderStack ?? [];
   const activeResponder = responderStack[responderStack.length - 1]?.agentName
     ?? thread.agent_name;
+
+  const agentSettings = useAgentStore((state) => state.agentSettings);
+  const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
+  const subAgents = useAgentStore((state) => state.subAgents);
+  const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig);
+  const provider = profile.provider || "default provider";
+  const model = profile.model || "default model";
+  const effort = profile.effort || "default effort";
+  const context = profile.contextWindowTokens.toLocaleString();
   return (
     <header className="zorai-thread-header">
       <div>
         <h3>{thread.title}</h3>
-        <span>{messageCount} messages / responder: {activeResponder}</span>
+        <span>{messageCount} messages / {activeResponder} · {provider} · {model} · effort: {effort} · context: {context} tokens</span>
       </div>
       <div className="zorai-thread-header__actions">
         {returnTarget && onReturnTarget ? (
@@ -529,7 +538,6 @@ function ThreadHeader({
             {returnTarget.label}
           </button>
         ) : null}
-        <ThreadRuntimeSummary key={thread.id} thread={thread} />
         <ThreadHandoffControl
           daemonLinked={Boolean(thread.daemonThreadId)}
           handoffState={thread.threadHandoffState}
@@ -550,21 +558,6 @@ function ThreadHeader({
         </button>
       </div>
     </header>
-  );
-}
-
-function ThreadRuntimeSummary({ thread }: { thread: AgentThread }) {
-  const agentSettings = useAgentStore((state) => state.agentSettings);
-  const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
-  const subAgents = useAgentStore((state) => state.subAgents);
-  const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig);
-  const provider = profile.provider || "default provider";
-  const model = profile.model || "default model";
-  return (
-    <div className="zorai-thread-runtime-summary" title="Provider, model, effort and context settings live in the Show Context panel">
-      <span className="zorai-thread-runtime-summary__model" title="Model">{model}</span>
-      <span className="zorai-thread-runtime-summary__provider" title="Provider">{provider}</span>
-    </div>
   );
 }
 

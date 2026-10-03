@@ -190,6 +190,7 @@ fn classify_fixable_upstream_recovery(
         structured.diagnostics.to_string().to_ascii_lowercase()
     );
     let stale_continuation_like = combined.contains("previous_response_id")
+        || combined.contains("previous_interaction_id")
         || combined.contains("upstream_thread_id")
         || combined.contains("stale thread")
         || combined.contains("message stack")

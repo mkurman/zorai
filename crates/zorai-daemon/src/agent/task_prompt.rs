@@ -10,18 +10,104 @@ use super::agent_identity::{
 use super::task_scheduler::describe_scheduled_time;
 use super::types::*;
 
-pub(super) fn task_dispatch_prompt_marker(task_id: &str) -> String {
-    format!("Current task ID: {task_id}")
+pub(super) struct TaskPromptHandles {
+    pub task: String,
+    pub goal: Option<String>,
+    pub parent_task: Option<String>,
+    pub dependencies: Vec<String>,
+}
+
+impl TaskPromptHandles {
+    fn from_task(task: &AgentTask) -> Self {
+        Self {
+            task: task.id.clone(),
+            goal: task.goal_run_id.clone(),
+            parent_task: task.parent_task_id.clone(),
+            dependencies: task.dependencies.clone(),
+        }
+    }
+}
+
+pub(super) fn task_dispatch_prompt_marker(label: &str) -> String {
+    format!("Current task handle: {label}")
 }
 
 pub(super) fn content_has_task_dispatch_prompt(content: &str, task_id: &str) -> bool {
     content.contains(&task_dispatch_prompt_marker(task_id))
+        || content.contains(&format!("Current task ID: {task_id}"))
+}
+
+pub(super) async fn build_dispatched_task_prompt(
+    engine: &crate::agent::AgentEngine,
+    task: &AgentTask,
+) -> String {
+    let task_handle = crate::agent::tool_executor::ensure_task_slug(engine, task)
+        .await
+        .unwrap_or_else(|_| task.id.clone());
+    let goal = match task.goal_run_id.as_deref() {
+        Some(goal_id) => {
+            let goal_run = engine.get_goal_run(goal_id).await;
+            let title = goal_run
+                .as_ref()
+                .map(|goal| goal.title.clone())
+                .filter(|title| !title.trim().is_empty())
+                .unwrap_or_else(|| goal_id.to_string());
+            let thread_id = goal_run.as_ref().and_then(|goal| goal.thread_id.clone());
+            Some(
+                crate::agent::tool_executor::ensure_goal_slug(
+                    engine,
+                    goal_id,
+                    &title,
+                    thread_id.as_deref(),
+                )
+                .await
+                .unwrap_or_else(|_| goal_id.to_string()),
+            )
+        }
+        None => None,
+    };
+    let parent_task = match task.parent_task_id.as_deref() {
+        Some(parent_id) => match engine.task_by_id_for_dispatcher(parent_id).await {
+            Some(parent) => Some(
+                crate::agent::tool_executor::ensure_task_slug(engine, &parent)
+                    .await
+                    .unwrap_or_else(|_| parent_id.to_string()),
+            ),
+            None => Some(parent_id.to_string()),
+        },
+        None => None,
+    };
+    let mut dependencies = Vec::with_capacity(task.dependencies.len());
+    for dependency_id in &task.dependencies {
+        let handle = match engine.task_by_id_for_dispatcher(dependency_id).await {
+            Some(dependency) => crate::agent::tool_executor::ensure_task_slug(engine, &dependency)
+                .await
+                .unwrap_or_else(|_| dependency_id.clone()),
+            None => dependency_id.clone(),
+        };
+        dependencies.push(handle);
+    }
+    let mut prompt = build_task_prompt_with_handles(
+        task,
+        &TaskPromptHandles {
+            task: task_handle,
+            goal,
+            parent_task,
+            dependencies,
+        },
+    );
+    append_goal_run_context(engine, &mut prompt, task).await;
+    prompt
 }
 
 pub(super) fn build_task_prompt(task: &AgentTask) -> String {
+    build_task_prompt_with_handles(task, &TaskPromptHandles::from_task(task))
+}
+
+fn build_task_prompt_with_handles(task: &AgentTask, handles: &TaskPromptHandles) -> String {
     let mut prompt = format!(
-        "Execute the following queued task.\n\nCurrent task ID: {}\nTitle: {}\nDescription: {}",
-        task.id, task.title, task.description
+        "Execute the following queued task.\n\nCurrent task handle: {}\nTitle: {}\nDescription: {}",
+        handles.task, task.title, task.description
     );
 
     prompt.push_str(
@@ -59,8 +145,8 @@ pub(super) fn build_task_prompt(task: &AgentTask) -> String {
         prompt.push_str(&format!("\nPreferred terminal session: {session_id}"));
     }
 
-    if let Some(goal_run_id) = task.goal_run_id.as_deref() {
-        prompt.push_str(&format!("\nGoal run context: {goal_run_id}"));
+    if let Some(goal_handle) = handles.goal.as_deref() {
+        prompt.push_str(&format!("\nGoal handle: {goal_handle}"));
         prompt.push_str(
             "\nYou are the sole worker for this goal. Work until the objective is met, then call request_goal_review with a concrete report. Do not claim the goal is complete in prose.",
         );
@@ -84,16 +170,12 @@ pub(super) fn build_task_prompt(task: &AgentTask) -> String {
     }
 
     if task.is_spawned_subagent() {
-        if let Some(parent_task_id) = task.parent_task_id.as_deref() {
-            prompt.push_str(&format!("\nParent task: {parent_task_id}"));
+        if let Some(parent_handle) = handles.parent_task.as_deref() {
+            prompt.push_str(&format!("\nParent task handle: {parent_handle}"));
         }
         prompt.push_str(
             "\nYou are running as a supervised subagent. Stay tightly scoped to this assignment, avoid duplicating sibling work, and report concise results back through your normal response.",
         );
-    }
-
-    if let Some(parent_thread_id) = task.parent_thread_id.as_deref() {
-        prompt.push_str(&format!("\nParent thread: {parent_thread_id}"));
     }
 
     prompt.push_str(&format!("\nAssigned runtime: {}", task.runtime));
@@ -105,10 +187,10 @@ pub(super) fn build_task_prompt(task: &AgentTask) -> String {
         ));
     }
 
-    if !task.dependencies.is_empty() {
+    if !handles.dependencies.is_empty() {
         prompt.push_str(&format!(
             "\nResolved dependencies: {}",
-            task.dependencies.join(", ")
+            handles.dependencies.join(", ")
         ));
     }
 

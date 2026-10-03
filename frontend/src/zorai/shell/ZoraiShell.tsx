@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { OperatorQuestionDock } from "@/components/OperatorQuestionDock";
 import { ActivityRail, ActivityView } from "../features/activity/ActivityView";
 import { DatabaseRail, DatabaseView } from "../features/database/DatabaseView";
@@ -40,6 +40,14 @@ type GoalOpenRequest = {
   nonce: number;
 };
 
+const COMPACT_SHELL_QUERY = "(max-width: 900px)";
+
+function readCompactShell() {
+  return typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia(COMPACT_SHELL_QUERY).matches;
+}
+
 export function ZoraiShell() {
   const [activeView, setActiveView] = useState<ZoraiViewId>(getDefaultZoraiView);
   const [activeTool, setActiveTool] = useState<ZoraiToolId>(getDefaultZoraiTool);
@@ -72,6 +80,8 @@ export function ZoraiShell() {
   }, []);
   const [activeDatabaseTable, setActiveDatabaseTable] = useState<string | null>(null);
   const [railOpen, setRailOpen] = useState(true);
+  const [compactShell, setCompactShell] = useState(readCompactShell);
+  const wasCompactShell = useRef(false);
   const [contextOpen, setContextOpen] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(() => typeof window === "undefined" ? 1600 : window.innerWidth);
   const explorerPreferredWidth = useCodeLayoutStore((state) => state.explorerPreferredWidth);
@@ -106,6 +116,20 @@ export function ZoraiShell() {
     window.addEventListener(ZORAI_NAVIGATE_EVENT, onNavigate);
     return () => window.removeEventListener(ZORAI_NAVIGATE_EVENT, onNavigate);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const media = window.matchMedia(COMPACT_SHELL_QUERY);
+    const sync = () => setCompactShell(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (compactShell && !wasCompactShell.current) setRailOpen(false);
+    wasCompactShell.current = compactShell;
+  }, [compactShell]);
 
   useEffect(() => {
     let resizeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -179,6 +203,14 @@ export function ZoraiShell() {
         contextOpen ? "zorai-shell--context-open" : "",
       ].filter(Boolean).join(" ")}
       style={shellStyle}>
+        {compactShell && railOpen ? (
+          <button
+            type="button"
+            className="zorai-rail-overlay-backdrop"
+            aria-label="Collapse sidebar"
+            onClick={() => setRailOpen(false)}
+          />
+        ) : null}
         <nav className="zorai-global-rail" aria-label="Zorai navigation">
           <div className="zorai-brand" title="Zorai">
             <ZoraiBrandMark />

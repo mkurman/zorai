@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import type {
   OperationStatusView,
   ThreadMutationResult,
@@ -145,14 +146,12 @@ export function ThreadActivityRow({
                 <span className={`zorai-status-pill zorai-status-pill--${state}`}>{state}</span>
                 <code title={operation.operationId}>{operation.operationId}</code>
                 {operation.tool ? <span>{operation.tool}</span> : null}
-                <button
-                  type="button"
-                  className="zorai-ghost-button"
+                <RefreshButton
                   disabled={pending || operation.operationId === "unknown"}
+                  busy={pending}
+                  label={pending ? "Working…" : "Refresh"}
                   onClick={() => void refresh(operation.operationId)}
-                >
-                  {pending ? "Working…" : "Refresh"}
-                </button>
+                />
                 {cancellable ? (
                   <button
                     type="button"

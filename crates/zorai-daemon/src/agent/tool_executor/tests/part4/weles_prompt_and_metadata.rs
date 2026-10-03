@@ -58,6 +58,9 @@ fn tool_events_serialize_weles_review_metadata() {
         arguments: "{\"command\":\"rm -rf /tmp/demo\"}".to_string(),
         weles_review: Some(review.clone()),
         message_id: None,
+        turn_input_tokens: None,
+        turn_output_tokens: None,
+        turn_cost_usd: None,
     };
     let tool_result_event = AgentEvent::ToolResult {
         thread_id: "thread-1".to_string(),

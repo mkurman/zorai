@@ -621,6 +621,17 @@ describe("frontend GitHub Copilot provider routing", () => {
     ).toBe("anthropic");
   });
 
+  it("registers Gemini on the Interactions API", () => {
+    expect(getDefaultModelForProvider("gemini")).toBe("gemini-3.8-flash");
+    expect(getProviderDefinition("gemini")?.authMethod).toBe("x-goog-api-key");
+    expect(getProviderApiType("gemini", "gemini-3.8-flash")).toBe("gemini");
+    expect(getProviderModels("gemini").map((model) => model.id)).toEqual([
+      "gemini-3.8-flash",
+      "gemini-3.1-pro",
+      "gemini-3.1-flash-image",
+    ]);
+  });
+
   it("exposes anthropic_messages as an explicit selectable transport", () => {
     const copilot = getProviderDefinition("github-copilot");
 

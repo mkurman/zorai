@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { fetchAgentTasks, type AgentQueueTask } from "@/lib/agentTaskQueue";
+import { fetchThreadWorkContext } from "@/lib/agentWorkContext";
 import { getDataDir, listPersistedDir } from "@/lib/persistence";
 import { useThreadFilePreview } from "../threads/ThreadFilePreviewContext";
 import {
@@ -11,6 +13,9 @@ import {
 } from "@/lib/goalRuns";
 import {
   buildGoalWorkspaceModel,
+  goalFilesFromWorkContext,
+  goalFileThreadIds,
+  mergeGoalWorkspaceFiles,
   type GoalProjectionFile,
   type GoalWorkspaceAction,
   type GoalWorkspaceMode,
@@ -56,6 +61,10 @@ export function GoalWorkspacePanel({
   const [projectionFiles, setProjectionFiles] = useState<GoalProjectionFile[]>([]);
   const [goalTasks, setGoalTasks] = useState<AgentQueueTask[]>([]);
   const { openThreadFilePreview } = useThreadFilePreview();
+  const fileThreadKey = useMemo(
+    () => (run ? goalFileThreadIds(run, goalTasks).join("\n") : ""),
+    [goalTasks, run],
+  );
 
   useEffect(() => {
     setMode(run?.status === "awaiting_review" ? "review" : "work");
@@ -72,13 +81,27 @@ export function GoalWorkspacePanel({
       };
     }
 
-    loadGoalProjectionFiles(run.id).then((files) => {
-      if (!cancelled) setProjectionFiles(files);
-    });
+    const refreshFiles = async () => {
+      const threadIds = fileThreadKey ? fileThreadKey.split("\n") : [];
+      const [projection, contexts] = await Promise.all([
+        loadGoalProjectionFiles(run.id),
+        Promise.all(threadIds.map((threadId) => fetchThreadWorkContext(threadId))),
+      ]);
+      if (cancelled) return;
+      const touched = goalFilesFromWorkContext(run.id, contexts.flatMap((context) => context.entries));
+      const files = mergeGoalWorkspaceFiles(projection, touched);
+      setProjectionFiles((current) => (
+        goalFileFingerprint(current) === goalFileFingerprint(files) ? current : files
+      ));
+    };
+
+    void refreshFiles();
+    const timer = window.setInterval(() => void refreshFiles(), GOAL_TASK_POLL_MS);
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
     };
-  }, [mode, run?.id]);
+  }, [fileThreadKey, mode, run?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -188,15 +211,19 @@ export function GoalWorkspacePanel({
         </div>
         <div className="zorai-card-actions">
           {model.footerActions.map((action) => (
-            <button
-              key={action.id}
-              type="button"
-              className={action.id === "toggle" && action.label === "Resume" ? "zorai-primary-button" : "zorai-ghost-button"}
-              onClick={() => void runFooterAction(action)}
-              disabled={!action.enabled}
-            >
-              {action.label}
-            </button>
+            action.id === "refresh" ? (
+              <RefreshButton key={action.id} disabled={!action.enabled} onClick={() => void runFooterAction(action)} />
+            ) : (
+              <button
+                key={action.id}
+                type="button"
+                className={action.id === "toggle" && action.label === "Resume" ? "zorai-primary-button" : "zorai-ghost-button"}
+                onClick={() => void runFooterAction(action)}
+                disabled={!action.enabled}
+              >
+                {action.label}
+              </button>
+            )
           ))}
         </div>
       </section>
@@ -242,12 +269,12 @@ export function GoalWorkspacePanel({
             <SectionList sections={model.detailSections} onRowClick={handleTargetRow} />
           </div>
         </section>
+        <div className="zorai-goal-workspace-status">
+          <span className="zorai-status-pill">{formatGoalRunStatus(run.status)}</span>
+          <span>{summarizeGoalRunStep(run)}</span>
+        </div>
       </div>
 
-      <div className="zorai-goal-workspace-status">
-        <span className="zorai-status-pill">{formatGoalRunStatus(run.status)}</span>
-        <span>{summarizeGoalRunStep(run)}</span>
-      </div>
     </div>
   );
 }
@@ -349,6 +376,10 @@ function SectionList({
       ))}
     </div>
   );
+}
+
+function goalFileFingerprint(files: GoalProjectionFile[]): string {
+  return files.map((file) => `${file.absolutePath}:${file.source ?? ""}:${file.sizeBytes ?? ""}`).join("|");
 }
 
 async function loadGoalProjectionFiles(goalRunId: string): Promise<GoalProjectionFile[]> {

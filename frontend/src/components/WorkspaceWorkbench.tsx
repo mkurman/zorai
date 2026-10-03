@@ -8,6 +8,7 @@ import { useWorkspaceContextStore } from "@/lib/workspaceContextStore";
 import { extractWorkspaceSymbols } from "@/lib/workspaceSymbols";
 import type { editor as MonacoEditorApi } from "monaco-editor";
 import { CodeTabs } from "@/zorai/features/code/CodeTabs";
+import { RefreshIcon } from "@/zorai/shell/RefreshButton";
 import { shouldRestoreWorkspaceDocument } from "@/zorai/features/code/workspaceDocumentRestore";
 import { useWorkspaceEditorRequestStore } from "@/lib/workspaceEditorRequestStore";
 import { openExternalFileInWorkspace } from "@/zorai/features/code/workspaceExternalFile";
@@ -1231,7 +1232,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         {context?.root ? (
           <>
             {!explorerPortalHost ? (
-              <div className="zorai-workspace-explorer-heading"><strong>{context.root.split(/[\\/]/).slice(-1)[0]}</strong><button type="button" onClick={() => void refreshRoot()}>↻</button></div>
+              <div className="zorai-workspace-explorer-heading"><strong>{context.root.split(/[\\/]/).slice(-1)[0]}</strong><button type="button" title="Refresh Explorer" aria-label="Refresh Explorer" onClick={() => void refreshRoot()}><RefreshIcon /></button></div>
             ) : null}
             <details className="zorai-code-open-editors">
               <summary>Open Editors ({context.openFiles.length})</summary>
@@ -1260,7 +1261,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                 <span className="zorai-code-explorer-actions">
                   <button type="button" title="New file" aria-label="New file" onClick={(event) => { event.preventDefault(); setPathDialogError(null); setPathDialog({ operation: "file", initialPath: newPath }); }}>＋</button>
                   <button type="button" title="New folder" aria-label="New folder" onClick={(event) => { event.preventDefault(); setPathDialogError(null); setPathDialog({ operation: "directory", initialPath: newPath }); }}>◇</button>
-                  <button type="button" title="Refresh Explorer" aria-label="Refresh Explorer" onClick={(event) => { event.preventDefault(); void refreshRoot(); }}>↻</button>
+                  <button type="button" title="Refresh Explorer" aria-label="Refresh Explorer" onClick={(event) => { event.preventDefault(); void refreshRoot(); }}><RefreshIcon /></button>
                 </span>
               </summary>
               <WorkspaceExplorerTree root={context.root} entries={rootEntries} status={statusMap} onOpen={(path) => void openFile(path)} refreshToken={explorerRefreshToken} />
@@ -1384,7 +1385,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                     {bridge?.workspaceGitBranches && bridge?.workspaceGitCheckout ? (
                       <BranchSwitcher root={context.root} bridge={bridge} currentBranch={gitOverview.branch} onSwitched={() => refreshRoot()} />
                     ) : null}
-                    <button type="button" title="Refresh Source Control" aria-label="Refresh Source Control" onClick={(event) => { event.preventDefault(); void refreshGitOnly(); }}>↻</button>
+                    <button type="button" title="Refresh Source Control" aria-label="Refresh Source Control" onClick={(event) => { event.preventDefault(); void refreshGitOnly(); }}><RefreshIcon /></button>
                   </span>
                 </summary>
                 <div className="zorai-workspace-git-overview">
@@ -1414,7 +1415,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
               <div className="zorai-workspace-hunk-review">
                 <div className="zorai-workspace-hunk-heading">
                   <strong>{reviewedChange.staged ? "Staged" : "Unstaged"} hunks · {reviewedChange.path}</strong>
-                  <button type="button" onClick={() => void reviewHunks(reviewedChange.path, reviewedChange.staged)}>↻</button>
+                  <button type="button" title="Refresh hunks" aria-label="Refresh hunks" onClick={() => void reviewHunks(reviewedChange.path, reviewedChange.staged)}><RefreshIcon /></button>
                   <button type="button" onClick={() => setReviewedChange(null)}>×</button>
                 </div>
                 {reviewedChange.hunks.length === 0 ? <span className="zorai-workspace-empty">No matching hunks.</span> : reviewedChange.hunks.map((hunk) => (

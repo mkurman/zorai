@@ -80,6 +80,13 @@ pub(crate) fn effective_attempt_target(
             url: anthropic_messages_url(&config.base_url),
         };
     }
+    if api_type == ApiType::Gemini {
+        return AttemptTarget {
+            api_type,
+            branch: "gemini_interactions",
+            url: gemini_interactions_url(&config.base_url, true),
+        };
+    }
 
     match transport {
         ApiTransport::NativeAssistant => AttemptTarget {
@@ -288,6 +295,18 @@ pub(crate) fn send_completion_request_with_options(
                     &tools,
                     options.force_connection_close,
                     options.opencode_session_id.as_deref(),
+                    &tx,
+                )
+                .await
+            } else if target.api_type == ApiType::Gemini {
+                run_gemini(
+                    &client,
+                    &provider,
+                    &config,
+                    &system_prompt,
+                    &messages,
+                    &tools,
+                    previous_response_id.as_deref(),
                     &tx,
                 )
                 .await

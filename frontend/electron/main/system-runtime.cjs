@@ -189,6 +189,7 @@ async function getGpuStats() {
 }
 
 async function getTopProcesses(limit = 24) {
+    if (limit === 0) return [];
     const safeLimit = Math.max(8, Math.min(64, Number(limit) || 24));
 
     try {
@@ -250,11 +251,12 @@ async function getSystemMonitorSnapshot(options = {}) {
     const freeMemoryBytes = os.freemem();
     const usedMemoryBytes = totalMemoryBytes - freeMemoryBytes;
     const processLimit = options && typeof options === 'object' ? options.processLimit : undefined;
+    const skipProcessList = processLimit === 0;
 
     const [swap, gpus, processes] = await Promise.all([
-        getSwapStats(),
+        skipProcessList ? null : getSwapStats(),
         getGpuStats(),
-        getTopProcesses(processLimit),
+        skipProcessList ? [] : getTopProcesses(processLimit),
     ]);
 
     return {

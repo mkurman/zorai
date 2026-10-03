@@ -1,4 +1,5 @@
-import { actionBtnStyle, closeBtnStyle } from "./shared";
+import { RefreshButton } from "@/zorai/shell/RefreshButton";
+import { closeBtnStyle } from "./shared";
 
 export function TimeTravelHeader({
     snapshotCount,
@@ -19,9 +20,7 @@ export function TimeTravelHeader({
                 <span style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>
                     {snapshotCount} snapshot{snapshotCount !== 1 ? "s" : ""}
                 </span>
-                <button onClick={onRefresh} style={actionBtnStyle} title="Refresh snapshots">
-                    Refresh
-                </button>
+                <RefreshButton onClick={onRefresh} label="Refresh snapshots" />
                 <button onClick={toggle} style={closeBtnStyle} title="Close (Esc)">
                     ✕
                 </button>

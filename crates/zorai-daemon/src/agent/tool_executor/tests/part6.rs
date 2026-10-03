@@ -1447,7 +1447,7 @@ async fn get_operation_status_resolves_mistyped_id_by_unique_first_segment() {
     let mangled = format!("{first_segment}-1111-4111-8111-111111111111");
 
     let args = serde_json::json!({ "operation_id": mangled });
-    let result = execute_get_operation_status(&args, &manager, None, None)
+    let result = execute_get_operation_status(&args, &manager, None, None, None)
         .await
         .expect("a mistyped id with a unique correct leading segment should still resolve");
     let payload: serde_json::Value =
@@ -2358,6 +2358,7 @@ async fn get_operation_status_wait_times_out_without_polling_hint_loop() {
         &manager,
         None,
         None,
+        None,
     )
     .await
     .expect("wait timeout should still return a snapshot");
@@ -2390,6 +2391,7 @@ async fn get_operation_status_snapshot_tells_agent_not_to_poll() {
     let result = execute_get_operation_status(
         &serde_json::json!({ "operation_id": record.operation_id }),
         &manager,
+        None,
         None,
         None,
     )
@@ -4560,12 +4562,15 @@ async fn list_agents_returns_effective_runtime_targets() {
     let mut config = AgentConfig::default();
     config.provider = zorai_shared::providers::PROVIDER_ID_OPENAI.to_string();
     config.model = "gpt-5.4-mini".to_string();
+    config.reasoning_effort = "xhigh".to_string();
+    config.context_window_tokens = 256_000;
     config.api_key = "test-key".to_string();
     config.concierge.provider = Some(zorai_shared::providers::PROVIDER_ID_GROQ.to_string());
     config.concierge.model = Some("llama-3.3-70b-versatile".to_string());
     config.builtin_sub_agents.weles.provider =
         Some(zorai_shared::providers::PROVIDER_ID_ANTHROPIC.to_string());
     config.builtin_sub_agents.weles.model = Some("claude-sonnet-4-20250514".to_string());
+    config.builtin_sub_agents.weles.reasoning_effort = Some("medium".to_string());
     config.sub_agents.push(crate::agent::SubAgentDefinition {
         base_url: None,
         claude_permission_mode: None,
@@ -4578,7 +4583,7 @@ async fn list_agents_returns_effective_runtime_targets() {
         tool_whitelist: None,
         tool_blacklist: None,
         context_budget_tokens: None,
-        context_window_tokens: None,
+        context_window_tokens: Some(180_000),
         max_duration_secs: None,
         supervisor_config: None,
         enabled: true,
@@ -4587,7 +4592,7 @@ async fn list_agents_returns_effective_runtime_targets() {
         disable_allowed: true,
         delete_allowed: true,
         protected_reason: None,
-        reasoning_effort: None,
+        reasoning_effort: Some("low".to_string()),
         api_transport: None,
         openrouter_provider_order: Vec::new(),
         openrouter_provider_ignore: Vec::new(),
@@ -4642,6 +4647,18 @@ async fn list_agents_returns_effective_runtime_targets() {
         svarog.get("model").and_then(|value| value.as_str()),
         Some("gpt-5.4-mini")
     );
+    assert_eq!(
+        svarog
+            .get("reasoning_effort")
+            .and_then(|value| value.as_str()),
+        Some("xhigh")
+    );
+    assert_eq!(
+        svarog
+            .get("context_window_tokens")
+            .and_then(|value| value.as_u64()),
+        Some(256_000)
+    );
     let rarog = rows
         .iter()
         .find(|row| row.get("agent").and_then(|value| value.as_str()) == Some("rarog"))
@@ -4695,6 +4712,18 @@ async fn list_agents_returns_effective_runtime_targets() {
         Some(zorai_shared::providers::PROVIDER_ID_ANTHROPIC)
     );
     assert_eq!(
+        weles
+            .get("reasoning_effort")
+            .and_then(|value| value.as_str()),
+        Some("medium")
+    );
+    assert_eq!(
+        weles
+            .get("context_window_tokens")
+            .and_then(|value| value.as_u64()),
+        Some(200_000)
+    );
+    assert_eq!(
         svarog.get("spawnable"),
         Some(&serde_json::Value::Bool(false))
     );
@@ -4707,7 +4736,18 @@ async fn list_agents_returns_effective_runtime_targets() {
             && row.get("model").and_then(|value| value.as_str()) == Some("gpt-5.4")
             && row.get("spawnable") == Some(&serde_json::Value::Bool(true))
             && row.get("role").and_then(|value| value.as_str()) == Some("review")
+            && row.get("reasoning_effort").and_then(|value| value.as_str()) == Some("low")
+            && row
+                .get("context_window_tokens")
+                .and_then(|value| value.as_u64())
+                == Some(180_000)
     }));
+    let perun_provider = perun.get("provider").and_then(|value| value.as_str());
+    assert_eq!(
+        perun_provider,
+        Some(zorai_shared::providers::PROVIDER_ID_OPENAI),
+        "builtin personas inherit the main provider when they have no override"
+    );
 }
 
 #[tokio::test]
