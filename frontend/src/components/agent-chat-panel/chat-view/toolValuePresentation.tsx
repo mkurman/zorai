@@ -288,11 +288,11 @@ function formatWorkspaceTaskListing(record: Record<string, unknown>): string {
     const parts: string[] = [];
     const status = scalarText(record.status);
     if (status) {
-        parts.push(status.replaceAll("_", " "));
+        parts.push(status.replace(/_/g, " "));
     }
     const taskType = scalarText(record.task_type);
     if (taskType) {
-        parts.push(taskType.replaceAll("_", " "));
+        parts.push(taskType.replace(/_/g, " "));
     }
     const priority = scalarText(record.priority);
     if (priority) {
