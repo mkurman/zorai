@@ -1,6 +1,25 @@
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import type { ToolEventAttribution, ToolEventGroup } from "./types";
 import { MemoizedToolEventRow, sameToolEventGroup } from "./ToolEventRow";
+
+const TOOL_TITLE_RISE_MS = 280;
+
+export type ToolTitleFrame = {
+  current: string;
+  previous: string | null;
+};
+
+export function advanceToolTitleFrame(
+  frame: ToolTitleFrame,
+  title: string,
+  reduceMotion: boolean,
+): ToolTitleFrame {
+  if (title === frame.current) return frame;
+  return {
+    current: title,
+    previous: reduceMotion ? null : frame.current,
+  };
+}
 
 export const ToolEventList = memo(function ToolEventList({
   groups,
@@ -34,12 +53,7 @@ export const ToolEventList = memo(function ToolEventList({
         className="acp-tool-list__header"
         onClick={() => setExpanded((prev) => !prev)}
       >
-        <span
-          className={`acp-tool-list__title${working ? " acp-tool-list__title--working" : ""}`}
-          title={title}
-        >
-          {title}
-        </span>
+        <ToolListTitle title={title} working={working} />
         <span className="acp-tool-list__stats">
           [{doneCount} / {groups.length}]
         </span>
@@ -59,6 +73,54 @@ export const ToolEventList = memo(function ToolEventList({
   && prev.attribution?.createdAt === next.attribution?.createdAt
   && sameToolEventGroups(prev.groups, next.groups)
 ));
+
+function ToolListTitle({ title, working }: { title: string; working: boolean }) {
+  const [frame, setFrame] = useState<ToolTitleFrame>({ current: title, previous: null });
+
+  if (title !== frame.current) {
+    setFrame(advanceToolTitleFrame(frame, title, prefersReducedMotion()));
+  }
+
+  useEffect(() => {
+    if (!frame.previous) return;
+    const timeout = window.setTimeout(() => {
+      setFrame((current) => (
+        current.previous === null ? current : { current: current.current, previous: null }
+      ));
+    }, TOOL_TITLE_RISE_MS + 40);
+    return () => window.clearTimeout(timeout);
+  }, [frame.current, frame.previous]);
+
+  const sliding = frame.previous !== null;
+
+  return (
+    <span className="acp-tool-list__title-slot" title={title}>
+      <span
+        key={frame.current}
+        className={sliding ? "acp-tool-list__title-track acp-tool-list__title-track--enter" : "acp-tool-list__title-track"}
+        onAnimationEnd={(event) => {
+          if (event.target !== event.currentTarget) return;
+          setFrame((current) => (
+            current.previous === null ? current : { current: current.current, previous: null }
+          ));
+        }}
+      >
+        {sliding ? (
+          <span className="acp-tool-list__title" aria-hidden="true">{frame.previous}</span>
+        ) : null}
+        <span className={`acp-tool-list__title${working ? " acp-tool-list__title--working" : ""}`}>
+          {frame.current}
+        </span>
+      </span>
+    </span>
+  );
+}
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 function sameToolEventGroups(prev: ToolEventGroup[], next: ToolEventGroup[]): boolean {
   if (prev.length !== next.length) return false;

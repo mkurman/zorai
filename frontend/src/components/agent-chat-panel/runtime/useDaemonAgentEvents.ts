@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useAgentStore } from "@/lib/agentStore";
+import { boundRendererText } from "@/lib/agentStore/rendererText";
 import { shouldUseDaemonRuntime, getAgentBridge } from "@/lib/agentDaemonConfig";
 import { fetchAllThreadTodos, fetchThreadTodos } from "@/lib/agentTodos";
 import { fetchGoalRuns, type GoalRun } from "@/lib/goalRuns";
@@ -226,11 +227,16 @@ export function useDaemonAgentEvents({
     // animation frame; terminal/tool events flush synchronously first.
     const pendingStreamDeltas = new Map<string, { content: string; reasoning: string }>();
     let streamFrame: number | null = null;
+    let streamFlushTimer: number | null = null;
 
     const flushStreamDeltas = () => {
       if (streamFrame !== null) {
         window.cancelAnimationFrame(streamFrame);
         streamFrame = null;
+      }
+      if (streamFlushTimer !== null) {
+        window.clearTimeout(streamFlushTimer);
+        streamFlushTimer = null;
       }
       const pending = [...pendingStreamDeltas.entries()];
       pendingStreamDeltas.clear();
@@ -246,12 +252,12 @@ export function useDaemonAgentEvents({
     const queueStreamDelta = (threadId: string, content: string, reasoning: string) => {
       const current = pendingStreamDeltas.get(threadId) ?? { content: "", reasoning: "" };
       pendingStreamDeltas.set(threadId, {
-        content: current.content + content,
-        reasoning: current.reasoning + reasoning,
+        content: boundRendererText(current.content + content),
+        reasoning: boundRendererText(current.reasoning + reasoning),
       });
-      if (streamFrame === null) {
-        streamFrame = window.requestAnimationFrame(flushStreamDeltas);
-      }
+      if (streamFrame !== null) return;
+      streamFrame = window.requestAnimationFrame(flushStreamDeltas);
+      streamFlushTimer = window.setTimeout(flushStreamDeltas, 250);
     };
 
     // Walks the thread's messages from newest to oldest and rewrites the id of
@@ -453,6 +459,7 @@ export function useDaemonAgentEvents({
             isCompactionSummary: false,
             isStreaming: true,
           });
+          trimFollowedThreadToHistoryWindow(tid);
           break;
         }
         case "approval_required": {
@@ -641,6 +648,9 @@ export function useDaemonAgentEvents({
     return () => {
       if (streamFrame !== null) {
         window.cancelAnimationFrame(streamFrame);
+      }
+      if (streamFlushTimer !== null) {
+        window.clearTimeout(streamFlushTimer);
       }
       pendingStreamDeltas.clear();
       if (typeof unsubscribe === "function") {

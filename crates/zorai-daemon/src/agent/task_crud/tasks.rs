@@ -1397,10 +1397,7 @@ impl AgentEngine {
         let tasks = self
             .list_parent_thread_subagent_tasks(parent_thread_id, None)
             .await;
-        let sessions = self.session_manager.list().await;
-        let mut runs = project_task_runs(&tasks, &sessions);
-        runs.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-        runs
+        self.project_runs(&tasks).await
     }
 
     pub async fn list_runs(&self) -> Vec<AgentRun> {
@@ -1423,10 +1420,7 @@ impl AgentEngine {
                 parent_task_ids: Vec::new(),
             })
             .await;
-        let sessions = self.session_manager.list().await;
-        let mut runs = project_task_runs(&tasks, &sessions);
-        runs.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-        runs
+        self.project_runs(&tasks).await
     }
 
     pub async fn get_run(&self, run_id: &str) -> Option<AgentRun> {
@@ -1472,9 +1466,18 @@ impl AgentEngine {
                 .await,
             );
         }
-        let sessions = self.session_manager.list().await;
-        project_task_runs(&tasks, &sessions)
+        self.project_runs(&tasks)
+            .await
             .into_iter()
             .find(|run| run.id == run_id)
+    }
+
+    async fn project_runs(&self, tasks: &[AgentTask]) -> Vec<AgentRun> {
+        let sessions = self.session_manager.list().await;
+        let profiles = self.thread_execution_profiles.read().await.clone();
+        let sub_agents = self.config.read().await.sub_agents.clone();
+        let mut runs = project_task_runs_with_runtime(tasks, &sessions, &profiles, &sub_agents);
+        runs.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        runs
     }
 }

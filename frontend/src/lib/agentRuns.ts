@@ -19,6 +19,9 @@ export interface AgentRun {
     completed_at?: number | null;
     thread_id?: string | null;
     session_id?: string | null;
+    provider?: string | null;
+    model?: string | null;
+    reasoning_effort?: string | null;
     workspace_id?: string | null;
     source: string;
     runtime?: string | null;

@@ -8,6 +8,26 @@ type OpenSessionTabsState = {
   close: (id: string) => string | null;
 };
 
+export type SessionCloseFollowUp =
+  | { kind: "follow"; id: string }
+  | { kind: "clear" }
+  | { kind: "stay" };
+
+/** Last open tab clears the thread. An active tab with neighbors follows the neighbor. */
+export function sessionCloseFollowUp(input: {
+  closedId: string;
+  activeThreadId: string | null;
+  activeDaemonThreadId: string | null;
+  nextOpenId: string | null;
+  openCount: number;
+}): SessionCloseFollowUp {
+  if (input.openCount === 0) return { kind: "clear" };
+  const closedActive = input.closedId === input.activeThreadId
+    || (input.activeDaemonThreadId != null && input.closedId === input.activeDaemonThreadId);
+  if (closedActive && input.nextOpenId) return { kind: "follow", id: input.nextOpenId };
+  return { kind: "stay" };
+}
+
 /** New sessions append. Selecting one leaves the existing order alone. */
 export function rememberOpenSessionId(ids: readonly string[], id: string, max = MAX_OPEN_SESSIONS): readonly string[] {
   const trimmed = id.trim();

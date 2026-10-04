@@ -378,12 +378,14 @@ fn project_task_runs_exposes_parent_runtime_workspace_and_classification() {
     child.session_id = Some("22222222-2222-2222-2222-222222222222".to_string());
     child.runtime = "hermes".to_string();
 
-    let runs = project_task_runs(
+    let runs = project_task_runs_with_runtime(
         &[parent.clone(), child.clone()],
         &[
             sample_session("11111111-1111-1111-1111-111111111111", "workspace-parent"),
             sample_session("22222222-2222-2222-2222-222222222222", "workspace-child"),
         ],
+        &std::collections::HashMap::new(),
+        &[],
     );
 
     let parent_run = runs
@@ -406,6 +408,57 @@ fn project_task_runs_exposes_parent_runtime_workspace_and_classification() {
         Some("Implement rust file patching")
     );
     assert_eq!(child_run.workspace_id.as_deref(), Some("workspace-child"));
+}
+
+#[test]
+fn project_task_runs_prefers_thread_profile_then_task_override_then_subagent() {
+    let mut profiled = sample_subagent("profiled", "parent-task", TaskStatus::Queued);
+    profiled.thread_id = Some("thread-profiled".to_string());
+    profiled.sub_agent_def_id = Some("mokosh".to_string());
+    profiled.override_provider = Some("override-provider".to_string());
+    profiled.override_model = Some("override-model".to_string());
+
+    let mut fallback = sample_subagent("fallback", "parent-task", TaskStatus::Queued);
+    fallback.sub_agent_def_id = Some("mokosh".to_string());
+    fallback.override_provider = Some("task-provider".to_string());
+    fallback.override_model = Some("task-model".to_string());
+
+    let definition: SubAgentDefinition = serde_json::from_value(serde_json::json!({
+        "id": "mokosh",
+        "name": "Mokosh",
+        "provider": "openrouter",
+        "model": "definition-model",
+        "reasoning_effort": "medium",
+    }))
+    .expect("subagent definition");
+    let mut profiles = std::collections::HashMap::new();
+    profiles.insert(
+        "thread-profiled".to_string(),
+        ThreadExecutionProfile {
+            provider: Some("github-copilot".to_string()),
+            model: Some("gpt-5.5".to_string()),
+            reasoning_effort: Some("high".to_string()),
+            context_window_tokens: None,
+        },
+    );
+
+    let runs =
+        project_task_runs_with_runtime(&[profiled, fallback], &[], &profiles, &[definition]);
+    let profiled_run = runs
+        .iter()
+        .find(|run| run.id == "profiled")
+        .expect("profiled run");
+    assert_eq!(profiled_run.provider.as_deref(), Some("github-copilot"));
+    assert_eq!(profiled_run.model.as_deref(), Some("gpt-5.5"));
+    assert_eq!(profiled_run.reasoning_effort.as_deref(), Some("high"));
+
+    let fallback_run = runs
+        .iter()
+        .find(|run| run.id == "fallback")
+        .expect("fallback run");
+    assert_eq!(fallback_run.provider.as_deref(), Some("task-provider"));
+    assert_eq!(fallback_run.model.as_deref(), Some("task-model"));
+    assert_eq!(fallback_run.reasoning_effort.as_deref(), Some("medium"));
 }
 
 #[test]

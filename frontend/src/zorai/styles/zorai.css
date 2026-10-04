@@ -1062,7 +1062,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 24px;
+  padding: 24px 24px 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1909,7 +1909,14 @@
 }
 
 .zorai-spawned-context__header {
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.zorai-spawned-context__header .zorai-ghost-button {
+  align-self: flex-end;
 }
 
 .zorai-spawned-context__list {
@@ -1941,8 +1948,23 @@
 }
 
 .zorai-spawned-card strong {
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   line-height: 1.45;
+}
+
+.zorai-spawned-card span,
+.zorai-spawned-card__session-id,
+.zorai-spawned-card__runtime-label {
+  line-height: 1.45;
+}
+
+.zorai-spawned-card .zorai-spawned-card__session-id {
+  color: var(--zorai-muted);
+  font-size: var(--text-2xs);
+}
+
+.zorai-spawned-card .zorai-spawned-card__runtime-label {
+  color: var(--zorai-muted);
 }
 
 .zorai-spawned-card__footer {
@@ -2538,7 +2560,7 @@
   background: var(--zorai-bg-panel);
   color: var(--zorai-muted);
   cursor: pointer;
-  min-height: 240px;
+  min-height: 120px;
   text-align: center;
   justify-content: center;
   align-items: center;
@@ -2785,9 +2807,15 @@
 }
 
 .zorai-empty-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
   max-width: 620px;
   margin: 12vh auto 0;
   padding: 28px;
+  text-align: center;
 }
 
 .zorai-empty-kicker {

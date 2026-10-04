@@ -1,8 +1,13 @@
-use super::*;
+use std::collections::HashMap;
 
-pub(in crate::agent) fn project_task_runs(
+use super::*;
+use crate::agent::types::{SubAgentDefinition, ThreadExecutionProfile};
+
+pub(in crate::agent) fn project_task_runs_with_runtime(
     tasks: &[AgentTask],
     sessions: &[zorai_protocol::SessionInfo],
+    execution_profiles: &HashMap<String, ThreadExecutionProfile>,
+    sub_agents: &[SubAgentDefinition],
 ) -> Vec<AgentRun> {
     let task_titles = tasks
         .iter()
@@ -20,6 +25,8 @@ pub(in crate::agent) fn project_task_runs(
                 .session_id
                 .clone()
                 .filter(|value| !value.trim().is_empty());
+            let (provider, model, reasoning_effort) =
+                resolve_run_runtime(task, execution_profiles, sub_agents);
             let workspace_id = session_id
                 .as_deref()
                 .and_then(|value| session_workspaces.get(value))
@@ -55,6 +62,9 @@ pub(in crate::agent) fn project_task_runs(
                 completed_at: task.completed_at,
                 thread_id: task.thread_id.clone(),
                 session_id,
+                provider,
+                model,
+                reasoning_effort,
                 workspace_id,
                 source: task.source.clone(),
                 runtime: task.runtime.clone(),
@@ -77,6 +87,37 @@ pub(in crate::agent) fn project_task_runs(
             }
         })
         .collect()
+}
+
+fn resolve_run_runtime(
+    task: &AgentTask,
+    execution_profiles: &HashMap<String, ThreadExecutionProfile>,
+    sub_agents: &[SubAgentDefinition],
+) -> (Option<String>, Option<String>, Option<String>) {
+    let nonempty = |value: Option<&str>| {
+        value
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned)
+    };
+    let profile = task
+        .thread_id
+        .as_deref()
+        .and_then(|thread_id| execution_profiles.get(thread_id));
+    let sub_agent = task.sub_agent_def_id.as_deref().and_then(|def_id| {
+        sub_agents.iter().find(|definition| definition.id == def_id)
+    });
+    let provider = nonempty(profile.and_then(|profile| profile.provider.as_deref()))
+        .or_else(|| nonempty(task.override_provider.as_deref()))
+        .or_else(|| sub_agent.and_then(|definition| nonempty(Some(definition.provider.as_str()))));
+    let model = nonempty(profile.and_then(|profile| profile.model.as_deref()))
+        .or_else(|| nonempty(task.override_model.as_deref()))
+        .or_else(|| sub_agent.and_then(|definition| nonempty(Some(definition.model.as_str()))));
+    let reasoning_effort = nonempty(profile.and_then(|profile| profile.reasoning_effort.as_deref()))
+        .or_else(|| {
+            sub_agent.and_then(|definition| nonempty(definition.reasoning_effort.as_deref()))
+        });
+    (provider, model, reasoning_effort)
 }
 
 pub(in crate::agent) fn classify_task(task: &AgentTask) -> &'static str {
