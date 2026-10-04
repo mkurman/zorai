@@ -90,23 +90,7 @@ pub(super) async fn wake_parent_for_ask(
             },
         )
         .await;
-    if agent
-        .thread_is_idle_for_subagent_wakeup(&parent_thread_id)
-        .await
-    {
-        let _ = agent.stop_stream(&parent_thread_id).await;
-    }
-    if let Err(error) = agent
-        .flush_deferred_visible_thread_continuations(&parent_thread_id)
-        .await
-    {
-        tracing::warn!(
-            thread_id = %parent_thread_id,
-            child_task_id = %child.id,
-            %error,
-            "failed to flush parent continuation after ask_parent"
-        );
-    }
+    agent.schedule_continuation_flush(&parent_thread_id);
 }
 
 pub(super) async fn wake_child_thread(
@@ -136,15 +120,5 @@ pub(super) async fn wake_child_thread(
             },
         )
         .await;
-    if let Err(error) = agent
-        .flush_deferred_visible_thread_continuations(child_thread_id)
-        .await
-    {
-        tracing::warn!(
-            thread_id = %child_thread_id,
-            task_id = %child.id,
-            %error,
-            "failed to flush child continuation after parent-child messaging resolution"
-        );
-    }
+    agent.schedule_continuation_flush(child_thread_id);
 }

@@ -278,4 +278,175 @@ describe("buildDisplayItems", () => {
     expect(toolLists[0].groups.map((group) => group.toolCallId)).toEqual(["call-a", "call-b"]);
     expect(first.filter((item) => item.type === "toolList")).toHaveLength(1);
   });
+
+  it("keeps one tool list when a metacognitive intervention is displayed between tool calls", () => {
+    const items = buildDisplayItems([
+      message({ id: "user", role: "user", content: "Investigate", createdAt: 1 }),
+      message({
+        id: "assistant-batch-1",
+        role: "assistant",
+        content: "",
+        toolCalls: [{ id: "call-a", name: "python", arguments: "{\"code\":\"1\"}" }],
+        createdAt: 2,
+      }),
+      message({
+        id: "tool-a",
+        role: "tool",
+        toolCallId: "call-a",
+        toolName: "python",
+        toolStatus: "done",
+        content: "1",
+        createdAt: 3,
+      }),
+      message({
+        id: "meta",
+        role: "system",
+        content: "Meta-cognitive intervention: grouped advisory notices.\nTools: replace_in_file, python",
+        createdAt: 4,
+      }),
+      message({
+        id: "assistant-batch-2",
+        role: "assistant",
+        content: "",
+        toolCalls: [{ id: "call-b", name: "python", arguments: "{\"code\":\"2\"}" }],
+        createdAt: 5,
+      }),
+      message({
+        id: "tool-b",
+        role: "tool",
+        toolCallId: "call-b",
+        toolName: "python",
+        toolStatus: "done",
+        content: "2",
+        createdAt: 6,
+      }),
+    ]);
+
+    const toolLists = items.filter((item) => item.type === "toolList");
+    expect(toolLists).toHaveLength(1);
+    expect(toolLists[0].groups.map((group) => group.toolCallId)).toEqual(["call-a", "call-b"]);
+    expect(items.map((item) => item.type === "message" ? item.message.id : item.type)).toEqual([
+      "user",
+      "toolList",
+      "meta",
+    ]);
+  });
+
+  it("does not freeze the earlier tool list when the intervention arrives before the next tool call", () => {
+    const user = message({ id: "user", role: "user", content: "Investigate", createdAt: 1 });
+    const envelopeA = message({
+      id: "assistant-batch-1",
+      role: "assistant",
+      content: "",
+      toolCalls: [{ id: "call-a", name: "python", arguments: "{\"code\":\"1\"}" }],
+      createdAt: 2,
+    });
+    const toolA = message({
+      id: "tool-a",
+      role: "tool",
+      toolCallId: "call-a",
+      toolName: "python",
+      toolStatus: "done",
+      content: "1",
+      createdAt: 3,
+    });
+    const meta = message({
+      id: "meta",
+      role: "system",
+      content: "Meta-cognitive intervention: warning before tool execution.",
+      createdAt: 4,
+    });
+    const first = buildDisplayItems([user, envelopeA, toolA, meta]);
+    const envelopeB = message({
+      id: "assistant-batch-2",
+      role: "assistant",
+      content: "",
+      toolCalls: [{ id: "call-b", name: "python", arguments: "{\"code\":\"2\"}" }],
+      createdAt: 5,
+    });
+    const toolB = message({
+      id: "tool-b",
+      role: "tool",
+      toolCallId: "call-b",
+      toolName: "python",
+      toolStatus: "requested",
+      content: "",
+      createdAt: 6,
+    });
+    const second = buildDisplayItems([user, envelopeA, toolA, meta, envelopeB, toolB]);
+    const toolLists = second.filter((item) => item.type === "toolList");
+
+    expect(first.filter((item) => item.type === "toolList")).toHaveLength(1);
+    expect(first.map((item) => item.type === "message" ? item.message.id : item.type)).toEqual(["user", "toolList", "meta"]);
+    expect(toolLists).toHaveLength(1);
+    expect(toolLists[0].groups.map((group) => group.toolCallId)).toEqual(["call-a", "call-b"]);
+    expect(second.map((item) => item.type === "message" ? item.message.id : item.type)).toEqual([
+      "user",
+      "toolList",
+      "meta",
+    ]);
+  });
+
+  it("keeps one tool list when a metacognitive warning or finished background operation is displayed between tool calls", () => {
+    const user = message({ id: "user", role: "user", content: "Investigate", createdAt: 1 });
+    const toolA = message({
+      id: "tool-a",
+      role: "tool",
+      toolCallId: "call-a",
+      toolName: "python",
+      toolStatus: "done",
+      content: "1",
+      createdAt: 2,
+    });
+    const warning = message({
+      id: "warning",
+      role: "system",
+      content: "Meta-cognitive intervention: warning before tool execution.\nPlanned tool: python",
+      createdAt: 3,
+    });
+    const finished = message({
+      id: "finished",
+      role: "system",
+      content: "Background operation finished.\n\noperation_id: op-1\ntool: python\nstate: completed\nregistered_at: 10\n\nOperation status:\n{\"state\":\"completed\"}",
+      createdAt: 4,
+    });
+    const first = buildDisplayItems([user, toolA, warning]);
+    const toolB = message({
+      id: "tool-b",
+      role: "tool",
+      toolCallId: "call-b",
+      toolName: "python",
+      toolStatus: "done",
+      content: "2",
+      createdAt: 5,
+    });
+    const second = buildDisplayItems([user, toolA, warning, finished, toolB]);
+    const toolLists = second.filter((item) => item.type === "toolList");
+
+    expect(first.filter((item) => item.type === "toolList")).toHaveLength(1);
+    expect(toolLists).toHaveLength(1);
+    expect(toolLists[0].groups.map((group) => group.toolCallId)).toEqual(["call-a", "call-b"]);
+    expect(second.map((item) => item.type === "message" ? item.message.id : item.type)).toEqual([
+      "user",
+      "toolList",
+      "warning",
+      "finished",
+    ]);
+  });
+
+  it("still ends the tool list when an unrelated system message arrives between tool calls", () => {
+    const items = buildDisplayItems([
+      message({ id: "tool-a", role: "tool", toolCallId: "call-a", toolName: "python", toolStatus: "done", content: "1", createdAt: 1 }),
+      message({ id: "note", role: "system", content: "Thread budget exceeded for this thread.", createdAt: 2 }),
+      message({ id: "tool-b", role: "tool", toolCallId: "call-b", toolName: "python", toolStatus: "done", content: "2", createdAt: 3 }),
+    ]);
+
+    const toolLists = items.filter((item) => item.type === "toolList");
+    expect(toolLists).toHaveLength(2);
+    expect(items.map((item) => item.type === "message" ? item.message.id : item.type)).toEqual([
+      "toolList",
+      "note",
+      "toolList",
+    ]);
+  });
 });
