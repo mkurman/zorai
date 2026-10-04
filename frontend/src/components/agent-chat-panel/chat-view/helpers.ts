@@ -84,13 +84,18 @@ function emptyDisplayBuild(messages: AgentMessage[]): BuiltDisplayItems {
 function rebuildDisplayItems(messages: AgentMessage[], previous: BuiltDisplayItems, shared: number): BuiltDisplayItems {
   let keep = 0;
   while (keep < previous.items.length && previous.itemEnds[keep] < shared) keep += 1;
-  if (
-    keep > 0
-    && previous.items[keep - 1]?.type === "toolList"
-    && previous.itemEnds[keep - 1] === shared - 1
-    && continuesToolRun(messages[shared])
-  ) {
-    keep -= 1;
+  if (keep > 0 && continuesToolRun(messages, shared)) {
+    let toolListIndex = keep - 1;
+    while (toolListIndex >= 0 && displayItemIsToolRunNotice(previous.items[toolListIndex])) {
+      toolListIndex -= 1;
+    }
+    const toolList = previous.items[toolListIndex];
+    if (toolList?.type === "toolList" && previous.itemEnds[toolListIndex] < shared) {
+      const parkedNotices = toolListIndex < keep - 1;
+      if (parkedNotices || previous.itemEnds[toolListIndex] === shared - 1) {
+        keep = toolListIndex;
+      }
+    }
   }
   const restart = keep < previous.items.length ? previous.itemStarts[keep] : shared;
   return buildDisplayItemsFrom(messages, restart, {
@@ -101,11 +106,33 @@ function rebuildDisplayItems(messages: AgentMessage[], previous: BuiltDisplayIte
   });
 }
 
-function continuesToolRun(message: AgentMessage | undefined): boolean {
-  if (!message) return false;
-  return message.role === "tool"
-    || isAssistantToolCallEnvelope(message)
-    || shouldHideAssistantDisplayMessage(message);
+function continuesToolRun(messages: AgentMessage[], index: number): boolean {
+  for (let cursor = index; cursor < messages.length; cursor += 1) {
+    const message = messages[cursor];
+    if (isToolRunNotice(message)) continue;
+    return message.role === "tool"
+      || isAssistantToolCallEnvelope(message)
+      || shouldHideAssistantDisplayMessage(message);
+  }
+  return false;
+}
+
+function isToolRunNotice(message: AgentMessage | undefined): boolean {
+  if (!message || message.role !== "system") return false;
+  const content = message.content.trimStart();
+  if (
+    content.startsWith("Background operation finished.")
+    || content.startsWith("Background operations finished.")
+  ) {
+    return true;
+  }
+  const firstLine = content.split("\n", 1)[0]?.trim() ?? "";
+  return /^meta(?:-|\s)?cogniti(?:ve|on)\b/i.test(firstLine)
+    && /\b(?:warning|reflection|intervention)\b/i.test(firstLine);
+}
+
+function displayItemIsToolRunNotice(item: ChatDisplayItem | undefined): boolean {
+  return item?.type === "message" && isToolRunNotice(item.message);
 }
 
 function buildDisplayItemsFrom(messages: AgentMessage[], from: number, built: BuiltDisplayItems): BuiltDisplayItems {
@@ -115,6 +142,8 @@ function buildDisplayItemsFrom(messages: AgentMessage[], from: number, built: Bu
   let pendingToolAttribution: ToolEventAttribution | undefined;
   let pendingToolStart = -1;
   let nextToolAttribution: ToolEventAttribution | undefined;
+  let deferredNotices: AgentMessage[] = [];
+  let deferredNoticeIndexes: number[] = [];
 
   const flushToolList = (endIndex: number) => {
     if (pendingToolList && pendingToolList.length > 0) {
@@ -127,6 +156,14 @@ function buildDisplayItemsFrom(messages: AgentMessage[], from: number, built: Bu
       built.itemStarts.push(pendingToolStart);
       built.itemEnds.push(endIndex);
     }
+    for (let noticeIndex = 0; noticeIndex < deferredNotices.length; noticeIndex += 1) {
+      const sourceIndex = deferredNoticeIndexes[noticeIndex];
+      built.items.push({ type: "message", message: deferredNotices[noticeIndex] });
+      built.itemStarts.push(sourceIndex);
+      built.itemEnds.push(sourceIndex);
+    }
+    deferredNotices = [];
+    deferredNoticeIndexes = [];
     pendingToolList = null;
     pendingToolListKey = null;
     pendingToolAttribution = undefined;
@@ -147,6 +184,16 @@ function buildDisplayItemsFrom(messages: AgentMessage[], from: number, built: Bu
       continue;
     }
     if (shouldHideAssistantDisplayMessage(message)) {
+      continue;
+    }
+
+    if (
+      isToolRunNotice(message)
+      && (pendingToolList !== null || pendingToolStart >= 0)
+      && continuesToolRun(messages, index + 1)
+    ) {
+      deferredNotices.push(message);
+      deferredNoticeIndexes.push(index);
       continue;
     }
 

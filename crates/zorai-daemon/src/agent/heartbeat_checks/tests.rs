@@ -111,6 +111,7 @@ async fn make_test_engine(
     let (skill_discovery_result_tx, _skill_discovery_result_rx) = mpsc::unbounded_channel();
     let (auto_thread_title_jobs, _auto_thread_title_rx) = mpsc::unbounded_channel();
     let (prompt_queue_wake_tx, _prompt_queue_wake_rx) = mpsc::unbounded_channel();
+    let (continuation_flush_tx, _continuation_flush_rx) = mpsc::unbounded_channel();
     let (internal_dm_jobs_tx, _internal_dm_jobs_rx) = mpsc::unbounded_channel();
 
     let history = crate::history::HistoryStore::new_test_store(&data_dir)
@@ -220,6 +221,7 @@ async fn make_test_engine(
         skill_discovery_result_tx,
         auto_thread_title_jobs,
         prompt_queue_wake_tx,
+        continuation_flush_tx,
         internal_dm_jobs_tx,
         skill_discovery_test_runner: std::sync::OnceLock::new(),
         force_mesh_discovery_degraded_for_tests: std::sync::atomic::AtomicBool::new(false),

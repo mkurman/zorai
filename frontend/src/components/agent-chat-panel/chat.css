@@ -768,8 +768,7 @@
   justify-content: space-between;
   gap: 12px;
   color: var(--text-muted);
-  font-size: var(--text-sm);
-  padding: 0 8px;
+  font-size: var(--text-base);
 }
 
 .acp-tool-list__attribution strong {
@@ -778,6 +777,7 @@
 
 .acp-tool-list__attribution time {
   margin-left: auto;
+  font-size: var(--text-xs);
 }
 
 .acp-tool-list__header {
@@ -813,6 +813,7 @@
   white-space: nowrap;
   font-family: var(--font-mono);
   color: var(--text-muted);
+  font-size: var(--text-xs);
 }
 
 .acp-tool-list__title--working {

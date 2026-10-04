@@ -233,6 +233,7 @@ pub struct AgentEngine {
     pub(super) auto_thread_title_jobs:
         mpsc::UnboundedSender<super::thread_title::AutoThreadTitleJob>,
     pub(super) prompt_queue_wake_tx: mpsc::UnboundedSender<String>,
+    pub(super) continuation_flush_tx: mpsc::UnboundedSender<String>,
     pub(super) internal_dm_jobs_tx: mpsc::UnboundedSender<super::messaging::InternalDmJob>,
     #[cfg(test)]
     pub(super) skill_discovery_test_runner:
@@ -363,6 +364,7 @@ impl AgentEngine {
         let (skill_discovery_result_tx, skill_discovery_result_rx) = mpsc::unbounded_channel();
         let (auto_thread_title_jobs, auto_thread_title_rx) = mpsc::unbounded_channel();
         let (prompt_queue_wake_tx, prompt_queue_wake_rx) = mpsc::unbounded_channel();
+        let (continuation_flush_tx, continuation_flush_rx) = mpsc::unbounded_channel();
         let (internal_dm_jobs_tx, internal_dm_jobs_rx) = mpsc::unbounded_channel();
 
         let mut runners = HashMap::new();
@@ -493,6 +495,7 @@ impl AgentEngine {
             skill_discovery_result_tx,
             auto_thread_title_jobs,
             prompt_queue_wake_tx,
+            continuation_flush_tx,
             internal_dm_jobs_tx,
             #[cfg(test)]
             skill_discovery_test_runner: std::sync::OnceLock::new(),
@@ -537,6 +540,10 @@ impl AgentEngine {
         );
         super::thread_title::spawn_auto_thread_title_worker(engine.clone(), auto_thread_title_rx);
         super::prompt_queue::spawn_prompt_queue_worker(engine.clone(), prompt_queue_wake_rx);
+        super::thread_participants::spawn_continuation_flush_worker(
+            engine.clone(),
+            continuation_flush_rx,
+        );
         super::prompt_queue::spawn_prompt_queue_startup_flush(engine.clone());
         super::messaging::spawn_internal_dm_worker(engine.clone(), internal_dm_jobs_rx);
         mlflow_tracing.start(

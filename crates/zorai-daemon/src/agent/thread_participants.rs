@@ -2,6 +2,7 @@
 
 use super::*;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 const MAX_IDLE_CONTINUATION_DRAIN_MISSES: u32 = 3;
 
@@ -157,6 +158,35 @@ fn is_participant_remove_action(action: &str) -> bool {
         action.trim().to_ascii_lowercase().as_str(),
         "leave" | "done" | "return" | "remove"
     )
+}
+
+pub(crate) fn spawn_continuation_flush_worker(
+    engine: Arc<AgentEngine>,
+    mut wake_rx: tokio::sync::mpsc::UnboundedReceiver<String>,
+) {
+    tokio::spawn(async move {
+        while let Some(thread_id) = wake_rx.recv().await {
+            let engine = Arc::clone(&engine);
+            tokio::spawn(async move {
+                if engine
+                    .thread_is_idle_for_subagent_wakeup(&thread_id)
+                    .await
+                {
+                    let _ = engine.stop_stream(&thread_id).await;
+                }
+                if let Err(error) = engine
+                    .flush_deferred_visible_thread_continuations(&thread_id)
+                    .await
+                {
+                    tracing::warn!(
+                        thread_id = %thread_id,
+                        %error,
+                        "failed to flush scheduled thread continuation"
+                    );
+                }
+            });
+        }
+    });
 }
 
 impl AgentEngine {
@@ -773,6 +803,10 @@ impl AgentEngine {
             .ok()?;
         let goal_id = refs.into_iter().next()?.id;
         self.get_goal_run(&goal_id).await
+    }
+
+    pub(crate) fn schedule_continuation_flush(&self, thread_id: &str) {
+        let _ = self.continuation_flush_tx.send(thread_id.to_string());
     }
 
     pub(in crate::agent) async fn flush_deferred_visible_thread_continuations(
