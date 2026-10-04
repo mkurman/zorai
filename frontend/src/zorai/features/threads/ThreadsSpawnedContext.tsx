@@ -59,6 +59,14 @@ export function SpawnedContext({
   );
 }
 
+function spawnedRuntimeLabel(run: AgentRun): string | null {
+  const provider = run.provider?.trim();
+  const model = run.model?.trim();
+  const effort = run.reasoning_effort?.trim();
+  const parts = [provider, model, effort ? `effort: ${effort}` : ""].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
 function SpawnedContextNode({
   node,
   depth,
@@ -75,13 +83,15 @@ function SpawnedContextNode({
   const run = node.item;
   const canOpen = canOpenSpawnedThread(run);
   const selected = Boolean(run.thread_id && run.thread_id === selectedDaemonThreadId);
+  const runtimeLabel = spawnedRuntimeLabel(run);
 
   return (
     <div className="zorai-spawned-node" style={{ marginLeft: depth > 0 ? 10 : 0 }}>
       <article className={selected ? "zorai-spawned-card zorai-spawned-card--active" : "zorai-spawned-card"}>
         <div>
           <strong>{run.title}</strong>
-          <span>{[run.runtime, run.session_id].filter(Boolean).join(" / ") || "daemon"}</span>
+          {runtimeLabel ? <span className="zorai-spawned-card__runtime-label">{runtimeLabel}</span> : null}
+          <span className="zorai-spawned-card__session-id">{run.session_id}</span>
         </div>
         <div className="zorai-spawned-card__footer">
           <span style={{ color: runStatusColor(run.status) }}>{formatRunStatus(run)}</span>

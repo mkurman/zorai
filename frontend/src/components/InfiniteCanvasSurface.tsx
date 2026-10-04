@@ -12,7 +12,7 @@ import type {
   CanvasIconPickerState,
   InfiniteCanvasSurfaceProps,
 } from "./infinite-canvas-surface/types";
-import { canvasPanelIntersectsViewport } from "./infinite-canvas-surface/canvasPanelVisibility";
+import { selectLiveCanvasPaneIds } from "./infinite-canvas-surface/canvasPanelVisibility";
 import { snapToGrid, useInfiniteCanvasViewport } from "./infinite-canvas-surface/useInfiniteCanvasViewport";
 import { useInfiniteCanvasPaneActions } from "./infinite-canvas-surface/useInfiniteCanvasPaneActions";
 
@@ -95,17 +95,10 @@ export function InfiniteCanvasSurface({ surface }: InfiniteCanvasSurfaceProps) {
     return () => observer.disconnect();
   }, [viewportRef]);
 
-  const livePaneIds = useMemo(() => {
-    const live = new Set<string>();
-    if (surface.activePaneId) live.add(surface.activePaneId);
-    if (viewportSize.width <= 0 || viewportSize.height <= 0) return live;
-    for (const panel of panels) {
-      if (canvasPanelIntersectsViewport(panel, surface.canvasState, viewportSize)) {
-        live.add(panel.paneId);
-      }
-    }
-    return live;
-  }, [panels, surface.activePaneId, surface.canvasState, viewportSize]);
+  const livePaneIds = useMemo(
+    () => selectLiveCanvasPaneIds(panels, surface.canvasState, viewportSize, surface.activePaneId),
+    [panels, surface.activePaneId, surface.canvasState, viewportSize],
+  );
 
   useEffect(() => {
     if (!contextMenu && !iconPicker && !showNewPanelMenu) return;

@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import { useAgentStore, type AgentThread } from "@/lib/agentStore";
 import { openThreadTarget } from "./openThreadTarget";
-import { useOpenSessionTabs } from "./openSessionTabs";
+import { sessionCloseFollowUp, useOpenSessionTabs } from "./openSessionTabs";
 import { threadIsUnread } from "./sessionCooperation";
 import { threadReadKey, useThreadReadStateStore } from "./threadReadStateStore";
 
@@ -90,8 +90,15 @@ export function ThreadSessionTabs() {
       onSelect={(id) => void openThreadTarget(runtime, id)}
       onClose={(id) => {
         const next = closeOpenSession(id);
-        const active = runtime.activeThread?.id === id || runtime.activeThread?.daemonThreadId === id;
-        if (active && next) void openThreadTarget(runtime, next);
+        const action = sessionCloseFollowUp({
+          closedId: id,
+          activeThreadId: runtime.activeThread?.id ?? null,
+          activeDaemonThreadId: runtime.activeThread?.daemonThreadId ?? null,
+          nextOpenId: next,
+          openCount: useOpenSessionTabs.getState().ids.length,
+        });
+        if (action.kind === "follow") void openThreadTarget(runtime, action.id);
+        if (action.kind === "clear") runtime.setActiveThread(null);
       }}
     />
   );
