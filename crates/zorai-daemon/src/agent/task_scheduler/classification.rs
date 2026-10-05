@@ -53,7 +53,7 @@ pub(in crate::agent) fn project_task_runs_with_runtime(
                 kind,
                 classification: classify_task(task).to_string(),
                 title: task.title.clone(),
-                description: task.description.clone(),
+                description: preview_run_text(task.description.clone()),
                 status: task.status,
                 priority: task.priority,
                 progress: task.progress,
@@ -81,12 +81,25 @@ pub(in crate::agent) fn project_task_runs_with_runtime(
                     .and_then(|value| task_titles.get(value))
                     .map(|value| (*value).to_string()),
                 blocked_reason: task.blocked_reason.clone(),
-                error: task.error.clone(),
-                result: task.result.clone(),
-                last_error: task.last_error.clone(),
+                error: task.error.clone().map(preview_run_text),
+                result: task.result.clone().map(preview_run_text),
+                last_error: task.last_error.clone().map(preview_run_text),
             }
         })
         .collect()
+}
+
+const RUN_LIST_TEXT_CHARS: usize = 500;
+
+fn preview_run_text(value: String) -> String {
+    if value.len() <= RUN_LIST_TEXT_CHARS {
+        return value;
+    }
+    let mut end = RUN_LIST_TEXT_CHARS;
+    while !value.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}…", &value[..end])
 }
 
 fn resolve_run_runtime(

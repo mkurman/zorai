@@ -42,7 +42,7 @@ export function SystemMonitorPanel({ style, className }: SystemMonitorPanelProps
             }
 
             try {
-                const next = await zorai.getSystemMonitorSnapshot({ processLimit });
+                const next = await zorai.getSystemMonitorSnapshot({ processLimit, gpuDetails: true });
                 if (!active) return;
                 setSnapshot(next);
                 setError(null);

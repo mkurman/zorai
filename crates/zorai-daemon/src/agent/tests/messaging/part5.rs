@@ -236,14 +236,10 @@ async fn persisted_assistant_messages_reload_provider_final_result_metadata() {
             assert_eq!(terminal_response.output, Vec::<serde_json::Value>::new());
             assert_eq!(terminal_response.usage.input_tokens, 7);
             assert_eq!(terminal_response.usage.output_tokens, 3);
-            let response_json: serde_json::Value = serde_json::from_str(
-                response
-                    .response_json
-                    .as_deref()
-                    .expect("raw terminal response JSON should reload"),
-            )
-            .expect("response_json should decode");
-            assert_eq!(response_json["metadata"]["source"], "persisted-test");
+            assert!(
+                response.response_json.is_none(),
+                "raw provider response JSON is not reloaded"
+            );
         }
         other => panic!("expected OpenAI Responses final result, got {other:?}"),
     }

@@ -2095,7 +2095,7 @@
   background: transparent;
   color: var(--zorai-text);
   padding: 12px 14px 6px;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   line-height: 1.5;
   box-sizing: border-box;
 }

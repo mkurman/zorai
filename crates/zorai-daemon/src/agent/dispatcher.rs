@@ -548,6 +548,16 @@ impl AgentEngine {
                             && result.integration_acknowledged_at.is_none())
                 });
             if pending {
+                if let Some(thread_id) = child.parent_thread_id.as_deref() {
+                    if self.operator_stream_stop_requested(thread_id).await {
+                        self.mark_child_result_integrated(
+                            &child.id,
+                            child.parent_task_id.as_deref(),
+                        )
+                        .await;
+                        continue;
+                    }
+                }
                 let (level, message) = match child.status {
                     TaskStatus::Completed => (TaskLogLevel::Info, "subagent completed"),
                     TaskStatus::BudgetExceeded => (TaskLogLevel::Warn, "subagent budget exceeded"),

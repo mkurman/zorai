@@ -43,30 +43,34 @@ impl AgentEngine {
         provider_config: &ProviderConfig,
         mode: CompactionCandidateMode,
     ) -> Result<bool> {
-        let snapshot = {
+        let (window_messages, window_start, message_count) = {
             let threads = self.threads.read().await;
-            threads.get(thread_id).cloned()
+            let Some(thread) = threads.get(thread_id) else {
+                return Ok(false);
+            };
+            let (window_start, _) = active_compaction_window(&thread.messages);
+            (
+                thread.messages[window_start..].to_vec(),
+                window_start,
+                thread.messages.len(),
+            )
         };
-        let Some(thread) = snapshot else {
-            return Ok(false);
-        };
-        let (window_start, _) = active_compaction_window(&thread.messages);
         let Some(candidate) = (match mode {
             CompactionCandidateMode::Automatic => {
-                compaction_candidate(&thread.messages, config, provider_config)
+                compaction_candidate(&window_messages, config, provider_config)
             }
             CompactionCandidateMode::Forced => {
-                forced_compaction_candidate(&thread.messages, config, provider_config)
+                forced_compaction_candidate(&window_messages, config, provider_config)
             }
         }) else {
             return Ok(false);
         };
-        let pre_compaction_total_tokens = estimate_message_tokens(&thread.messages[window_start..]);
+        let pre_compaction_total_tokens = estimate_message_tokens(&window_messages);
         let effective_context_window_tokens =
             effective_compaction_window_tokens(config, provider_config);
         let split_at = window_start + candidate.split_at;
-        let source_messages = thread.messages[window_start..split_at].to_vec();
-        let message_count = thread.messages.len();
+        let source_end = candidate.split_at.min(window_messages.len());
+        let source_messages = window_messages[..source_end].to_vec();
         let structural_memory = self.get_thread_structural_memory(thread_id).await;
         let compaction_scope = self.compaction_scope_snapshot(thread_id, task_id).await;
 

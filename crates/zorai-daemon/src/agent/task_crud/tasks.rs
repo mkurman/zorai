@@ -1414,8 +1414,8 @@ impl AgentEngine {
                 awaiting_approval_id: None,
                 supervisor_config_present: false,
                 exclude_terminal_statuses: false,
-                order_by_recent_activity_desc: false,
-                limit: None,
+                order_by_recent_activity_desc: true,
+                limit: Some(200),
                 ids: Vec::new(),
                 parent_task_ids: Vec::new(),
             })

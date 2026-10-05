@@ -187,6 +187,35 @@ impl AgentEngine {
             .remove(thread_id);
     }
 
+    pub(crate) async fn messages_for_read_only_context(
+        &self,
+        thread_id: &str,
+    ) -> Option<Vec<AgentMessage>> {
+        let pending = self
+            .thread_message_hydration_pending
+            .read()
+            .await
+            .contains(thread_id);
+        if !pending {
+            return self
+                .threads
+                .read()
+                .await
+                .get(thread_id)
+                .map(|thread| thread.messages.clone());
+        }
+        let (rows, _, _) = self
+            .history
+            .list_active_context_window(thread_id)
+            .await
+            .ok()?;
+        Some(
+            rows.into_iter()
+                .filter_map(agent_message_from_db)
+                .collect(),
+        )
+    }
+
     pub(crate) async fn ensure_thread_messages_loaded(&self, thread_id: &str) -> bool {
         let needs_hydration = self
             .thread_message_hydration_pending

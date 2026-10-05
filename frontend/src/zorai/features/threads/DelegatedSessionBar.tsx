@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
-import { fetchAgentRuns, formatRunStatus, isRunActive, type AgentRun } from "@/lib/agentRuns";
+import { ACTIVE_RUN_POLL_MS, fetchAgentRuns, formatRunStatus, IDLE_RUN_POLL_MS, isRunActive, runListIsActive, type AgentRun } from "@/lib/agentRuns";
 import { openThreadTarget } from "./openThreadTarget";
 import {
   delegatedSessionView,
@@ -10,21 +10,31 @@ import {
   type SessionThreadIdentity,
 } from "./sessionCooperation";
 
-const RUN_REFRESH_MS = 4000;
-
 export function useDelegatedSession(thread: SessionThreadIdentity | null | undefined): DelegatedSessionView | null {
   const [runs, setRuns] = useState<AgentRun[]>([]);
+  const runsRef = useRef(runs);
+  runsRef.current = runs;
   const threadKey = `${thread?.id ?? ""}:${thread?.daemonThreadId ?? ""}`;
 
   useEffect(() => {
     let cancelled = false;
+    let inFlight = false;
+    let lastFetch = 0;
     const load = () => {
+      if (cancelled || inFlight || document.hidden) return;
+      const now = Date.now();
+      const wait = runListIsActive(runsRef.current) ? ACTIVE_RUN_POLL_MS : IDLE_RUN_POLL_MS;
+      if (lastFetch !== 0 && now - lastFetch < wait) return;
+      lastFetch = now;
+      inFlight = true;
       void fetchAgentRuns().then((next) => {
         if (!cancelled) setRuns((current) => sameAgentRunSnapshot(current, next) ? current : next);
+      }).finally(() => {
+        inFlight = false;
       });
     };
     load();
-    const timer = window.setInterval(load, RUN_REFRESH_MS);
+    const timer = window.setInterval(load, ACTIVE_RUN_POLL_MS);
     return () => {
       cancelled = true;
       window.clearInterval(timer);

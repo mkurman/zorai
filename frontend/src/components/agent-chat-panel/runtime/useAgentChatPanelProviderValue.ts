@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { abortThreadStream, buildHydratedRemoteThread, useAgentStore } from "@/lib/agentStore";
 import { getAgentDbApi } from "@/lib/agentStore/history";
 import { getAgentBridge, shouldUseDaemonRuntime } from "@/lib/agentDaemonConfig";
-import { fetchAgentRuns, isSubagentRun, type AgentRun } from "@/lib/agentRuns";
+import { fetchAgentRuns, IDLE_RUN_POLL_MS, isSubagentRun, runListIsActive, type AgentRun } from "@/lib/agentRuns";
 import { fetchThreadTodos } from "@/lib/agentTodos";
 import { beginThreadLoadingFor } from "@/zorai/features/threads/threadLoadingStore";
 import { isLeadOnlyPersona, LEAD_PERSONA_SPAWN_ERROR } from "@/zorai/features/threads/leadPersonas";
@@ -421,6 +421,8 @@ export function useAgentChatPanelProviderValue(): {
   const [daemonTodosByThread, setDaemonTodosByThread] = useState<Record<string, AgentTodoItem[]>>({});
   const [goalRunsForTrace, setGoalRunsForTrace] = useState<GoalRun[]>([]);
   const [spawnedAgentRuns, setSpawnedAgentRuns] = useState<AgentRun[]>([]);
+  const spawnedAgentRunsRef = useRef(spawnedAgentRuns);
+  spawnedAgentRunsRef.current = spawnedAgentRuns;
   const [latestDivergentSessionId, setLatestDivergentSessionId] = useState<string | null>(null);
   const [welesHealth, setWelesHealth] = useState<WelesHealthState | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -600,6 +602,7 @@ export function useAgentChatPanelProviderValue(): {
   }, [daemonTodosByThread, setThreadTodos, threads]);
 
   const refreshSpawnedAgentRuns = useCallback(async () => {
+    if (document.hidden) return;
     if (!activeDaemonThreadId) {
       activeDaemonThreadIdRef.current = null;
       setSpawnedAgentRuns((current) => current.length === 0 ? current : []);
@@ -618,10 +621,16 @@ export function useAgentChatPanelProviderValue(): {
   }, [activeDaemonThreadId]);
 
   useEffect(() => {
-    void refreshSpawnedAgentRuns();
-    const interval = window.setInterval(() => {
+    let lastFetch = 0;
+    const load = () => {
+      const now = Date.now();
+      const wait = runListIsActive(spawnedAgentRunsRef.current) ? 5_000 : IDLE_RUN_POLL_MS;
+      if (lastFetch !== 0 && now - lastFetch < wait) return;
+      lastFetch = now;
       void refreshSpawnedAgentRuns();
-    }, 5000);
+    };
+    load();
+    const interval = window.setInterval(load, 5_000);
     return () => window.clearInterval(interval);
   }, [refreshSpawnedAgentRuns]);
 

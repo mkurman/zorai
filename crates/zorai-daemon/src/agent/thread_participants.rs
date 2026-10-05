@@ -837,9 +837,13 @@ impl AgentEngine {
             }
         }
         if self.operator_stream_stop_requested(thread_id).await {
+            let removed = self
+                .clear_deferred_visible_thread_continuations(thread_id)
+                .await;
             tracing::info!(
                 thread_id,
-                "skipping deferred continuation flush after the operator stopped the stream"
+                removed,
+                "dropping deferred continuation because the operator stopped the stream"
             );
             return Ok(());
         }
@@ -2732,6 +2736,42 @@ mod tests {
         assert!(
             token.is_cancelled(),
             "opening the breaker must cancel the live stream instead of letting it keep reading"
+        );
+    }
+
+    #[tokio::test]
+    async fn stream_start_and_provider_abort_do_not_deadlock() {
+        let root = tempdir().expect("tempdir");
+        let manager = SessionManager::new_test(root.path()).await;
+        let engine = std::sync::Arc::new(
+            AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await,
+        );
+        let provider = engine.config.read().await.provider.clone();
+        let mut tasks = Vec::new();
+        for index in 0..8 {
+            let engine = std::sync::Arc::clone(&engine);
+            let provider = provider.clone();
+            tasks.push(tokio::spawn(async move {
+                let thread_id = format!("thread-{index}");
+                let (generation, _, _) = engine.begin_stream_cancellation(&thread_id).await;
+                engine
+                    .tag_stream_provider(&thread_id, generation, &provider)
+                    .await;
+                engine.abort_streams_for_provider(&provider).await;
+                engine
+                    .finish_stream_cancellation(&thread_id, generation)
+                    .await;
+            }));
+        }
+        let finished = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            for task in tasks {
+                task.await.expect("stream lock task should finish");
+            }
+        })
+        .await;
+        assert!(
+            finished.is_ok(),
+            "starting a stream while the provider circuit aborts streams must not deadlock"
         );
     }
 }

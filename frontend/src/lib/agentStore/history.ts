@@ -13,6 +13,17 @@ import type {
   ProviderAuthState,
 } from "./types";
 
+export function clientProviderFinalResult(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const {
+    response_json: _responseJson,
+    output_text: _outputText,
+    tool_calls: _toolCalls,
+    ...rest
+  } = value as Record<string, unknown>;
+  return rest;
+}
+
 export const AGENT_CHAT_FILE = "agent-chat.json";
 export const AGENT_DAEMON_THREAD_MAP_FILE = "agent-daemon-thread-map.json";
 export const AGENT_ACTIVE_THREAD_FILE = "agent-active-thread.json";
@@ -300,10 +311,7 @@ export function buildHydratedRemoteMessage(
       )
       : undefined,
     responseId: typeof message.response_id === "string" ? message.response_id : undefined,
-    providerFinalResult:
-      message.provider_final_result && typeof message.provider_final_result === "object"
-        ? message.provider_final_result
-        : undefined,
+    providerFinalResult: clientProviderFinalResult(message.provider_final_result),
     toolCalls: Array.isArray(message.tool_calls) ? message.tool_calls : undefined,
     toolName: typeof message.tool_name === "string" ? message.tool_name : undefined,
     toolCallId: typeof message.tool_call_id === "string" ? message.tool_call_id : undefined,
@@ -769,10 +777,7 @@ export function deserializeMessage(message: AgentDbMessageRecord): AgentMessage 
       )
       : undefined,
     responseId: typeof metadata.responseId === "string" ? metadata.responseId : undefined,
-    providerFinalResult:
-      metadata.providerFinalResult && typeof metadata.providerFinalResult === "object"
-        ? metadata.providerFinalResult
-        : undefined,
+    providerFinalResult: clientProviderFinalResult(metadata.providerFinalResult),
     toolCalls,
     toolName: (metadata.toolName as string) ?? undefined,
     toolCallId: (metadata.toolCallId as string) ?? undefined,

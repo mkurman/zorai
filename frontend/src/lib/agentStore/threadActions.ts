@@ -7,6 +7,7 @@ import {
   persistDaemonThreadMap,
   serializeMessage,
   serializeThread,
+  clientProviderFinalResult,
   shouldPersistHistory,
 } from "./history";
 import { normalizeAgentProviderId } from "./providers";
@@ -263,8 +264,9 @@ export function createThreadActions(
           model: meta?.model ?? lastMessage.model,
           api_transport: meta?.api_transport ?? lastMessage.api_transport,
           responseId: meta?.responseId ?? lastMessage.responseId,
-          providerFinalResult:
+          providerFinalResult: clientProviderFinalResult(
             meta?.providerFinalResult ?? lastMessage.providerFinalResult,
+          ),
         };
         const updatedMessages = [...messages.slice(0, -1), updatedLastMessage];
         const tokenDeltaIn = nextInputTokens - lastMessage.inputTokens;

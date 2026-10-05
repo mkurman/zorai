@@ -330,27 +330,23 @@ impl HistoryStore {
             }
         }
 
-        let existing_rows = txn
+        let existing_ids = txn
             .query(
-                "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json \
-                 FROM agent_messages WHERE thread_id = ?1 AND deleted_at IS NULL",
+                "SELECT id FROM agent_messages WHERE thread_id = ?1 AND deleted_at IS NULL",
                 db::db_params![thread.id.clone()],
             )
-            .await?;
-        let mut existing_messages = std::collections::HashMap::<String, AgentDbMessage>::new();
-        for row in existing_rows.iter() {
-            let message = map_agent_message_db(row)?;
-            existing_messages.insert(message.id.clone(), message);
-        }
+            .await?
+            .iter()
+            .map(|row| row.get::<String>(0))
+            .collect::<anyhow::Result<std::collections::HashSet<_>>>()?;
 
         let incoming_ids = messages
             .iter()
             .map(|message| message.id.clone())
             .collect::<std::collections::HashSet<_>>();
-        let stale_ids = existing_messages
-            .keys()
-            .filter(|id| !incoming_ids.contains(*id))
-            .cloned()
+        let stale_ids = existing_ids
+            .into_iter()
+            .filter(|id| !incoming_ids.contains(id))
             .collect::<Vec<_>>();
 
         txn.execute(
@@ -607,7 +603,7 @@ impl HistoryStore {
                                   AND (",
                     );
                     let clauses = std::iter::repeat_n(
-                        "instr(lower(m.content), lower(?)) > 0",
+                        "instr(lower(substr(m.content, 1, 240)), lower(?)) > 0",
                         query.hidden_message_substrings.len(),
                     )
                     .collect::<Vec<_>>()
@@ -1493,7 +1489,7 @@ impl HistoryStore {
             if content_changed {
                 let message = txn
                     .query_opt(
-                        "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json \
+                        "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json \
                          FROM agent_messages WHERE id = ?1",
                         db::db_params![id],
                     )
@@ -1589,7 +1585,7 @@ impl HistoryStore {
 
         let mut txn = self.conn_db.transaction().await?;
         let select_sql = format!(
-            "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json \
+            "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json \
              FROM agent_messages WHERE thread_id = ? AND deleted_at IS NOT NULL AND id IN ({})",
             placeholders.join(", ")
         );
@@ -1665,7 +1661,7 @@ impl HistoryStore {
         let messages = if let Some(limit) = limit {
             let limit = limit.max(1) as i64;
             let sql = format!(
-                "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json \
+                "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json \
                  FROM agent_messages WHERE thread_id = ?1{deleted_filter} ORDER BY created_at DESC, rowid DESC LIMIT ?2",
             );
             let rows = self
@@ -1680,7 +1676,7 @@ impl HistoryStore {
             messages
         } else {
             let sql = format!(
-                "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json \
+                "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json \
                  FROM agent_messages WHERE thread_id = ?1{deleted_filter} ORDER BY created_at ASC, rowid ASC",
             );
             let rows = self
@@ -1720,7 +1716,7 @@ impl HistoryStore {
             .interactive_read_db
             .query(
                 r#"WITH ordered AS (
-                   SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json, rowid,
+                   SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json, rowid,
                           ROW_NUMBER() OVER (ORDER BY created_at ASC, rowid ASC) AS raw_position,
                           LAG(role) OVER (ORDER BY created_at ASC, rowid ASC) AS previous_role
                    FROM agent_messages WHERE thread_id = ?1 AND deleted_at IS NULL
@@ -1732,7 +1728,7 @@ impl HistoryStore {
                    SELECT logical_group FROM grouped WHERE raw_position <= ?2
                    GROUP BY logical_group ORDER BY logical_group DESC LIMIT ?3
                  )
-                 SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json, raw_position
+                 SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json, raw_position
                  FROM grouped WHERE raw_position <= ?2 AND logical_group IN (SELECT logical_group FROM selected_groups)
                  ORDER BY raw_position ASC"#,
                 db::db_params![thread_id, raw_end as i64, logical_limit as i64],
@@ -1777,7 +1773,7 @@ impl HistoryStore {
         let rows = self
             .interactive_read_db
             .query(
-                "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json \
+                "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json \
                  FROM agent_messages WHERE thread_id = ?1 AND deleted_at IS NULL ORDER BY created_at ASC, rowid ASC LIMIT ?2 OFFSET ?3",
                 db::db_params![thread_id, end.saturating_sub(start) as i64, start as i64],
             )
@@ -1811,7 +1807,11 @@ impl HistoryStore {
             let tail_rows = self
                 .interactive_read_db
                 .query(
-                    "SELECT role, content, metadata_json \
+                    "SELECT role, substr(content, 1, 600), \
+                            CASE WHEN metadata_json IS NOT NULL \
+                                      AND json_valid(metadata_json) \
+                                      AND json_extract(metadata_json, '$.message_kind') = 'compaction_artifact' \
+                                 THEN 1 ELSE 0 END \
                          FROM agent_messages \
                          WHERE thread_id = ?1 AND deleted_at IS NULL \
                          ORDER BY created_at DESC, id DESC \
@@ -1819,32 +1819,22 @@ impl HistoryStore {
                     db::db_params![thread_id.as_str(), tail_limit as i64],
                 )
                 .await?;
-            let mut tail_desc: Vec<(String, String, Option<String>)> = tail_rows
+            let mut tail_desc: Vec<(String, String, bool)> = tail_rows
                 .iter()
                 .filter_map(|row| {
                     match (
                         row.get::<String>(0),
                         row.get::<String>(1),
-                        row.get::<Option<String>>(2),
+                        row.get::<i64>(2),
                     ) {
-                        (Ok(a), Ok(b), Ok(c)) => Some((a, b, c)),
+                        (Ok(role), Ok(content), Ok(kind)) => Some((role, content, kind != 0)),
                         _ => None,
                     }
                 })
                 .collect();
 
-            let compaction_idx_in_tail = tail_desc.iter().position(|(_, content, meta)| {
-                let kind_is_compaction = meta
-                    .as_deref()
-                    .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
-                    .and_then(|value| {
-                        value
-                            .get("message_kind")
-                            .and_then(|kind| kind.as_str())
-                            .map(|kind| kind == "compaction_artifact")
-                    })
-                    .unwrap_or(false);
-                kind_is_compaction
+            let compaction_idx_in_tail = tail_desc.iter().position(|(_, content, is_artifact)| {
+                *is_artifact
                     || content.starts_with("[Compacted earlier context]")
                     || content.starts_with("Pre-compaction context:")
             });
@@ -1860,7 +1850,7 @@ impl HistoryStore {
             let opening = self
                 .interactive_read_db
                 .query_opt(
-                    "SELECT role, content \
+                    "SELECT role, substr(content, 1, 600) \
                          FROM agent_messages \
                          WHERE thread_id = ?1 AND deleted_at IS NULL AND role = 'user' \
                          ORDER BY created_at ASC, rowid ASC \
@@ -1928,7 +1918,7 @@ impl HistoryStore {
         let rows = self
             .interactive_read_db
             .query(
-                "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json \
+                "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json \
                  FROM agent_messages WHERE thread_id = ?1 AND deleted_at IS NULL ORDER BY created_at ASC, rowid ASC LIMIT ?2 OFFSET ?3",
                 db::db_params![
                     thread_id,
@@ -2132,10 +2122,10 @@ impl HistoryStore {
         let rows = self
             .interactive_read_db
             .query(
-                "SELECT absolute_index, id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json \
+                "SELECT absolute_index, id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json \
                  FROM (
                     SELECT ROW_NUMBER() OVER (ORDER BY created_at ASC, rowid ASC) - 1 AS absolute_index,
-                           id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json
+                           id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json
                     FROM agent_messages
                     WHERE thread_id = ?1 AND deleted_at IS NULL
                  )
@@ -2183,7 +2173,7 @@ impl HistoryStore {
         let rows = self
             .read_db
             .query(
-                "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json \
+                "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json \
                  FROM agent_messages WHERE thread_id = ?1 AND deleted_at IS NULL ORDER BY created_at DESC, rowid DESC LIMIT ?2",
                 db::db_params![thread_id, limit],
             )
@@ -2231,7 +2221,7 @@ impl HistoryStore {
         let row = self
             .read_db
             .query_opt(
-                "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json \
+                "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json \
                  FROM agent_messages \
                  WHERE thread_id = ?1 \
                    AND role = 'assistant' \
@@ -2834,7 +2824,7 @@ impl HistoryStore {
             (Some(cursor), Some(limit)) => {
                 self.read_db
                     .query(
-                        "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json \
+                        "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json \
                          FROM agent_messages \
                          WHERE thread_id = ?1 AND deleted_at IS NULL AND (created_at > ?2 OR (created_at = ?2 AND id > ?3)) \
                          ORDER BY created_at ASC, id ASC LIMIT ?4",
@@ -2845,7 +2835,7 @@ impl HistoryStore {
             (Some(cursor), None) => {
                 self.read_db
                     .query(
-                        "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json \
+                        "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json \
                          FROM agent_messages \
                          WHERE thread_id = ?1 AND deleted_at IS NULL AND (created_at > ?2 OR (created_at = ?2 AND id > ?3)) \
                          ORDER BY created_at ASC, id ASC",
@@ -2856,7 +2846,7 @@ impl HistoryStore {
             (None, Some(limit)) => {
                 self.read_db
                     .query(
-                        "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json \
+                        "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json \
                          FROM agent_messages WHERE thread_id = ?1 AND deleted_at IS NULL ORDER BY created_at ASC, id ASC LIMIT ?2",
                         db::db_params![thread_id, limit.max(1) as i64],
                     )
@@ -2865,7 +2855,7 @@ impl HistoryStore {
             (None, None) => {
                 self.read_db
                     .query(
-                        "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json \
+                        "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json \
                          FROM agent_messages WHERE thread_id = ?1 AND deleted_at IS NULL ORDER BY created_at ASC, id ASC",
                         db::db_params![thread_id],
                     )

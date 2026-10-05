@@ -362,8 +362,11 @@ impl AgentEngine {
         let token = CancellationToken::new();
         let retry_now = Arc::new(tokio::sync::Notify::new());
         let now = now_millis();
+        {
+            let mut providers = self.stream_providers.lock().await;
+            providers.remove(thread_id);
+        }
         let mut streams = self.stream_cancellations.lock().await;
-        self.stream_providers.lock().await.remove(thread_id);
         if let Some(previous) = streams.insert(
             thread_id.to_string(),
             StreamCancellationEntry {
@@ -401,7 +404,10 @@ impl AgentEngine {
     }
 
     pub(super) async fn abort_streams_for_provider(&self, provider: &str) {
-        let tagged = self.stream_providers.lock().await.clone();
+        let tagged = {
+            let providers = self.stream_providers.lock().await;
+            providers.clone()
+        };
         let tokens = {
             let streams = self.stream_cancellations.lock().await;
             tagged
