@@ -39,6 +39,26 @@ export interface AgentRun {
     last_error?: string | null;
 }
 
+export const ACTIVE_RUN_POLL_MS = 4_000;
+export const IDLE_RUN_POLL_MS = 30_000;
+const MAX_RENDERED_RUNS = 200;
+
+const FAST_POLL_STATUSES = new Set<AgentTaskStatus>([
+    "in_progress",
+    "queued",
+    "awaiting_approval",
+    "failed_analyzing",
+]);
+
+export function runListIsActive(runs: readonly Pick<AgentRun, "status">[]): boolean {
+    return runs.some((run) => FAST_POLL_STATUSES.has(run.status));
+}
+
+export function capRenderedRuns(runs: AgentRun[]): AgentRun[] {
+    if (runs.length <= MAX_RENDERED_RUNS) return runs;
+    return [...runs].sort((left, right) => right.created_at - left.created_at).slice(0, MAX_RENDERED_RUNS);
+}
+
 export async function fetchAgentRuns(parentThreadId?: string | null): Promise<AgentRun[]> {
     const zorai = getBridge();
     if (!zorai?.agentListRuns) {
@@ -47,7 +67,7 @@ export async function fetchAgentRuns(parentThreadId?: string | null): Promise<Ag
 
     try {
         const result = await zorai.agentListRuns(parentThreadId);
-        return Array.isArray(result) ? (result as AgentRun[]) : [];
+        return Array.isArray(result) ? capRenderedRuns(result as AgentRun[]) : [];
     } catch {
         return [];
     }

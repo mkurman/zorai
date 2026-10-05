@@ -155,6 +155,32 @@ pub(super) fn retry_failure_class_from_message(message: &str) -> &'static str {
     }
 }
 
+pub(super) fn usage_limit_retry_delay_ms(message: &str) -> u64 {
+    let seconds = parse_structured_upstream_failure(message)
+        .and_then(|failure| {
+            failure
+                .diagnostics
+                .get("resets_in_seconds")
+                .and_then(|value| value.as_u64())
+                .or_else(|| {
+                    failure
+                        .diagnostics
+                        .get("body")
+                        .and_then(|value| value.as_str())
+                        .and_then(resets_in_seconds_from_upstream_body)
+                })
+        })
+        .unwrap_or(60 * 60);
+    seconds.clamp(60, 7 * 24 * 60 * 60).saturating_mul(1_000)
+}
+
+fn resets_in_seconds_from_upstream_body(body: &str) -> Option<u64> {
+    let parsed: serde_json::Value = serde_json::from_str(body).ok()?;
+    parsed
+        .pointer("/error/resets_in_seconds")
+        .and_then(|value| value.as_u64())
+}
+
 pub(super) fn is_transient_retry_message(message: &str) -> bool {
     if is_exhausted_provider_usage_limit(message) {
         return false;
@@ -235,7 +261,9 @@ fn classify_fixable_upstream_recovery(
 
 #[cfg(test)]
 mod tests {
-    use super::{is_transient_retry_message, retry_failure_class_from_message};
+    use super::{
+        is_transient_retry_message, retry_failure_class_from_message, usage_limit_retry_delay_ms,
+    };
 
     #[test]
     fn transient_retry_message_recognizes_reqwest_send_request_failures() {
@@ -252,5 +280,13 @@ mod tests {
         assert!(is_transient_retry_message(
             "openai API returned 429: Too Many Requests\n\n[zorai-upstream-diagnostics]{\"class\":\"rate_limit\",\"summary\":\"429\",\"diagnostics\":{}}"
         ));
+    }
+
+    #[test]
+    fn usage_limit_wait_uses_the_provider_reset_and_does_not_poll_immediately() {
+        let message = "openai API returned 429: The usage limit has been reached\n\n[zorai-upstream-diagnostics]{\"class\":\"rate_limit\",\"summary\":\"openai API returned 429: The usage limit has been reached\",\"diagnostics\":{\"body\":\"{\\\"error\\\":{\\\"type\\\":\\\"usage_limit_reached\\\",\\\"message\\\":\\\"The usage limit has been reached\\\",\\\"resets_in_seconds\\\":543654}}\"}}";
+        assert_eq!(usage_limit_retry_delay_ms(message), 543_654_000);
+        let missing = "openai API returned 429: The usage limit has been reached";
+        assert_eq!(usage_limit_retry_delay_ms(missing), 3_600_000);
     }
 }

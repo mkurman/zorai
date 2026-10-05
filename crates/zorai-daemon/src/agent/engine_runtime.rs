@@ -362,6 +362,10 @@ impl AgentEngine {
         let token = CancellationToken::new();
         let retry_now = Arc::new(tokio::sync::Notify::new());
         let now = now_millis();
+        {
+            let mut providers = self.stream_providers.lock().await;
+            providers.remove(thread_id);
+        }
         let mut streams = self.stream_cancellations.lock().await;
         if let Some(previous) = streams.insert(
             thread_id.to_string(),
@@ -380,6 +384,49 @@ impl AgentEngine {
         (generation, token, retry_now)
     }
 
+    pub(super) async fn tag_stream_provider(
+        &self,
+        thread_id: &str,
+        generation: u64,
+        provider: &str,
+    ) {
+        let streams = self.stream_cancellations.lock().await;
+        let current = streams
+            .get(thread_id)
+            .is_some_and(|entry| entry.generation == generation);
+        drop(streams);
+        if current {
+            self.stream_providers
+                .lock()
+                .await
+                .insert(thread_id.to_string(), (generation, provider.to_string()));
+        }
+    }
+
+    pub(super) async fn abort_streams_for_provider(&self, provider: &str) {
+        let tagged = {
+            let providers = self.stream_providers.lock().await;
+            providers.clone()
+        };
+        let tokens = {
+            let streams = self.stream_cancellations.lock().await;
+            tagged
+                .into_iter()
+                .filter_map(|(thread_id, (generation, tagged_provider))| {
+                    if tagged_provider != provider {
+                        return None;
+                    }
+                    streams.get(&thread_id).and_then(|entry| {
+                        (entry.generation == generation).then(|| entry.token.clone())
+                    })
+                })
+                .collect::<Vec<_>>()
+        };
+        for token in tokens {
+            token.cancel();
+        }
+    }
+
     pub(super) async fn finish_stream_cancellation(&self, thread_id: &str, generation: u64) {
         let mut streams = self.stream_cancellations.lock().await;
         let should_remove = streams
@@ -389,6 +436,14 @@ impl AgentEngine {
         if should_remove {
             streams.remove(thread_id);
             drop(streams);
+            let mut providers = self.stream_providers.lock().await;
+            if providers
+                .get(thread_id)
+                .is_some_and(|(tagged_generation, _)| *tagged_generation == generation)
+            {
+                providers.remove(thread_id);
+            }
+            drop(providers);
             self.wake_prompt_queue(thread_id);
             return;
         }

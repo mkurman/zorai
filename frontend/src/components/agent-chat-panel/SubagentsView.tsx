@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { getBridge } from "@/lib/bridge";
 import { resolveReactChatHistoryMessageLimit } from "@/lib/chatHistoryPageSize";
 import { allLeafIds, findLeaf } from "../../lib/bspTree";
-import { fetchAgentRuns, formatRunStatus, formatRunTimestamp, isRunActive, isSubagentRun, runStatusColor, type AgentRun } from "../../lib/agentRuns";
+import { ACTIVE_RUN_POLL_MS, fetchAgentRuns, formatRunStatus, formatRunTimestamp, IDLE_RUN_POLL_MS, isRunActive, isSubagentRun, runListIsActive, runStatusColor, type AgentRun } from "../../lib/agentRuns";
 import { fetchThreadTodos } from "../../lib/agentTodos";
 import { buildHydratedRemoteMessage, type RemoteAgentMessageRecord, useAgentStore } from "../../lib/agentStore";
 import type { Workspace } from "../../lib/types";
 import { shortenHomePath, useWorkspaceStore } from "../../lib/workspaceStore";
+import { sameAgentRunSnapshot } from "@/zorai/features/threads/sessionCooperation";
 import { ActionButton, EmptyPanel, MetricRibbon, SectionTitle } from "./shared";
 
 type SubagentsViewProps = {
@@ -78,6 +79,8 @@ function findTaskWorkspaceLocation(workspaces: Workspace[], sessionId: string | 
 
 export function SubagentsView({ onOpenThreadView, onOpenTasksView }: SubagentsViewProps) {
     const [runs, setRuns] = useState<AgentRun[]>([]);
+    const runsRef = useRef(runs);
+    runsRef.current = runs;
     const [collaborationSessions, setCollaborationSessions] = useState<CollaborationSessionRecord[]>([]);
     const [collaborationStatus, setCollaborationStatus] = useState<string | null>(null);
     const [loadingCollaboration, setLoadingCollaboration] = useState(false);
@@ -97,7 +100,7 @@ export function SubagentsView({ onOpenThreadView, onOpenTasksView }: SubagentsVi
 
     const refreshRuns = useCallback(async () => {
         const result = await fetchAgentRuns();
-        setRuns(result);
+        setRuns((current) => sameAgentRunSnapshot(current, result) ? current : result);
     }, []);
 
     const loadCollaborationSessions = useCallback(async () => {
@@ -121,10 +124,17 @@ export function SubagentsView({ onOpenThreadView, onOpenTasksView }: SubagentsVi
     }, [zorai]);
 
     useEffect(() => {
-        void refreshRuns();
-        const interval = window.setInterval(() => {
+        let lastFetch = 0;
+        const load = () => {
+            if (document.hidden) return;
+            const now = Date.now();
+            const wait = runListIsActive(runsRef.current) ? ACTIVE_RUN_POLL_MS : IDLE_RUN_POLL_MS;
+            if (lastFetch !== 0 && now - lastFetch < wait) return;
+            lastFetch = now;
             void refreshRuns();
-        }, 3000);
+        };
+        load();
+        const interval = window.setInterval(load, ACTIVE_RUN_POLL_MS);
         return () => window.clearInterval(interval);
     }, [refreshRuns]);
 

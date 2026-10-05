@@ -22,7 +22,7 @@ export function InlineSystemMonitor() {
         };
 
         fetchStats();
-        const interval = setInterval(fetchStats, 3000);
+        const interval = setInterval(fetchStats, 10_000);
         return () => {
             active = false;
             clearInterval(interval);

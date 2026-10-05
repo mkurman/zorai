@@ -122,6 +122,32 @@ impl<'a> SendMessageRunner<'a> {
         .into()
     }
 
+    async fn fail_for_open_circuit(&self) -> anyhow::Error {
+        let outage_context = self
+            .engine
+            .suggest_alternative_provider(&self.config.provider)
+            .await
+            .unwrap_or_else(|| {
+                "No healthy fallback providers are currently available.".to_string()
+            });
+        let error_msg = format!(
+            "Provider '{}' is temporarily unavailable (circuit breaker open). {}",
+            self.config.provider, outage_context
+        );
+        let _ = self.engine.event_tx.send(AgentEvent::Error {
+            thread_id: self.tid.clone(),
+            message: error_msg.clone(),
+        });
+        self.stream_cancel_token.cancel();
+        self.engine
+            .finish_stream_cancellation(&self.tid, self.stream_generation)
+            .await;
+        anyhow::anyhow!(
+            "Circuit breaker open for provider '{}' — the in-flight stream was stopped. {error_msg}",
+            self.config.provider
+        )
+    }
+
     async fn prepare_request(&mut self) -> Result<PreparedLlmRequest> {
         let compaction_inserted = self
             .engine
@@ -255,30 +281,13 @@ impl<'a> SendMessageRunner<'a> {
             tokio::time::sleep(delay).await;
         }
 
-        if let Err(e) = self
+        if self
             .engine
             .check_circuit_breaker(&self.config.provider)
             .await
+            .is_err()
         {
-            let outage_context = self
-                .engine
-                .suggest_alternative_provider(&self.config.provider)
-                .await
-                .unwrap_or_else(|| {
-                    "No healthy fallback providers are currently available.".to_string()
-                });
-            let error_msg = format!(
-                "Provider '{}' is temporarily unavailable (circuit breaker open). {}",
-                self.config.provider, outage_context
-            );
-            let _ = self.engine.event_tx.send(AgentEvent::Error {
-                thread_id: self.tid.clone(),
-                message: error_msg.clone(),
-            });
-            self.engine
-                .finish_stream_cancellation(&self.tid, self.stream_generation)
-                .await;
-            return Err(e.context(error_msg));
+            return Err(self.fail_for_open_circuit().await);
         }
 
         let llm_started_at = Instant::now();
@@ -366,8 +375,16 @@ impl<'a> SendMessageRunner<'a> {
             tokio::select! {
                 biased;
                 _ = self.stream_cancel_token.cancelled() => {
-                    self.was_cancelled = true;
-                    break;
+                    if self.engine.operator_stream_stop_requested(&self.tid).await
+                        || self
+                            .engine
+                            .provider_circuit_is_closed(&self.config.provider)
+                            .await
+                    {
+                        self.was_cancelled = true;
+                        break;
+                    }
+                    return Err(self.fail_for_open_circuit().await);
                 }
                 _ = self.stream_retry_now.notified() => {
                     if self.execution_profile_supersedes_runner().await {
@@ -471,6 +488,16 @@ impl<'a> SendMessageRunner<'a> {
                             failure_class,
                             message,
                         } => {
+                            if !self
+                                .engine
+                                .provider_circuit_is_closed(&self.config.provider)
+                                .await
+                            {
+                                self.engine
+                                    .record_llm_outcome(&self.config.provider, false)
+                                    .await;
+                                return Err(self.fail_for_open_circuit().await);
+                            }
                             if self.stream_cancel_token.is_cancelled() {
                                 self.was_cancelled = true;
                                 break;
@@ -624,8 +651,89 @@ impl<'a> SendMessageRunner<'a> {
                                     .get("retry_after_ms")
                                     .and_then(|value| value.as_u64())
                             });
+                            if !self
+                                .engine
+                                .provider_circuit_is_closed(&self.config.provider)
+                                .await
+                            {
+                                self.engine
+                                    .record_llm_outcome(&self.config.provider, false)
+                                    .await;
+                                return Err(self.fail_for_open_circuit().await);
+                            }
                             let usage_limit_exhausted =
                                 crate::agent::llm_client::is_exhausted_provider_usage_limit(&message);
+                            if usage_limit_exhausted
+                                && !self.engine.operator_stream_stop_requested(&self.tid).await
+                            {
+                                let delay_ms = if cfg!(test) {
+                                    1
+                                } else {
+                                    usage_limit_retry_delay_ms(&message)
+                                };
+                                let attempt = self.scheduled_retry_cycles.saturating_add(1);
+                                tracing::warn!(
+                                    thread_id = %self.tid,
+                                    provider = %self.config.provider,
+                                    attempt,
+                                    delay_ms,
+                                    visible_message = %visible_message,
+                                    "usage-limit retry parked so the operator can stop or retry without appending another error"
+                                );
+                                let _ = self.engine.event_tx.send(AgentEvent::RetryStatus {
+                                    thread_id: self.tid.clone(),
+                                    phase: "waiting".to_string(),
+                                    attempt,
+                                    max_retries: 0,
+                                    delay_ms,
+                                    failure_class: "rate_limit".to_string(),
+                                    message: visible_message.clone(),
+                                });
+                                self.retry_status_visible = true;
+                                self.scheduled_retry_cycles = attempt;
+                                tokio::select! {
+                                    biased;
+                                    _ = self.stream_cancel_token.cancelled() => {
+                                        self.was_cancelled = true;
+                                        break;
+                                    }
+                                    _ = self.stream_retry_now.notified() => {
+                                        if self.execution_profile_supersedes_runner().await {
+                                            return Err(self.fresh_runner_retry_err());
+                                        }
+                                        return Ok(StreamIteration {
+                                            prepared_request,
+                                            llm_started_at,
+                                            first_token_at,
+                                            effective_transport_for_turn,
+                                            accumulated_content,
+                                            accumulated_reasoning,
+                                            final_chunk: None,
+                                            stream_timed_out: true,
+                                            retry_loop: true,
+                                        });
+                                    }
+                                    _ = tokio::time::sleep(std::time::Duration::from_millis(delay_ms)) => {
+                                        if self.stream_cancel_token.is_cancelled()
+                                            || self.engine.operator_stream_stop_requested(&self.tid).await
+                                        {
+                                            self.was_cancelled = true;
+                                            break;
+                                        }
+                                        return Ok(StreamIteration {
+                                            prepared_request,
+                                            llm_started_at,
+                                            first_token_at,
+                                            effective_transport_for_turn,
+                                            accumulated_content,
+                                            accumulated_reasoning,
+                                            final_chunk: None,
+                                            stream_timed_out: true,
+                                            retry_loop: true,
+                                        });
+                                    }
+                                }
+                            }
                             let structured_retryable = !usage_limit_exhausted
                                 && structured_failure
                                     .as_ref()

@@ -986,11 +986,16 @@ impl AgentEngine {
             return Ok(());
         }
         let active_responder_agent_id = self.active_agent_id_for_thread(thread_id).await;
-        let thread_messages = self
-            .get_thread(thread_id)
-            .await
-            .ok_or_else(|| anyhow::anyhow!("thread not found: {thread_id}"))?
-            .messages;
+        let thread_messages = if self.threads.read().await.contains_key(thread_id) {
+            self.messages_for_read_only_context(thread_id)
+                .await
+                .unwrap_or_default()
+        } else {
+            self.get_thread(thread_id)
+                .await
+                .ok_or_else(|| anyhow::anyhow!("thread not found: {thread_id}"))?
+                .messages
+        };
         let novelty_epoch = thread_novelty_epoch(&thread_messages);
         let latest_user_timestamp = latest_user_message_timestamp(&thread_messages);
         let visible_messages = thread_messages

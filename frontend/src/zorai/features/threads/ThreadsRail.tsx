@@ -2,7 +2,7 @@ import { LoadingState, ThreadListSkeleton } from "@/components/LoadingState";
 import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
-import { fetchAgentRuns, type AgentRun } from "@/lib/agentRuns";
+import { ACTIVE_RUN_POLL_MS, fetchAgentRuns, IDLE_RUN_POLL_MS, runListIsActive, type AgentRun } from "@/lib/agentRuns";
 import { useAgentStore, type AgentThread } from "@/lib/agentStore";
 import {
   buildThreadFilterTabs,
@@ -44,6 +44,8 @@ export function ThreadsRail() {
   const deleteThread = useAgentStore((state) => state.deleteThread);
   const lastReadAtByThread = useThreadReadStateStore((state) => state.lastReadAtByThread);
   const [runs, setRuns] = useState<AgentRun[]>([]);
+  const runsRef = useRef(runs);
+  runsRef.current = runs;
   const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [tab, setTab] = useState<ThreadFilterTab>("svarog");
@@ -104,13 +106,23 @@ export function ThreadsRail() {
 
   useEffect(() => {
     let cancelled = false;
+    let inFlight = false;
+    let lastFetch = 0;
     const load = () => {
+      if (cancelled || inFlight || document.hidden) return;
+      const now = Date.now();
+      const wait = runListIsActive(runsRef.current) ? ACTIVE_RUN_POLL_MS : IDLE_RUN_POLL_MS;
+      if (lastFetch !== 0 && now - lastFetch < wait) return;
+      lastFetch = now;
+      inFlight = true;
       void fetchAgentRuns().then((next) => {
         if (!cancelled) setRuns((current) => sameAgentRunSnapshot(current, next) ? current : next);
+      }).finally(() => {
+        inFlight = false;
       });
     };
     load();
-    const timer = window.setInterval(load, 4000);
+    const timer = window.setInterval(load, ACTIVE_RUN_POLL_MS);
     const clock = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => {
       cancelled = true;

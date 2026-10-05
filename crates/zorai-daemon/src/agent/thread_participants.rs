@@ -168,10 +168,7 @@ pub(crate) fn spawn_continuation_flush_worker(
         while let Some(thread_id) = wake_rx.recv().await {
             let engine = Arc::clone(&engine);
             tokio::spawn(async move {
-                if engine
-                    .thread_is_idle_for_subagent_wakeup(&thread_id)
-                    .await
-                {
+                if engine.thread_is_idle_for_subagent_wakeup(&thread_id).await {
                     let _ = engine.stop_stream(&thread_id).await;
                 }
                 if let Err(error) = engine
@@ -839,6 +836,26 @@ impl AgentEngine {
                 );
             }
         }
+        if self.operator_stream_stop_requested(thread_id).await {
+            let removed = self
+                .clear_deferred_visible_thread_continuations(thread_id)
+                .await;
+            tracing::info!(
+                thread_id,
+                removed,
+                "dropping deferred continuation because the operator stopped the stream"
+            );
+            return Ok(());
+        }
+        let provider = self.config.read().await.provider.clone();
+        if !self.provider_circuit_is_closed(&provider).await {
+            tracing::info!(
+                thread_id,
+                provider,
+                "skipping deferred continuation flush while the provider circuit breaker is open"
+            );
+            return Ok(());
+        }
         {
             // Mirror the loop's stream-state check below: a live stream
             // blocks the flush, but a cancelled-but-not-yet-removed
@@ -931,7 +948,17 @@ impl AgentEngine {
                 .map(|(thread_id, _)| thread_id.clone())
                 .collect::<Vec<_>>()
         };
+        let provider = self.config.read().await.provider.clone();
+        let circuit_closed = self.provider_circuit_is_closed(&provider).await;
         for thread_id in queued_thread_ids {
+            if !circuit_closed {
+                tracing::info!(
+                    thread_id,
+                    provider,
+                    "leaving deferred continuation queued while the provider circuit breaker is open"
+                );
+                continue;
+            }
             if !self.thread_is_idle_for_subagent_wakeup(&thread_id).await {
                 continue;
             }
@@ -2642,6 +2669,109 @@ mod tests {
         assert!(
             lock_flush_slots(&slots).insert("thread-a".to_string()),
             "cancelling a flush before release() must still free the slot; try_lock on a tokio mutex leaves it stuck when the lock is busy"
+        );
+    }
+
+    #[tokio::test]
+    async fn open_circuit_keeps_deferred_continuation_queued_instead_of_starting_a_stream() {
+        let root = tempdir().expect("tempdir");
+        let manager = SessionManager::new_test(root.path()).await;
+        let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+        let provider = engine.config.read().await.provider.clone();
+        for _ in 0..5 {
+            engine.record_llm_outcome(&provider, false).await;
+        }
+        assert!(
+            !engine.provider_circuit_is_closed(&provider).await,
+            "repeated provider failures must open the breaker before another stream starts"
+        );
+
+        let thread_id = "thread-open-circuit";
+        engine
+            .enqueue_visible_thread_continuation(
+                thread_id,
+                DeferredVisibleThreadContinuation {
+                    agent_id: MAIN_AGENT_ID.to_string(),
+                    task_id: None,
+                    preferred_session_hint: None,
+                    llm_user_content: "continue after the child finished".to_string(),
+                    queued_at_ms: 1,
+                    force_compaction: false,
+                    rerun_participant_observers_after_turn: false,
+                    internal_delegate_sender: None,
+                    internal_delegate_message: None,
+                },
+            )
+            .await;
+
+        engine
+            .flush_deferred_visible_thread_continuations(thread_id)
+            .await
+            .expect("an open breaker should skip the flush without failing the turn");
+        assert_eq!(
+            engine
+                .deferred_visible_thread_continuations_for(thread_id)
+                .await
+                .len(),
+            1,
+            "the continuation must stay queued until the provider circuit closes"
+        );
+    }
+
+    #[tokio::test]
+    async fn tripping_the_circuit_breaker_cancels_the_in_flight_provider_stream() {
+        let root = tempdir().expect("tempdir");
+        let manager = SessionManager::new_test(root.path()).await;
+        let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+        let provider = engine.config.read().await.provider.clone();
+        let (generation, token, _) = engine.begin_stream_cancellation("thread-live").await;
+        engine
+            .tag_stream_provider("thread-live", generation, &provider)
+            .await;
+
+        for _ in 0..5 {
+            engine.record_llm_outcome(&provider, false).await;
+        }
+
+        assert!(
+            token.is_cancelled(),
+            "opening the breaker must cancel the live stream instead of letting it keep reading"
+        );
+    }
+
+    #[tokio::test]
+    async fn stream_start_and_provider_abort_do_not_deadlock() {
+        let root = tempdir().expect("tempdir");
+        let manager = SessionManager::new_test(root.path()).await;
+        let engine = std::sync::Arc::new(
+            AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await,
+        );
+        let provider = engine.config.read().await.provider.clone();
+        let mut tasks = Vec::new();
+        for index in 0..8 {
+            let engine = std::sync::Arc::clone(&engine);
+            let provider = provider.clone();
+            tasks.push(tokio::spawn(async move {
+                let thread_id = format!("thread-{index}");
+                let (generation, _, _) = engine.begin_stream_cancellation(&thread_id).await;
+                engine
+                    .tag_stream_provider(&thread_id, generation, &provider)
+                    .await;
+                engine.abort_streams_for_provider(&provider).await;
+                engine
+                    .finish_stream_cancellation(&thread_id, generation)
+                    .await;
+            }));
+        }
+        let finished = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            for task in tasks {
+                task.await.expect("stream lock task should finish");
+            }
+        })
+        .await;
+        assert!(
+            finished.is_ok(),
+            "starting a stream while the provider circuit aborts streams must not deadlock"
         );
     }
 }

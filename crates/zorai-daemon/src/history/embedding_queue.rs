@@ -1227,13 +1227,13 @@ impl HistoryStore {
             let now = now_ts() as i64;
             let mut remaining = limit;
             let message_sql = if remaining == usize::MAX {
-                "SELECT message.id, message.thread_id, message.created_at, message.role, message.content, message.provider, message.model, message.input_tokens, message.output_tokens, message.total_tokens, message.cost_usd, message.reasoning, message.tool_calls_json, message.metadata_json, thread.workspace_id
+                "SELECT message.id, message.thread_id, message.created_at, message.role, message.content, message.provider, message.model, message.input_tokens, message.output_tokens, message.total_tokens, message.cost_usd, message.reasoning, NULL, NULL, thread.workspace_id
                  FROM agent_messages message
                  LEFT JOIN agent_threads thread ON thread.id = message.thread_id
                  WHERE message.deleted_at IS NULL AND trim(message.content) <> ''
                  ORDER BY message.created_at ASC"
             } else {
-                "SELECT message.id, message.thread_id, message.created_at, message.role, message.content, message.provider, message.model, message.input_tokens, message.output_tokens, message.total_tokens, message.cost_usd, message.reasoning, message.tool_calls_json, message.metadata_json, thread.workspace_id
+                "SELECT message.id, message.thread_id, message.created_at, message.role, message.content, message.provider, message.model, message.input_tokens, message.output_tokens, message.total_tokens, message.cost_usd, message.reasoning, NULL, NULL, thread.workspace_id
                  FROM agent_messages message
                  LEFT JOIN agent_threads thread ON thread.id = message.thread_id
                  WHERE message.deleted_at IS NULL AND trim(message.content) <> ''

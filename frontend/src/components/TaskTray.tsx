@@ -11,24 +11,49 @@ import {
 
 const pulseAnimation = "task-tray-pulse 1.2s ease-in-out infinite";
 
+function taskWithoutLogs(task: AgentQueueTask): AgentQueueTask {
+    if (!task.logs?.length) return task;
+    return { ...task, logs: undefined };
+}
+
+function sameTaskSnapshot(left: readonly AgentQueueTask[], right: readonly AgentQueueTask[]): boolean {
+    if (left.length !== right.length) return false;
+    for (let index = 0; index < left.length; index += 1) {
+        const current = left[index];
+        const next = right[index];
+        if (current.id !== next.id || current.status !== next.status || current.progress !== next.progress) {
+            return false;
+        }
+    }
+    return true;
+}
+
 export function TaskTrayButton() {
     const [open, setOpen] = useState(false);
     const [tasks, setTasks] = useState<AgentQueueTask[]>([]);
+    const tasksRef = useRef(tasks);
+    tasksRef.current = tasks;
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const anchorRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         let mounted = true;
 
+        let lastFetch = 0;
         const refresh = async () => {
+            if (!mounted || document.hidden) return;
+            const now = Date.now();
+            const wait = tasksRef.current.some(isTaskActive) ? 4_000 : 30_000;
+            if (lastFetch !== 0 && now - lastFetch < wait) return;
+            lastFetch = now;
             const next = await fetchAgentTasks();
             if (!mounted) return;
-            setTasks(next);
+            setTasks((current) => sameTaskSnapshot(current, next) ? current : next.map(taskWithoutLogs));
             setSelectedTaskId((current) => current ?? next[0]?.id ?? null);
         };
 
         void refresh();
-        const interval = window.setInterval(() => void refresh(), 4000);
+        const interval = window.setInterval(() => void refresh(), 4_000);
         return () => { mounted = false; window.clearInterval(interval); };
     }, []);
 

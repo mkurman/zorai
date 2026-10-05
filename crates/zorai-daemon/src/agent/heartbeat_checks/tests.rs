@@ -201,6 +201,7 @@ async fn make_test_engine(
             checked_at: 0,
         }),
         stream_cancellations: Mutex::new(HashMap::new()),
+        stream_providers: Mutex::new(HashMap::new()),
         operator_stopped_streams: Mutex::new(HashSet::new()),
         stream_generation: AtomicU64::new(1),
         stalled_turn_candidates: Mutex::new(HashMap::new()),

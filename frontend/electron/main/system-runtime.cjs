@@ -161,7 +161,38 @@ async function getSwapStats() {
     return null;
 }
 
-async function getGpuStats() {
+function readSysfsGpuStats() {
+    const drmRoot = '/sys/class/drm';
+    if (!fs.existsSync(drmRoot)) return [];
+    const gpus = [];
+    let entries = [];
+    try {
+        entries = fs.readdirSync(drmRoot);
+    } catch {
+        return [];
+    }
+    for (const entry of entries) {
+        if (!/^card\d+$/.test(entry)) continue;
+        const busyPath = path.join(drmRoot, entry, 'device', 'gpu_busy_percent');
+        try {
+            const utilizationPercent = Number(fs.readFileSync(busyPath, 'utf8').trim());
+            if (!Number.isFinite(utilizationPercent)) continue;
+            gpus.push({
+                id: entry,
+                name: entry,
+                memoryUsedMB: null,
+                memoryTotalMB: null,
+                utilizationPercent,
+            });
+        } catch {
+            // This card does not publish a busy counter.
+        }
+    }
+    return gpus;
+}
+
+async function getGpuStats({ detailed = false } = {}) {
+    if (!detailed) return readSysfsGpuStats();
     try {
         const { stdout } = await execFileAsync(
             'nvidia-smi',
@@ -252,10 +283,11 @@ async function getSystemMonitorSnapshot(options = {}) {
     const usedMemoryBytes = totalMemoryBytes - freeMemoryBytes;
     const processLimit = options && typeof options === 'object' ? options.processLimit : undefined;
     const skipProcessList = processLimit === 0;
+    const detailedGpu = options && options.gpuDetails === true;
 
     const [swap, gpus, processes] = await Promise.all([
         skipProcessList ? null : getSwapStats(),
-        getGpuStats(),
+        getGpuStats({ detailed: detailedGpu }),
         skipProcessList ? [] : getTopProcesses(processLimit),
     ]);
 

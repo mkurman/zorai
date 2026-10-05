@@ -205,11 +205,9 @@ async fn managed_command_governance_persists_causal_trace_and_audit_for_risky_tr
         selected["option_type"].as_str(),
         Some("governance_evaluation")
     );
-    assert!(
-        selected["reasoning"].as_str().is_some_and(
-            |text| text.contains("require_approval") && text.contains("sandbox_required")
-        )
-    );
+    assert!(selected["reasoning"].as_str().is_some_and(|text| {
+        text.contains("require_approval") && !text.contains("sandbox_required")
+    }));
 
     let factors: Vec<crate::agent::learning::traces::CausalFactor> =
         serde_json::from_str(&records[0].causal_factors_json).expect("deserialize factors");
@@ -257,7 +255,7 @@ async fn managed_command_governance_persists_causal_trace_and_audit_for_risky_tr
     assert!(raw_json["constraints"].as_array().is_some_and(|items| {
         items
             .iter()
-            .any(|value| value.as_str() == Some("sandbox_required"))
+            .all(|value| value.as_str() != Some("sandbox_required"))
     }));
 }
 

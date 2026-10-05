@@ -548,6 +548,16 @@ impl AgentEngine {
                             && result.integration_acknowledged_at.is_none())
                 });
             if pending {
+                if let Some(thread_id) = child.parent_thread_id.as_deref() {
+                    if self.operator_stream_stop_requested(thread_id).await {
+                        self.mark_child_result_integrated(
+                            &child.id,
+                            child.parent_task_id.as_deref(),
+                        )
+                        .await;
+                        continue;
+                    }
+                }
                 let (level, message) = match child.status {
                     TaskStatus::Completed => (TaskLogLevel::Info, "subagent completed"),
                     TaskStatus::BudgetExceeded => (TaskLogLevel::Warn, "subagent budget exceeded"),
@@ -1983,6 +1993,16 @@ impl AgentEngine {
         parent_thread_id: &str,
         child_task_id: &str,
     ) -> std::result::Result<bool, String> {
+        let provider = self.config.read().await.provider.clone();
+        if !self.provider_circuit_is_closed(&provider).await {
+            tracing::info!(
+                thread_id = %parent_thread_id,
+                child_task_id,
+                provider,
+                "not resuming parent continuation while the provider circuit breaker is open"
+            );
+            return Ok(false);
+        }
         for attempt in 0..3 {
             let idle = self
                 .thread_is_idle_for_subagent_wakeup(parent_thread_id)

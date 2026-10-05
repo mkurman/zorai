@@ -49,6 +49,30 @@ async fn managed_command_wait_fails_when_session_exits() {
 }
 
 #[tokio::test]
+async fn managed_command_wait_keeps_output_when_session_exits() {
+    let (tx, mut rx) = broadcast::channel(4);
+    tx.send(DaemonMessage::Output {
+        id: SessionId::nil(),
+        data: b"DNS_EXIT=0\n104.20.23.154 data.rcsb.org\n".to_vec(),
+    })
+    .expect("output should broadcast");
+    tx.send(DaemonMessage::SessionExited {
+        id: SessionId::nil(),
+        exit_code: None,
+    })
+    .expect("session exit should broadcast");
+
+    let error = wait_for_managed_command_outcome(&mut rx, SessionId::nil(), "exec-1", 30, None)
+        .await
+        .expect_err("managed wait should fail when the session exits");
+    let message = error.to_string();
+
+    assert!(message.contains("session exited"));
+    assert!(message.contains("DNS_EXIT=0"));
+    assert!(message.contains("data.rcsb.org"));
+}
+
+#[tokio::test]
 async fn headless_shell_command_can_be_cancelled() {
     let root = tempfile::tempdir().unwrap();
     let session_manager = SessionManager::new_test(root.path()).await;

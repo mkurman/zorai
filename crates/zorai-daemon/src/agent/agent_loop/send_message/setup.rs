@@ -867,6 +867,9 @@ impl<'a> SendMessageRunner<'a> {
         config.context_window_tokens = provider_config.context_window_tokens;
         let (stream_generation, stream_cancel_token, stream_retry_now) =
             engine.begin_stream_cancellation(&tid).await;
+        engine
+            .tag_stream_provider(&tid, stream_generation, &active_provider_id)
+            .await;
         if engine.operator_stream_stop_requested(&tid).await {
             stream_cancel_token.cancel();
         }

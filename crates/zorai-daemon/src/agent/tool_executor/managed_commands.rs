@@ -116,10 +116,11 @@ pub(crate) async fn execute_managed_command(
             .get("allow_network")
             .and_then(|value| value.as_bool())
             .unwrap_or(false),
-        sandbox_enabled: args
-            .get("sandbox_enabled")
-            .and_then(|value| value.as_bool())
-            .unwrap_or(default_managed_execution.sandbox_enabled),
+        sandbox_enabled: resolve_sandbox_enabled(
+            default_managed_execution.sandbox_enabled,
+            args.get("sandbox_enabled")
+                .and_then(|value| value.as_bool()),
+        ),
         security_level,
         cwd: args
             .get("cwd")
@@ -477,5 +478,32 @@ pub(crate) async fn execute_managed_command(
             "unexpected managed command response: {}",
             serde_json::to_string(&other).unwrap_or_else(|_| "<unserializable>".to_string())
         )),
+    }
+}
+
+pub(crate) fn resolve_sandbox_enabled(operator_enabled: bool, requested: Option<bool>) -> bool {
+    if operator_enabled {
+        requested.unwrap_or(true)
+    } else {
+        false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_sandbox_enabled;
+
+    #[test]
+    fn operator_sandbox_off_ignores_a_tool_request_to_enable_it() {
+        assert!(!resolve_sandbox_enabled(false, Some(true)));
+        assert!(!resolve_sandbox_enabled(false, None));
+        assert!(!resolve_sandbox_enabled(false, Some(false)));
+    }
+
+    #[test]
+    fn operator_sandbox_on_defaults_on_and_still_allows_an_explicit_opt_out() {
+        assert!(resolve_sandbox_enabled(true, None));
+        assert!(resolve_sandbox_enabled(true, Some(true)));
+        assert!(!resolve_sandbox_enabled(true, Some(false)));
     }
 }

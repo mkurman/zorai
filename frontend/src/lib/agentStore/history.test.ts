@@ -22,6 +22,36 @@ describe("agent thread classification", () => {
 });
 
 describe("buildHydratedRemoteThread", () => {
+  it("drops the raw provider response body when opening a thread", () => {
+    const hydrated = buildHydratedRemoteThread(
+      {
+        id: "thread-final",
+        title: "SEPIQ",
+        messages: [
+          {
+            id: "assistant-final",
+            role: "assistant",
+            content: "score improved",
+            timestamp: 1,
+            provider_final_result: {
+              provider: "openai_responses",
+              output_text: "score improved",
+              input_tokens: 12,
+              response_json: "{\"output\":[]}",
+              tool_calls: [{ id: "call-1" }],
+            },
+          },
+        ],
+      },
+      "Svarog",
+    );
+    const result = hydrated?.messages[0]?.providerFinalResult as Record<string, unknown>;
+    expect(result.input_tokens).toBe(12);
+    expect(result.output_text).toBeUndefined();
+    expect(result.response_json).toBeUndefined();
+    expect(result.tool_calls).toBeUndefined();
+  });
+
   it("preserves persisted assistant cost when reopening a daemon thread", () => {
     const hydrated = buildHydratedRemoteThread(
       {

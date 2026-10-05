@@ -887,7 +887,7 @@ declare global {
         onWhatsAppDisconnected?: (cb: (info?: { reason?: string | null } | null) => void) => (() => void) | void;
         onWhatsAppError?: (cb: (message: string) => void) => (() => void) | void;
         saveVisionScreenshot?: (payload: { dataUrl: string }) => Promise<{ ok?: boolean; error?: string; path?: string; expiresAt?: number }>;
-        getSystemMonitorSnapshot?: (opts?: { processLimit?: number }) => Promise<any>;
+        getSystemMonitorSnapshot?: (opts?: { processLimit?: number; gpuDetails?: boolean }) => Promise<any>;
         getSystemFonts?: () => Promise<string[]>;
         getAvailableShells?: () => Promise<Array<{ name: string; path: string; args?: string }>>;
         checkDaemon?: () => Promise<boolean>;
