@@ -121,9 +121,16 @@ pub(crate) async fn wait_for_managed_command_outcome(
                 return Ok(ManagedCommandWaitOutcome::Rejected { message });
             }
             DaemonMessage::SessionExited { id, exit_code } if id == session_id => {
+                let output_tail = terminal_output_tail(&output_buf, 80);
+                let output_section = if output_tail.trim().is_empty() {
+                    String::new()
+                } else {
+                    format!("\n\nTerminal output (tail):\n{output_tail}")
+                };
                 return Err(anyhow::anyhow!(
-                    "terminal session exited while waiting for managed command result (exit_code: {:?})",
-                    exit_code
+                    "terminal session exited while waiting for managed command result (exit_code: {:?}){}",
+                    exit_code,
+                    output_section
                 ));
             }
             _ => {}

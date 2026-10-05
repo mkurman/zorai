@@ -208,6 +208,7 @@ pub struct AgentEngine {
     pub(super) weles_health: RwLock<WelesHealthStatus>,
     /// Active cancellation tokens per thread for stop-stream behavior.
     pub stream_cancellations: Mutex<HashMap<String, StreamCancellationEntry>>,
+    pub(super) stream_providers: Mutex<HashMap<String, (u64, String)>>,
     pub(crate) operator_stopped_streams: Mutex<HashSet<String>>,
     pub stream_generation: AtomicU64,
     pub(super) stalled_turn_candidates:
@@ -475,6 +476,7 @@ impl AgentEngine {
                 checked_at: 0,
             }),
             stream_cancellations: Mutex::new(HashMap::new()),
+            stream_providers: Mutex::new(HashMap::new()),
             operator_stopped_streams: Mutex::new(HashSet::new()),
             stream_generation: AtomicU64::new(1),
             stalled_turn_candidates: Mutex::new(HashMap::new()),
@@ -589,6 +591,7 @@ impl AgentEngine {
                 reason: outage.reason,
                 suggested_alternatives: outage.suggested_alternatives,
             });
+            self.abort_streams_for_provider(provider).await;
             anyhow::bail!(
                 "Circuit breaker open for provider '{}' — {} consecutive failures. \
                  Requests are blocked for ~30s to allow recovery.",
@@ -597,6 +600,14 @@ impl AgentEngine {
             );
         }
         Ok(())
+    }
+
+    pub(super) async fn provider_circuit_is_closed(&self, provider: &str) -> bool {
+        use super::circuit_breaker::CircuitState;
+
+        let breaker_arc = self.circuit_breakers.get(provider).await;
+        let breaker = breaker_arc.lock().await;
+        breaker.state() == CircuitState::Closed
     }
 
     /// Record the outcome of an LLM call for circuit breaker tracking.
@@ -647,6 +658,7 @@ impl AgentEngine {
                     reason: outage.reason,
                     suggested_alternatives: outage.suggested_alternatives,
                 });
+                self.abort_streams_for_provider(provider).await;
             }
         }
     }

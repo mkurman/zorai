@@ -51,12 +51,11 @@ export function ThreadMessageActionsProvider({
 export function shouldOfferMessageRetry(
   message: AgentMessage,
   latestAssistantMessageId: string | undefined,
-  mountedAt: number,
+  _mountedAt: number,
   hasUserMessage: boolean,
 ): boolean {
   return Boolean(hasUserMessage)
     && message.id === latestAssistantMessageId
-    && isMessageFromCurrentViewSession(message, mountedAt)
     && isRetryableErrorMessage(message);
 }
 

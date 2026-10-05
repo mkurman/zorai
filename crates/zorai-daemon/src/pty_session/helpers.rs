@@ -179,8 +179,12 @@ pub(super) fn dispatch_managed_command(
         );
         shell_join(&wrapped.program, &wrapped.args)
     } else if request.allow_network {
-        tracing::warn!("sandbox disabled for managed command; dispatching raw command");
-        request.command.clone()
+        let cwd = request.cwd.as_deref().or(fallback_cwd);
+        tracing::info!(
+            cwd = cwd.unwrap_or(""),
+            "sandbox disabled for managed command; running in a child shell"
+        );
+        command_in_child_shell(&request.command, cwd)
     } else {
         let wrapped = network::wrap_network(&request.command, request.allow_network);
         tracing::warn!("sandbox disabled for managed command; using network wrapper only");
@@ -192,6 +196,17 @@ pub(super) fn dispatch_managed_command(
     writer.write_all(b"\r")?;
     writer.flush()?;
     Ok(())
+}
+
+fn command_in_child_shell(command: &str, cwd: Option<&str>) -> String {
+    let script = match cwd
+        .map(str::trim)
+        .filter(|dir| !dir.is_empty() && *dir != ".")
+    {
+        Some(dir) => format!("cd {} || exit 1\n{command}", shell_escape(dir)),
+        None => command.to_string(),
+    };
+    format!("bash -c {}", shell_escape(&script))
 }
 
 fn shell_join(program: &str, args: &[String]) -> String {
@@ -537,4 +552,21 @@ fn find_in_path(binary: &str) -> Option<std::path::PathBuf> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::command_in_child_shell;
+
+    #[test]
+    fn network_command_exit_stays_inside_the_child_shell() {
+        let line = command_in_child_shell(
+            "printf 'DNS_EXIT=%s\\n' \"$rc\"; exit \"$rc\"",
+            Some("/mnt/e/sepiq2026"),
+        );
+        assert!(line.starts_with("bash -c "));
+        assert!(line.contains("/mnt/e/sepiq2026"));
+        assert!(line.contains("exit"));
+        assert!(!line.trim_end().ends_with("exit \"$rc\""));
+    }
 }

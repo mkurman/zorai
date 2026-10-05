@@ -4,6 +4,8 @@
 //! Uses bubblewrap (bwrap) on Linux, sandbox-exec on macOS,
 //! or falls back to a passthrough when neither is available.
 
+use std::path::{Path, PathBuf};
+
 /// Result of sandbox wrapping a command.
 pub struct SandboxedCommand {
     pub program: String,
@@ -57,7 +59,16 @@ impl Sandbox for BwrapSandbox {
             workspace_root.to_string(),
         ];
 
-        if !allow_network {
+        if allow_network {
+            // /etc is mounted, but systemd-resolved's resolv.conf is a symlink
+            // into /run, which this sandbox does not otherwise expose.
+            for source in host_resolver_bind_sources() {
+                let path = source.to_string_lossy().to_string();
+                args.push("--ro-bind".to_string());
+                args.push(path.clone());
+                args.push(path);
+            }
+        } else {
             args.push("--unshare-net".to_string());
         }
 
@@ -155,6 +166,68 @@ pub fn detect_sandbox() -> Box<dyn Sandbox> {
     Box::new(PassthroughSandbox)
 }
 
+fn host_resolver_bind_sources() -> Vec<PathBuf> {
+    let mut sources = Vec::new();
+    for candidate in ["/run/systemd/resolve", "/run/resolvconf"] {
+        let path = Path::new(candidate);
+        if path.exists() {
+            push_bind(&mut sources, path.to_path_buf());
+        }
+    }
+    push_symlink_target(&mut sources, Path::new("/etc/resolv.conf"));
+    push_symlink_target(&mut sources, Path::new("/etc/hosts"));
+    sources
+}
+
+fn push_symlink_target(sources: &mut Vec<PathBuf>, link: &Path) {
+    let Ok(target) = std::fs::read_link(link) else {
+        return;
+    };
+    let resolved = if target.is_absolute() {
+        target
+    } else {
+        link.parent().unwrap_or(Path::new("/")).join(target)
+    };
+    let Ok(canon) = std::fs::canonicalize(&resolved) else {
+        return;
+    };
+    if let Some(bind) = bind_path_for_resolv_target(&canon) {
+        push_bind(sources, bind);
+    }
+}
+
+fn bind_path_for_resolv_target(canon: &Path) -> Option<PathBuf> {
+    if already_visible_in_sandbox(canon) {
+        return None;
+    }
+    let bind = match canon.parent() {
+        Some(parent) if parent == Path::new("/run") || parent == Path::new("/") => {
+            canon.to_path_buf()
+        }
+        Some(parent) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
+        _ => canon.to_path_buf(),
+    };
+    if bind.as_os_str().is_empty() || bind == Path::new("/") || already_visible_in_sandbox(&bind) {
+        None
+    } else {
+        Some(bind)
+    }
+}
+
+fn push_bind(sources: &mut Vec<PathBuf>, bind: PathBuf) {
+    if sources.iter().any(|existing| bind.starts_with(existing)) {
+        return;
+    }
+    sources.retain(|existing| !existing.starts_with(&bind));
+    sources.push(bind);
+}
+
+fn already_visible_in_sandbox(path: &Path) -> bool {
+    ["/etc", "/usr", "/lib", "/lib64", "/bin", "/sbin"]
+        .iter()
+        .any(|root| path.starts_with(root))
+}
+
 fn which_exists(binary: &str) -> bool {
     std::process::Command::new("which")
         .arg(binary)
@@ -163,4 +236,64 @@ fn which_exists(binary: &str) -> bool {
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolv_file_under_systemd_resolve_binds_that_directory() {
+        let bind = bind_path_for_resolv_target(Path::new("/run/systemd/resolve/stub-resolv.conf"))
+            .expect("stub resolver should be mounted");
+        assert_eq!(bind, PathBuf::from("/run/systemd/resolve"));
+    }
+
+    #[test]
+    fn resolv_file_directly_in_run_binds_only_the_file() {
+        let bind = bind_path_for_resolv_target(Path::new("/run/resolv.conf"))
+            .expect("standalone resolv.conf should be mounted");
+        assert_eq!(bind, PathBuf::from("/run/resolv.conf"));
+    }
+
+    #[test]
+    fn resolv_target_inside_etc_is_already_visible() {
+        assert!(bind_path_for_resolv_target(Path::new("/etc/resolv.conf")).is_none());
+    }
+
+    #[test]
+    fn broader_bind_replaces_a_narrower_one() {
+        let mut sources = vec![PathBuf::from("/run/systemd/resolve/stub-resolv.conf")];
+        push_bind(&mut sources, PathBuf::from("/run/systemd/resolve"));
+        assert_eq!(sources, vec![PathBuf::from("/run/systemd/resolve")]);
+    }
+
+    #[test]
+    fn networked_bwrap_mounts_resolver_sources_and_keeps_host_net() {
+        let wrapped = BwrapSandbox.wrap("getent hosts example.com", "/tmp", true);
+        assert!(wrapped.args.iter().all(|arg| arg != "--unshare-net"));
+        for source in host_resolver_bind_sources() {
+            let text = source.to_string_lossy().to_string();
+            let index = wrapped
+                .args
+                .iter()
+                .position(|arg| arg == &text)
+                .unwrap_or_else(|| panic!("missing resolver bind {text}"));
+            assert_eq!(wrapped.args[index - 1], "--ro-bind");
+            assert_eq!(wrapped.args[index + 1], text);
+        }
+    }
+
+    #[test]
+    fn offline_bwrap_unshares_net_without_resolver_mounts() {
+        let wrapped = BwrapSandbox.wrap("echo hi", "/tmp", false);
+        assert!(wrapped.args.iter().any(|arg| arg == "--unshare-net"));
+        for source in host_resolver_bind_sources() {
+            let text = source.to_string_lossy().to_string();
+            assert!(
+                wrapped.args.iter().all(|arg| arg != &text),
+                "offline sandbox mounted {text}"
+            );
+        }
+    }
 }

@@ -40,6 +40,15 @@ describe("isRetryableErrorMessage", () => {
 describe("shouldOfferMessageRetry", () => {
   const mountedAt = 1_700_000_000_000;
 
+  it("keeps stop and retry on the latest provider failure after the view was opened", () => {
+    const failed = message({
+      id: "failed",
+      createdAt: mountedAt - 60_000,
+      content: "Error: openai API returned 429: The usage limit has been reached",
+    });
+    expect(shouldOfferMessageRetry(failed, "failed", mountedAt, true)).toBe(true);
+  });
+
   it("hides the prompt once a later assistant message exists", () => {
     // Why: retrying leaves the original Error: bubble in history. The prompt
     // is only meaningful on the current failed turn.
