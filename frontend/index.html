@@ -59,7 +59,6 @@
         to   { transform: translate3d(24px, 18px, 0) scale(1.08); }
       }
 
-      /* Logo with breathing glow + pulsing ring */
       #zorai-boot .zorai-boot-logo-wrap {
         position: relative;
         width: 128px;
@@ -68,26 +67,36 @@
         place-items: center;
         margin-bottom: 26px;
       }
-      #zorai-boot .zorai-boot-logo {
-        width: 104px;
-        height: 104px;
-        border-radius: 24px;
-        animation: zorai-boot-breathe 2.8s ease-in-out infinite;
-        filter: drop-shadow(0 0 26px var(--zorai-accent));
+      #zorai-boot .zorai-boot-mark {
+        width: 112px;
+        height: 112px;
+        overflow: visible;
       }
-      #zorai-boot .zorai-boot-ring {
-        position: absolute;
-        inset: -10px;
-        border-radius: 32px;
-        animation: zorai-boot-pulse 2.8s ease-out infinite;
+      #zorai-boot .zorai-boot-mark__line {
+        fill: none;
+        stroke: #fff;
+        stroke-width: 3.15;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 1;
+        stroke-dashoffset: 1;
+        animation: zorai-boot-draw 2.8s cubic-bezier(0.45, 0.02, 0.2, 1) forwards;
       }
-      @keyframes zorai-boot-breathe {
-        0%, 100% { transform: scale(1); }
-        50%      { transform: scale(1.04); }
-      }
-      @keyframes zorai-boot-pulse {
-        0%   { transform: scale(0.92); opacity: 0.8; }
-        100% { transform: scale(1.18); opacity: 0; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(1) { animation-delay: 0.05s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(2) { animation-delay: 0.28s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(3) { animation-delay: 0.4s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(4) { animation-delay: 0.52s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(5) { animation-delay: 0.64s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(6) { animation-delay: 0.76s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(7) { animation-delay: 0.88s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(8) { animation-delay: 1.08s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(9) { animation-delay: 1.16s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(10) { animation-delay: 1.24s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(11) { animation-delay: 1.32s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(12) { animation-delay: 1.4s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(13) { animation-delay: 1.48s; }
+      @keyframes zorai-boot-draw {
+        to { stroke-dashoffset: 0; }
       }
 
       /* Brand wordmark */
@@ -139,9 +148,9 @@
 
       @media (prefers-reduced-motion: reduce) {
         #zorai-boot .zorai-boot-orb,
-        #zorai-boot .zorai-boot-logo,
-        #zorai-boot .zorai-boot-ring,
+        #zorai-boot .zorai-boot-mark__line,
         #zorai-boot .zorai-boot-bar-fill { animation: none; }
+        #zorai-boot .zorai-boot-mark__line { stroke-dashoffset: 0; }
       }
     </style>
   </head>
@@ -150,8 +159,21 @@
       <div class="zorai-boot-orb zorai-boot-orb--a"></div>
       <div class="zorai-boot-orb zorai-boot-orb--b"></div>
       <div class="zorai-boot-logo-wrap">
-        <img class="zorai-boot-logo" src="./assets/zorai-wb-white.png" alt="Zorai logo" />
-        <div class="zorai-boot-ring"></div>
+        <svg class="zorai-boot-mark" viewBox="0 0 100 100" aria-hidden="true">
+          <circle class="zorai-boot-mark__line" cx="50" cy="50" r="42.86" pathLength="1" />
+          <path class="zorai-boot-mark__line" pathLength="1" d="M 50 45.82 A 37.67 37.67 0 0 1 50 11.32 A 37.67 37.67 0 0 1 50 45.82" />
+          <path class="zorai-boot-mark__line" pathLength="1" d="M 50 45.82 A 37.67 37.67 0 0 1 50 11.32 A 37.67 37.67 0 0 1 50 45.82" transform="rotate(60 50 50)" />
+          <path class="zorai-boot-mark__line" pathLength="1" d="M 50 45.82 A 37.67 37.67 0 0 1 50 11.32 A 37.67 37.67 0 0 1 50 45.82" transform="rotate(120 50 50)" />
+          <path class="zorai-boot-mark__line" pathLength="1" d="M 50 45.82 A 37.67 37.67 0 0 1 50 11.32 A 37.67 37.67 0 0 1 50 45.82" transform="rotate(180 50 50)" />
+          <path class="zorai-boot-mark__line" pathLength="1" d="M 50 45.82 A 37.67 37.67 0 0 1 50 11.32 A 37.67 37.67 0 0 1 50 45.82" transform="rotate(240 50 50)" />
+          <path class="zorai-boot-mark__line" pathLength="1" d="M 50 45.82 A 37.67 37.67 0 0 1 50 11.32 A 37.67 37.67 0 0 1 50 45.82" transform="rotate(300 50 50)" />
+          <path class="zorai-boot-mark__line" pathLength="1" d="M 69.34 50 L 77.69 44.27 A 28.28 28.28 0 0 1 77.69 55.73 Z" />
+          <path class="zorai-boot-mark__line" pathLength="1" d="M 69.34 50 L 77.69 44.27 A 28.28 28.28 0 0 1 77.69 55.73 Z" transform="rotate(60 50 50)" />
+          <path class="zorai-boot-mark__line" pathLength="1" d="M 69.34 50 L 77.69 44.27 A 28.28 28.28 0 0 1 77.69 55.73 Z" transform="rotate(120 50 50)" />
+          <path class="zorai-boot-mark__line" pathLength="1" d="M 69.34 50 L 77.69 44.27 A 28.28 28.28 0 0 1 77.69 55.73 Z" transform="rotate(180 50 50)" />
+          <path class="zorai-boot-mark__line" pathLength="1" d="M 69.34 50 L 77.69 44.27 A 28.28 28.28 0 0 1 77.69 55.73 Z" transform="rotate(240 50 50)" />
+          <path class="zorai-boot-mark__line" pathLength="1" d="M 69.34 50 L 77.69 44.27 A 28.28 28.28 0 0 1 77.69 55.73 Z" transform="rotate(300 50 50)" />
+        </svg>
       </div>
       <div class="zorai-boot-word">Zorai</div>
       <div class="zorai-boot-tagline">Daemon-first agentic runtime</div>

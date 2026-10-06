@@ -1367,8 +1367,10 @@ pub(crate) async fn dispatch_part4(
                     .await
                     .remove(&thread_id);
             }
-            // Reflect into persisted thread metadata (thread room + DB).
             agent.persist_thread_by_id(&thread_id).await;
+            agent
+                .persist_stored_thread_execution_profile(&thread_id)
+                .await;
             let _ = agent
                 .event_tx
                 .send(crate::agent::types::AgentEvent::ThreadReloadRequired {

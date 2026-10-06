@@ -1062,10 +1062,18 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+  overflow-anchor: none;
   padding: 24px 24px 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.zorai-thread-message-measure,
+.zorai-thread-message-spacer {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .zorai-thread-chat-scroll > * {
@@ -1172,6 +1180,7 @@
   background: var(--zorai-bg-active);
   border-color: var(--zorai-border-strong);
   justify-content: flex-end;
+  justify-self: flex-end;
   width: auto;
   min-width: auto;
   padding: 12px 18px;
@@ -1309,6 +1318,108 @@
   border-radius: 999px;
   background: transparent;
   list-style: none;
+}
+
+.zorai-message__reasoning-label--streaming {
+  background: linear-gradient(
+    90deg,
+    var(--text-muted) 0%,
+    var(--text-primary) 50%,
+    var(--text-muted) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: zorai-reasoning-label-shimmer 1.6s linear infinite;
+}
+
+@keyframes zorai-reasoning-label-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zorai-message__reasoning-label--streaming {
+    animation: none;
+    background: none;
+    -webkit-text-fill-color: unset;
+    color: var(--text-primary);
+  }
+}
+
+.zorai-thought-mark {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.zorai-thought-mark__line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.zorai-thought-mark__base {
+  stroke: currentColor;
+}
+
+.zorai-thought-mark--active .zorai-thought-mark__base {
+  stroke: var(--text-muted);
+  opacity: 0.18;
+}
+
+.zorai-thought-mark__trace {
+  stroke: var(--zorai-text);
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0;
+  animation: none;
+}
+
+.zorai-thought-mark--active .zorai-thought-mark__trace {
+  animation: zorai-thought-mark-draw 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes zorai-thought-mark-draw {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  45% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  58% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: -1;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zorai-thought-mark--active .zorai-thought-mark__trace {
+    animation: none;
+    opacity: 0;
+  }
+
+  .zorai-thought-mark--active .zorai-thought-mark__base {
+    stroke: currentColor;
+    opacity: 1;
+  }
 }
 
 .zorai-message__reasoning-toggle::-webkit-details-marker {

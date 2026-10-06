@@ -42,6 +42,8 @@ import { isThreadLoading, shouldShowConversationSkeleton, useThreadLoadingStore 
 import { threadReadKey, useThreadReadStateStore } from "./threadReadStateStore";
 import { DelegatedSessionSlot } from "./DelegatedSessionBar";
 import { ThreadSessionTabs } from "./SessionTabStrip";
+import { threadMessageItemKey } from "./threadMessageWindow";
+import { revealThreadMessage, ThreadMessageMeasure, useThreadMessageWindow } from "./useThreadMessageWindow";
 
 export { ThreadsRail } from "./ThreadsRail";
 
@@ -243,6 +245,14 @@ export function ThreadsView({
     runtime.loadOlderThreadMessages,
   ]);
 
+  const messageWindow = useThreadMessageWindow({
+    scrollerRef,
+    items: displayItems,
+    followBottom: pinnedToBottom,
+    threadId: activeThreadId,
+    onReleaseFollow: () => setPinnedToBottom(false),
+  });
+
   if (showConversationSkeleton && !runtime.activeThread) {
     return <ThreadConversationSkeleton />;
   }
@@ -329,9 +339,13 @@ export function ThreadsView({
         activeOperationCount={activeOperations.length}
             onOpenOperations={() => {
               const latest = activeOperations[activeOperations.length - 1];
-              if (latest && latest.operationId !== "unknown") {
-                document.getElementById(`zorai-operation-${latest.operationId}`)?.scrollIntoView({ block: "center" });
-              }
+              if (!latest || latest.operationId === "unknown") return;
+              const host = runtime.messages.find((message) => {
+                const activity = classifyThreadActivityMessage(message);
+                return activity?.kind === "operation"
+                  && activity.operations.some((operation) => operation.operationId === latest.operationId);
+              });
+              if (host) revealThreadMessage(host.id);
             }}
           />
           <ParticipantStrip thread={runtime.activeThread} onOpen={() => setParticipantsOpen(true)} />
@@ -372,53 +386,58 @@ export function ThreadsView({
           </div>
         ) : (
         <ThreadMessageActionsProvider actionsRef={messageActionsRef}>
-        {displayItems.map((item) => {
+        {messageWindow.topSpacer > 0 ? (
+          <div aria-hidden="true" className="zorai-thread-message-spacer" style={{ height: messageWindow.topSpacer }} />
+        ) : null}
+        {displayItems.slice(messageWindow.start, messageWindow.end).map((item) => {
+          const itemKey = threadMessageItemKey(item);
+          let row: ReactNode;
           if (item.type === "toolList") {
-            return (
+            row = (
               <ToolEventList
-                key={item.key}
                 groups={item.groups}
                 attribution={item.attribution}
                 fallbackAuthorName={runtime.activeThread?.agent_name}
               />
             );
-          }
-          if (item.type === "tool") {
-            return <MemoizedToolEventRow key={`tool_${item.group.key}`} group={item.group} />;
-          }
-
-          const message = item.message;
-          const activity = classifyThreadActivityMessage(message);
-          if (activity) {
-            return (
+          } else if (item.type === "tool") {
+            row = <MemoizedToolEventRow group={item.group} />;
+          } else {
+            const message = item.message;
+            const activity = classifyThreadActivityMessage(message);
+            row = activity ? (
               <ThreadActivityRow
-                key={message.id}
                 activity={activity}
                 createdAt={message.createdAt}
                 onRefreshOperation={runtime.getOperationStatus}
                 onCancelOperation={runtime.cancelOperation}
               />
+            ) : (
+              <NativeThreadMessageBubble
+                message={message}
+                threadAgentName={runtime.activeThread?.agent_name}
+                ttsEnabled={speech.ttsEnabled}
+                speaking={speech.speakingMessageId === message.id}
+                speechLoading={speech.loadingMessageId === message.id}
+                speechQueued={speech.queuedMessageIds.includes(message.id)}
+                offerRetry={shouldOfferMessageRetry(
+                  message,
+                  latestAssistantMessageId,
+                  viewMountedAtRef.current,
+                  Boolean(latestUserMessage),
+                )}
+              />
             );
           }
-
           return (
-            <NativeThreadMessageBubble
-              key={message.id}
-              message={message}
-              threadAgentName={runtime.activeThread?.agent_name}
-              ttsEnabled={speech.ttsEnabled}
-              speaking={speech.speakingMessageId === message.id}
-              speechLoading={speech.loadingMessageId === message.id}
-              speechQueued={speech.queuedMessageIds.includes(message.id)}
-              offerRetry={shouldOfferMessageRetry(
-                message,
-                latestAssistantMessageId,
-                viewMountedAtRef.current,
-                Boolean(latestUserMessage),
-              )}
-            />
+            <ThreadMessageMeasure key={itemKey} itemKey={itemKey} onHeight={messageWindow.reportHeight}>
+              {row}
+            </ThreadMessageMeasure>
           );
         })}
+        {messageWindow.bottomSpacer > 0 ? (
+          <div aria-hidden="true" className="zorai-thread-message-spacer" style={{ height: messageWindow.bottomSpacer }} />
+        ) : null}
         </ThreadMessageActionsProvider>
         )}
         {retryStatus ? (

@@ -2990,6 +2990,111 @@ async fn set_sub_agent_syncs_owned_thread_execution_profiles_for_rod_builtin_per
 }
 
 #[tokio::test]
+async fn paged_thread_reload_keeps_a_live_model_change() {
+    let root = tempdir().expect("temp dir");
+    let manager = SessionManager::new_test(root.path()).await;
+    let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+    let thread_id = "thread-paged-model-switch";
+    let metadata_json = serde_json::json!({
+        "execution_profile": {
+            "provider": "openrouter",
+            "model": "meta/muse-spark-1.3-contributor",
+            "reasoning_effort": "high",
+            "context_window_tokens": 1_000_000,
+        }
+    })
+    .to_string();
+    engine
+        .history
+        .create_thread(&zorai_protocol::AgentDbThread {
+            id: thread_id.to_string(),
+            workspace_id: None,
+            surface_id: None,
+            pane_id: None,
+            agent_name: Some("muse".to_string()),
+            title: "Paged model switch".to_string(),
+            created_at: 1,
+            updated_at: 5_000,
+            message_count: 1200,
+            total_tokens: 0,
+            last_preview: String::new(),
+            metadata_json: Some(metadata_json),
+        })
+        .await
+        .expect("create persisted thread");
+    engine.threads.write().await.insert(
+        thread_id.to_string(),
+        make_thread(thread_id, Some("muse"), "Paged model switch", false, 1, 1_000, Vec::new()),
+    );
+    engine.thread_execution_profiles.write().await.insert(
+        thread_id.to_string(),
+        crate::agent::types::ThreadExecutionProfile {
+            provider: Some("openrouter".to_string()),
+            model: Some("deepseek/deepseek-flash-latest".to_string()),
+            reasoning_effort: Some("high".to_string()),
+            context_window_tokens: Some(1_000_000),
+        },
+    );
+
+    engine.persist_thread_by_id(thread_id).await;
+    let skipped = engine
+        .history
+        .thread_metadata_json(thread_id)
+        .await
+        .expect("read metadata")
+        .expect("metadata exists");
+    assert!(
+        skipped.contains("meta/muse-spark-1.3-contributor"),
+        "a paged shell must not rewrite the newer persisted row, so the model change is not in that snapshot"
+    );
+
+    engine
+        .restore_thread_from_db(thread_id)
+        .await
+        .expect("paged reload of the previous profile");
+    assert_eq!(
+        engine
+            .get_thread_execution_profile(thread_id)
+            .await
+            .and_then(|profile| profile.model),
+        Some("deepseek/deepseek-flash-latest".to_string()),
+        "reloading a paged thread must not put the previous model back over the operator selection"
+    );
+
+    engine
+        .persist_stored_thread_execution_profile(thread_id)
+        .await;
+    let patched = engine
+        .history
+        .thread_metadata_json(thread_id)
+        .await
+        .expect("read patched metadata")
+        .expect("metadata exists");
+    assert!(
+        patched.contains("deepseek/deepseek-flash-latest"),
+        "the selected model has to land in thread metadata even when the full snapshot is stale"
+    );
+
+    engine
+        .thread_execution_profiles
+        .write()
+        .await
+        .remove(thread_id);
+    engine
+        .restore_thread_from_db(thread_id)
+        .await
+        .expect("cold reload");
+    assert_eq!(
+        engine
+            .get_thread_execution_profile(thread_id)
+            .await
+            .and_then(|profile| profile.model),
+        Some("deepseek/deepseek-flash-latest".to_string()),
+        "a later session has to load the model the operator selected"
+    );
+}
+
+#[tokio::test]
 async fn commit_thread_execution_profile_if_unchanged_skips_newer_user_selection() {
     let root = tempdir().expect("temp dir");
     let manager = SessionManager::new_test(root.path()).await;

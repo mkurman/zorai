@@ -486,6 +486,67 @@ fn openrouter_chat_request_opts_into_usage_accounting_for_cost() {
 }
 
 #[test]
+fn openrouter_chat_request_pins_prompt_cache_to_the_thread_session() {
+    let config = responses_test_config(
+        "https://openrouter.ai/api/v1".to_string(),
+        AuthSource::ApiKey,
+    );
+    let user = ApiMessage {
+        role: "user".to_string(),
+        content: ApiContent::Text("continue".to_string()),
+        reasoning: None,
+        tool_call_id: None,
+        name: None,
+        tool_calls: None,
+    };
+    let mut body = build_openai_chat_completions_body(
+        PROVIDER_ID_OPENROUTER,
+        &config,
+        "sys",
+        &[user],
+        &[],
+    )
+    .expect("body should build");
+    apply_openrouter_session_id(PROVIDER_ID_OPENROUTER, Some("thread-1"), &mut body);
+    assert_eq!(
+        body["session_id"].as_str(),
+        Some("thread-1"),
+        "OpenRouter sticky routing keys off session_id, not the per-call generation id"
+    );
+
+    apply_openrouter_session_id(PROVIDER_ID_OPENAI, Some("thread-1"), &mut body);
+    assert_eq!(body["session_id"].as_str(), Some("thread-1"));
+    let mut openai_body = serde_json::json!({});
+    apply_openrouter_session_id(PROVIDER_ID_OPENAI, Some("thread-1"), &mut openai_body);
+    assert!(openai_body.get("session_id").is_none());
+
+    let mut rejected = serde_json::json!({});
+    apply_openrouter_session_id(PROVIDER_ID_OPENROUTER, Some("  "), &mut rejected);
+    apply_openrouter_session_id(
+        PROVIDER_ID_OPENROUTER,
+        Some(&"x".repeat(257)),
+        &mut rejected,
+    );
+    assert!(rejected.get("session_id").is_none());
+
+    let client = reqwest::Client::new();
+    let request = apply_openrouter_session_header(
+        client.post("https://openrouter.ai/api/v1/chat/completions"),
+        PROVIDER_ID_OPENROUTER,
+        Some("thread-1"),
+    )
+    .build()
+    .expect("request should build");
+    assert_eq!(
+        request
+            .headers()
+            .get("x-session-id")
+            .and_then(|value| value.to_str().ok()),
+        Some("thread-1")
+    );
+}
+
+#[test]
 fn openrouter_chat_request_drops_assistant_messages_with_empty_content_blocks_without_tool_calls() {
     let mut config = responses_test_config(
         "https://openrouter.ai/api/v1".to_string(),

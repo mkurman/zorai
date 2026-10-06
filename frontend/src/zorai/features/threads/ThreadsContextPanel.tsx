@@ -16,6 +16,7 @@ import { useWorkspaceEditorRequestStore } from "@/lib/workspaceEditorRequestStor
 import { SpawnedContext } from "./ThreadsSpawnedContext";
 import { ThreadRuntimeBar } from "./ThreadRuntimeBar";
 import { resolveThreadOwnerRuntimeProfile } from "./threadOwnerRuntime";
+import { revealThreadMessage } from "./useThreadMessageWindow";
 
 type ContextTab = "todos" | "files" | "spawned";
 
@@ -121,7 +122,7 @@ export function ThreadsContext() {
         <PinnedThreadContext
           messages={runtime.pinnedMessages}
           onJumpToMessage={(messageId) => {
-            document.getElementById(`zorai-message-${messageId}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+            revealThreadMessage(messageId);
           }}
           onUnpinMessage={(messageId) => runtime.activeThreadId
             ? runtime.unpinMessageForCompaction(runtime.activeThreadId, messageId)
