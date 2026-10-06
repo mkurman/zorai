@@ -1,6 +1,7 @@
 import { memo, useEffect, useState } from "react";
 import type { ToolEventAttribution, ToolEventGroup } from "./types";
 import { MemoizedToolEventRow, sameToolEventGroup } from "./ToolEventRow";
+import { ZoraiToolMark } from "./ZoraiToolMark";
 
 const TOOL_TITLE_RISE_MS = 280;
 
@@ -53,6 +54,7 @@ export const ToolEventList = memo(function ToolEventList({
         className="acp-tool-list__header"
         onClick={() => setExpanded((prev) => !prev)}
       >
+        <ZoraiToolMark active={working} />
         <ToolListTitle title={title} working={working} />
         <span className="acp-tool-list__stats">
           [{doneCount} / {groups.length}]

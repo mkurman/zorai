@@ -75,22 +75,27 @@ pub(crate) async fn run_openai_chat_completions(
     tx: &mpsc::Sender<Result<CompletionChunk>>,
 ) -> Result<()> {
     let url = build_chat_completion_url(&config.base_url);
-    let body =
+    let mut body =
         build_openai_chat_completions_body(provider, config, system_prompt, messages, tools)?;
+    apply_openrouter_session_id(provider, opencode_session_id, &mut body);
 
-    let req = apply_opencode_go_headers(
-        apply_dashscope_coding_plan_sdk_headers(
-            build_openai_auth_request(
-                client,
-                &url,
+    let req = apply_openrouter_session_header(
+        apply_opencode_go_headers(
+            apply_dashscope_coding_plan_sdk_headers(
+                build_openai_auth_request(
+                    client,
+                    &url,
+                    provider,
+                    config,
+                    copilot_initiator,
+                    force_connection_close,
+                ),
                 provider,
-                config,
-                copilot_initiator,
-                force_connection_close,
+                &config.base_url,
+                ApiType::OpenAI,
             ),
             provider,
-            &config.base_url,
-            ApiType::OpenAI,
+            opencode_session_id,
         ),
         provider,
         opencode_session_id,
@@ -155,6 +160,52 @@ fn apply_openrouter_provider_routing(
     }
 
     body["provider"] = serde_json::Value::Object(provider_preferences);
+}
+
+const OPENROUTER_SESSION_ID_MAX_LEN: usize = 256;
+
+fn normalized_openrouter_session_id(session_id: Option<&str>) -> Option<String> {
+    let session_id = session_id?.trim();
+    if session_id.is_empty()
+        || session_id.len() > OPENROUTER_SESSION_ID_MAX_LEN
+        || reqwest::header::HeaderValue::from_str(session_id).is_err()
+    {
+        return None;
+    }
+    Some(session_id.to_owned())
+}
+
+pub(crate) fn apply_openrouter_session_id(
+    provider: &str,
+    session_id: Option<&str>,
+    body: &mut serde_json::Value,
+) {
+    if provider != zorai_shared::providers::PROVIDER_ID_OPENROUTER {
+        return;
+    }
+    let Some(session_id) = normalized_openrouter_session_id(session_id) else {
+        return;
+    };
+    if let Some(object) = body.as_object_mut() {
+        object.insert(
+            "session_id".to_string(),
+            serde_json::Value::String(session_id),
+        );
+    }
+}
+
+pub(crate) fn apply_openrouter_session_header(
+    req: reqwest::RequestBuilder,
+    provider: &str,
+    session_id: Option<&str>,
+) -> reqwest::RequestBuilder {
+    if provider != zorai_shared::providers::PROVIDER_ID_OPENROUTER {
+        return req;
+    }
+    let Some(session_id) = normalized_openrouter_session_id(session_id) else {
+        return req;
+    };
+    req.header("x-session-id", session_id)
 }
 
 pub(crate) fn build_openai_chat_completions_body(
@@ -686,7 +737,7 @@ pub(crate) async fn run_openai_responses(
     } else {
         build_responses_url(&config.base_url)
     };
-    let body = build_openai_responses_body(
+    let mut body = build_openai_responses_body(
         provider,
         config,
         system_prompt,
@@ -695,6 +746,7 @@ pub(crate) async fn run_openai_responses(
         previous_response_id,
         codex_auth.is_some(),
     );
+    apply_openrouter_session_id(provider, opencode_session_id, &mut body);
 
     let req = if let Some(codex_auth) = codex_auth {
         let req = maybe_force_connection_close(
@@ -721,14 +773,18 @@ pub(crate) async fn run_openai_responses(
         };
         req
     } else {
-        apply_opencode_go_headers(
-            build_openai_auth_request(
-                client,
-                &url,
+        apply_openrouter_session_header(
+            apply_opencode_go_headers(
+                build_openai_auth_request(
+                    client,
+                    &url,
+                    provider,
+                    config,
+                    copilot_initiator,
+                    force_connection_close,
+                ),
                 provider,
-                config,
-                copilot_initiator,
-                force_connection_close,
+                opencode_session_id,
             ),
             provider,
             opencode_session_id,

@@ -835,10 +835,8 @@ impl AgentEngine {
         };
         let execution_profile_fut = async {
             if let Some(profile) = meta_execution_profile {
-                self.thread_execution_profiles
-                    .write()
-                    .await
-                    .insert(thread_id_owned.clone(), profile);
+                let mut profiles = self.thread_execution_profiles.write().await;
+                profiles.entry(thread_id_owned.clone()).or_insert(profile);
             }
         };
         let participants_fut = async {

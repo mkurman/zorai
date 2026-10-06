@@ -325,20 +325,6 @@ function formatThoughtDuration(startedAt: number, now: number): string {
 
 function ThreadReasoningBlock({ content, streaming }: { content: string; streaming: boolean }) {
   const [open, setOpen] = useState(false);
-  const [startedAt] = useState(() => Date.now());
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (!streaming) {
-      return;
-    }
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, [streaming]);
-
-  const durationText = streaming
-    ? formatThoughtDuration(startedAt, now)
-    : formatStaticThoughtDuration(content);
 
   return (
     <details
@@ -348,12 +334,7 @@ function ThreadReasoningBlock({ content, streaming }: { content: string; streami
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <summary className="zorai-message__reasoning-toggle">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" />
-          <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15z" />
-        </svg>
-        <span>Thought for {durationText || "a moment"}</span>
-        {streaming ? <span className="zorai-message__reasoning-pulse" aria-hidden="true" /> : null}
+        <ThreadReasoningChrome streaming={streaming} content={content} />
       </summary>
       {open ? (
         <div>
@@ -363,6 +344,69 @@ function ThreadReasoningBlock({ content, streaming }: { content: string; streami
     </details>
   );
 }
+
+const ThreadReasoningChrome = memo(function ThreadReasoningChrome({
+  content,
+  streaming,
+}: {
+  content: string;
+  streaming: boolean;
+}) {
+  const [startedAt] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!streaming) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [streaming]);
+
+  const durationText = streaming
+    ? formatThoughtDuration(startedAt, now)
+    : formatStaticThoughtDuration(content);
+
+  return (
+    <>
+      <ThoughtMark active={streaming} />
+      <span className={streaming ? "zorai-message__reasoning-label zorai-message__reasoning-label--streaming" : "zorai-message__reasoning-label"}>
+        Thought for {durationText || "a moment"}
+      </span>
+    </>
+  );
+}, (prev, next) => {
+  if (prev.streaming !== next.streaming) return false;
+  if (prev.streaming && next.streaming) return true;
+  return prev.content === next.content;
+});
+
+const THOUGHT_MARK_PATH = [
+  "M12 3.2 13.55 9.05 19.8 10.5 13.55 11.95 12 17.8 10.45 11.95 4.2 10.5 10.45 9.05Z",
+  "M18.55 15.35 19.25 17.25 21.2 17.95 19.25 18.65 18.55 20.55 17.85 18.65 15.9 17.95 17.85 17.25Z",
+].join("");
+
+const ThoughtMark = memo(function ThoughtMark({ active }: { active: boolean }) {
+  return (
+    <svg
+      className={["zorai-thought-mark", active ? "zorai-thought-mark--active" : ""].filter(Boolean).join(" ")}
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        className="zorai-thought-mark__line zorai-thought-mark__base"
+        pathLength="1"
+        d={THOUGHT_MARK_PATH}
+      />
+      <path
+        className="zorai-thought-mark__line zorai-thought-mark__trace"
+        pathLength="1"
+        d={THOUGHT_MARK_PATH}
+      />
+    </svg>
+  );
+});
 
 function formatStaticThoughtDuration(content: string): string {
   const words = content.trim().split(/\s+/).filter(Boolean).length;

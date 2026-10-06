@@ -25,6 +25,7 @@ fn parse_reaction(value: Option<&str>) -> Option<zorai_protocol::Reaction> {
 
 enum ThreadMetadataPatch {
     ClientSurface(Option<zorai_protocol::ClientSurface>),
+    ExecutionProfile(Option<ThreadExecutionProfile>),
     LatestSkillDiscoveryState(Option<LatestSkillDiscoveryState>),
     PromptMemoryInjectionState(Option<PromptMemoryInjectionState>),
     WorkspaceContext(Option<ThreadWorkspaceContext>),
@@ -42,6 +43,18 @@ impl ThreadMetadataPatch {
             ThreadMetadataPatch::ClientSurface(None) => {
                 metadata.remove("client_surface");
                 metadata.remove("clientSurface");
+            }
+            ThreadMetadataPatch::ExecutionProfile(profile) => {
+                match profile.and_then(|profile| serde_json::to_value(profile).ok()) {
+                    Some(value) => {
+                        metadata.insert("execution_profile".to_string(), value.clone());
+                        metadata.insert("thread_profile".to_string(), value);
+                    }
+                    None => {
+                        metadata.remove("execution_profile");
+                        metadata.remove("thread_profile");
+                    }
+                }
             }
             ThreadMetadataPatch::LatestSkillDiscoveryState(Some(state)) => {
                 if let Ok(value) = serde_json::to_value(state) {
@@ -206,6 +219,13 @@ fn cap_thread_detail_for_ipc(detail: ThreadDetailResult) -> ThreadDetailResult {
 }
 
 impl AgentEngine {
+    pub(crate) async fn persist_stored_thread_execution_profile(&self, thread_id: &str) {
+        let profile = self.get_thread_execution_profile(thread_id).await;
+        let _ = self
+            .persist_thread_metadata_patch(thread_id, ThreadMetadataPatch::ExecutionProfile(profile))
+            .await;
+    }
+
     async fn persisted_thread_metadata(&self, thread_id: &str) -> Option<ParsedThreadMetadata> {
         let metadata_json = match self.history.thread_metadata_json(thread_id).await {
             Ok(Some(metadata_json)) => Some(metadata_json),
