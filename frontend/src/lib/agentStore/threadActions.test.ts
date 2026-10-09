@@ -279,3 +279,45 @@ describe("agentStore deleteMessage", () => {
     expect(useAgentStore.getState().threads.find((thread) => thread.id === "local-1")?.messageCount).toBe(1);
   });
 });
+
+describe("agentStore updateLastAssistantMessage while streaming", () => {
+  it("keeps the thread list stable for flushes that do not change the thread, so thread filters are not recomputed per delta", () => {
+    const local = makeThread("local-stream");
+    resetStoreState([local], "local-stream", []);
+    useAgentStore.setState({
+      messages: {
+        "local-stream": [{
+          id: "msg-stream",
+          threadId: "local-stream",
+          createdAt: 1,
+          role: "assistant",
+          content: "",
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+          isCompactionSummary: false,
+          isStreaming: true,
+        }],
+      },
+    } as any);
+    const update = useAgentStore.getState().updateLastAssistantMessage;
+    const longContent = "x".repeat(120);
+
+    update("local-stream", "short", true);
+    const afterPreviewChange = useAgentStore.getState().threads;
+    expect(afterPreviewChange[0].lastMessagePreview).toBe("short");
+
+    update("local-stream", longContent, true);
+    const afterPreviewFull = useAgentStore.getState().threads;
+    expect(afterPreviewFull).not.toBe(afterPreviewChange);
+
+    update("local-stream", `${longContent}more`, true, { reasoning: "thinking" });
+    expect(useAgentStore.getState().threads).toBe(afterPreviewFull);
+    expect(useAgentStore.getState().messages["local-stream"][0].content).toBe(`${longContent}more`);
+
+    update("local-stream", `${longContent}more`, false, { inputTokens: 5, outputTokens: 7, totalTokens: 12 });
+    const finalThread = useAgentStore.getState().threads[0];
+    expect(useAgentStore.getState().threads).not.toBe(afterPreviewFull);
+    expect(finalThread.totalTokens).toBe(12);
+  });
+});

@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { getBridge } from "@/lib/bridge";
 import { useAgentStore } from "@/lib/agentStore";
 import { useWorkspaceStore } from "@/lib/workspaceStore";
-import { useWorkspaceContextStore } from "@/lib/workspaceContextStore";
+import { toDaemonWorkspaceContext, useWorkspaceContextStore } from "@/lib/workspaceContextStore";
 import { extractWorkspaceSymbols } from "@/lib/workspaceSymbols";
 import type { editor as MonacoEditorApi } from "monaco-editor";
 import { CodeTabs } from "@/zorai/features/code/CodeTabs";
@@ -237,21 +237,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     if (!activeThreadId || !activeDaemonThreadId || !context || !bridge?.agentSetThreadWorkspaceContext) return;
     if (workspaceSyncTimer.current !== null) window.clearTimeout(workspaceSyncTimer.current);
     workspaceSyncTimer.current = window.setTimeout(() => {
-      void bridge.agentSetThreadWorkspaceContext!(activeDaemonThreadId, {
-        root: context.root,
-        active_file: context.activeFile,
-        selection: context.selection ? {
-          start_line: context.selection.startLine,
-          start_column: context.selection.startColumn,
-          end_line: context.selection.endLine,
-          end_column: context.selection.endColumn,
-        } : null,
-        attached_files: context.attachedFiles,
-        open_files: context.openFiles,
-        updated_at: context.updatedAt,
-        isolate_agent_tasks: context.isolateAgentTasks,
-        isolated_worktree_states: context.isolatedWorktreeStates,
-      }).catch(() => {});
+      void bridge.agentSetThreadWorkspaceContext!(activeDaemonThreadId, toDaemonWorkspaceContext(context)).catch(() => {});
     }, 350);
     return () => {
       if (workspaceSyncTimer.current !== null) window.clearTimeout(workspaceSyncTimer.current);
@@ -275,7 +261,9 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       }).catch(() => {});
     };
     loadChanges();
-    const timer = window.setInterval(loadChanges, 3000);
+    const timer = window.setInterval(() => {
+      if (!document.hidden) loadChanges();
+    }, 3000);
     return () => window.clearInterval(timer);
   }, [activeDaemonThreadId, bridge]);
   useEffect(() => {
@@ -1202,16 +1190,8 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     setRootInput(root);
     // The Code surface passes its bound root down; this workbench must not
     // hijack whatever thread happens to be active (e.g. a thread opened from
-    // the global Threads surface) and rebind it to the code root. Opening a
-    // root here is only valid for a thread that has no root context yet.
-    if (context?.root || !activeThreadId || !bridge?.workspaceOpen) return;
-    void bridge.workspaceOpen(root).then(async (opened) => {
-      if (useAgentStore.getState().activeThreadId !== activeThreadId) return;
-      bindRoot(activeThreadId, opened.root);
-      setRootInput(opened.root);
-      await refreshRoot(opened.root);
-    }).catch((reason: any) => setError(reason?.message ?? String(reason)));
-  }, [activeThreadId, bindRoot, bridge, context?.root, openedRoot, refreshRoot]);
+    // the global Threads surface) and rebind it to the code root.
+  }, [context?.root, openedRoot]);
 
   const [explorerPortalHost, setExplorerPortalHost] = useState<HTMLElement | null>(null);
   useEffect(() => {

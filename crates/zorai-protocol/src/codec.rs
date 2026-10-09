@@ -196,6 +196,7 @@ mod tests {
             content_blocks_json: None,
             client_surface: None,
             target_agent_id: None,
+            workspace_context_json: None,
         };
 
         let err = codec

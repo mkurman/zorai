@@ -4,6 +4,7 @@ export type CodeResizePanel = "explorer" | "agent";
 
 export type CodeResizeHandleProps = {
   panel: CodeResizePanel;
+  label?: string;
   value: number;
   min: number;
   max: number;
@@ -17,6 +18,7 @@ function clamp(value: number, min: number, max: number): number {
 
 export function CodeResizeHandle({
   panel,
+  label: labelOverride,
   value,
   min,
   max,
@@ -24,7 +26,7 @@ export function CodeResizeHandle({
   onReset,
 }: CodeResizeHandleProps) {
   const dragRef = useRef<{ pointerId: number; startX: number; startValue: number } | null>(null);
-  const label = panel === "explorer" ? "Resize Explorer" : "Resize Code Agent";
+  const label = labelOverride ?? (panel === "explorer" ? "Resize Explorer" : "Resize Code Agent");
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;

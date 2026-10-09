@@ -396,8 +396,8 @@ function ThreadSessionRow({
       )}
       {editing ? null : (
         <span className="zorai-thread-row__actions">
-          <button type="button" className="zorai-thread-row__action" aria-label={`Rename ${thread.title}`} onClick={onStartRename}>Rename</button>
-          <button type="button" className="zorai-thread-row__action zorai-thread-row__action--danger" aria-label={`Delete ${thread.title}`} onClick={onDelete}>Delete</button>
+          <button type="button" className="zorai-thread-row__action" aria-label={`Rename ${thread.title}`} title="Rename" onClick={onStartRename}><ThreadRowIcon kind="rename" /></button>
+          <button type="button" className="zorai-thread-row__action zorai-thread-row__action--danger" aria-label={`Delete ${thread.title}`} title="Delete" onClick={onDelete}><ThreadRowIcon kind="delete" /></button>
         </span>
       )}
     </div>
@@ -425,4 +425,23 @@ function threadHistoryLabel(thread: AgentThread): string {
   if (thread.messageCount > 0) return `${thread.messageCount} msgs`;
   if ((thread.totalInputTokens ?? 0) > 0 || (thread.totalOutputTokens ?? 0) > 0 || (thread.totalTokens ?? 0) > 0) return "history";
   return "0 msgs";
+}
+
+function ThreadRowIcon({ kind }: { kind: "rename" | "delete" }) {
+  return (
+    <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {kind === "rename" ? (
+        <>
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+        </>
+      ) : (
+        <>
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+          <path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+        </>
+      )}
+    </svg>
+  );
 }

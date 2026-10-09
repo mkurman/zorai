@@ -95,6 +95,46 @@ async fn first_workspace_context_write_persists_for_memory_only_thread() {
 }
 
 #[tokio::test]
+async fn workspace_context_sent_with_first_message_is_on_thread_before_first_prompt() {
+    let root = tempdir().expect("temp dir");
+    let manager = SessionManager::new_test(root.path()).await;
+    let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+    let thread_id = "thread-first-message-workspace";
+    let context = ThreadWorkspaceContext {
+        root: "/repo".to_string(),
+        active_file: Some("src/lib.rs".to_string()),
+        isolate_agent_tasks: true,
+        updated_at: 7,
+        ..ThreadWorkspaceContext::default()
+    };
+
+    assert!(
+        !engine
+            .set_thread_workspace_context(thread_id, Some(context.clone()))
+            .await
+    );
+    engine
+        .pending_thread_workspace_contexts
+        .write()
+        .await
+        .insert(thread_id.to_string(), context.clone());
+
+    let (id, created) = engine.get_or_create_thread(Some(thread_id), "hello").await;
+
+    assert!(created);
+    assert_eq!(id, thread_id);
+    assert_eq!(
+        engine.get_thread_workspace_context(thread_id).await,
+        Some(context)
+    );
+    assert!(engine
+        .pending_thread_workspace_contexts
+        .read()
+        .await
+        .is_empty());
+}
+
+#[tokio::test]
 async fn message_feedback_resolves_stale_id_by_absolute_index() {
     let root = tempdir().expect("temp dir");
     let manager = SessionManager::new_test(root.path()).await;

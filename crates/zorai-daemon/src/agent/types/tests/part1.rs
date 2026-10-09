@@ -17,8 +17,8 @@ fn configurable_channel_capacity() {
         ConciergeDetailLevel::ContextSummary
     );
     assert_eq!(parsed.retry_delay_ms, 5_000);
-    assert_eq!(parsed.message_loop_delay_ms, 500);
-    assert_eq!(parsed.tool_call_delay_ms, 500);
+    assert_eq!(parsed.message_loop_delay_ms, 100);
+    assert_eq!(parsed.tool_call_delay_ms, 100);
     assert_eq!(parsed.llm_stream_chunk_timeout_secs, 300);
 
     let json = r#"{"pty_channel_capacity": 2048, "agent_event_channel_capacity": 1024}"#;
@@ -94,10 +94,10 @@ fn default_retry_delay_is_five_seconds() {
 }
 
 #[test]
-fn default_sleep_delays_are_half_second() {
+fn default_sleep_delays_are_one_hundred_ms() {
     let parsed: AgentConfig = serde_json::from_str("{}").unwrap();
-    assert_eq!(parsed.message_loop_delay_ms, 500);
-    assert_eq!(parsed.tool_call_delay_ms, 500);
+    assert_eq!(parsed.message_loop_delay_ms, 100);
+    assert_eq!(parsed.tool_call_delay_ms, 100);
 }
 
 #[test]

@@ -28,9 +28,12 @@ where
             context_messages,
             content_blocks_json,
             target_agent_id,
+            workspace_context,
         } => {
             let context_messages_json =
                 context_messages.and_then(|msgs| serde_json::to_string(&msgs).ok());
+            let workspace_context_json =
+                workspace_context.and_then(|context| serde_json::to_string(&context).ok());
             framed
                 .send(ClientMessage::AgentSendMessage {
                     thread_id,
@@ -40,6 +43,7 @@ where
                     content_blocks_json,
                     client_surface: Some(zorai_protocol::ClientSurface::Electron),
                     target_agent_id,
+                    workspace_context_json,
                 })
                 .await?;
         }
@@ -1405,7 +1409,9 @@ mod tests {
                 context_messages,
                 content_blocks_json,
                 target_agent_id,
+                workspace_context,
             } => {
+                assert!(workspace_context.is_none());
                 assert_eq!(thread_id.as_deref(), Some("thread-1"));
                 assert_eq!(content, "hello");
                 assert!(session_id.is_none());
@@ -1481,7 +1487,9 @@ mod tests {
                 content_blocks_json,
                 client_surface,
                 target_agent_id,
+                workspace_context_json,
             } => {
+                assert!(workspace_context_json.is_none());
                 assert_eq!(thread_id.as_deref(), Some("thread-1"));
                 assert_eq!(content, "hello");
                 assert!(session_id.is_none());
@@ -1623,6 +1631,7 @@ mod tests {
             content_blocks_json: None,
             client_surface: Some(zorai_protocol::ClientSurface::Electron),
             target_agent_id: None,
+            workspace_context_json: None,
         };
 
         let mut encoded = BytesMut::new();

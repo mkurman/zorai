@@ -6,7 +6,7 @@ import { getAgentBridge, shouldUseDaemonRuntime } from "@/lib/agentDaemonConfig"
 import { provisionAgentWorkspaceTerminals, provisionTerminalPaneInWorkspace, resolvePaneSessionId } from "@/lib/agentWorkspace";
 import { startGoalRun, goalRunSupportAvailable, type GoalRun } from "@/lib/goalRuns";
 import { useWorkspaceStore } from "@/lib/workspaceStore";
-import { useWorkspaceContextStore } from "@/lib/workspaceContextStore";
+import { toDaemonWorkspaceContext, useWorkspaceContextStore } from "@/lib/workspaceContextStore";
 import { appendDaemonSystemMessage, normalizeBridgePayload, reloadDaemonThreadIntoLocalState } from "./daemonHelpers";
 import { parseLeadingAgentDirective, type AgentDirective } from "./agentDirective";
 import { waitForThreadStopBarrier } from "./threadStopBarrier";
@@ -544,9 +544,12 @@ export function useDaemonAgentActions({
       if (daemonThreadId) {
         const workspaceContext = useWorkspaceContextStore.getState().byThreadId[threadId];
         if (workspaceContext && zorai.agentSetThreadWorkspaceContext) {
-          await zorai.agentSetThreadWorkspaceContext(daemonThreadId, workspaceContext);
+          await zorai.agentSetThreadWorkspaceContext(daemonThreadId, toDaemonWorkspaceContext(workspaceContext));
         }
       }
+      const initialWorkspaceContext = daemonThreadId
+        ? null
+        : useWorkspaceContextStore.getState().byThreadId[threadId] ?? null;
       await sendAgentMessage(
         daemonThreadId,
         text,
@@ -554,6 +557,7 @@ export function useDaemonAgentActions({
         contextMessages,
         contentBlocksJson,
         targetAgentId,
+        initialWorkspaceContext ? toDaemonWorkspaceContext(initialWorkspaceContext) : null,
       );
     })();
 

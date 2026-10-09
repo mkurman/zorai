@@ -312,7 +312,32 @@ pub(super) fn read_last_worm_entry(path: &PathBuf) -> (String, usize) {
 }
 
 pub(super) fn read_last_provenance_entry(path: &PathBuf) -> Option<ProvenanceLogEntry> {
-    read_provenance_entries(path).ok()?.into_iter().last()
+    use std::io::{Read, Seek, SeekFrom};
+
+    let mut file = std::fs::File::open(path).ok()?;
+    let len = file.metadata().ok()?.len();
+    let mut window = 64 * 1024u64;
+    loop {
+        let start = len.saturating_sub(window);
+        file.seek(SeekFrom::Start(start)).ok()?;
+        let mut tail = Vec::with_capacity((len - start) as usize);
+        file.read_to_end(&mut tail).ok()?;
+        let text = String::from_utf8_lossy(&tail);
+        let mut lines = text.split('\n').collect::<Vec<_>>();
+        if start > 0 {
+            lines.remove(0);
+        }
+        let found = lines.iter().rev().find_map(|line| {
+            let trimmed = line.trim();
+            (!trimmed.is_empty())
+                .then(|| serde_json::from_str::<ProvenanceLogEntry>(trimmed).ok())
+                .flatten()
+        });
+        if found.is_some() || start == 0 {
+            return found;
+        }
+        window = window.saturating_mul(4);
+    }
 }
 
 pub(super) fn read_provenance_entries(path: &PathBuf) -> Result<Vec<ProvenanceLogEntry>> {

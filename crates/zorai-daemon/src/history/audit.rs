@@ -199,6 +199,28 @@ impl HistoryStore {
         Ok(deleted)
     }
 
+    pub async fn prune_heartbeat_history_to_latest(&self) -> Result<usize> {
+        let mut deleted = 0usize;
+        loop {
+            let batch = self
+                .conn_db
+                .execute(
+                    "DELETE FROM heartbeat_history WHERE id IN \
+                     (SELECT id FROM heartbeat_history \
+                      WHERE cycle_timestamp < (SELECT MAX(cycle_timestamp) FROM heartbeat_history) \
+                      LIMIT ?1)",
+                    db::db_params![RETENTION_DELETE_BATCH],
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("prune_heartbeat_history_to_latest: {e}"))?
+                as usize;
+            deleted += batch;
+            if batch < RETENTION_DELETE_BATCH as usize {
+                return Ok(deleted);
+            }
+        }
+    }
+
     /// Mark an audit entry as dismissed by the user. Per BEAT-09/D-04.
     pub async fn dismiss_audit_entry(&self, entry_id: &str) -> Result<()> {
         self.conn_db
@@ -258,4 +280,14 @@ impl HistoryStore {
         .await
         .map_err(|e| anyhow::anyhow!("count_acted_on_by_type: {e}"))
     }
+}
+
+pub(crate) const RETENTION_DELETE_BATCH: i64 = 2_000;
+
+pub(crate) fn retention_cutoff_ms(max_age_days: u32) -> i64 {
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64;
+    now_ms - i64::from(max_age_days) * 86_400 * 1000
 }

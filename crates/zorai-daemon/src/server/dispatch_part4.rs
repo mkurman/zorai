@@ -617,16 +617,16 @@ pub(crate) async fn dispatch_part4(
         } => {
             client_agent_threads.insert(thread_id.clone());
             let parsed =
-                serde_json::from_str::<crate::agent::types::ThreadWorkspaceContext>(&context_json);
+                serde_json::from_str::<Option<crate::agent::types::ThreadWorkspaceContext>>(&context_json);
             match parsed {
                 Ok(context) => {
                     let updated = agent
-                        .set_thread_workspace_context(&thread_id, Some(context.clone()))
+                        .set_thread_workspace_context(&thread_id, context.clone())
                         .await;
                     framed
                         .send(DaemonMessage::AgentThreadWorkspaceContext {
                             thread_id,
-                            context_json: serde_json::to_string(&Some(context))
+                            context_json: serde_json::to_string(&context)
                                 .unwrap_or_else(|_| "null".to_string()),
                             updated,
                         })

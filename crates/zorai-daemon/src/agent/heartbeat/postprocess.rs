@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use super::*;
 use crate::history::AuditEntryRow;
 
+const SUPPRESSED_TRIGGER_FIRE_RETENTION_DAYS: u32 = 7;
+
 impl AgentEngine {
     pub(super) async fn finalize_heartbeat_postprocess(
         &self,
@@ -87,6 +89,30 @@ impl AgentEngine {
             Err(e) => {
                 tracing::warn!("audit trail cleanup failed: {e}");
             }
+            _ => {}
+        }
+
+        match self
+            .history
+            .prune_heartbeat_history_to_latest()
+            .await
+        {
+            Ok(deleted) if deleted > 0 => {
+                tracing::info!(deleted, "heartbeat history retention removed superseded cycles");
+            }
+            Err(e) => tracing::warn!("heartbeat history retention failed: {e}"),
+            _ => {}
+        }
+
+        match self
+            .history
+            .prune_suppressed_trigger_fire_history(SUPPRESSED_TRIGGER_FIRE_RETENTION_DAYS)
+            .await
+        {
+            Ok(deleted) if deleted > 0 => {
+                tracing::info!(deleted, "trigger fire retention removed old suppressed fires");
+            }
+            Err(e) => tracing::warn!("trigger fire retention failed: {e}"),
             _ => {}
         }
     }

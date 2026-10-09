@@ -101,10 +101,10 @@ pub(crate) fn default_retry_delay_ms() -> u64 {
     5000
 }
 pub(crate) fn default_message_loop_delay_ms() -> u64 {
-    500
+    100
 }
 pub(crate) fn default_tool_call_delay_ms() -> u64 {
-    500
+    100
 }
 pub(crate) fn default_llm_stream_chunk_timeout_secs() -> u64 {
     300

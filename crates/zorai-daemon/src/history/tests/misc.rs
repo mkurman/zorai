@@ -610,3 +610,43 @@ async fn tool_output_preview_path_uses_goal_named_thread_preview_layout() -> Res
     fs::remove_dir_all(root)?;
     Ok(())
 }
+
+#[tokio::test]
+async fn heartbeat_history_retention_keeps_only_the_latest_cycle() -> Result<()> {
+    let (store, _root) = make_test_store().await?;
+    let now_ms = super::audit::retention_cutoff_ms(0);
+    let superseded = super::audit::RETENTION_DELETE_BATCH + 3;
+
+    for index in 0..superseded {
+        store
+            .insert_heartbeat_history(
+                &format!("cycle-{index}"),
+                now_ms - (superseded - index) * 60_000,
+                "[]",
+                None,
+                false,
+                None,
+                0,
+                0,
+                "completed",
+            )
+            .await?;
+    }
+    store
+        .insert_heartbeat_history("cycle-latest", now_ms, "[]", None, false, None, 0, 0, "completed")
+        .await?;
+
+    let deleted = store.prune_heartbeat_history_to_latest().await?;
+
+    assert_eq!(
+        deleted, superseded as usize,
+        "only the latest cycle is ever read, so every older one must be deleted even across several batches"
+    );
+    let remaining = store.list_heartbeat_history(10).await?;
+    assert_eq!(
+        remaining.iter().map(|row| row.id.as_str()).collect::<Vec<_>>(),
+        vec!["cycle-latest"],
+        "the latest heartbeat cycle must survive pruning"
+    );
+    Ok(())
+}

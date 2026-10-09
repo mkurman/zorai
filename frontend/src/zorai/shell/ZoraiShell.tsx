@@ -14,13 +14,25 @@ import { CodeResizeHandle } from "../features/code/CodeResizeHandle";
 import {
   CODE_AGENT_DEFAULT_WIDTH,
   CODE_AGENT_MIN_WIDTH,
+  CODE_COLLAPSED_AGENT_WIDTH,
+  CODE_COLLAPSED_EXPLORER_WIDTH,
+  CODE_EDITOR_MIN_WIDTH,
   CODE_EXPLORER_DEFAULT_WIDTH,
   CODE_EXPLORER_MIN_WIDTH,
+  CODE_GLOBAL_RAIL_WIDTH,
+  CODE_RESIZE_HANDLE_WIDTH,
   codeFixedChromeWidth,
   maxCodePanelWidth,
   resolveCodePanelWidths,
 } from "../features/code/codeLayoutModel";
 import { useCodeLayoutStore } from "../features/code/codeLayoutStore";
+import {
+  SHELL_CONTEXT_DEFAULT_WIDTH,
+  SHELL_CONTEXT_MIN_WIDTH,
+  SHELL_RAIL_DEFAULT_WIDTH,
+  SHELL_RAIL_MIN_WIDTH,
+  useShellLayoutStore,
+} from "./shellLayoutStore";
 import { ToolsContext, ToolsRail, ToolsView } from "../features/tools/ToolsView";
 import { getDefaultZoraiTool, type ZoraiToolId } from "../features/tools/tools";
 import { WorkspacesRail, WorkspacesView } from "../features/workspaces/WorkspacesView";
@@ -173,10 +185,25 @@ export function ZoraiShell() {
     otherWidth: effectiveCodeWidths.explorer,
     fixedChromeWidth: fixedCodeChrome,
   });
+  const railPreferredWidth = useShellLayoutStore((state) => state.railWidths[activeView] ?? SHELL_RAIL_DEFAULT_WIDTH);
+  const contextPreferredWidth = useShellLayoutStore((state) => state.contextWidths[activeView] ?? SHELL_CONTEXT_DEFAULT_WIDTH);
+  const setRailWidth = useShellLayoutStore((state) => state.setRailWidth);
+  const setContextWidth = useShellLayoutStore((state) => state.setContextWidth);
+  const resetRailWidth = useShellLayoutStore((state) => state.resetRailWidth);
+  const resetContextWidth = useShellLayoutStore((state) => state.resetContextWidth);
+  const shellFreeWidth = viewportWidth - CODE_GLOBAL_RAIL_WIDTH - CODE_EDITOR_MIN_WIDTH - 2 * CODE_RESIZE_HANDLE_WIDTH;
+  const contextReservedWidth = contextOpen ? Math.min(contextPreferredWidth, Math.max(SHELL_CONTEXT_MIN_WIDTH, shellFreeWidth - SHELL_RAIL_MIN_WIDTH)) : CODE_COLLAPSED_AGENT_WIDTH;
+  const railResizeMax = Math.max(SHELL_RAIL_MIN_WIDTH, shellFreeWidth - contextReservedWidth);
+  const railWidth = Math.min(railPreferredWidth, railResizeMax);
+  const contextResizeMax = Math.max(SHELL_CONTEXT_MIN_WIDTH, shellFreeWidth - (railOpen ? railWidth : CODE_COLLAPSED_EXPLORER_WIDTH));
+  const contextWidth = Math.min(contextPreferredWidth, contextResizeMax);
   const shellStyle = activeView === "code" ? {
     "--zorai-code-explorer-width": `${effectiveCodeWidths.explorer}px`,
     "--zorai-code-agent-width": `${effectiveCodeWidths.agent}px`,
-  } as CSSProperties : undefined;
+  } as CSSProperties : {
+    "--zorai-rail-width": `${railWidth}px`,
+    "--zorai-context-width": `${contextWidth}px`,
+  } as CSSProperties;
 
   const selectView = (view: ZoraiViewId) => {
     setActiveView(view);
@@ -293,6 +320,16 @@ export function ZoraiShell() {
             onChange={setExplorerPreferredWidth}
             onReset={() => setExplorerPreferredWidth(CODE_EXPLORER_DEFAULT_WIDTH)}
           />
+        ) : railOpen ? (
+          <CodeResizeHandle
+            panel="explorer"
+            label="Resize sidebar"
+            value={railWidth}
+            min={SHELL_RAIL_MIN_WIDTH}
+            max={railResizeMax}
+            onChange={(width) => setRailWidth(activeView, width)}
+            onReset={() => resetRailWidth(activeView)}
+          />
         ) : null}
 
         <main className="zorai-main">
@@ -308,6 +345,16 @@ export function ZoraiShell() {
             max={agentResizeMax}
             onChange={setAgentPreferredWidth}
             onReset={() => setAgentPreferredWidth(CODE_AGENT_DEFAULT_WIDTH)}
+          />
+        ) : contextOpen ? (
+          <CodeResizeHandle
+            panel="agent"
+            label="Resize context"
+            value={contextWidth}
+            min={SHELL_CONTEXT_MIN_WIDTH}
+            max={contextResizeMax}
+            onChange={(width) => setContextWidth(activeView, width)}
+            onReset={() => resetContextWidth(activeView)}
           />
         ) : null}
 

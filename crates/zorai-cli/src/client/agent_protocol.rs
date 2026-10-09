@@ -44,6 +44,8 @@ pub(super) enum AgentBridgeCommand {
         content_blocks_json: Option<String>,
         #[serde(default)]
         target_agent_id: Option<String>,
+        #[serde(default)]
+        workspace_context: Option<serde_json::Value>,
     },
     InternalDelegate {
         thread_id: Option<String>,

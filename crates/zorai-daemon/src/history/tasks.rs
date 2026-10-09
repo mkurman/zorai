@@ -987,6 +987,7 @@ impl HistoryStore {
         parent_thread_id: &str,
         status: Option<&str>,
         limit: Option<usize>,
+        include_logs: bool,
     ) -> Result<Vec<AgentTask>> {
         let parent_thread_id = parent_thread_id.to_string();
         let status = status
@@ -998,11 +999,12 @@ impl HistoryStore {
             limit,
             ..Default::default()
         };
-        load_agent_tasks_from_query(
+        load_agent_tasks_from_query_with_logs(
             &*self.read_db,
             &query,
             format!("{AGENT_TASK_SELECT_SQL} AND parent_thread_id = ? AND source = 'subagent'"),
             vec![db::Value::Text(parent_thread_id)],
+            include_logs,
         )
         .await
     }

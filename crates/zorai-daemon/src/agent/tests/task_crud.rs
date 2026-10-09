@@ -1071,6 +1071,53 @@ async fn get_run_reads_persisted_task_after_live_queue_clear() {
 }
 
 #[tokio::test]
+async fn run_listing_skips_persisted_task_logs_but_keeps_the_tasks() {
+    let root = tempdir().expect("temp dir");
+    let manager = SessionManager::new_test(root.path()).await;
+    let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+
+    let task = engine
+        .enqueue_task(
+            "Run with logs".to_string(),
+            "run listings are polled and must not hydrate the task log table".to_string(),
+            "normal",
+            None,
+            None,
+            Vec::new(),
+            None,
+            "subagent",
+            None,
+            None,
+            Some("thread-run-with-logs".to_string()),
+            Some("daemon".to_string()),
+        )
+        .await;
+    engine.persist_tasks().await;
+    engine.tasks.lock().await.clear();
+    let query = crate::history::AgentTaskListQuery {
+        id: Some(task.id.clone()),
+        ..Default::default()
+    };
+
+    let with_logs = engine.list_tasks_filtered(&query).await;
+    let without_logs = engine.list_tasks_filtered_without_logs(&query).await;
+
+    assert!(
+        with_logs.iter().any(|listed| listed.id == task.id && !listed.logs.is_empty()),
+        "the full listing must still hydrate persisted logs for callers that show them"
+    );
+    assert_eq!(
+        without_logs.iter().map(|listed| listed.id.as_str()).collect::<Vec<_>>(),
+        vec![task.id.as_str()],
+        "skipping logs must not drop tasks from the run listing"
+    );
+    assert!(
+        without_logs.iter().all(|listed| listed.logs.is_empty()),
+        "run listings are polled every few seconds, so they must not load the task log table"
+    );
+}
+
+#[tokio::test]
 async fn list_runs_reads_persisted_tasks_after_live_queue_clear() {
     let root = tempdir().expect("temp dir");
     let manager = SessionManager::new_test(root.path()).await;

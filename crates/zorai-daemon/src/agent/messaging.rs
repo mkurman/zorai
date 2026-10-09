@@ -708,6 +708,11 @@ impl AgentEngine {
         }
         if created {
             self.clear_thread_message_hydration_pending(&id).await;
+            let pending_workspace_context =
+                self.pending_thread_workspace_contexts.write().await.remove(&id);
+            if let Some(context) = pending_workspace_context {
+                self.set_thread_workspace_context(&id, Some(context)).await;
+            }
             self.queue_auto_thread_title_if_enabled(&id, content).await;
         }
         (id, created)

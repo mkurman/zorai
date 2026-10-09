@@ -713,12 +713,18 @@
 }
 
 .zorai-thread-row__action {
+  display: inline-flex;
+  align-items: center;
   border: 0;
   background: transparent;
   color: var(--zorai-muted);
   font-size: var(--text-xs);
   cursor: pointer;
   padding: 2px 4px;
+}
+
+.zorai-thread-row__action:hover {
+  color: var(--zorai-text);
 }
 
 .zorai-thread-row__action--danger:hover {
@@ -4180,6 +4186,24 @@ button.zorai-composer-context-chip { cursor: pointer; }
 
 .zorai-shell.zorai-shell--code:not(.zorai-shell--rail-collapsed):not(.zorai-shell--context-open) {
   grid-template-columns: 68px var(--zorai-code-explorer-width) 5px minmax(380px, 1fr) auto;
+}
+
+@media (min-width: 901px) {
+  .zorai-shell:not(.zorai-shell--code):not(.zorai-shell--rail-collapsed) {
+    grid-template-columns: 68px var(--zorai-rail-width, 284px) 5px minmax(0, 1fr) auto;
+  }
+
+  .zorai-shell:not(.zorai-shell--code):not(.zorai-shell--rail-collapsed).zorai-shell--context-open {
+    grid-template-columns: 68px var(--zorai-rail-width, 284px) 5px minmax(0, 1fr) 5px var(--zorai-context-width, 318px);
+  }
+
+  .zorai-shell:not(.zorai-shell--code).zorai-shell--rail-collapsed.zorai-shell--context-open {
+    grid-template-columns: 68px 48px minmax(0, 1fr) 5px var(--zorai-context-width, 318px);
+  }
+
+  .zorai-shell:not(.zorai-shell--code).zorai-shell--context-open .zorai-context-panel {
+    width: 100%;
+  }
 }
 
 .zorai-code-resize-handle {

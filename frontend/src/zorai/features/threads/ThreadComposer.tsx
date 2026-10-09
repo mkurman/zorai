@@ -53,6 +53,14 @@ export function ThreadComposer({
   const activeThreadId = useAgentStore((state) => state.activeThreadId);
   const workspaceContext = useWorkspaceContextStore((state) => activeThreadId ? state.byThreadId[activeThreadId] : undefined);
   const toggleAttachedFile = useWorkspaceContextStore((state) => state.toggleAttachedFile);
+  const clearWorkspaceRoot = useWorkspaceContextStore((state) => state.clearRoot);
+  const bindWorkspaceRoot = useWorkspaceContextStore((state) => state.bindRoot);
+  const pickWorkspaceRoot = async () => {
+    if (!activeThreadId || !window.zorai?.workspaceSelectFolder) return;
+    const selection = await window.zorai.workspaceSelectFolder().catch(() => null);
+    if (!selection || selection.canceled || !selection.root) return;
+    bindWorkspaceRoot(activeThreadId, selection.root.root);
+  };
   const [contextPreviewOpen, setContextPreviewOpen] = useState(false);
   const subAgents = useAgentStore((state) => state.subAgents);
   const activeResponderId = runtime.activeThread?.threadHandoffState?.activeAgentId
@@ -370,6 +378,26 @@ export function ThreadComposer({
           <button type="button" className="zorai-composer-context-chip" onClick={() => setContextPreviewOpen((open) => !open)} title={workspaceContext.root}>
             Workspace · {workspaceContext.root.split(/[\\/]/).slice(-1)[0]}
           </button>
+          <button
+            type="button"
+            className="zorai-composer-context-chip"
+            aria-label="Unpin workspace from thread"
+            title="Unpin workspace from thread"
+            onClick={() => {
+              if (!activeThreadId) return;
+              clearWorkspaceRoot(activeThreadId);
+              setContextPreviewOpen(false);
+              const daemonThreadId = runtime.activeThread?.daemonThreadId;
+              if (daemonThreadId) void window.zorai?.agentSetThreadWorkspaceContext?.(daemonThreadId, null);
+            }}
+          >×</button>
+          <button
+            type="button"
+            className="zorai-composer-context-chip"
+            aria-label="Change workspace"
+            title="Change workspace"
+            onClick={() => void pickWorkspaceRoot()}
+          ><ComposerIcon kind="edit" /></button>
           {workspaceContext.activeFile ? <span className="zorai-composer-context-chip">Active · {workspaceContext.activeFile}</span> : null}
           {workspaceContext.selection && workspaceContext.activeFile ? <span className="zorai-composer-context-chip">Lines {workspaceContext.selection.startLine}-{workspaceContext.selection.endLine}</span> : null}
           {workspaceContext.attachedFiles.map((filePath) => (
@@ -388,6 +416,10 @@ export function ThreadComposer({
               <span>File contents are read from disk by tools on demand; they are not injected automatically.</span>
             </div>
           ) : null}
+        </div>
+      ) : activeThreadId ? (
+        <div className="zorai-composer-workspace-context">
+          <button type="button" className="zorai-composer-context-chip" onClick={() => void pickWorkspaceRoot()}>Pin workspace…</button>
         </div>
       ) : null}
 
@@ -602,7 +634,7 @@ export function ThreadComposer({
   );
 }
 
-function ComposerIcon({ kind }: { kind: "attach" | "mic" | "send" | "stop" | "queue" | "autoplay" }) {
+function ComposerIcon({ kind }: { kind: "attach" | "mic" | "send" | "stop" | "queue" | "autoplay" | "edit" }) {
   const common = {
     width: 16,
     height: 16,
@@ -643,6 +675,14 @@ function ComposerIcon({ kind }: { kind: "attach" | "mic" | "send" | "stop" | "qu
     return (
       <svg {...common}>
         <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  }
+  if (kind === "edit") {
+    return (
+      <svg {...common} width={12} height={12}>
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
       </svg>
     );
   }

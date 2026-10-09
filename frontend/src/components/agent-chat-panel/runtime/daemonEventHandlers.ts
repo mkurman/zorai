@@ -6,7 +6,7 @@ import { useSnippetStore } from "@/lib/snippetStore";
 import { closePanesForSession, provisionTerminalPaneInWorkspace } from "@/lib/agentWorkspace";
 import { closeAgentWorkspacesWithoutSessions } from "@/lib/agentWorkspaceReclaim";
 import { useWorkspaceStore } from "@/lib/workspaceStore";
-import { useWorkspaceContextStore } from "@/lib/workspaceContextStore";
+import { toDaemonWorkspaceContext, useWorkspaceContextStore } from "@/lib/workspaceContextStore";
 import { fetchThreadTodos } from "@/lib/agentTodos";
 import type { AgentTodoItem } from "@/lib/agentStore";
 import { TOOL_NAMES } from "@/lib/agentTools/toolNames";
@@ -42,7 +42,7 @@ function applyDeferredThreadDaemonSettings(localThreadId: string, daemonThreadId
 
   const workspaceContext = useWorkspaceContextStore.getState().byThreadId[localThreadId];
   if (workspaceContext && bridge?.agentSetThreadWorkspaceContext) {
-    void bridge.agentSetThreadWorkspaceContext(daemonThreadId, workspaceContext);
+    void bridge.agentSetThreadWorkspaceContext(daemonThreadId, toDaemonWorkspaceContext(workspaceContext));
   }
 
   if (

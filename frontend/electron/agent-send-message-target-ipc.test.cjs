@@ -39,7 +39,7 @@ function createHandlerHarness(queryImpl = async () => ({ ok: true })) {
 test("preload forwards an optional target agent when sending a message", () => {
   assert.match(
     preloadSrc,
-    /agentSendMessage:\s*\(threadId, content, sessionId, contextMessages, contentBlocksJson, targetAgentId\)\s*=>\s*ipcRenderer\.invoke\('agent-send-message', threadId, content, sessionId, contextMessages, contentBlocksJson, targetAgentId\)/,
+    /agentSendMessage:\s*\(threadId, content, sessionId, contextMessages, contentBlocksJson, targetAgentId, workspaceContext\)\s*=>\s*ipcRenderer\.invoke\('agent-send-message', threadId, content, sessionId, contextMessages, contentBlocksJson, targetAgentId, workspaceContext\)/,
   );
 });
 
@@ -111,5 +111,30 @@ test("agent send-message IPC forwards the selected agent to the daemon", async (
     content: "Review this",
     session_id: null,
     target_agent_id: "reviewer",
+  }]);
+});
+
+test("agent send-message IPC forwards the pinned workspace so the daemon has it before the first prompt", async () => {
+  const { handlers, commands } = createHandlerHarness();
+  const workspaceContext = { root: "/repo", active_file: "src/lib.rs", isolate_agent_tasks: true };
+
+  await handlers.get("agent-send-message")(
+    null,
+    null,
+    "First message",
+    null,
+    null,
+    null,
+    null,
+    workspaceContext,
+  );
+
+  assert.deepEqual(commands, [{
+    type: "send-message",
+    thread_id: null,
+    content: "First message",
+    session_id: null,
+    target_agent_id: null,
+    workspace_context: workspaceContext,
   }]);
 });
