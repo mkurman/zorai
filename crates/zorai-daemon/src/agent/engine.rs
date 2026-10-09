@@ -211,6 +211,7 @@ pub struct AgentEngine {
     pub stream_cancellations: Mutex<HashMap<String, StreamCancellationEntry>>,
     pub(super) stream_providers: Mutex<HashMap<String, (u64, String)>>,
     pub(crate) operator_stopped_streams: Mutex<HashSet<String>>,
+    pub(crate) subagent_completion_continuations_issued: Mutex<HashSet<String>>,
     pub stream_generation: AtomicU64,
     pub(super) stalled_turn_candidates:
         Mutex<HashMap<String, crate::agent::stalled_turns::StalledTurnCandidate>>,
@@ -480,6 +481,7 @@ impl AgentEngine {
             stream_cancellations: Mutex::new(HashMap::new()),
             stream_providers: Mutex::new(HashMap::new()),
             operator_stopped_streams: Mutex::new(HashSet::new()),
+            subagent_completion_continuations_issued: Mutex::new(HashSet::new()),
             stream_generation: AtomicU64::new(1),
             stalled_turn_candidates: Mutex::new(HashMap::new()),
             operation_wakeups: Mutex::new(HashMap::new()),
