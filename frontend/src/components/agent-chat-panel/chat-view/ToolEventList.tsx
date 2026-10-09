@@ -3,7 +3,7 @@ import type { ToolEventAttribution, ToolEventGroup } from "./types";
 import { MemoizedToolEventRow, sameToolEventGroup } from "./ToolEventRow";
 import { ZoraiToolMark } from "./ZoraiToolMark";
 
-const TOOL_TITLE_RISE_MS = 280;
+const TOOL_TITLE_RISE_MS = 400;
 
 export type ToolTitleFrame = {
   current: string;
@@ -89,7 +89,7 @@ function ToolListTitle({ title, working }: { title: string; working: boolean }) 
       setFrame((current) => (
         current.previous === null ? current : { current: current.current, previous: null }
       ));
-    }, TOOL_TITLE_RISE_MS + 40);
+    }, TOOL_TITLE_RISE_MS + 120);
     return () => window.clearTimeout(timeout);
   }, [frame.current, frame.previous]);
 

@@ -72,19 +72,6 @@ impl AgentEngine {
                 }
             }
         }
-        let unanswered_tool_call_thread_ids = match self
-            .history
-            .thread_ids_with_unanswered_tool_calls(&task_thread_ids)
-            .await
-        {
-            Ok(thread_ids) => Some(thread_ids.into_iter().collect::<HashSet<_>>()),
-            Err(error) => {
-                tracing::warn!(
-                    "failed to query persisted unanswered tool call thread ids for stalled-turn scan; falling back to live thread scans: {error}"
-                );
-                None
-            }
-        };
         let tasks = if task_thread_ids.is_empty() {
             VecDeque::new()
         } else {
@@ -121,6 +108,42 @@ impl AgentEngine {
             return Vec::new();
         }
         let recent_cutoff = now.saturating_sub(recent_window_ms);
+        let unanswered_candidate_thread_ids = threads
+            .values()
+            .filter(|thread| latest_thread_activity_at(thread) >= recent_cutoff)
+            .map(|thread| thread.id.clone())
+            .chain(active_stream_ids.iter().cloned())
+            .chain(
+                tasks
+                    .iter()
+                    .filter(|task| {
+                        matches!(
+                            task.status,
+                            TaskStatus::InProgress
+                                | TaskStatus::Blocked
+                                | TaskStatus::AwaitingApproval
+                        )
+                    })
+                    .filter_map(|task| task.thread_id.as_deref())
+                    .map(|thread_id| thread_id.trim().to_string()),
+            )
+            .filter(|thread_id| threads.contains_key(thread_id))
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        let unanswered_tool_call_thread_ids = match self
+            .history
+            .thread_ids_with_unanswered_tool_calls(&unanswered_candidate_thread_ids)
+            .await
+        {
+            Ok(thread_ids) => Some(thread_ids.into_iter().collect::<HashSet<_>>()),
+            Err(error) => {
+                tracing::warn!(
+                    "failed to query persisted unanswered tool call thread ids for stalled-turn scan; falling back to live thread scans: {error}"
+                );
+                None
+            }
+        };
 
         // Hibernated threads deliberately parked on a background operation or
         // a scheduled wakeup are not stalled — the runtime already owns their

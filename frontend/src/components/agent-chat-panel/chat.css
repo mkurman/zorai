@@ -868,6 +868,7 @@
   --acp-tool-title-line: 1.4em;
   flex: 1 1 auto;
   min-width: 0;
+  height: var(--acp-tool-title-line);
   overflow: hidden;
   font-family: var(--font-mono);
   font-size: var(--text-xs);

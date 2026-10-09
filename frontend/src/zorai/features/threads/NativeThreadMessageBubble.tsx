@@ -370,6 +370,11 @@ const ThreadReasoningChrome = memo(function ThreadReasoningChrome({
       <ThoughtMark active={streaming} />
       <span className={streaming ? "zorai-message__reasoning-label zorai-message__reasoning-label--streaming" : "zorai-message__reasoning-label"}>
         Thought for {durationText || "a moment"}
+        {streaming ? (
+          <span className="zorai-message__reasoning-shine" aria-hidden="true">
+            <span className="zorai-message__reasoning-shine-text">Thought for {durationText || "a moment"}</span>
+          </span>
+        ) : null}
       </span>
     </>
   );
@@ -396,12 +401,6 @@ const ThoughtMark = memo(function ThoughtMark({ active }: { active: boolean }) {
     >
       <path
         className="zorai-thought-mark__line zorai-thought-mark__base"
-        pathLength="1"
-        d={THOUGHT_MARK_PATH}
-      />
-      <path
-        className="zorai-thought-mark__line zorai-thought-mark__trace"
-        pathLength="1"
         d={THOUGHT_MARK_PATH}
       />
     </svg>
