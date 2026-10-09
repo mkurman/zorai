@@ -4,39 +4,11 @@ import { useAgentStore, type AgentThread } from "@/lib/agentStore";
 import {
   EFFORT_POPOVER_WIDTH,
   effortFillRatio,
-  effortNeedleAngle,
   effortPopoverPosition,
   effortTickIndex,
 } from "./threadEffortModel";
 import { resolveThreadOwnerRuntimeProfile } from "./threadOwnerRuntime";
 import { applyThreadReasoningEffort, threadReasoningEfforts } from "./threadRuntimeActions";
-
-const GAUGE_PIVOT = { x: 12, y: 15.15 };
-
-function gaugePoint(radius: number, degrees: number): [number, number] {
-  const radians = (degrees * Math.PI) / 180;
-  return [
-    GAUGE_PIVOT.x + radius * Math.cos(radians),
-    GAUGE_PIVOT.y - radius * Math.sin(radians),
-  ];
-}
-
-function gaugeRingSegment(startDeg: number, endDeg: number): string {
-  const outer = 8.55;
-  const inner = 5.35;
-  const [x1, y1] = gaugePoint(outer, startDeg);
-  const [x2, y2] = gaugePoint(outer, endDeg);
-  const [x3, y3] = gaugePoint(inner, endDeg);
-  const [x4, y4] = gaugePoint(inner, startDeg);
-  const n = (value: number) => value.toFixed(2);
-  return `M ${n(x1)} ${n(y1)} A ${outer} ${outer} 0 0 1 ${n(x2)} ${n(y2)} L ${n(x3)} ${n(y3)} A ${inner} ${inner} 0 0 0 ${n(x4)} ${n(y4)} Z`;
-}
-
-const EFFORT_GAUGE_FACE = [
-  gaugeRingSegment(198, 138),
-  gaugeRingSegment(120, 60),
-  gaugeRingSegment(42, -18),
-].join(" ");
 
 export function ThreadEffortGauge({ thread }: { thread: AgentThread }) {
   const agentSettings = useAgentStore((state) => state.agentSettings);
@@ -51,7 +23,6 @@ export function ThreadEffortGauge({ thread }: { thread: AgentThread }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
-  const angle = effortNeedleAngle(effort);
   const fill = effortFillRatio(effort);
 
   useLayoutEffect(() => {

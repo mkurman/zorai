@@ -15,7 +15,7 @@ fn slash_effort_picker_starts_on_active_thread_owner_effort() {
 }
 
 #[test]
-fn slash_effort_updates_active_svarog_thread_header_effort() {
+fn slash_effort_changes_only_the_active_thread_profile() {
     let (mut model, mut daemon_rx) = make_model();
     model.connected = true;
     model.agent_config_loaded = true;
@@ -58,32 +58,38 @@ fn slash_effort_updates_active_svarog_thread_header_effort() {
         Some("medium")
     );
     let mut saved_paths = std::collections::BTreeMap::new();
+    let mut thread_profiles = Vec::new();
     while let Ok(command) = daemon_rx.try_recv() {
-        if let DaemonCommand::SetConfigItem {
-            key_path,
-            value_json,
-        } = command
-        {
-            saved_paths.insert(key_path, value_json);
+        match command {
+            DaemonCommand::SetConfigItem {
+                key_path,
+                value_json,
+            } => {
+                saved_paths.insert(key_path, value_json);
+            }
+            DaemonCommand::SetThreadExecutionProfile {
+                thread_id,
+                profile_json,
+            } => thread_profiles.push((thread_id, profile_json)),
+            _ => {}
         }
     }
-    assert_eq!(
-        saved_paths.get("/reasoning_effort").map(String::as_str),
-        Some("\"medium\"")
+    assert!(
+        !saved_paths.keys().any(|key| key.ends_with("reasoning_effort")),
+        "/effort is a thread command and must not rewrite the global Svarog effort"
     );
-    assert_eq!(
-        saved_paths
-            .get(&format!(
-                "/providers/{}/reasoning_effort",
-                PROVIDER_ID_DEEPSEEK
-            ))
-            .map(String::as_str),
-        Some("\"medium\"")
-    );
+    assert_eq!(model.config.reasoning_effort, "high");
+    let (thread_id, profile_json) = thread_profiles
+        .last()
+        .expect("/effort must persist the new effort on the active thread profile");
+    assert_eq!(thread_id, "thread-svarog");
+    let profile: serde_json::Value =
+        serde_json::from_str(profile_json).expect("thread profile json");
+    assert_eq!(profile["reasoning_effort"].as_str(), Some("medium"));
 }
 
 #[test]
-fn slash_effort_updates_svarog_config_sources_before_settings_refresh() {
+fn settings_svarog_effort_updates_global_config_but_not_the_open_thread() {
     let (mut model, mut daemon_rx) = make_model();
     model.connected = true;
     model.agent_config_loaded = true;
@@ -116,8 +122,11 @@ fn slash_effort_updates_svarog_config_sources_before_settings_refresh() {
         .chat
         .reduce(chat::ChatAction::SelectThread("thread-svarog".to_string()));
 
-    assert!(model.execute_slash_command_line("/effort"));
-    assert_eq!(model.modal.top(), Some(modal::ModalKind::EffortPicker));
+    model.settings_picker_target = Some(SettingsPickerTarget::SvarogReasoningEffort);
+    model
+        .modal
+        .reduce(modal::ModalAction::Push(modal::ModalKind::EffortPicker));
+    model.sync_effort_picker_cursor_to_current();
     assert_eq!(model.modal.picker_cursor(), 5);
     model.modal.reduce(modal::ModalAction::Navigate(-1));
     model.handle_modal_enter(modal::ModalKind::EffortPicker);
@@ -138,7 +147,8 @@ fn slash_effort_updates_svarog_config_sources_before_settings_refresh() {
             .chat
             .active_thread()
             .and_then(|thread| thread.profile_reasoning_effort.as_deref()),
-        Some("high")
+        Some("xhigh"),
+        "Settings change the global default only; the open thread keeps its pinned effort"
     );
     model.open_settings_tab(SettingsTab::Auth);
     assert_eq!(
@@ -146,7 +156,7 @@ fn slash_effort_updates_svarog_config_sources_before_settings_refresh() {
             .current_header_agent_profile()
             .reasoning_effort
             .as_deref(),
-        Some("high")
+        Some("xhigh")
     );
 
     model.handle_agent_config_event(crate::wire::AgentConfigSnapshot {
@@ -176,7 +186,7 @@ fn slash_effort_updates_svarog_config_sources_before_settings_refresh() {
             .current_header_agent_profile()
             .reasoning_effort
             .as_deref(),
-        Some("high")
+        Some("xhigh")
     );
     assert_eq!(model.config.reasoning_effort, "high");
     assert_eq!(

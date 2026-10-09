@@ -80,12 +80,6 @@ impl TuiModel {
                 provider["reasoning_effort"] = serde_json::Value::String(reasoning_effort.clone());
             }
         }
-
-        let thread_effort = (!effort.is_empty()).then_some(reasoning_effort);
-        if let Some(thread) = self.chat.active_thread_mut() {
-            thread.profile_reasoning_effort = thread_effort.clone();
-            thread.runtime_reasoning_effort = thread_effort;
-        }
     }
 
     pub(in crate::app) fn set_pending_svarog_reasoning_effort(&mut self, effort: String) {

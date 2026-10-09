@@ -257,6 +257,9 @@ impl TuiModel {
             Some(SettingsPickerTarget::ConciergeReasoningEffort) => {
                 Self::normalized_effort_value(self.concierge.reasoning_effort.as_deref())
             }
+            Some(SettingsPickerTarget::SvarogReasoningEffort) => {
+                Self::normalized_effort_value(Some(&self.config.reasoning_effort))
+            }
             Some(SettingsPickerTarget::CompactionWelesReasoningEffort) => {
                 Self::normalized_effort_value(Some(&self.config.compaction_weles_reasoning_effort))
             }
