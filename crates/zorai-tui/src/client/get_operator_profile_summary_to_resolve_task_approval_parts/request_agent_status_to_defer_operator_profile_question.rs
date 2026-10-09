@@ -52,6 +52,7 @@ impl DaemonClient {
             content_blocks_json,
             client_surface: Some(zorai_protocol::ClientSurface::Tui),
             target_agent_id,
+            workspace_context_json: None,
         })
     }
 

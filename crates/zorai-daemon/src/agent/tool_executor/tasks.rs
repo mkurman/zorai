@@ -82,7 +82,7 @@ pub(crate) async fn execute_list_subagents(
             None
         };
         agent
-            .list_parent_thread_subagent_tasks(parent_thread_id, direct_parent_thread_status)
+            .list_parent_thread_subagent_tasks(parent_thread_id, direct_parent_thread_status, true)
             .await
     } else {
         agent

@@ -15,6 +15,8 @@ const EMBEDDING_STARTUP_GRACE_SECS: u64 = 15;
 const SEMANTIC_DOCUMENT_SCAN_SECS: u64 = 60;
 const SEMANTIC_DOCUMENT_DAILY_SCAN_SECS: u64 = 86_400;
 #[cfg(feature = "lancedb-vector")]
+const VECTOR_INDEX_OPTIMIZE_INTERVAL_SECS: u64 = 86_400;
+#[cfg(feature = "lancedb-vector")]
 const EMBEDDING_REQUEST_TIMEOUT_SECS: u64 = 90;
 const MAX_EMBEDDING_BATCH_SIZE: usize = 16;
 #[cfg(feature = "lancedb-vector")]
@@ -396,6 +398,8 @@ impl AgentEngine {
             _ = tokio::time::sleep(std::time::Duration::from_secs(EMBEDDING_STARTUP_GRACE_SECS)) => {}
             _ = shutdown.changed() => return,
         }
+        #[cfg(feature = "lancedb-vector")]
+        let mut last_vector_optimize: Option<std::time::Instant> = None;
         loop {
             let enabled = self.config.read().await.semantic.embedding.enabled;
             let processed = match self.process_embedding_queue_once().await {
@@ -405,6 +409,17 @@ impl AgentEngine {
                     0
                 }
             };
+
+            #[cfg(feature = "lancedb-vector")]
+            if processed == 0
+                && last_vector_optimize.is_none_or(|at| {
+                    at.elapsed()
+                        >= std::time::Duration::from_secs(VECTOR_INDEX_OPTIMIZE_INTERVAL_SECS)
+                })
+            {
+                last_vector_optimize = Some(std::time::Instant::now());
+                self.optimize_vector_index().await;
+            }
 
             let sleep_duration = if !enabled {
                 std::time::Duration::from_secs(EMBEDDING_DISABLED_SLEEP_SECS)
@@ -419,6 +434,23 @@ impl AgentEngine {
                 _ = self.config_notify.notified() => {}
                 _ = shutdown.changed() => break,
             }
+        }
+    }
+
+    #[cfg(feature = "lancedb-vector")]
+    async fn optimize_vector_index(&self) {
+        let _guard = self.semantic_vector_index_lock.lock().await;
+        let index = crate::history::vector_index::VectorIndex::open(self.history.data_root());
+        match index.optimize().await {
+            Ok(Some(stats)) => tracing::info!(
+                fragments_removed = stats.compaction.as_ref().map(|c| c.fragments_removed),
+                fragments_added = stats.compaction.as_ref().map(|c| c.fragments_added),
+                bytes_removed = stats.prune.as_ref().map(|p| p.bytes_removed),
+                old_versions_removed = stats.prune.as_ref().map(|p| p.old_versions),
+                "semantic vector index optimized"
+            ),
+            Ok(None) => {}
+            Err(error) => tracing::warn!(error = %error, "semantic vector index optimize failed"),
         }
     }
 

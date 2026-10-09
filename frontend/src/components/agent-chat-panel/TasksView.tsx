@@ -154,6 +154,7 @@ export function TasksView({ onOpenThreadView }: TasksViewProps) {
     void refreshHeartbeat();
 
     const interval = setInterval(() => {
+      if (document.hidden) return;
       void refreshTasks();
       void refreshRuns();
       void refreshGoalRuns();

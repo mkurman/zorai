@@ -232,6 +232,26 @@ impl HistoryStore {
         rows.iter().map(map_trigger_fire_history_row).collect()
     }
 
+    pub async fn prune_suppressed_trigger_fire_history(&self, max_age_days: u32) -> Result<usize> {
+        let cutoff = super::audit::retention_cutoff_ms(max_age_days);
+        let mut deleted = 0usize;
+        loop {
+            let batch = self
+                .conn_db
+                .execute(
+                    "DELETE FROM trigger_fire_history WHERE id IN \
+                     (SELECT id FROM trigger_fire_history \
+                      WHERE status = 'suppressed' AND fired_at_ms < ?1 LIMIT ?2)",
+                    db::db_params![cutoff, super::audit::RETENTION_DELETE_BATCH],
+                )
+                .await? as usize;
+            deleted += batch;
+            if batch < super::audit::RETENTION_DELETE_BATCH as usize {
+                return Ok(deleted);
+            }
+        }
+    }
+
     pub async fn count_recent_trigger_fire_history(
         &self,
         trigger_id: &str,

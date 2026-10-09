@@ -277,7 +277,15 @@ export function createThreadActions(
         const previousCost = previousCostKnown ? lastMessage.cost as number : 0;
         const nextCost = nextCostKnown ? updatedLastMessage.cost as number : 0;
         const costDelta = nextCost - previousCost;
-        const nextThreads = state.threads.map((thread) =>
+        const nextPreview = content.slice(0, 100);
+        const threadUnchangedWhileStreaming = (streaming ?? false)
+          && tokenDeltaIn === 0
+          && tokenDeltaOut === 0
+          && tokenDeltaTotal === 0
+          && nextCostKnown === previousCostKnown
+          && costDelta === 0
+          && state.threads.find((thread) => thread.id === threadId)?.lastMessagePreview === nextPreview;
+        const nextThreads = threadUnchangedWhileStreaming ? state.threads : state.threads.map((thread) =>
           thread.id === threadId
             ? {
               ...thread,
@@ -288,14 +296,14 @@ export function createThreadActions(
                 ? (thread.totalCostUsd ?? 0) + costDelta
                 : thread.totalCostUsd,
               updatedAt: Date.now(),
-              lastMessagePreview: content.slice(0, 100),
+              lastMessagePreview: nextPreview,
             }
             : thread);
         const updatedThread = nextThreads.find((thread) => thread.id === threadId);
         if (shouldPersistCurrentHistory(get().agentSettings)) {
           void (async () => {
             const api = getAgentDbApi();
-            if (updatedThread) {
+            if (updatedThread && nextThreads !== state.threads) {
               await api?.dbCreateThread?.(serializeThread(updatedThread));
             }
             await api?.dbAddMessage?.(serializeMessage(updatedLastMessage));

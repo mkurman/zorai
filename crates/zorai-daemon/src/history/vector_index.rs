@@ -278,6 +278,17 @@ impl VectorIndex {
         Ok(hits)
     }
 
+    pub(crate) async fn optimize(&self) -> Result<Option<lancedb::table::OptimizeStats>> {
+        let Some(table) = self.open_existing_table().await? else {
+            return Ok(None);
+        };
+        let stats = table
+            .optimize(lancedb::table::OptimizeAction::All)
+            .await
+            .context("failed to optimize LanceDB vector index")?;
+        Ok(Some(stats))
+    }
+
     async fn connection(&self) -> Result<lancedb::Connection> {
         let uri = self
             .dir

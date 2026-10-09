@@ -72,20 +72,37 @@ impl AgentEngine {
                 }
             }
         }
-        let unanswered_tool_call_thread_ids = match self
-            .history
-            .thread_ids_with_unanswered_tool_calls(&task_thread_ids)
+        let now = now_millis();
+        let recent_window_ms = self.stalled_turn_activity_window_ms().await;
+        if recent_window_ms == 0 {
+            return Vec::new();
+        }
+        let recent_cutoff = now.saturating_sub(recent_window_ms);
+        let active_task_thread_ids = if task_thread_ids.is_empty() {
+            Vec::new()
+        } else {
+            self.list_tasks_filtered_without_logs(&crate::history::AgentTaskListQuery {
+                statuses: active_stalled_turn_task_statuses(),
+                thread_ids: task_thread_ids,
+                ..Default::default()
+            })
             .await
-        {
-            Ok(thread_ids) => Some(thread_ids.into_iter().collect::<HashSet<_>>()),
-            Err(error) => {
-                tracing::warn!(
-                    "failed to query persisted unanswered tool call thread ids for stalled-turn scan; falling back to live thread scans: {error}"
-                );
-                None
-            }
+            .into_iter()
+            .filter_map(|task| task.thread_id)
+            .map(|thread_id| thread_id.trim().to_string())
+            .collect::<Vec<_>>()
         };
-        let tasks = if task_thread_ids.is_empty() {
+        let scan_thread_ids = threads
+            .values()
+            .filter(|thread| latest_thread_activity_at(thread) >= recent_cutoff)
+            .map(|thread| thread.id.clone())
+            .chain(active_stream_ids.iter().cloned())
+            .chain(active_task_thread_ids)
+            .filter(|thread_id| threads.contains_key(thread_id))
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        let tasks = if scan_thread_ids.is_empty() {
             VecDeque::new()
         } else {
             self.list_tasks_filtered(&crate::history::AgentTaskListQuery {
@@ -94,7 +111,7 @@ impl AgentEngine {
                 statuses: stalled_turn_task_statuses(),
                 source: None,
                 thread_id: None,
-                thread_ids: task_thread_ids,
+                thread_ids: scan_thread_ids.clone(),
                 goal_run_id: None,
                 parent_task_id: None,
                 awaiting_approval_id: None,
@@ -115,12 +132,19 @@ impl AgentEngine {
         let subagent_runtime = self.subagent_runtime.read().await.clone();
         let pending_operator_question_thread_ids =
             self.pending_operator_question_thread_ids().await;
-        let now = now_millis();
-        let recent_window_ms = self.stalled_turn_activity_window_ms().await;
-        if recent_window_ms == 0 {
-            return Vec::new();
-        }
-        let recent_cutoff = now.saturating_sub(recent_window_ms);
+        let unanswered_tool_call_thread_ids = match self
+            .history
+            .thread_ids_with_unanswered_tool_calls(&scan_thread_ids)
+            .await
+        {
+            Ok(thread_ids) => Some(thread_ids.into_iter().collect::<HashSet<_>>()),
+            Err(error) => {
+                tracing::warn!(
+                    "failed to query persisted unanswered tool call thread ids for stalled-turn scan; falling back to live thread scans: {error}"
+                );
+                None
+            }
+        };
 
         // Hibernated threads deliberately parked on a background operation or
         // a scheduled wakeup are not stalled — the runtime already owns their
@@ -307,6 +331,21 @@ impl AgentEngine {
             .participant_observer_restore_window_hours;
         (window_hours as u64).saturating_mul(60 * 60 * 1000)
     }
+}
+
+fn active_stalled_turn_task_statuses() -> Vec<String> {
+    [
+        TaskStatus::InProgress,
+        TaskStatus::AwaitingApproval,
+        TaskStatus::Blocked,
+    ]
+    .into_iter()
+    .filter_map(|status| {
+        serde_json::to_value(status)
+            .ok()
+            .and_then(|value| value.as_str().map(ToOwned::to_owned))
+    })
+    .collect()
 }
 
 fn stalled_turn_task_statuses() -> Vec<String> {

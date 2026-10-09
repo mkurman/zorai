@@ -865,7 +865,7 @@ async fn list_agent_tasks_for_parent_thread_subagents_hydrates_only_matching_row
     store.upsert_agent_task(&unrelated).await?;
 
     let tasks = store
-        .list_agent_tasks_for_parent_thread_subagents("thread-parent-scope", None, None)
+        .list_agent_tasks_for_parent_thread_subagents("thread-parent-scope", None, None, true)
         .await?;
 
     assert_eq!(tasks.len(), 1);
@@ -916,6 +916,7 @@ async fn parent_thread_subagents_filter_status_before_hydrating_tasks() -> Resul
             "thread-parent-status-scope",
             Some("in_progress"),
             None,
+            true,
         )
         .await?;
 
@@ -4347,6 +4348,64 @@ async fn provenance_report_does_not_mark_unsigned_entries_as_signature_valid() -
     assert_eq!(report.entries.len(), 1);
     assert!(!report.entries[0].signature_present);
     assert!(!report.entries[0].signature_valid);
+
+    fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn provenance_event_chains_onto_last_valid_entry_of_a_large_log() -> Result<()> {
+    let (store, root) = make_test_store().await?;
+    store.init_schema().await?;
+    let record = |summary: &'static str, details: &'static serde_json::Value, created_at: u64| {
+        ProvenanceEventRecord {
+            event_type: "tool_call",
+            summary,
+            details,
+            agent_id: "test-agent",
+            goal_run_id: None,
+            task_id: None,
+            thread_id: Some("thread-large-log"),
+            approval_id: None,
+            causal_trace_id: None,
+            compliance_mode: "standard",
+            sign: false,
+            created_at,
+        }
+    };
+    let small: &'static serde_json::Value =
+        Box::leak(Box::new(serde_json::json!({"payload": "x".repeat(2_000)})));
+    let oversized: &'static serde_json::Value =
+        Box::leak(Box::new(serde_json::json!({"payload": "y".repeat(300_000)})));
+    for index in 0..100u64 {
+        store
+            .record_provenance_event(&record("filler", small, 1_000 + index))
+            .await?;
+    }
+    store
+        .record_provenance_event(&record("oversized", oversized, 2_000))
+        .await?;
+    let log_path = root.join("semantic-logs").join("provenance.jsonl");
+    let mut log = fs::OpenOptions::new().append(true).open(&log_path)?;
+    std::io::Write::write_all(&mut log, b"{\"truncated\": \n\n\n")?;
+
+    store
+        .record_provenance_event(&record("after corruption", small, 3_000))
+        .await?;
+
+    let entries = read_provenance_entries(&log_path)?;
+    let oversized_entry = &entries[entries.len() - 2];
+    let latest = &entries[entries.len() - 1];
+    assert_eq!(oversized_entry.summary, "oversized");
+    assert_eq!(
+        latest.sequence,
+        oversized_entry.sequence + 1,
+        "a new event must continue the sequence of the last valid entry, even when that entry is larger than the tail read window"
+    );
+    assert_eq!(
+        latest.prev_hash, oversized_entry.entry_hash,
+        "the hash chain must link to the last valid entry and skip a corrupt trailing line"
+    );
 
     fs::remove_dir_all(root)?;
     Ok(())

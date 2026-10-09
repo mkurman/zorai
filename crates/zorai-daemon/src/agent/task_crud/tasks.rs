@@ -1233,8 +1233,28 @@ impl AgentEngine {
         &self,
         query: &crate::history::AgentTaskListQuery,
     ) -> Vec<AgentTask> {
+        self.list_tasks_filtered_with_logs(query, true).await
+    }
+
+    pub(crate) async fn list_tasks_filtered_without_logs(
+        &self,
+        query: &crate::history::AgentTaskListQuery,
+    ) -> Vec<AgentTask> {
+        self.list_tasks_filtered_with_logs(query, false).await
+    }
+
+    async fn list_tasks_filtered_with_logs(
+        &self,
+        query: &crate::history::AgentTaskListQuery,
+        include_logs: bool,
+    ) -> Vec<AgentTask> {
         self.refresh_task_queue_state_for_filtered_list().await;
-        match self.history.list_agent_tasks_filtered(query).await {
+        let persisted = if include_logs {
+            self.history.list_agent_tasks_filtered(query).await
+        } else {
+            self.history.list_agent_tasks_filtered_without_logs(query).await
+        };
+        let tasks = match persisted {
             Ok(mut tasks) => {
                 for task in &mut tasks {
                     crate::agent::persistence::sanitize_task_for_external_view(task);
@@ -1262,18 +1282,34 @@ impl AgentEngine {
                 let snapshot = self.snapshot_tasks().await;
                 filter_task_snapshot_for_query(snapshot, query)
             }
+        };
+        if include_logs {
+            return tasks;
         }
+        tasks
+            .into_iter()
+            .map(|mut task| {
+                task.logs.clear();
+                task
+            })
+            .collect()
     }
 
     pub(crate) async fn list_parent_thread_subagent_tasks(
         &self,
         parent_thread_id: &str,
         status: Option<&str>,
+        include_logs: bool,
     ) -> Vec<AgentTask> {
         self.refresh_task_queue_state_for_filtered_list().await;
         match self
             .history
-            .list_agent_tasks_for_parent_thread_subagents(parent_thread_id, status, None)
+            .list_agent_tasks_for_parent_thread_subagents(
+                parent_thread_id,
+                status,
+                None,
+                include_logs,
+            )
             .await
         {
             Ok(mut tasks) => {
@@ -1395,14 +1431,14 @@ impl AgentEngine {
 
     pub async fn list_runs_for_parent_thread(&self, parent_thread_id: &str) -> Vec<AgentRun> {
         let tasks = self
-            .list_parent_thread_subagent_tasks(parent_thread_id, None)
+            .list_parent_thread_subagent_tasks(parent_thread_id, None, false)
             .await;
         self.project_runs(&tasks).await
     }
 
     pub async fn list_runs(&self) -> Vec<AgentRun> {
         let tasks = self
-            .list_tasks_filtered(&crate::history::AgentTaskListQuery {
+            .list_tasks_filtered_without_logs(&crate::history::AgentTaskListQuery {
                 id: None,
                 status: None,
                 statuses: Vec::new(),

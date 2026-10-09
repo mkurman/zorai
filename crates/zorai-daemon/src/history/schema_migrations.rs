@@ -1365,7 +1365,17 @@ pub(super) async fn apply_schema_migrations<E: super::db::DbExecutor + ?Sized>(
         -- of the scan walks only assistant rows.
         CREATE INDEX IF NOT EXISTS idx_messages_assistant_created
             ON agent_messages(created_at)
-            WHERE role = 'assistant' AND deleted_at IS NULL;",
+            WHERE role = 'assistant' AND deleted_at IS NULL;
+
+        CREATE INDEX IF NOT EXISTS idx_messages_active_created
+            ON agent_messages(created_at DESC, id DESC)
+            WHERE deleted_at IS NULL;
+
+        CREATE INDEX IF NOT EXISTS idx_embedding_jobs_claim_scan
+            ON embedding_jobs(updated_at, chunk_id, source_kind, source_id, content_hash, claimed_at);
+
+        CREATE INDEX IF NOT EXISTS idx_embedding_job_completions_lookup
+            ON embedding_job_completions(source_kind, source_id, chunk_id, embedding_model, dimensions, content_hash);",
     )
     .await?;
 

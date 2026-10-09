@@ -673,10 +673,32 @@ pub(crate) async fn dispatch_part3(
             content_blocks_json,
             client_surface,
             target_agent_id,
+            workspace_context_json,
         } => {
             agent.mark_operator_present("send_message").await;
             let effective_thread_id =
                 thread_id.or_else(|| Some(format!("thread_{}", uuid::Uuid::new_v4())));
+            if let (Some(thread_id), Some(json)) =
+                (effective_thread_id.as_ref(), workspace_context_json.as_deref())
+            {
+                match serde_json::from_str::<crate::agent::types::ThreadWorkspaceContext>(json) {
+                    Ok(context) => {
+                        if !agent
+                            .set_thread_workspace_context(thread_id, Some(context.clone()))
+                            .await
+                        {
+                            agent
+                                .pending_thread_workspace_contexts
+                                .write()
+                                .await
+                                .insert(thread_id.clone(), context);
+                        }
+                    }
+                    Err(error) => {
+                        tracing::warn!(%error, "invalid workspace_context_json on AgentSendMessage")
+                    }
+                }
+            }
             if let (Some(thread_id), Some(client_surface)) =
                 (effective_thread_id.as_deref(), client_surface)
             {

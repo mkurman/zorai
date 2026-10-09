@@ -55,8 +55,22 @@ impl rusqlite::ToSql for Value {
 /// Runs the statements directly on a `rusqlite::Connection` (used for both the
 /// async `.call` path and the transaction worker, since `Transaction` derefs to
 /// `Connection`).
+const SLOW_STATEMENT_WARN_MS: u128 = 250;
+
+fn warn_if_slow(sql: &str, started: std::time::Instant, rows: usize) {
+    let elapsed_ms = started.elapsed().as_millis();
+    if elapsed_ms < SLOW_STATEMENT_WARN_MS {
+        return;
+    }
+    let compact_sql = sql.split_whitespace().collect::<Vec<_>>().join(" ");
+    let sql_head = compact_sql.chars().take(400).collect::<String>();
+    tracing::warn!(elapsed_ms = elapsed_ms as u64, rows, sql = %sql_head, "slow sqlite statement");
+}
+
 fn run_execute(conn: &rusqlite::Connection, sql: &str, params: &Params) -> rusqlite::Result<u64> {
+    let started = std::time::Instant::now();
     let affected = conn.execute(sql, params_from_iter(params.values().iter()))?;
+    warn_if_slow(sql, started, affected);
     Ok(affected as u64)
 }
 
@@ -65,12 +79,16 @@ fn run_query(
     sql: &str,
     params: &Params,
 ) -> rusqlite::Result<Vec<Row>> {
+    let started = std::time::Instant::now();
     let mut stmt = conn.prepare(sql)?;
     let column_count = stmt.column_count();
-    let rows = stmt.query_map(params_from_iter(params.values().iter()), |row| {
-        map_row(row, column_count)
-    })?;
-    rows.collect()
+    let rows = stmt
+        .query_map(params_from_iter(params.values().iter()), |row| {
+            map_row(row, column_count)
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    warn_if_slow(sql, started, rows.len());
+    Ok(rows)
 }
 
 fn run_query_with_columns(
@@ -78,6 +96,7 @@ fn run_query_with_columns(
     sql: &str,
     params: &Params,
 ) -> rusqlite::Result<(Vec<String>, Vec<Row>)> {
+    let started = std::time::Instant::now();
     let mut stmt = conn.prepare(sql)?;
     let column_count = stmt.column_count();
     let columns = (0..column_count)
@@ -92,6 +111,7 @@ fn run_query_with_columns(
             map_row(row, column_count)
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
+    warn_if_slow(sql, started, rows.len());
     Ok((columns, rows))
 }
 

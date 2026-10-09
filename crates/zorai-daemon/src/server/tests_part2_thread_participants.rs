@@ -96,6 +96,7 @@ async fn electron_operator_can_send_message_to_tui_thread_during_zorai_migration
             content_blocks_json: None,
             client_surface: Some(zorai_protocol::ClientSurface::Electron),
             target_agent_id: None,
+            workspace_context_json: None,
         })
         .await
         .expect("send agent message");

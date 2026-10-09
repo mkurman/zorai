@@ -330,3 +330,39 @@ async fn count_recent_trigger_fire_history_filters_status_and_limit_in_sql() -> 
     std::fs::remove_dir_all(root)?;
     Ok(())
 }
+
+#[tokio::test]
+async fn suppressed_trigger_fire_retention_drops_only_old_suppressed_fires() -> Result<()> {
+    let (store, _root) = make_test_store().await?;
+    let now_ms = super::audit::retention_cutoff_ms(0) as u64;
+    let old_ms = now_ms - 30 * 86_400 * 1000;
+    let old_suppressed = super::audit::RETENTION_DELETE_BATCH as usize + 5;
+
+    for index in 0..old_suppressed {
+        let mut fire = sample_trigger_fire(&format!("old-suppressed-{index}"), old_ms);
+        fire.status = "suppressed".to_string();
+        store.insert_trigger_fire_history(&fire).await?;
+    }
+    let mut recent_suppressed = sample_trigger_fire("recent-suppressed", now_ms);
+    recent_suppressed.status = "suppressed".to_string();
+    store.insert_trigger_fire_history(&recent_suppressed).await?;
+    let mut old_failed = sample_trigger_fire("old-failed", old_ms);
+    old_failed.status = "failed".to_string();
+    store.insert_trigger_fire_history(&old_failed).await?;
+
+    let deleted = store.prune_suppressed_trigger_fire_history(7).await?;
+
+    assert_eq!(
+        deleted, old_suppressed,
+        "every expired suppressed fire must go, even when the backlog spans several delete batches"
+    );
+    let remaining = store.list_trigger_fire_history(None, None, 100).await?;
+    let mut remaining_ids = remaining.iter().map(|row| row.id.as_str()).collect::<Vec<_>>();
+    remaining_ids.sort();
+    assert_eq!(
+        remaining_ids,
+        vec!["old-failed", "recent-suppressed"],
+        "failed fires feed the trigger circuit breaker and recent suppressions are still diagnostic, so both must survive"
+    );
+    Ok(())
+}

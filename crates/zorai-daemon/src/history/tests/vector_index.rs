@@ -181,3 +181,67 @@ async fn lancedb_vector_search_is_scoped_to_embedding_model() -> Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn lancedb_vector_index_optimize_compacts_upsert_fragments_and_keeps_search_results(
+) -> Result<()> {
+    let root = tempfile::tempdir()?;
+    let index = crate::history::vector_index::VectorIndex::open(root.path());
+
+    assert!(
+        index.optimize().await?.is_none(),
+        "optimizing before any vectors exist must not create the LanceDB table"
+    );
+
+    for revision in 0..6 {
+        index
+            .upsert(crate::history::vector_index::VectorDocument {
+                source_kind: crate::history::vector_index::VectorSourceKind::AgentMessage,
+                source_id: format!("msg-{}", revision % 2),
+                chunk_id: "0".to_string(),
+                title: format!("message revision {revision}"),
+                body: format!("body revision {revision}"),
+                workspace_id: Some("workspace-a".to_string()),
+                thread_id: Some("thread-a".to_string()),
+                agent_id: Some("agent-a".to_string()),
+                timestamp: revision,
+                embedding_model: "test-embed".to_string(),
+                embedding: if revision % 2 == 0 {
+                    vec![1.0, 0.0, 0.0]
+                } else {
+                    vec![0.0, 1.0, 0.0]
+                },
+                metadata_json: None,
+            })
+            .await?;
+    }
+
+    let stats = index
+        .optimize()
+        .await?
+        .expect("optimize must run once the table exists");
+    let compaction = stats
+        .compaction
+        .expect("optimize must compact the fragments left by upserts");
+    assert!(
+        compaction.fragments_removed > compaction.fragments_added,
+        "every upsert writes a new fragment, so compaction must merge them or the index grows without bound"
+    );
+
+    let hits = index
+        .search(crate::history::vector_index::VectorSearchRequest {
+            embedding: vec![1.0, 0.0, 0.0],
+            embedding_model: "test-embed".to_string(),
+            limit: 5,
+            source_kinds: vec![crate::history::vector_index::VectorSourceKind::AgentMessage],
+            workspace_id: Some("workspace-a".to_string()),
+            thread_id: Some("thread-a".to_string()),
+            agent_id: Some("agent-a".to_string()),
+        })
+        .await?;
+    assert_eq!(hits.len(), 2, "compaction must not drop or duplicate live vectors");
+    assert_eq!(hits[0].source_id, "msg-0");
+    assert_eq!(hits[0].title, "message revision 4");
+
+    Ok(())
+}

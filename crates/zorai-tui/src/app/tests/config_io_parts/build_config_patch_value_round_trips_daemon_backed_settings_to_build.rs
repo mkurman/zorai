@@ -377,8 +377,8 @@ fn apply_config_json_uses_daemon_retry_delay_default_when_missing() {
 
     assert_eq!(model.config.retry_delay_ms, 5_000);
     assert_eq!(model.config.tui_chat_history_page_size, 100);
-    assert_eq!(model.config.message_loop_delay_ms, 500);
-    assert_eq!(model.config.tool_call_delay_ms, 500);
+    assert_eq!(model.config.message_loop_delay_ms, 100);
+    assert_eq!(model.config.tool_call_delay_ms, 100);
 }
 
 #[test]

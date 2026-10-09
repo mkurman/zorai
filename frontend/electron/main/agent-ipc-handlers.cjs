@@ -32,7 +32,7 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
     const { sendAgentCommand, sendAgentQuery } = runtime;
     const { logToFile, openAICodexAuthHandlers, saveTempAudioCapture } = options;
 
-    ipcMain.handle('agent-send-message', async (_event, threadId, content, sessionId, contextMessages, contentBlocksJson, targetAgentId) => {
+    ipcMain.handle('agent-send-message', async (_event, threadId, content, sessionId, contextMessages, contentBlocksJson, targetAgentId, workspaceContext) => {
         try {
             logToFile('info', 'agent-send-message', {
                 threadId,
@@ -55,6 +55,9 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
             }
             if (typeof contentBlocksJson === 'string' && contentBlocksJson.trim()) {
                 cmd.content_blocks_json = contentBlocksJson;
+            }
+            if (workspaceContext && typeof workspaceContext === 'object') {
+                cmd.workspace_context = workspaceContext;
             }
             sendAgentCommand(cmd);
             return { ok: true };

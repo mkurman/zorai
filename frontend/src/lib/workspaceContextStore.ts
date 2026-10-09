@@ -27,6 +27,7 @@ type WorkspaceContextState = {
   byThreadId: Record<string, ThreadWorkspaceContext>;
   hydrate: () => Promise<void>;
   bindRoot: (threadId: string, root: string) => void;
+  clearRoot: (threadId: string) => void;
   setActiveFile: (threadId: string, filePath: string | null) => void;
   setSelection: (threadId: string, selection: WorkspaceSelection | null) => void;
   toggleAttachedFile: (threadId: string, filePath: string) => void;
@@ -36,6 +37,24 @@ type WorkspaceContextState = {
   setIsolateAgentTasks: (threadId: string, enabled: boolean) => void;
   setIsolatedWorktreeState: (threadId: string, worktreePath: string, state: "awaiting_review" | "retained" | "integrated" | "rejected") => void;
 };
+
+export function toDaemonWorkspaceContext(context: ThreadWorkspaceContext) {
+  return {
+    root: context.root,
+    active_file: context.activeFile,
+    selection: context.selection ? {
+      start_line: context.selection.startLine,
+      start_column: context.selection.startColumn,
+      end_line: context.selection.endLine,
+      end_column: context.selection.endColumn,
+    } : null,
+    attached_files: context.attachedFiles,
+    open_files: context.openFiles,
+    updated_at: context.updatedAt,
+    isolate_agent_tasks: context.isolateAgentTasks,
+    isolated_worktree_states: context.isolatedWorktreeStates,
+  };
+}
 
 function persist(byThreadId: Record<string, ThreadWorkspaceContext>) {
   scheduleJsonWrite(WORKSPACE_CONTEXT_FILE, { byThreadId }, 150);
@@ -85,6 +104,12 @@ export const useWorkspaceContextStore = create<WorkspaceContextState>((set, get)
           pinnedFiles: [],
         },
     };
+    persist(byThreadId);
+    return { byThreadId };
+  }),
+  clearRoot: (threadId) => set((state) => {
+    if (!state.byThreadId[threadId]) return state;
+    const { [threadId]: _removed, ...byThreadId } = state.byThreadId;
     persist(byThreadId);
     return { byThreadId };
   }),

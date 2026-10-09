@@ -713,12 +713,18 @@
 }
 
 .zorai-thread-row__action {
+  display: inline-flex;
+  align-items: center;
   border: 0;
   background: transparent;
   color: var(--zorai-muted);
   font-size: var(--text-xs);
   cursor: pointer;
   padding: 2px 4px;
+}
+
+.zorai-thread-row__action:hover {
+  color: var(--zorai-text);
 }
 
 .zorai-thread-row__action--danger:hover {
@@ -1296,10 +1302,6 @@
   padding: 0;
 }
 
-.zorai-message__reasoning .zorai-message__reasoning--streaming {
-  color: linear-gradient(90deg, var(--text-muted) 0%, var(--text-primary) 50%, var(--text-muted) 100%);
-}
-
 .zorai-message__tools {
   border-left: 2px solid var(--zorai-border-strong);
   padding-left: 10px;
@@ -1321,34 +1323,53 @@
 }
 
 .zorai-message__reasoning-label--streaming {
-  background: linear-gradient(
-    90deg,
-    var(--text-muted) 0%,
-    var(--text-primary) 50%,
-    var(--text-muted) 100%
-  );
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: zorai-reasoning-label-shimmer 1.6s linear infinite;
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+  color: var(--text-muted);
 }
 
-@keyframes zorai-reasoning-label-shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
+.zorai-message__reasoning-shine {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 50%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 50%, transparent 100%);
+  transform: translateX(-100%);
+  will-change: transform;
+  animation: zorai-reasoning-shine 2s linear infinite;
+}
+
+.zorai-message__reasoning-shine-text {
+  position: absolute;
+  inset: 0;
+  white-space: nowrap;
+  color: var(--text-primary);
+  transform: translateX(100%);
+  will-change: transform;
+  animation: zorai-reasoning-shine-text 2s linear infinite;
+}
+
+@keyframes zorai-reasoning-shine {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes zorai-reasoning-shine-text {
+  from { transform: translateX(100%); }
+  to { transform: translateX(-100%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .zorai-message__reasoning-label--streaming {
-    animation: none;
-    background: none;
-    -webkit-text-fill-color: unset;
     color: var(--text-primary);
+  }
+
+  .zorai-message__reasoning-shine {
+    display: none;
   }
 }
 
@@ -1368,57 +1389,26 @@
   stroke: currentColor;
 }
 
-.zorai-thought-mark--active .zorai-thought-mark__base {
-  stroke: var(--text-muted);
-  opacity: 0.18;
+.zorai-thought-mark--active {
+  color: var(--zorai-text);
+  will-change: transform, opacity;
+  animation: zorai-thought-mark-pulse 1.6s ease-in-out infinite;
 }
 
-.zorai-thought-mark__trace {
-  stroke: var(--zorai-text);
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  opacity: 0;
-  animation: none;
-}
-
-.zorai-thought-mark--active .zorai-thought-mark__trace {
-  animation: zorai-thought-mark-draw 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-@keyframes zorai-thought-mark-draw {
-  0% {
-    stroke-dashoffset: 1;
-    opacity: 0;
+@keyframes zorai-thought-mark-pulse {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(0.85);
   }
-  12% {
+  50% {
     opacity: 1;
-  }
-  45% {
-    stroke-dashoffset: 0;
-    opacity: 1;
-  }
-  58% {
-    stroke-dashoffset: 0;
-    opacity: 1;
-  }
-  88% {
-    opacity: 1;
-  }
-  100% {
-    stroke-dashoffset: -1;
-    opacity: 0;
+    transform: scale(1);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .zorai-thought-mark--active .zorai-thought-mark__trace {
+  .zorai-thought-mark--active {
     animation: none;
-    opacity: 0;
-  }
-
-  .zorai-thought-mark--active .zorai-thought-mark__base {
-    stroke: currentColor;
-    opacity: 1;
   }
 }
 
@@ -4196,6 +4186,24 @@ button.zorai-composer-context-chip { cursor: pointer; }
 
 .zorai-shell.zorai-shell--code:not(.zorai-shell--rail-collapsed):not(.zorai-shell--context-open) {
   grid-template-columns: 68px var(--zorai-code-explorer-width) 5px minmax(380px, 1fr) auto;
+}
+
+@media (min-width: 901px) {
+  .zorai-shell:not(.zorai-shell--code):not(.zorai-shell--rail-collapsed) {
+    grid-template-columns: 68px var(--zorai-rail-width, 284px) 5px minmax(0, 1fr) auto;
+  }
+
+  .zorai-shell:not(.zorai-shell--code):not(.zorai-shell--rail-collapsed).zorai-shell--context-open {
+    grid-template-columns: 68px var(--zorai-rail-width, 284px) 5px minmax(0, 1fr) 5px var(--zorai-context-width, 318px);
+  }
+
+  .zorai-shell:not(.zorai-shell--code).zorai-shell--rail-collapsed.zorai-shell--context-open {
+    grid-template-columns: 68px 48px minmax(0, 1fr) 5px var(--zorai-context-width, 318px);
+  }
+
+  .zorai-shell:not(.zorai-shell--code).zorai-shell--context-open .zorai-context-panel {
+    width: 100%;
+  }
 }
 
 .zorai-code-resize-handle {

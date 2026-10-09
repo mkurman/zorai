@@ -37,7 +37,9 @@ export function MlflowTracingTab({
 
   useEffect(() => {
     void refresh();
-    const timer = window.setInterval(() => void refresh(), 3000);
+    const timer = window.setInterval(() => {
+      if (!document.hidden) void refresh();
+    }, 3000);
     return () => window.clearInterval(timer);
   }, [refresh]);
 

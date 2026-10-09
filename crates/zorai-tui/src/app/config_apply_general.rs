@@ -314,9 +314,9 @@ impl TuiModel {
         .clamp(0, 86_400);
         self.config.retry_delay_ms = config_u32(json, "retry_delay_ms", "retry_delay_ms", 5_000);
         self.config.message_loop_delay_ms =
-            config_u32(json, "message_loop_delay_ms", "message_loop_delay_ms", 500);
+            config_u32(json, "message_loop_delay_ms", "message_loop_delay_ms", 100);
         self.config.tool_call_delay_ms =
-            config_u32(json, "tool_call_delay_ms", "tool_call_delay_ms", 500);
+            config_u32(json, "tool_call_delay_ms", "tool_call_delay_ms", 100);
         self.config.llm_stream_chunk_timeout_secs = config_u32(
             json,
             "llm_stream_chunk_timeout_secs",

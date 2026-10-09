@@ -136,6 +136,7 @@ async fn make_test_engine(
         mlflow_tracing,
         threads: RwLock::new(HashMap::new()),
         thread_message_hydration_pending: RwLock::new(HashSet::new()),
+        pending_thread_workspace_contexts: RwLock::new(HashMap::new()),
         thread_message_hydration_lock: Mutex::new(()),
         semantic_document_index_sync_lock: Mutex::new(()),
         semantic_vector_index_lock: Mutex::new(()),

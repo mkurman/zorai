@@ -305,7 +305,7 @@ const bridgeApi = {
     },
 
     // Agent engine (daemon-side)
-    agentSendMessage: (threadId, content, sessionId, contextMessages, contentBlocksJson, targetAgentId) => ipcRenderer.invoke('agent-send-message', threadId, content, sessionId, contextMessages, contentBlocksJson, targetAgentId),
+    agentSendMessage: (threadId, content, sessionId, contextMessages, contentBlocksJson, targetAgentId, workspaceContext) => ipcRenderer.invoke('agent-send-message', threadId, content, sessionId, contextMessages, contentBlocksJson, targetAgentId, workspaceContext),
     agentEnqueuePrompt: (payload) => ipcRenderer.invoke('agent-enqueue-prompt', payload),
     agentListPromptQueue: (threadId) => ipcRenderer.invoke('agent-list-prompt-queue', threadId),
     agentUpdateQueuedPrompt: (payload) => ipcRenderer.invoke('agent-update-queued-prompt', payload),

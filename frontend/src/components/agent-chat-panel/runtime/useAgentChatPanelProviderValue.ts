@@ -591,12 +591,15 @@ export function useAgentChatPanelProviderValue(): {
     setView,
   });
 
+  const appliedDaemonTodosRef = useRef(new Map<string, AgentTodoItem[]>());
   useEffect(() => {
     if (threads.length === 0) return;
     threads.forEach((thread) => {
       if (!thread.daemonThreadId) return;
       const items = daemonTodosByThread[thread.daemonThreadId];
       if (!items) return;
+      if (appliedDaemonTodosRef.current.get(thread.id) === items) return;
+      appliedDaemonTodosRef.current.set(thread.id, items);
       setThreadTodos(thread.id, items);
     });
   }, [daemonTodosByThread, setThreadTodos, threads]);
