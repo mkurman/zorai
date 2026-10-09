@@ -2009,6 +2009,7 @@ impl AgentEngine {
                 .await;
             if idle {
                 let _ = self.stop_stream(parent_thread_id).await;
+                self.clear_operator_stream_stop(parent_thread_id).await;
             } else {
                 tracing::info!(
                     thread_id = %parent_thread_id,

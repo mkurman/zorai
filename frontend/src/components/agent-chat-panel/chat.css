@@ -801,11 +801,12 @@
 }
 
 .acp-tool-mark {
-  width: calc(16px * var(--ui-font-scale));
-  height: calc(16px * var(--ui-font-scale));
+  width: calc(13px * var(--ui-font-scale));
+  height: calc(13px * var(--ui-font-scale));
   flex: 0 0 auto;
   overflow: visible;
   opacity: 0;
+  transform: translateY(-2px);
   transition: opacity 240ms ease;
 }
 
@@ -819,32 +820,34 @@
 
 .acp-tool-mark__line {
   fill: none;
-  stroke-width: 6;
+  stroke-width: 4;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .acp-tool-mark__base .acp-tool-mark__line {
-  stroke: var(--text-muted);
-  opacity: 0.1;
+  stroke: var(--zorai-text);
+  opacity: 0.14;
 }
 
 .acp-tool-mark__trace .acp-tool-mark__line {
   stroke: var(--zorai-text);
-  stroke-dasharray: 0.14 0.86;
-  animation: acp-tool-mark-trace 1.7s linear infinite;
+  opacity: 0;
+  animation: acp-tool-mark-petal 2.4s ease-in-out infinite;
 }
 
-.acp-tool-mark__trace .acp-tool-mark__line:nth-child(1) { animation-duration: 2.4s; }
-.acp-tool-mark__trace .acp-tool-mark__line:nth-child(2) { animation-delay: -0.2s; }
-.acp-tool-mark__trace .acp-tool-mark__line:nth-child(3) { animation-delay: -0.45s; }
-.acp-tool-mark__trace .acp-tool-mark__line:nth-child(4) { animation-delay: -0.7s; }
-.acp-tool-mark__trace .acp-tool-mark__line:nth-child(5) { animation-delay: -0.95s; }
-.acp-tool-mark__trace .acp-tool-mark__line:nth-child(6) { animation-delay: -1.2s; }
-.acp-tool-mark__trace .acp-tool-mark__line:nth-child(7) { animation-delay: -1.45s; }
+.acp-tool-mark__trace .acp-tool-mark__line:nth-child(1) { animation-delay: 0s; }
+.acp-tool-mark__trace .acp-tool-mark__line:nth-child(2) { animation-delay: 0.4s; }
+.acp-tool-mark__trace .acp-tool-mark__line:nth-child(3) { animation-delay: 0.8s; }
+.acp-tool-mark__trace .acp-tool-mark__line:nth-child(4) { animation-delay: 1.2s; }
+.acp-tool-mark__trace .acp-tool-mark__line:nth-child(5) { animation-delay: 1.6s; }
+.acp-tool-mark__trace .acp-tool-mark__line:nth-child(6) { animation-delay: 2s; }
 
-@keyframes acp-tool-mark-trace {
-  to { stroke-dashoffset: -1; }
+@keyframes acp-tool-mark-petal {
+  0%, 100% { opacity: 0; }
+  12% { opacity: 1; }
+  55% { opacity: 1; }
+  80% { opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -916,6 +919,20 @@
   }
 }
 
+.acp-tool-list__title-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.acp-tool-list__title-container--working {
+  background: linear-gradient(
+    to right,
+    var(--text-muted) 0%,
+    var(--text-primary) 50%,
+    var(--text-muted) 100%
+  );
+}
 .acp-tool-list__title--working {
   background: linear-gradient(
     90deg,

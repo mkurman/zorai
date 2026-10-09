@@ -54,8 +54,10 @@ export const ToolEventList = memo(function ToolEventList({
         className="acp-tool-list__header"
         onClick={() => setExpanded((prev) => !prev)}
       >
-        <ZoraiToolMark active={working} />
-        <ToolListTitle title={title} working={working} />
+        <div className="acp-tool-list__title-container">
+          <ToolListTitle title={title} working={working} />
+          <ZoraiToolMark active={working} />
+        </div>
         <span className="acp-tool-list__stats">
           [{doneCount} / {groups.length}]
         </span>

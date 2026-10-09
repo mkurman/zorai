@@ -484,8 +484,8 @@
 }
 
 .zorai-refresh-icon {
-  width: 15px;
-  height: 15px;
+  width: 12px;
+  height: 12px;
   display: block;
   fill: none;
   stroke: currentColor;
@@ -673,10 +673,13 @@
 
 .zorai-thread-workers {
   min-width: 16px;
-  padding: 0 5px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--zorai-accent) 16%, transparent);
   color: var(--zorai-text);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: var(--text-2xs);
   text-align: center;
 }
 
@@ -2267,6 +2270,15 @@
     transform var(--zorai-transition),
     opacity var(--zorai-transition);
   padding: 0;
+}
+
+.zorai-effort-gauge__icon {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+  max-width: 16px;
+  max-height: 16px;
 }
 
 .zorai-composer-icon-button:hover:not(:disabled) {

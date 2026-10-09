@@ -61,7 +61,7 @@ export function ZoraiToolMark({ active }: { active: boolean }) {
       : "acp-tool-mark acp-tool-mark--leave";
 
   return (
-    <svg className={className} viewBox="0 0 100 100" aria-hidden="true">
+    <svg className={className} viewBox="8 8 84 84" aria-hidden="true">
       <ToolMarkPaths layer="base" />
       <ToolMarkPaths layer="trace" />
     </svg>
@@ -71,7 +71,6 @@ export function ZoraiToolMark({ active }: { active: boolean }) {
 function ToolMarkPaths({ layer }: { layer: "base" | "trace" }) {
   return (
     <g className={`acp-tool-mark__${layer}`}>
-      <circle className="acp-tool-mark__line" cx="50" cy="50" r="42.86" pathLength="1" />
       {PETAL_TURNS.map((turn) => (
         <path
           key={`${layer}-${turn}`}
