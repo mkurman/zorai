@@ -71,6 +71,12 @@ impl AgentEngine {
         }
 
         for operation_id in extract_operation_ids(content) {
+            let operation_id =
+                crate::agent::tool_executor::lookup_operation_id(self, thread_id, &operation_id)
+                    .await
+                    .ok()
+                    .flatten()
+                    .unwrap_or(operation_id);
             self.register_operation_wakeup(
                 thread_id,
                 tool_name,
@@ -633,6 +639,38 @@ mod tests {
                 .saturating_sub(operation_wakeup_debounce_ms())
                 .saturating_sub(1),
         );
+    }
+
+    #[tokio::test]
+    async fn wakeup_registered_from_model_handle_targets_the_real_operation() {
+        let root = tempdir().expect("tempdir should succeed");
+        let manager = SessionManager::new_test(root.path()).await;
+        let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+        let thread_id = "thread-handle-wakeup";
+        let real_operation_id = "operation-7f3c2a10-real";
+        let handle = crate::agent::tool_executor::model_operation_id(
+            &engine,
+            thread_id,
+            real_operation_id,
+        )
+        .await;
+        assert_ne!(handle, real_operation_id, "the model should see a short handle");
+
+        engine
+            .register_operation_wakeups_from_tool_result(
+                thread_id,
+                "bash_command",
+                &format!("started in background\noperation_id: {handle}\n"),
+                true,
+            )
+            .await;
+
+        let wakeups = engine.operation_wakeups.lock().await;
+        assert!(
+            wakeups.contains_key(real_operation_id),
+            "the completion supervisor looks operations up by real id, so a handle-keyed wakeup would never fire"
+        );
+        assert!(!wakeups.contains_key(&handle));
     }
 
     #[tokio::test]

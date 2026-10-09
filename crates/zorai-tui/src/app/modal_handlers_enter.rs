@@ -1,7 +1,7 @@
 use super::*;
 use crate::app::commands::{
     apply_active_thread_provider_model_to_daemon, apply_target_agent_custom_model_locally,
-    GoalActionPickerItem,
+    push_active_thread_execution_profile_to_daemon, GoalActionPickerItem,
 };
 use crate::state::config::embedding_dimensions_from_fetched_model;
 use zorai_shared::providers::PROVIDER_ID_CUSTOM;
@@ -769,6 +769,7 @@ pub(super) fn handle_modal_enter(model: &mut TuiModel, kind: modal::ModalKind) {
                     | SettingsPickerTarget::TargetAgentReasoningEffort
                     | SettingsPickerTarget::ConciergeModel
                     | SettingsPickerTarget::ConciergeReasoningEffort
+                    | SettingsPickerTarget::SvarogReasoningEffort
                     | SettingsPickerTarget::CompactionWelesReasoningEffort
                     | SettingsPickerTarget::CompactionCustomReasoningEffort
                     | SettingsPickerTarget::OpenRouterPreferredProviders
@@ -1094,6 +1095,7 @@ pub(super) fn handle_modal_enter(model: &mut TuiModel, kind: modal::ModalKind) {
                     | SettingsPickerTarget::TargetAgentReasoningEffort
                     | SettingsPickerTarget::ConciergeProvider
                     | SettingsPickerTarget::ConciergeReasoningEffort
+                    | SettingsPickerTarget::SvarogReasoningEffort
                     | SettingsPickerTarget::CompactionWelesReasoningEffort
                     | SettingsPickerTarget::CompactionCustomReasoningEffort
                     | SettingsPickerTarget::OpenRouterPreferredProviders
@@ -1421,7 +1423,7 @@ pub(super) fn handle_modal_enter(model: &mut TuiModel, kind: modal::ModalKind) {
                             format!("Compaction custom effort: {}", effort)
                         };
                     }
-                    _ => {
+                    Some(SettingsPickerTarget::SvarogReasoningEffort) => {
                         model.set_pending_svarog_reasoning_effort(effort.to_string());
                         if let Ok(value_json) =
                             serde_json::to_string(&serde_json::Value::String(effort.to_string()))
@@ -1443,11 +1445,34 @@ pub(super) fn handle_modal_enter(model: &mut TuiModel, kind: modal::ModalKind) {
                             });
                         }
                         model.status_line = if effort.is_empty() {
-                            "Effort: none".to_string()
+                            "Svarog effort: none".to_string()
                         } else {
-                            format!("Effort: {}", effort)
+                            format!("Svarog effort: {}", effort)
                         };
                         model.save_settings();
+                    }
+                    _ => {
+                        let profile = model.current_conversation_agent_profile();
+                        let next_effort = (!effort.is_empty()).then(|| effort.to_string());
+                        if let Some(thread) = model.chat.active_thread_mut() {
+                            thread.profile_reasoning_effort = next_effort.clone();
+                            thread.runtime_reasoning_effort = next_effort.clone();
+                            push_active_thread_execution_profile_to_daemon(
+                                model,
+                                &profile.provider,
+                                &profile.model,
+                                next_effort.as_deref(),
+                            );
+                            model.status_line = if effort.is_empty() {
+                                "Thread effort: none".to_string()
+                            } else {
+                                format!("Thread effort: {}", effort)
+                            };
+                        } else {
+                            model.status_line =
+                                "No active thread; change the default in Settings > Svarog"
+                                    .to_string();
+                        }
                     }
                 }
             }

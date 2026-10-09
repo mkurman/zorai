@@ -111,6 +111,7 @@ pub(crate) enum SettingsPickerTarget {
     ConciergeProvider,
     ConciergeModel,
     ConciergeReasoningEffort,
+    SvarogReasoningEffort,
     CompactionWelesReasoningEffort,
     CompactionCustomReasoningEffort,
     OpenRouterPreferredProviders,

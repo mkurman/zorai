@@ -100,7 +100,12 @@ impl TuiModel {
             "assistant_id" => self
                 .settings
                 .start_editing("assistant_id", &self.config.assistant_id.clone()),
-            "reasoning_effort" => self.execute_command("effort"),
+            "reasoning_effort" => {
+                self.settings_picker_target = Some(SettingsPickerTarget::SvarogReasoningEffort);
+                self.modal
+                    .reduce(modal::ModalAction::Push(modal::ModalKind::EffortPicker));
+                self.sync_effort_picker_cursor_to_current();
+            }
             "claude_permission_mode" => {
                 let options = crate::state::subagents::CLAUDE_PERMISSION_MODE_OPTIONS;
                 let current = self.config.claude_permission_mode.clone();
