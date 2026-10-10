@@ -1884,6 +1884,41 @@ impl AgentEngine {
             if already_integrated {
                 return;
             }
+            let issued_this_run = self
+                .subagent_completion_continuations_issued
+                .lock()
+                .await
+                .contains(&child_task.id);
+            if issued_this_run {
+                let still_queued = self
+                    .deferred_visible_thread_continuations_for(&parent_thread_id)
+                    .await
+                    .iter()
+                    .any(|continuation| {
+                        continuation.llm_user_content.contains(child_task_id)
+                            || continuation
+                                .llm_user_content
+                                .contains(&format!("Child `{child_slug}`"))
+                    });
+                let delivered = !still_queued
+                    || matches!(
+                        self.resume_idle_parent_after_subagent_completion(
+                            &parent_thread_id,
+                            &child_task.id
+                        )
+                        .await,
+                        Ok(true)
+                    );
+                if delivered {
+                    self.subagent_completion_continuations_issued
+                        .lock()
+                        .await
+                        .remove(&child_task.id);
+                    self.mark_child_result_integrated(&child_task.id, parent_task_id.as_deref())
+                        .await;
+                }
+                return;
+            }
             let message_already_present = if self
                 .ensure_thread_messages_loaded(&parent_thread_id)
                 .await
@@ -1952,11 +1987,19 @@ impl AgentEngine {
                 // in-memory continuation without duplicating the thread message.
                 self.mark_child_parent_notification(&child_task.id, true, None)
                     .await;
+                self.subagent_completion_continuations_issued
+                    .lock()
+                    .await
+                    .insert(child_task.id.clone());
                 match self
                     .resume_idle_parent_after_subagent_completion(&parent_thread_id, &child_task.id)
                     .await
                 {
                     Ok(true) => {
+                        self.subagent_completion_continuations_issued
+                            .lock()
+                            .await
+                            .remove(&child_task.id);
                         self.mark_child_result_integrated(
                             &child_task.id,
                             parent_task_id.as_deref(),
@@ -3465,6 +3508,73 @@ mod tests {
             })
             .count();
         assert_eq!(system_messages, 1);
+    }
+
+    #[tokio::test]
+    async fn child_result_delivered_by_parent_flush_is_acknowledged_without_a_second_wakeup() {
+        let root = tempdir().expect("tempdir");
+        let manager = SessionManager::new_test(root.path()).await;
+        let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+        let parent_thread_id = "thread-child-delivered-by-parent-flush";
+        insert_parent_thread(&engine, parent_thread_id, "Integrate the child once").await;
+        engine.begin_stream_cancellation(parent_thread_id).await;
+
+        let mut child = engine
+            .enqueue_task(
+                "Busy parent child".to_string(),
+                "Report while the parent streams".to_string(),
+                "normal",
+                None,
+                None,
+                Vec::new(),
+                None,
+                "subagent",
+                None,
+                None,
+                Some(parent_thread_id.to_string()),
+                Some("daemon".to_string()),
+            )
+            .await;
+        child.status = TaskStatus::Completed;
+        child.result = Some("child result".to_string());
+        child.parent_thread_id = Some(parent_thread_id.to_string());
+        let child_id = child.id.clone();
+
+        engine
+            .record_subagent_outcome_on_parent(&child, TaskLogLevel::Info, "subagent completed", None)
+            .await;
+        assert_eq!(
+            engine
+                .deferred_visible_thread_continuations_for(parent_thread_id)
+                .await
+                .len(),
+            1
+        );
+
+        engine
+            .clear_deferred_visible_thread_continuations(parent_thread_id)
+            .await;
+        engine
+            .record_subagent_outcome_on_parent(&child, TaskLogLevel::Info, "subagent completed", None)
+            .await;
+
+        assert!(
+            engine
+                .deferred_visible_thread_continuations_for(parent_thread_id)
+                .await
+                .is_empty(),
+            "once the parent's own flush delivered the child result, the next pass must not wake the parent again"
+        );
+        let acknowledged = engine
+            .task_by_id_for_dispatcher(&child_id)
+            .await
+            .and_then(|task| task.completion_contract)
+            .and_then(|contract| contract.child_result)
+            .and_then(|result| result.integration_acknowledged_at);
+        assert!(
+            acknowledged.is_some(),
+            "a delivered child result must be acknowledged so later dispatcher ticks stop replaying it"
+        );
     }
 
     #[tokio::test]

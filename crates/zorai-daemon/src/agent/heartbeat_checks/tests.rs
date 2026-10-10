@@ -204,6 +204,7 @@ async fn make_test_engine(
         stream_cancellations: Mutex::new(HashMap::new()),
         stream_providers: Mutex::new(HashMap::new()),
         operator_stopped_streams: Mutex::new(HashSet::new()),
+        subagent_completion_continuations_issued: Default::default(),
         stream_generation: AtomicU64::new(1),
         stalled_turn_candidates: Mutex::new(HashMap::new()),
         operation_wakeups: Mutex::new(HashMap::new()),
