@@ -96,6 +96,7 @@ const terminalBridgeRuntime = createTerminalBridgeRuntime({
 const windowRuntime = createWindowRuntime({
     app,
     BrowserWindow,
+    clipboard,
     Menu,
     nativeImage,
     electronDir: __dirname,

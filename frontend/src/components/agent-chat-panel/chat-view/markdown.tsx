@@ -20,7 +20,16 @@ export const KATEX_DELIMITERS = [
 
 const markdownComponents: Components = {
   a: ({ href, children }) => (
-    <a href={href} target="_blank" rel="noopener noreferrer">
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(event) => {
+        if (!href) return;
+        event.preventDefault();
+        window.open(href, "_blank", "noopener,noreferrer");
+      }}
+    >
       {children}
     </a>
   ),

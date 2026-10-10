@@ -185,6 +185,9 @@ impl ModalState {
     pub fn top(&self) -> Option<ModalKind> {
         self.stack.last().copied()
     }
+    pub fn contains(&self, kind: ModalKind) -> bool {
+        self.stack.contains(&kind)
+    }
     pub fn is_empty(&self) -> bool {
         self.stack.is_empty()
     }
