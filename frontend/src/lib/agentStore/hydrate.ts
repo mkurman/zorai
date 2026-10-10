@@ -37,6 +37,7 @@ export async function hydrateAgentStore(): Promise<void> {
     await hydrateAgentStoreInner();
   } finally {
     await useAgentStore.getState().refreshSubAgents();
+    await useAgentStore.getState().refreshConciergeConfig();
   }
 }
 

@@ -40,6 +40,8 @@ import { resolveThreadOwnerRuntimeProfile } from "./threadOwnerRuntime";
 import type { ZoraiReturnTarget } from "../../shell/zoraiNavigationEvents";
 import { isThreadLoading, shouldShowConversationSkeleton, useThreadLoadingStore } from "./threadLoadingStore";
 import { threadReadKey, useThreadReadStateStore } from "./threadReadStateStore";
+import { useThreadRailTabStore } from "./threadRailTabStore";
+import { resolveThreadCreationAgent } from "./threadFilterModel";
 import { DelegatedSessionSlot } from "./DelegatedSessionBar";
 import { ThreadSessionTabs } from "./SessionTabStrip";
 import { threadMessageItemKey } from "./threadMessageWindow";
@@ -79,6 +81,7 @@ export function ThreadsView({
   const [pinnedToBottom, setPinnedToBottom] = useState(true);
   const [readTasks, setReadTasks] = useState<AgentQueueTask[]>([]);
   const subAgents = useAgentStore((state) => state.subAgents);
+  const railTab = useThreadRailTabStore((state) => state.tab);
   const messageActionsRef = useRef<ThreadMessageActions | null>(null);
   const viewMountedAtRef = useRef(Date.now());
   const scrollerRef = useRef<HTMLDivElement | null>(null);
@@ -269,7 +272,14 @@ export function ThreadsView({
         <button
           type="button"
           className="zorai-primary-button"
-          onClick={() => runtime.createThread({ workspaceId: runtime.activeWorkspace?.id ?? null })}
+          onClick={() => {
+            const agent = resolveThreadCreationAgent(railTab, subAgents);
+            runtime.createThread({
+              workspaceId: runtime.activeWorkspace?.id ?? null,
+              agentId: agent?.id ?? null,
+              agentName: agent?.name ?? null,
+            });
+          }}
         >
           + New Thread
         </button>

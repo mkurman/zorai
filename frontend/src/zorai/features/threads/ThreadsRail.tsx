@@ -20,6 +20,7 @@ import {
 } from "./threadFilterModel";
 import { openListedThread } from "./openThreadTarget";
 import { isThreadLoading, useThreadLoadingStore } from "./threadLoadingStore";
+import { useThreadRailTabStore } from "./threadRailTabStore";
 import { threadReadKey, useThreadReadStateStore } from "./threadReadStateStore";
 import {
   isWorkerThread,
@@ -48,7 +49,8 @@ export function ThreadsRail() {
   runsRef.current = runs;
   const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const [tab, setTab] = useState<ThreadFilterTab>("svarog");
+  const tab = useThreadRailTabStore((state) => state.tab);
+  const setTab = useThreadRailTabStore((state) => state.setTab);
   const [dateFilter, setDateFilter] = useState<DateFilterId>(DEFAULT_THREAD_DATE_FILTER);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
