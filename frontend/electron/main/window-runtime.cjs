@@ -49,6 +49,7 @@ function createWindowRuntime(options) {
     const {
         app,
         BrowserWindow,
+        clipboard,
         Menu,
         nativeImage,
         getMainWindow,
@@ -169,6 +170,25 @@ function createWindowRuntime(options) {
                 event.preventDefault();
                 void shell.openExternal(url);
             }
+        });
+        mainWindow.webContents.on('context-menu', (_event, params) => {
+            const template = [];
+            if (/^https?:\/\//i.test(params.linkURL)) {
+                template.push(
+                    { label: 'Open Link', click: () => void shell.openExternal(params.linkURL) },
+                    { label: 'Copy Link', click: () => clipboard.writeText(params.linkURL) },
+                    { type: 'separator' },
+                );
+            }
+            if (params.isEditable) {
+                template.push({ role: 'cut', enabled: params.editFlags.canCut });
+            }
+            template.push({ role: 'copy', enabled: params.editFlags.canCopy });
+            if (params.isEditable) {
+                template.push({ role: 'paste', enabled: params.editFlags.canPaste });
+            }
+            template.push({ role: 'selectAll' });
+            Menu.buildFromTemplate(template).popup({ window: mainWindow });
         });
         Menu.setApplicationMenu(buildAppMenu());
         mainWindow.once('ready-to-show', () => mainWindow.show());

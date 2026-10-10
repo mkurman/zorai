@@ -24,8 +24,7 @@ impl TuiModel {
                 self.send_concierge_config();
             }
             "concierge_provider" => {
-                self.settings_picker_target = Some(SettingsPickerTarget::ConciergeProvider);
-                self.execute_command("provider");
+                self.open_provider_picker(SettingsPickerTarget::ConciergeProvider);
             }
             "concierge_model" => {
                 let provider_id = self
@@ -44,7 +43,9 @@ impl TuiModel {
             }
             "concierge_reasoning_effort" => {
                 self.settings_picker_target = Some(SettingsPickerTarget::ConciergeReasoningEffort);
-                self.execute_command("effort");
+                self.modal
+                    .reduce(modal::ModalAction::Push(modal::ModalKind::EffortPicker));
+                self.sync_effort_picker_cursor_to_current();
             }
             "concierge_api_transport" => {
                 let provider_id = self

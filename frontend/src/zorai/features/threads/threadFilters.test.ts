@@ -183,6 +183,14 @@ describe("thread filters", () => {
     expect(filterThreads(all, { tab: "svarog", dateFilter: "all", fromDate: "", toDate: "", goalThreadIds: new Set() }).map((item) => item.id)).toEqual(["goal-thread", "svarog-thread"]);
   });
 
+  it("keeps a thread with terminal panes on its agent tab instead of Workspace", () => {
+    const terminalBacked = thread({ id: "snorkel", daemonThreadId: "thread_c7ba", workspaceId: "ws_1", surfaceId: "surface_1", paneId: "pane_727" });
+    const options = { dateFilter: "all" as const, fromDate: "", toDate: "", goalThreadIds: new Set<string>() };
+
+    expect(filterThreads([terminalBacked], { ...options, tab: "svarog" }).map((item) => item.id)).toEqual(["snorkel"]);
+    expect(filterThreads([terminalBacked], { ...options, tab: "workspace" })).toEqual([]);
+  });
+
   it("keeps only the matching subagent thread even when the daemon list is unfiltered", () => {
     const dazhbog = thread({ id: "dazhbog-thread", agent_name: "Dazhbog" });
     const svarog = thread({ id: "svarog-thread", agent_name: "Svarog" });

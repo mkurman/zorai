@@ -291,7 +291,7 @@ function threadTabFlags(thread: AgentThread, goalThreadIds: Set<string>): {
   return {
     agentId,
     isGoal: Boolean((thread.daemonThreadId && goalThreadIds.has(thread.daemonThreadId)) || goalThreadIds.has(thread.id) || identities.some((id) => id.startsWith("goal:"))),
-    isWorkspace: Boolean(thread.workspaceId) || identities.some((id) => id.startsWith("workspace-thread:")),
+    isWorkspace: identities.some((id) => id.startsWith("workspace-thread:")),
     isWeles: agentId === "weles" || title.includes("weles"),
     isRarog: agentId === "rarog" || agentId === "concierge" || title === "concierge" || title.startsWith("heartbeat"),
     isPlayground: identities.some((id) => id.startsWith("playground:")) || title.startsWith("participant playground"),

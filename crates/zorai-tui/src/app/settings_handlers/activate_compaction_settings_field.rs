@@ -11,7 +11,9 @@ impl TuiModel {
             "compaction_weles_reasoning_effort" => {
                 self.settings_picker_target =
                     Some(SettingsPickerTarget::CompactionWelesReasoningEffort);
-                self.execute_command("effort");
+                self.modal
+                    .reduce(modal::ModalAction::Push(modal::ModalKind::EffortPicker));
+                self.sync_effort_picker_cursor_to_current();
             }
             "compaction_weles_api_transport" => {
                 let supported =
@@ -78,7 +80,9 @@ impl TuiModel {
             "compaction_custom_reasoning_effort" => {
                 self.settings_picker_target =
                     Some(SettingsPickerTarget::CompactionCustomReasoningEffort);
-                self.execute_command("effort");
+                self.modal
+                    .reduce(modal::ModalAction::Push(modal::ModalKind::EffortPicker));
+                self.sync_effort_picker_cursor_to_current();
             }
             "compaction_custom_context_window_tokens" => self.settings.start_editing(
                 "compaction_custom_context_window_tokens",

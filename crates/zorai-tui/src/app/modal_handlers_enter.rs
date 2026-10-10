@@ -875,22 +875,24 @@ pub(super) fn handle_modal_enter(model: &mut TuiModel, kind: modal::ModalKind) {
                             .config
                             .custom_context_window_tokens
                             .or(model_context_window);
-                        apply_active_svarog_provider_model_locally(
-                            model,
-                            &selected_provider,
-                            &model_id,
-                            selected_context_window,
-                        );
-                        let reasoning_effort = model
-                            .chat
-                            .active_thread_runtime_metadata()
-                            .and_then(|runtime| runtime.reasoning_effort.clone());
-                        apply_active_thread_provider_model_to_daemon(
-                            model,
-                            &selected_provider,
-                            &model_id,
-                            reasoning_effort.as_deref(),
-                        );
+                        if !model.modal.contains(modal::ModalKind::Settings) {
+                            apply_active_svarog_provider_model_locally(
+                                model,
+                                &selected_provider,
+                                &model_id,
+                                selected_context_window,
+                            );
+                            let reasoning_effort = model
+                                .chat
+                                .active_thread_runtime_metadata()
+                                .and_then(|runtime| runtime.reasoning_effort.clone());
+                            apply_active_thread_provider_model_to_daemon(
+                                model,
+                                &selected_provider,
+                                &model_id,
+                                reasoning_effort.as_deref(),
+                            );
+                        }
                         model.status_line = format!("Model: {}", model_id);
                         if let Ok(value_json) =
                             serde_json::to_string(&serde_json::Value::String(model_id.clone()))

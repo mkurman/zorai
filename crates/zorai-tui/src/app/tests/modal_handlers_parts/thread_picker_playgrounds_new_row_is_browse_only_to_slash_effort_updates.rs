@@ -733,3 +733,83 @@ fn slash_effort_updates_active_thread_owner_effort() {
     );
     assert!(daemon_rx.try_recv().is_err());
 }
+
+#[test]
+fn settings_svarog_model_change_does_not_retarget_active_non_svarog_thread() {
+    let (mut model, mut daemon_rx) = make_model();
+    seed_active_weles_thread(&mut model);
+    model
+        .modal
+        .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
+    model.open_provider_backed_model_picker(
+        SettingsPickerTarget::Model,
+        model.config.provider.clone(),
+        model.config.base_url.clone(),
+        model.config.api_key.clone(),
+        model.config.auth_source.clone(),
+    );
+    let (model_index, next_model) = model
+        .available_model_picker_models()
+        .iter()
+        .enumerate()
+        .find(|(_, entry)| entry.id != "gpt-5.4")
+        .map(|(index, entry)| (index, entry.id.clone()))
+        .expect("expected an alternative OpenAI model");
+    model
+        .modal
+        .reduce(modal::ModalAction::Navigate(model_index as i32));
+    model.handle_modal_enter(modal::ModalKind::ModelPicker);
+
+    assert_eq!(model.config.model, next_model);
+    let thread = model.chat.active_thread().expect("weles thread stays active");
+    assert_eq!(thread.profile_model.as_deref(), Some("gpt-5.4"));
+    while let Ok(command) = daemon_rx.try_recv() {
+        assert!(
+            !matches!(
+                command,
+                DaemonCommand::SetTargetAgentProviderModel { .. }
+                    | DaemonCommand::SetThreadExecutionProfile { .. }
+            ),
+            "Svarog settings must not rewrite another agent or its thread: {command:?}"
+        );
+    }
+}
+
+#[test]
+fn settings_rarog_provider_edits_rarog_not_active_thread_owner() {
+    let (mut model, mut daemon_rx) = make_model();
+    seed_active_weles_thread(&mut model);
+    model
+        .settings
+        .reduce(SettingsAction::SwitchTab(SettingsTab::Concierge));
+    model
+        .modal
+        .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
+    let field_index = (0..64)
+        .find(|index| {
+            model.settings_navigate_to(*index);
+            model.current_settings_field_name() == "concierge_provider"
+        })
+        .expect("Rarog tab exposes a provider field");
+    model.settings_navigate_to(field_index);
+
+    model.activate_settings_field();
+
+    assert_eq!(
+        model.settings_picker_target,
+        Some(SettingsPickerTarget::ConciergeProvider)
+    );
+    assert!(model.pending_target_agent_config.is_none());
+    model.handle_modal_enter(modal::ModalKind::ProviderPicker);
+    assert_eq!(model.concierge.provider.as_deref(), Some(PROVIDER_ID_OPENAI));
+    while let Ok(command) = daemon_rx.try_recv() {
+        assert!(
+            !matches!(
+                command,
+                DaemonCommand::SetTargetAgentProviderModel { .. }
+                    | DaemonCommand::SetThreadExecutionProfile { .. }
+            ),
+            "Rarog settings must not edit the active thread's agent: {command:?}"
+        );
+    }
+}
