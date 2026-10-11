@@ -376,6 +376,35 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn rename_thread_persists_title_so_reopening_does_not_revert_it() {
+        let root = tempdir().expect("temp dir");
+        let manager = SessionManager::new_test(root.path()).await;
+        let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+        let content = "Please review the billing invoice parser";
+        let (thread_id, _) = engine.get_or_create_thread(None, content).await;
+        engine.persist_thread_by_id(&thread_id).await;
+        let placeholder = placeholder_thread_title(content);
+
+        assert!(engine.rename_thread(&thread_id, "  My renamed thread ").await);
+        assert!(!engine.rename_thread(&thread_id, "   ").await);
+
+        let persisted = engine
+            .history
+            .get_thread(&thread_id)
+            .await
+            .expect("load thread")
+            .expect("thread row");
+        assert_eq!(persisted.title, "My renamed thread");
+        assert!(
+            !engine
+                .apply_generated_thread_title(&thread_id, &placeholder, "Auto title")
+                .await
+        );
+        let threads = engine.threads.read().await;
+        assert_eq!(threads.get(&thread_id).unwrap().title, "My renamed thread");
+    }
+
     #[test]
     fn auto_thread_title_mode_parses_known_values() {
         assert_eq!(

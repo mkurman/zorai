@@ -32,10 +32,14 @@ impl TuiModel {
             .flatten();
         let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
         let known_agent_aliases = self.known_agent_directive_aliases();
-        if let Some(directive) = input_refs::parse_leading_agent_directive(
+        if let Some(mut directive) = input_refs::parse_leading_agent_directive(
             &content_with_attachments,
             &known_agent_aliases,
         ) {
+            if let Some(agent_id) = crate::agent_aliases::agent_id_for_alias(&directive.agent_alias)
+            {
+                directive.agent_alias = agent_id;
+            }
             if matches!(
                 directive.agent_alias.to_ascii_lowercase().as_str(),
                 "swarozyc"
@@ -79,7 +83,9 @@ impl TuiModel {
                     return;
                 }
                 input_refs::LeadingAgentDirectiveKind::ParticipantUpsert => {
-                    let participant_name = self.participant_display_name(&directive.agent_alias);
+                    let participant_name = crate::agent_aliases::display_agent_name(
+                        &self.participant_display_name(&directive.agent_alias),
+                    );
                     let Some(thread_id) = self.chat.active_thread_id().map(String::from) else {
                         self.status_line =
                             "Participant commands require an active thread".to_string();
@@ -118,7 +124,9 @@ impl TuiModel {
                     return;
                 }
                 input_refs::LeadingAgentDirectiveKind::ParticipantDeactivate => {
-                    let participant_name = self.participant_display_name(&directive.agent_alias);
+                    let participant_name = crate::agent_aliases::display_agent_name(
+                        &self.participant_display_name(&directive.agent_alias),
+                    );
                     let Some(thread_id) = self.chat.active_thread_id().map(String::from) else {
                         self.status_line =
                             "Participant commands require an active thread".to_string();

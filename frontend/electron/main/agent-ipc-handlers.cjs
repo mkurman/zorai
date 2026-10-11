@@ -1,4 +1,29 @@
+const fs = require('node:fs');
+const path = require('node:path');
 const { pathToFileURL } = require('node:url');
+const { getZoraiDataDir } = require('./app-data.cjs');
+
+const INVENTORY_IMAGE_MIME_TYPES = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.bmp': 'image/bmp',
+    '.svg': 'image/svg+xml',
+};
+
+async function readThreadInventoryImage(filePath) {
+    if (typeof filePath !== 'string' || !filePath.trim()) return null;
+    const threadsRoot = path.join(fs.realpathSync(getZoraiDataDir()), 'threads') + path.sep;
+    const resolved = await fs.promises.realpath(filePath).catch(() => null);
+    if (!resolved || !resolved.startsWith(threadsRoot)) return null;
+    if (!resolved.slice(threadsRoot.length).split(path.sep).includes('inventory')) return null;
+    const mimeType = INVENTORY_IMAGE_MIME_TYPES[path.extname(resolved).toLowerCase()];
+    if (!mimeType) return null;
+    const bytes = await fs.promises.readFile(resolved);
+    return `data:${mimeType};base64,${bytes.toString('base64')}`;
+}
 
 function normalizeGoalLaunchAssignments(value) {
     if (!Array.isArray(value)) return [];
@@ -247,6 +272,8 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
         }
     });
     ipcMain.handle('agent-delete-thread', async (_event, threadId) => { try { sendAgentCommand({ type: 'delete-thread', thread_id: threadId }); return true; } catch { return false; } });
+    ipcMain.handle('agent-read-thread-inventory-image', async (_event, filePath) => { try { return await readThreadInventoryImage(filePath); } catch { return null; } });
+    ipcMain.handle('agent-rename-thread', async (_event, threadId, title) => { try { sendAgentCommand({ type: 'rename-thread', thread_id: threadId, title }); return true; } catch { return false; } });
     ipcMain.handle('agent-add-task', async (_event, payload) => {
         try {
             sendAgentCommand({
@@ -316,6 +343,8 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
     ipcMain.handle('agent-get-operator-profile-summary', async () => { try { return await sendAgentQuery({ type: 'get-operator-profile-summary' }, 'operator-profile-summary', 30000); } catch (err) { return { error: err?.message || String(err) }; } });
     ipcMain.handle('agent-set-operator-profile-consent', async (_event, consentKey, granted) => { try { await sendAgentQuery({ type: 'set-operator-profile-consent', consent_key: consentKey, granted: Boolean(granted) }, 'operator-profile-session-completed', 30000); return { ok: true }; } catch (err) { return { error: err?.message || String(err) }; } });
     ipcMain.handle('agent-answer-question', async (_event, questionId, answer) => { try { sendAgentCommand({ type: 'answer-question', question_id: questionId, answer }); return { ok: true }; } catch (err) { return { ok: false, error: err?.message || String(err) }; } });
+    ipcMain.handle('agent-list-gateway-chats', async () => sendAgentQuery({ type: 'list-gateway-chats' }, ['gateway-chats', 'error']));
+    ipcMain.handle('agent-link-thread-to-gateway-chat', async (_event, threadId, channelKey) => sendAgentQuery({ type: 'link-thread-to-gateway-chat', thread_id: threadId, channel_key: channelKey ?? null }, ['gateway-chats', 'error'], 30000));
     ipcMain.handle('agent-get-concierge-config', async () => sendAgentQuery({ type: 'get-concierge-config' }, 'concierge-config'));
     ipcMain.handle('agent-set-concierge-config', async (_event, config) => { try { sendAgentCommand({ type: 'set-concierge-config', config_json: JSON.stringify(config) }); return { ok: true }; } catch (err) { return { ok: false, error: err.message }; } });
     ipcMain.handle('agent-dismiss-concierge-welcome', async () => { try { sendAgentCommand({ type: 'dismiss-concierge-welcome' }); return { ok: true }; } catch { return { ok: false }; } });

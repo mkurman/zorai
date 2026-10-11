@@ -193,7 +193,9 @@ impl TuiModel {
                 None
             }
             ClientEvent::Error(message) => {
-                self.handle_error_event(message);
+                if !self.handle_gateway_link_error(&message) {
+                    self.handle_error_event(message);
+                }
                 None
             }
             ClientEvent::RetryStatus {

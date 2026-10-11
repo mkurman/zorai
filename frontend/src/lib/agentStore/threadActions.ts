@@ -1,3 +1,4 @@
+import { getBridge } from "../bridge";
 import { scheduleJsonWrite } from "../persistence";
 import {
   AGENT_ACTIVE_THREAD_FILE,
@@ -133,6 +134,10 @@ export function createThreadActions(
       return id;
     },
     deleteThread: (id) => {
+      const daemonThreadId = get().threads.find((thread) => thread.id === id)?.daemonThreadId;
+      if (daemonThreadId) {
+        void getBridge()?.agentDeleteThread?.(daemonThreadId);
+      }
       set((state) => {
         const { [id]: _message, ...remainingMessages } = state.messages;
         const { [id]: _todo, ...remainingTodos } = state.todos;

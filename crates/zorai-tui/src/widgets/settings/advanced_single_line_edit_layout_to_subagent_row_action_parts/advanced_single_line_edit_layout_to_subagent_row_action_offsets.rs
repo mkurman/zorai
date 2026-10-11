@@ -111,16 +111,20 @@ pub(crate) fn single_line_edit_layout(
             "gateway_prefix" => Some((6, 19)),
             "slack_token" => Some((9, 19)),
             "slack_channel_filter" => Some((10, 19)),
-            "telegram_token" => Some((13, 19)),
-            "telegram_allowed_chats" => Some((14, 19)),
-            "discord_token" => Some((17, 19)),
-            "discord_channel_filter" => Some((18, 19)),
-            "discord_allowed_users" => Some((19, 19)),
-            "whatsapp_allowed_contacts" => Some((22, 19)),
-            "whatsapp_token" => Some((23, 19)),
-            "whatsapp_phone_id" => Some((24, 19)),
-            "whatsapp_link_device" => Some((25, 19)),
-            "whatsapp_relink_device" => Some((26, 19)),
+            "slack_default_agent" => Some((11, 19)),
+            "telegram_token" => Some((14, 19)),
+            "telegram_allowed_chats" => Some((15, 19)),
+            "telegram_default_agent" => Some((16, 19)),
+            "discord_token" => Some((19, 19)),
+            "discord_channel_filter" => Some((20, 19)),
+            "discord_allowed_users" => Some((21, 19)),
+            "discord_default_agent" => Some((22, 19)),
+            "whatsapp_allowed_contacts" => Some((25, 19)),
+            "whatsapp_token" => Some((26, 19)),
+            "whatsapp_phone_id" => Some((27, 19)),
+            "whatsapp_default_agent" => Some((28, 19)),
+            "whatsapp_link_device" => Some((29, 19)),
+            "whatsapp_relink_device" => Some((30, 19)),
             _ => None,
         },
         SettingsTab::Auth => None,
@@ -129,6 +133,7 @@ pub(crate) fn single_line_edit_layout(
             "custom_model_entry" | "target_agent_model" => Some((7, 19)),
             "assistant_id" => Some((9, 19)),
             "context_window_tokens" | "target_agent_context_window" => Some((11, 19)),
+            "swarog_alias" => Some((16, 19)),
             _ => None,
         },
         SettingsTab::SubAgents => None,
@@ -157,7 +162,7 @@ pub(crate) fn textarea_edit_layout(
 ) -> Option<(usize, usize)> {
     match settings.active_tab() {
         SettingsTab::Agent if field == "system_prompt" => Some((17, 4)),
-        SettingsTab::Gateway if field == "whatsapp_allowed_contacts" => Some((24, 4)),
+        SettingsTab::Gateway if field == "whatsapp_allowed_contacts" => Some((27, 4)),
         SettingsTab::Advanced => match config.compaction_strategy.as_str() {
             "weles" => match field {
                 "workspace_repo_monitor_include_dirs" => Some((38, 4)),
@@ -319,31 +324,36 @@ pub(crate) fn settings_row_hit(
             6 => Some((2, None)),
             9 => Some((3, None)),
             10 => Some((4, None)),
-            13 => Some((5, None)),
+            11 => Some((5, None)),
             14 => Some((6, None)),
-            17 => Some((7, None)),
-            18 => Some((8, None)),
+            15 => Some((7, None)),
+            16 => Some((8, None)),
             19 => Some((9, None)),
-            22 => Some((10, None)),
+            20 => Some((10, None)),
+            21 => Some((11, None)),
+            22 => Some((12, None)),
+            25 => Some((13, None)),
             r if settings.is_editing()
                 && settings.is_textarea()
                 && settings.editing_field() == Some("whatsapp_allowed_contacts") =>
             {
                 let textarea_lines = settings.edit_buffer().lines().count().max(1);
                 match r {
-                    23..=24 => Some((10, None)),
-                    line if line >= 25 && line < 25 + textarea_lines => Some((10, None)),
-                    line if line == 25 + textarea_lines => Some((11, None)),
-                    line if line == 26 + textarea_lines => Some((12, None)),
-                    line if line == 27 + textarea_lines => Some((13, None)),
+                    26..=27 => Some((13, None)),
+                    line if line >= 28 && line < 28 + textarea_lines => Some((13, None)),
                     line if line == 28 + textarea_lines => Some((14, None)),
+                    line if line == 29 + textarea_lines => Some((15, None)),
+                    line if line == 30 + textarea_lines => Some((16, None)),
+                    line if line == 31 + textarea_lines => Some((17, None)),
+                    line if line == 32 + textarea_lines => Some((18, None)),
                     _ => None,
                 }
             }
-            23 => Some((11, None)),
-            24 => Some((12, None)),
-            25 => Some((13, None)),
             26 => Some((14, None)),
+            27 => Some((15, None)),
+            28 => Some((16, None)),
+            29 => Some((17, None)),
+            30 => Some((18, None)),
             _ => None,
         },
         SettingsTab::Auth => row
@@ -358,15 +368,17 @@ pub(crate) fn settings_row_hit(
                 let prompt_lines = settings.edit_buffer().lines().count().max(1);
                 match row {
                     4..=11 => Some((row - 4, None)),
-                    r if (17..=20 + prompt_lines).contains(&r) => Some((8, None)),
-                    r if r == 21 + prompt_lines => Some((9, None)),
+                    16 => Some((8, None)),
+                    r if (17..=20 + prompt_lines).contains(&r) => Some((9, None)),
+                    r if r == 21 + prompt_lines => Some((10, None)),
                     _ => None,
                 }
             } else {
                 match row {
                     4..=11 => Some((row - 4, None)),
-                    17 => Some((8, None)),
-                    18 => Some((9, None)),
+                    16 => Some((8, None)),
+                    17 => Some((9, None)),
+                    18 => Some((10, None)),
                     _ => None,
                 }
             }

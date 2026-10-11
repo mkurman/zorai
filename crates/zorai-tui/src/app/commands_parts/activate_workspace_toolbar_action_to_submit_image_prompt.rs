@@ -196,6 +196,7 @@ impl TuiModel {
                 | "approvals"
                 | "participants"
                 | "handoff"
+                | "gateway"
                 | "compact"
                 | "quit"
                 | "prompt"
@@ -341,6 +342,9 @@ impl TuiModel {
             }
             "handoff" => {
                 self.open_thread_handoff_modal();
+            }
+            "gateway" => {
+                self.open_gateway_link_modal();
             }
             "compact" => {
                 let Some(thread_id) = self.chat.active_thread_id().map(str::to_string) else {

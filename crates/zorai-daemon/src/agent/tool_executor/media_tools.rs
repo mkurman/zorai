@@ -2087,6 +2087,7 @@ async fn persist_generated_image_for_thread(
                         url: Some(url),
                         data_url: None,
                         mime_type: Some(mime_type.clone()),
+                        inventory_path: None,
                     }]
                 })
                 .unwrap_or_default(),

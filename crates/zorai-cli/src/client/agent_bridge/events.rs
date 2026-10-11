@@ -470,6 +470,10 @@ where
             let msg = serde_json::json!({"type":"sub-agent-removed","data":{"sub_agent_id":sub_agent_id}});
             emit_agent_event(&msg.to_string())?;
         }
+        Some(Ok(DaemonMessage::AgentGatewayChats { chats_json })) => {
+            let msg = serde_json::json!({"type":"gateway-chats","data":serde_json::from_str::<serde_json::Value>(&chats_json).unwrap_or_default()});
+            emit_agent_event(&msg.to_string())?;
+        }
         Some(Ok(DaemonMessage::AgentConciergeConfig { config_json })) => {
             let msg = serde_json::json!({"type":"concierge-config","data":serde_json::from_str::<serde_json::Value>(&config_json).unwrap_or_default()});
             emit_agent_event(&msg.to_string())?;

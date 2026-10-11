@@ -42,6 +42,14 @@ impl DaemonClient {
                     .send(ClientEvent::ThreadHandoffResult(result))
                     .await;
             }
+            DaemonMessage::AgentGatewayChats { chats_json } => {
+                match serde_json::from_str::<Vec<crate::client::GatewayChatVm>>(&chats_json) {
+                    Ok(chats) => {
+                        let _ = event_tx.send(ClientEvent::GatewayChats(chats)).await;
+                    }
+                    Err(err) => warn!("Failed to parse gateway chats: {}", err),
+                }
+            }
             DaemonMessage::AgentThreadDetailChunk {
                 thread_id,
                 thread_json_chunk,

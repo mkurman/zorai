@@ -938,8 +938,11 @@ impl AgentEngine {
     /// and an optional full-agent scope override. Concierge keeps the triage
     /// front-door; the main agent and any other sub-agent run the full agent
     /// directly, scoped to that responder.
-    pub(super) async fn resolve_gateway_default_responder(&self) -> (bool, Option<String>) {
-        let default_agent = self.config.read().await.gateway.default_agent.clone();
+    pub(super) async fn resolve_gateway_default_responder(
+        &self,
+        platform: &str,
+    ) -> (bool, Option<String>) {
+        let default_agent = gateway_default_agent_for_platform(&self.config.read().await.gateway, platform);
         let trimmed = default_agent.trim();
         if trimmed.is_empty() {
             return (true, None);
@@ -971,11 +974,13 @@ impl AgentEngine {
                 .map(|agent_id| canonical_agent_name(&agent_id).to_string()),
             None => None,
         };
-        let (thread_id, _is_new) = self
+        let (thread_id, is_new) = self
             .get_or_create_thread_with_target(existing_thread, &msg.content, agent_scope)
             .await;
-        self.ensure_thread_identity(&thread_id, &gateway_thread_title(msg), false)
-            .await;
+        if is_new {
+            self.ensure_thread_identity(&thread_id, &gateway_thread_title(msg), false)
+                .await;
+        }
         self.gateway_threads
             .write()
             .await
@@ -1020,10 +1025,13 @@ impl AgentEngine {
                 );
             }
             Ok(Ok(thread_id)) => {
-                self.gateway_threads
-                    .write()
-                    .await
-                    .insert(channel_key.to_string(), thread_id.clone());
+                {
+                    let mut gateway_threads = self.gateway_threads.write().await;
+                    if !gateway_threads.contains_key(channel_key) {
+                        return;
+                    }
+                    gateway_threads.insert(channel_key.to_string(), thread_id.clone());
+                }
                 if let Err(error) = self
                     .history
                     .upsert_gateway_thread_binding(channel_key, &thread_id, now_millis())

@@ -318,4 +318,7 @@ pub enum ClientMessage {
     },
     AgentGetThreadExecutionProfile { thread_id: String },
     AgentSetThreadExecutionProfile { thread_id: String, profile_json: String },
+    AgentListGatewayChats,
+    AgentLinkThreadToGatewayChat { thread_id: String, channel_key: Option<String> },
+    AgentRenameThread { thread_id: String, title: String },
 }

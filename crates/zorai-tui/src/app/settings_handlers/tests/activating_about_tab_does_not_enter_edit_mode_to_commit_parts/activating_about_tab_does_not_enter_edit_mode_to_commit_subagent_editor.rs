@@ -19,7 +19,7 @@ fn whatsapp_link_device_requires_allowed_contacts() {
     model
         .settings
         .reduce(SettingsAction::SwitchTab(SettingsTab::Gateway));
-    model.settings.reduce(SettingsAction::NavigateField(13));
+    model.settings.reduce(SettingsAction::NavigateField(17));
 
     model.activate_settings_field();
 
@@ -37,7 +37,7 @@ fn whatsapp_relink_device_requires_allowed_contacts() {
     model
         .settings
         .reduce(SettingsAction::SwitchTab(SettingsTab::Gateway));
-    model.settings.reduce(SettingsAction::NavigateField(14));
+    model.settings.reduce(SettingsAction::NavigateField(18));
     model
         .modal
         .set_whatsapp_link_connected(Some("+48663977535".to_string()));
@@ -59,7 +59,7 @@ fn whatsapp_link_device_starts_when_allowlist_is_present() {
         .settings
         .reduce(SettingsAction::SwitchTab(SettingsTab::Gateway));
     model.config.whatsapp_allowed_contacts = "+48663977535\ninvalid".to_string();
-    model.settings.reduce(SettingsAction::NavigateField(13));
+    model.settings.reduce(SettingsAction::NavigateField(17));
 
     model.activate_settings_field();
 

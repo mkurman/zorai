@@ -31,6 +31,14 @@ impl AgentEngine {
             // as a turn finishes is never orphaned.
             let mut followups = self.gateway_pending_followups.lock().await;
             let mut inflight = self.gateway_inflight_channels.lock().await;
+            if inflight.contains(&channel_key)
+                && is_gateway_reset_command(&msg.content.trim().to_lowercase())
+            {
+                drop(inflight);
+                drop(followups);
+                self.handle_gateway_reset_command(&msg, &channel_key).await;
+                return;
+            }
             if inflight.contains(&channel_key) {
                 let queue = followups.entry(channel_key.clone()).or_default();
                 queue.push_back(msg);
@@ -156,7 +164,7 @@ impl AgentEngine {
             {
                 (mode == gateway::GatewayRouteMode::Rarog, None)
             } else {
-                self.resolve_gateway_default_responder().await
+                self.resolve_gateway_default_responder(&msg.platform).await
             };
         let history_window: Option<String> = self
             .load_gateway_history_window(&channel_key, existing_thread.as_deref())

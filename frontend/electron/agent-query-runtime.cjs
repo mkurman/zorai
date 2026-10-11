@@ -42,6 +42,7 @@ const AGENT_QUERY_RESPONSE_TYPES = [
   'sub-agent-updated',
   'sub-agent-removed',
   'concierge-config',
+  'gateway-chats',
   'concierge-welcome-dismissed',
   'status-response',
   'statistics-response',

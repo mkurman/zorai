@@ -184,6 +184,7 @@ impl TuiModel {
                 modal::ModalKind::GatewayDefaultAgentPicker => {
                     "modal:gateway_default_agent_picker".to_string()
                 }
+                modal::ModalKind::GatewayLink => "modal:gateway_link".to_string(),
                 modal::ModalKind::ThreadPicker => "modal:thread_picker".to_string(),
                 modal::ModalKind::GoalPicker => "modal:goal_picker".to_string(),
                 modal::ModalKind::WorkspacePicker => "modal:workspace_picker".to_string(),

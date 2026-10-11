@@ -2601,6 +2601,29 @@
   object-fit: cover;
 }
 
+.zorai-attachment-tile__preview--button {
+  padding: 0;
+  cursor: zoom-in;
+}
+
+.zorai-image-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background: rgba(0, 0, 0, 0.85);
+  cursor: zoom-out;
+}
+
+.zorai-image-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
 .zorai-attachment-tile__caption {
   max-width: 52px;
   font-size: 9px;
@@ -3132,6 +3155,55 @@
   background: rgba(113, 220, 202, 0.08);
 }
 
+.zorai-thread-agent-picker {
+  display: grid;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--zorai-border);
+  border-radius: 6px;
+  background: var(--zorai-bg-surface);
+}
+
+.zorai-thread-agent-picker__row {
+  display: flex;
+  align-items: center;
+}
+
+.zorai-thread-agent-picker__row--active .zorai-thread-agent-picker__select {
+  color: var(--zorai-accent);
+}
+
+.zorai-thread-agent-picker__select,
+.zorai-thread-agent-picker__pin {
+  border: 0;
+  background: transparent;
+  color: var(--zorai-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.zorai-thread-agent-picker__select {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zorai-thread-agent-picker__select:hover,
+.zorai-thread-agent-picker__pin:hover,
+.zorai-thread-agent-picker__pin--on {
+  color: var(--zorai-accent);
+}
+
+.zorai-thread-agent-picker__pin {
+  padding: 6px 8px;
+  color: var(--zorai-muted);
+}
+
 .zorai-thread-date-filters {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -3548,10 +3620,10 @@
   border: 0;
   background: transparent;
   cursor: pointer;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
 }
 
-.zorai-thread-activity__summary strong {
+.zorai-thread-activity__summary span:nth-child(2) {
   overflow: hidden;
   flex: 1;
   text-overflow: ellipsis;
@@ -3563,7 +3635,7 @@
   font-size: var(--text-xs);
 }
 
-.zorai-thread-activity--budget .zorai-thread-activity__summary strong {
+.zorai-thread-activity--budget .zorai-thread-activity__summary span:nth-child(2) {
   color: var(--zorai-danger, #ff7b86);
 }
 

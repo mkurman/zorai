@@ -15,7 +15,7 @@ import type {
   ApiTransportMode,
   AuthSource,
 } from "./types.ts";
-import { PRIMARY_AGENT_NAME } from "../agentNames.ts";
+import { EMPTY_AGENT_ALIASES, normalizeAgentAliases, PRIMARY_AGENT_NAME, type AgentAliases } from "../agentNames.ts";
 import {
   DEFAULT_CHAT_HISTORY_PAGE_SIZE,
   normalizeReactChatHistoryPageSize,
@@ -92,6 +92,7 @@ export interface AgentSettings {
   handler: string;
   additionalHandlers: string[];
   system_prompt: string;
+  agent_aliases: AgentAliases;
   active_provider: AgentProviderId;
   featherless: AgentProviderConfig;
   anthropic: AgentProviderConfig;
@@ -179,6 +180,11 @@ export interface AgentSettings {
   whatsapp_phone_id: string;
   whatsapp_allowed_contacts: string;
   gateway_command_prefix: string;
+  gateway_default_agent: string;
+  slack_default_agent: string;
+  discord_default_agent: string;
+  telegram_default_agent: string;
+  whatsapp_default_agent: string;
   chatFontFamily: string;
   chatFontSize: number;
   audio_stt_enabled: boolean;
@@ -231,6 +237,7 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   handler: "/agent",
   additionalHandlers: [],
   system_prompt: `You are ${PRIMARY_AGENT_NAME} - The Smith (He is a blacksmith god, the creator and craftsman of the heavens in ancient Slavic belief. As an AI agent:\n- Creation: Ideal for tasks intended for use from scratch (coding, writing, design).\n- Rhythm: Associated with the sun and fire, he naturally determines the daily cycles (sunrise-sunset).\n- Personality: Strict but fair; an accessible "doer" who ensures this through perfect tools.) operating in zorai, an agentic runtime assistant. You can execute terminal commands, check system resources, and send messages to connected chat platforms (Slack, Discord, Telegram, WhatsApp) via the gateway. Use your tools proactively when the user asks you to perform actions. Be concise and direct.`,
+  agent_aliases: { ...EMPTY_AGENT_ALIASES },
   active_provider: "openai",
   featherless: { base_url: "https://api.featherless.ai/v1", model: "meta-llama/Llama-3.3-70B-Instruct", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "chat_completions", auth_source: "api_key", context_window_tokens: null },
   anthropic: { base_url: "https://api.anthropic.com", model: "claude-opus-4-7", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "chat_completions", auth_source: "api_key", context_window_tokens: null },
@@ -318,6 +325,11 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   whatsapp_phone_id: "",
   whatsapp_allowed_contacts: "",
   gateway_command_prefix: "!zorai",
+  gateway_default_agent: "rarog",
+  slack_default_agent: "",
+  discord_default_agent: "",
+  telegram_default_agent: "",
+  whatsapp_default_agent: "",
   chatFontFamily: "Cascadia Code",
   chatFontSize: 13,
   audio_stt_enabled: true,
@@ -537,6 +549,7 @@ export type DiskAgentSettings = Partial<AgentSettings> & {
   image_generation_provider?: AgentProviderId | string;
   image_generation_model?: string;
   system_prompt?: string;
+  agent_aliases?: Record<string, unknown>;
   managed_sandbox_enabled?: boolean;
   managed_security_level?: string;
   managed_execution?: {
@@ -638,6 +651,11 @@ export type DiskAgentSettings = Partial<AgentSettings> & {
     whatsapp_phone_id?: string;
     whatsapp_allowed_contacts?: string;
     command_prefix?: string;
+    default_agent?: string;
+    slack_default_agent?: string;
+    discord_default_agent?: string;
+    telegram_default_agent?: string;
+    whatsapp_default_agent?: string;
   };
 };
 
@@ -759,6 +777,7 @@ export function normalizeAgentSettingsFromSource(source: DiskAgentSettings): Age
     cursor: providerConfigFromRaw("cursor", source),
     custom: providerConfigFromRaw("custom", source),
     system_prompt: source.system_prompt ?? DEFAULT_AGENT_SETTINGS.system_prompt,
+    agent_aliases: normalizeAgentAliases(source.agent_aliases),
     audio_stt_enabled: source.audio?.stt?.enabled ?? source.audio_stt_enabled ?? DEFAULT_AGENT_SETTINGS.audio_stt_enabled,
     audio_stt_provider,
     audio_stt_model:
@@ -939,6 +958,11 @@ export function normalizeAgentSettingsFromSource(source: DiskAgentSettings): Age
     whatsapp_phone_id: source.gateway?.whatsapp_phone_id ?? DEFAULT_AGENT_SETTINGS.whatsapp_phone_id,
     whatsapp_allowed_contacts: source.gateway?.whatsapp_allowed_contacts ?? DEFAULT_AGENT_SETTINGS.whatsapp_allowed_contacts,
     gateway_command_prefix: source.gateway?.command_prefix ?? DEFAULT_AGENT_SETTINGS.gateway_command_prefix,
+    gateway_default_agent: source.gateway?.default_agent ?? DEFAULT_AGENT_SETTINGS.gateway_default_agent,
+    slack_default_agent: source.gateway?.slack_default_agent ?? DEFAULT_AGENT_SETTINGS.slack_default_agent,
+    discord_default_agent: source.gateway?.discord_default_agent ?? DEFAULT_AGENT_SETTINGS.discord_default_agent,
+    telegram_default_agent: source.gateway?.telegram_default_agent ?? DEFAULT_AGENT_SETTINGS.telegram_default_agent,
+    whatsapp_default_agent: source.gateway?.whatsapp_default_agent ?? DEFAULT_AGENT_SETTINGS.whatsapp_default_agent,
     [active_provider]: {
       ...activeProviderConfig,
       base_url: source.base_url ?? activeProviderConfig.base_url,

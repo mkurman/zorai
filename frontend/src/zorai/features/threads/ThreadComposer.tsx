@@ -38,6 +38,7 @@ import {
 } from "./composerTargetModel";
 import { BUILTIN_WORKSPACE_PERSONAS } from "../workspaces/workspaceActorPicker";
 import { isLeadOnlyPersona } from "./leadPersonas";
+import { useAgentDisplayName } from "@/lib/useAgentDisplayName";
 
 export function ThreadComposer({
   showTargetSelector = false,
@@ -63,26 +64,27 @@ export function ThreadComposer({
   };
   const [contextPreviewOpen, setContextPreviewOpen] = useState(false);
   const subAgents = useAgentStore((state) => state.subAgents);
+  const agentDisplayName = useAgentDisplayName();
   const activeResponderId = runtime.activeThread?.threadHandoffState?.activeAgentId
     ?? runtime.activeThread?.targetAgentId
     ?? runtime.activeThread?.agent_name
     ?? "swarog";
   const handoffAgents = useMemo(() => buildThreadAgentOptions(
     [
-      { id: "swarog", name: "Svarog" },
-      { id: "rarog", name: "Rarog" },
+      { id: "swarog", name: agentDisplayName("Svarog") },
+      { id: "rarog", name: agentDisplayName("Rarog") },
       ...BUILTIN_WORKSPACE_PERSONAS.map((persona) => ({ id: persona.id, name: persona.label })),
     ],
     [],
     activeResponderId,
-  ), [activeResponderId]);
+  ), [activeResponderId, agentDisplayName]);
   const composerTargets: ComposerTarget[] = useMemo(() => [
-    { kind: "current", id: "current", label: runtime.activeThread?.agent_name || "Current responder" },
+    { kind: "current", id: "current", label: agentDisplayName(runtime.activeThread?.agent_name) || "Current responder" },
     ...handoffAgents.map((agent) => ({ kind: "agent" as const, id: agent.id, label: agent.name })),
     ...subAgents
       .filter((agent) => agent.enabled && agent.id !== activeResponderId && !isLeadOnlyPersona(agent.id) && !isLeadOnlyPersona(agent.name))
       .map((agent) => ({ kind: "subagent" as const, id: agent.id, label: agent.name })),
-  ], [activeResponderId, handoffAgents, runtime.activeThread?.agent_name, subAgents]);
+  ], [activeResponderId, agentDisplayName, handoffAgents, runtime.activeThread?.agent_name, subAgents]);
   const [composerTarget, setComposerTarget] = useState<ComposerTarget>(composerTargets[0]);
   const [targetPending, setTargetPending] = useState(false);
   const [targetError, setTargetError] = useState<string | null>(null);

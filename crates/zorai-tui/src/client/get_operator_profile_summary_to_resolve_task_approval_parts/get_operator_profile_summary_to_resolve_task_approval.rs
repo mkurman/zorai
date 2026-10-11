@@ -130,6 +130,21 @@ impl DaemonClient {
         self.send(ClientMessage::AgentWhatsAppLinkStatus)
     }
 
+    pub fn list_gateway_chats(&self) -> Result<()> {
+        self.send(ClientMessage::AgentListGatewayChats)
+    }
+
+    pub fn link_thread_to_gateway_chat(
+        &self,
+        thread_id: String,
+        channel_key: Option<String>,
+    ) -> Result<()> {
+        self.send(ClientMessage::AgentLinkThreadToGatewayChat {
+            thread_id,
+            channel_key,
+        })
+    }
+
     pub fn whatsapp_link_subscribe(&self) -> Result<()> {
         self.send(ClientMessage::AgentWhatsAppLinkSubscribe)
     }

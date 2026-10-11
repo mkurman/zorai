@@ -5,6 +5,7 @@ import {
   readSpeechToTextContent,
   readSpeechToTextError,
 } from "./composerMedia";
+import { boundContentBlocks } from "@/lib/agentStore/rendererText";
 
 describe("speech-to-text result parsing", () => {
   it("reads a daemon plain-text payload that arrives as event data", () => {
@@ -77,5 +78,23 @@ describe("buildAttachmentSendPayload", () => {
       { type: "image", data_url: dataUrl, mime_type: "image/png" },
     ]);
     expect(JSON.parse(payload.contentBlocksJson ?? "null")).toEqual(payload.localContentBlocks);
+  });
+
+  it("shows a renderer-sized preview locally while the daemon still receives the full image", () => {
+    const fullDataUrl = `data:image/png;base64,${"A".repeat(400_000)}`;
+    const previewDataUrl = "data:image/webp;base64,UklGRg==";
+    const payload = buildAttachmentSendPayload("look", [{
+      id: "image-1",
+      name: "pasted-image-1.png",
+      size: 300_000,
+      kind: "image",
+      mimeType: "image/png",
+      dataUrl: fullDataUrl,
+      previewDataUrl,
+    }]);
+
+    expect(payload.localContentBlocks?.[1]).toEqual({ type: "image", data_url: previewDataUrl, mime_type: "image/png" });
+    expect(boundContentBlocks(payload.localContentBlocks)?.[1]).toEqual(payload.localContentBlocks?.[1]);
+    expect(JSON.parse(payload.contentBlocksJson ?? "null")[1]).toEqual({ type: "image", data_url: fullDataUrl, mime_type: "image/png" });
   });
 });

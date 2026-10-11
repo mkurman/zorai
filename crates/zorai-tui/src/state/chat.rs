@@ -68,6 +68,7 @@ pub struct ChatState {
     pinned_message_top: Option<StoredMessageRef>,
     copied_message_feedback: Option<CopiedMessageFeedback>,
     forking_message_feedback: Option<CopiedMessageFeedback>,
+    gateway_linked_thread_ids: std::collections::HashSet<String>,
 }
 
 fn merge_message_pair(
@@ -901,6 +902,7 @@ impl ChatState {
             pinned_message_top: None,
             copied_message_feedback: None,
             forking_message_feedback: None,
+            gateway_linked_thread_ids: std::collections::HashSet::new(),
         }
     }
 
@@ -929,6 +931,14 @@ impl ChatState {
 
     pub fn threads(&self) -> &[AgentThread] {
         &self.threads
+    }
+
+    pub fn set_gateway_linked_thread_ids(&mut self, ids: std::collections::HashSet<String>) {
+        self.gateway_linked_thread_ids = ids;
+    }
+
+    pub fn is_gateway_linked_thread(&self, thread_id: &str) -> bool {
+        self.gateway_linked_thread_ids.contains(thread_id)
     }
 
     pub fn local_deleted_message_count_for_thread(&self, thread_id: &str) -> usize {

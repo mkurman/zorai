@@ -196,6 +196,24 @@ impl TuiModel {
                                 .subagents
                                 .editor
                                 .as_ref()
+                                .is_some_and(|editor| editor.id.as_deref() == Some("weles_builtin"))
+                            {
+                                let current = self
+                                    .config
+                                    .agent_config_raw
+                                    .as_ref()
+                                    .and_then(|raw| raw.get("agent_aliases"))
+                                    .and_then(|aliases| aliases.get("weles"))
+                                    .and_then(|value| value.as_str())
+                                    .unwrap_or("")
+                                    .to_string();
+                                self.settings.start_editing("weles_alias", &current);
+                                return true;
+                            }
+                            if self
+                                .subagents
+                                .editor
+                                .as_ref()
                                 .is_some_and(|editor| !editor.identity_is_mutable())
                             {
                                 self.status_line =

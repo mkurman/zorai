@@ -12,6 +12,7 @@ export type ComposerAttachment = {
   kind: "image" | "audio" | "text";
   mimeType: string;
   dataUrl?: string;
+  previewDataUrl?: string;
   textContent?: string;
 };
 

@@ -12,6 +12,7 @@ import type { AgentMessage } from "@/lib/agentStore";
 import { visibleGeminiReasoning } from "@/lib/geminiThought";
 import { AttachmentTiles } from "./attachmentTiles";
 import { splitMessageAttachments } from "./messageAttachments";
+import { useAgentDisplayName } from "@/lib/useAgentDisplayName";
 
 export function isMessageFromCurrentViewSession(message: AgentMessage, mountedAt: number): boolean {
   const createdAt = message.createdAt < 10_000_000_000
@@ -96,6 +97,7 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
   const sharedActions = Boolean(actionsRef);
   const [retryDismissed, setRetryDismissed] = useState(false);
   const [copied, setCopied] = useState(false);
+  const agentDisplayName = useAgentDisplayName();
   if (isCompactionArtifactMessage(message)) {
     return (
       <NativeCompactionArtifact
@@ -117,7 +119,7 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
   }
   const fromUser = message.role === "user";
   const isAssistant = message.role === "assistant";
-  const author = message.authorAgentName ?? (fromUser ? "You" : message.role === "assistant" ? (threadAgentName ?? "Zorai") : message.role);
+  const author = agentDisplayName(message.authorAgentName) ?? (fromUser ? "You" : message.role === "assistant" ? (threadAgentName ?? "Zorai") : message.role);
   const tokenText = message.totalTokens > 0 ? `${message.totalTokens.toLocaleString()} tokens` : null;
   const { displayText, tiles } = splitMessageAttachments(message.content, message.contentBlocks);
   const reasoning = visibleGeminiReasoning(message.reasoning);

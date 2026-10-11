@@ -45,6 +45,10 @@ fn help_modal_lines(theme: &ThemeTokens) -> Vec<Line<'static>> {
             Span::styled("Return to previous responder", theme.fg_dim),
         ]),
         Line::from(vec![
+            Span::styled("  /gateway          ", theme.fg_active),
+            Span::styled("Continue thread on a gateway chat", theme.fg_dim),
+        ]),
+        Line::from(vec![
             Span::styled("  Ctrl+G           ", theme.fg_active),
             Span::styled("Toggle Goal Runner view", theme.fg_dim),
         ]),

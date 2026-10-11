@@ -28,6 +28,23 @@ pub struct WelesHealthVm {
     pub checked_at: u64,
 }
 
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct GatewayChatVm {
+    pub channel_key: String,
+    pub platform: String,
+    pub channel_id: String,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub thread_title: Option<String>,
+    #[serde(default)]
+    pub last_thread_id: String,
+    #[serde(default)]
+    pub last_thread_title: Option<String>,
+    #[serde(default)]
+    pub updated_at: u64,
+}
+
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct ThreadMessagePinResultVm {
     pub ok: bool,
@@ -89,6 +106,7 @@ pub enum ClientEvent {
         thread_id: String,
     },
     ThreadHandoffResult(zorai_protocol::ThreadHandoffResult),
+    GatewayChats(Vec<GatewayChatVm>),
     MessageFeedbackUpdated {
         thread_id: String,
         message_id: String,

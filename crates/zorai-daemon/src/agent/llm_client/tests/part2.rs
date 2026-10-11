@@ -191,6 +191,7 @@ fn chat_completions_rewrites_responses_image_block_types() {
             url: None,
             data_url: Some("data:image/png;base64,abc".to_string()),
             mime_type: Some("image/png".to_string()),
+            inventory_path: None,
         },
     ];
 

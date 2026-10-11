@@ -1,3 +1,4 @@
+import { MAX_RENDERER_TEXT_CHARS } from "@/lib/agentStore/rendererText";
 import type { AgentContentBlock } from "@/lib/agentStore/types";
 import type { ComposerAttachment, SendMessagePayload } from "./types";
 
@@ -46,7 +47,43 @@ export async function readComposerAttachment(file: File): Promise<ComposerAttach
     kind,
     mimeType: file.type || (kind === "image" ? "image/png" : "audio/wav"),
     dataUrl,
+    previewDataUrl: kind === "image" ? await createImagePreviewDataUrl(dataUrl) : undefined,
   };
+}
+
+const IMAGE_PREVIEW_MAX_DIMENSIONS = [1600, 1280, 960, 640, 320];
+const IMAGE_PREVIEW_QUALITIES = [0.85, 0.6];
+
+async function createImagePreviewDataUrl(dataUrl: string): Promise<string | undefined> {
+  if (dataUrl.length <= MAX_RENDERER_TEXT_CHARS) {
+    return undefined;
+  }
+  try {
+    const image = new Image();
+    image.src = dataUrl;
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (!context || !image.naturalWidth || !image.naturalHeight) {
+      return undefined;
+    }
+    for (const maxDimension of IMAGE_PREVIEW_MAX_DIMENSIONS) {
+      const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      for (const quality of IMAGE_PREVIEW_QUALITIES) {
+        const preview = canvas.toDataURL("image/webp", quality);
+        if (preview.length <= MAX_RENDERER_TEXT_CHARS) {
+          return preview;
+        }
+      }
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
 }
 
 function composerAttachmentId(file: File): string {
@@ -206,7 +243,7 @@ export function buildAttachmentSendPayload(text: string, attachments: ComposerAt
   if (mediaAttachments.length === 0) {
     return { text: finalText };
   }
-  const localContentBlocks: AgentContentBlock[] = [
+  const contentBlocks: AgentContentBlock[] = [
     ...(finalText ? [{ type: "text", text: finalText } as const] : []),
     ...mediaAttachments.map((attachment) =>
       attachment.kind === "image"
@@ -222,9 +259,15 @@ export function buildAttachmentSendPayload(text: string, attachments: ComposerAt
           } as const),
     ),
   ];
+  const localContentBlocks = contentBlocks.map((block, index) => {
+    const attachment = mediaAttachments[index - (finalText ? 1 : 0)];
+    return block.type === "image" && attachment?.previewDataUrl
+      ? { ...block, data_url: attachment.previewDataUrl }
+      : block;
+  });
   return {
     text: finalText,
-    contentBlocksJson: JSON.stringify(localContentBlocks),
+    contentBlocksJson: JSON.stringify(contentBlocks),
     localContentBlocks,
   };
 }

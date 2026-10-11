@@ -648,10 +648,24 @@ impl TuiModel {
                                     self.config.snapshot_max_size_mb = n.clamp(1_024, 500_000);
                                 }
                             }
-                            "agent_name" => {
-                                if let Some(ref mut raw) = self.config.agent_config_raw {
-                                    raw["agent_name"] = serde_json::Value::String(value);
+                            "swarog_alias" | "rarog_alias" | "weles_alias" => {
+                                let agent_id = field.trim_end_matches("_alias");
+                                let alias = value.trim().to_string();
+                                self.send_daemon_command(DaemonCommand::SetConfigItem {
+                                    key_path: format!("/agent_aliases/{agent_id}"),
+                                    value_json: serde_json::Value::String(alias.clone())
+                                        .to_string(),
+                                });
+                                let raw = self
+                                    .config
+                                    .agent_config_raw
+                                    .get_or_insert_with(|| serde_json::json!({}));
+                                if !raw.get("agent_aliases").is_some_and(|v| v.is_object()) {
+                                    raw["agent_aliases"] = serde_json::json!({});
                                 }
+                                raw["agent_aliases"][agent_id] = serde_json::Value::String(alias);
+                                crate::agent_aliases::set_from_raw(raw);
+                                self.send_daemon_command(DaemonCommand::GetConfig);
                             }
                             "system_prompt" => {
                                 if let Some(ref mut raw) = self.config.agent_config_raw {
@@ -1013,6 +1027,9 @@ impl TuiModel {
                         if !matches!(
                             field.as_str(),
                             "subagent_name"
+                                | "swarog_alias"
+                                | "rarog_alias"
+                                | "weles_alias"
                                 | "subagent_role"
                                 | "subagent_context_window_tokens"
                                 | "subagent_huggingface_provider"

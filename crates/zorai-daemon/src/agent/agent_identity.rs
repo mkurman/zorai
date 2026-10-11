@@ -224,6 +224,9 @@ pub(crate) fn resolve_agent_target(
             matched_sub_agent: sub_agent_by_alias(WELES_BUILTIN_SUBAGENT_ID, sub_agents).cloned(),
         },
         _ => {
+            if let Some(agent_id) = agent_id_for_alias(alias) {
+                return resolve_agent_target(agent_id, sub_agents);
+            }
             if let Some(persona) = persona_by_alias(alias) {
                 return ResolvedAgentTarget {
                     scope_id: persona.id.to_string(),
@@ -257,22 +260,160 @@ pub(crate) fn resolve_agent_target(
     }
 }
 
-pub(crate) fn canonical_agent_id(alias: &str) -> &'static str {
-    let normalized = alias.trim().to_ascii_lowercase();
-    match normalized.as_str() {
+pub(crate) const ALIASABLE_AGENT_IDS: [&str; 3] = [MAIN_AGENT_ID, CONCIERGE_AGENT_ID, WELES_AGENT_ID];
+
+static AGENT_ALIASES: std::sync::RwLock<std::collections::BTreeMap<String, String>> =
+    std::sync::RwLock::new(std::collections::BTreeMap::new());
+
+pub(crate) fn set_agent_aliases(aliases: &std::collections::BTreeMap<String, String>) {
+    if let Ok(mut current) = AGENT_ALIASES.write() {
+        *current = aliases.clone();
+    }
+}
+
+pub(crate) fn agent_aliases() -> std::collections::BTreeMap<String, String> {
+    AGENT_ALIASES
+        .read()
+        .map(|aliases| aliases.clone())
+        .unwrap_or_default()
+}
+
+pub(crate) fn agent_id_for_alias_in(
+    name: &str,
+    aliases: &std::collections::BTreeMap<String, String>,
+) -> Option<&'static str> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    ALIASABLE_AGENT_IDS.into_iter().find(|id| {
+        aliases
+            .get(*id)
+            .is_some_and(|alias| alias.trim().eq_ignore_ascii_case(trimmed))
+    })
+}
+
+pub(crate) fn agent_id_for_alias(name: &str) -> Option<&'static str> {
+    agent_id_for_alias_in(name, &agent_aliases())
+}
+
+pub(crate) fn agent_display_name_in(
+    agent_id: &str,
+    aliases: &std::collections::BTreeMap<String, String>,
+) -> String {
+    let canonical = canonical_agent_id(agent_id);
+    aliases
+        .get(canonical)
+        .map(|alias| alias.trim())
+        .filter(|alias| !alias.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| canonical_agent_name(canonical).to_string())
+}
+
+pub(crate) fn agent_display_name(agent_id: &str) -> String {
+    agent_display_name_in(agent_id, &agent_aliases())
+}
+
+pub(crate) fn alias_for_agent_name_in(
+    agent_name: &str,
+    aliases: &std::collections::BTreeMap<String, String>,
+) -> Option<String> {
+    let agent_id = builtin_agent_id(&agent_name.trim().to_ascii_lowercase())?;
+    if !ALIASABLE_AGENT_IDS.contains(&agent_id) {
+        return None;
+    }
+    aliases
+        .get(agent_id)
+        .map(|alias| alias.trim().to_string())
+        .filter(|alias| !alias.is_empty())
+}
+
+pub(crate) fn agent_alias_prompt_note_in(
+    aliases: &std::collections::BTreeMap<String, String>,
+) -> Option<String> {
+    let lines = ALIASABLE_AGENT_IDS
+        .into_iter()
+        .filter_map(|id| {
+            let alias = aliases.get(id)?.trim();
+            (!alias.is_empty()).then(|| {
+                format!(
+                    "- {alias} is the operator's name for {} (agent id `{id}`).",
+                    canonical_agent_name(id)
+                )
+            })
+        })
+        .collect::<Vec<_>>();
+    if lines.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "## Agent Aliases\nThe operator renamed some built-in agents. Use the alias when talking to the operator; the original name and id still work when addressing agents.\n{}",
+        lines.join("\n")
+    ))
+}
+
+pub(crate) fn agent_alias_prompt_note() -> Option<String> {
+    agent_alias_prompt_note_in(&agent_aliases())
+}
+
+pub(crate) fn validate_agent_aliases(
+    aliases: &std::collections::BTreeMap<String, String>,
+    sub_agents: &[SubAgentDefinition],
+) -> anyhow::Result<()> {
+    let mut seen = std::collections::HashSet::new();
+    for (id, alias) in aliases {
+        if !ALIASABLE_AGENT_IDS.contains(&id.as_str()) {
+            return Err(anyhow!(
+                "agent alias key `{id}` is not one of: {}",
+                ALIASABLE_AGENT_IDS.join(", ")
+            ));
+        }
+        let trimmed = alias.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if trimmed.chars().count() > 40 {
+            return Err(anyhow!("agent alias `{trimmed}` is longer than 40 characters"));
+        }
+        let normalized = trimmed.to_ascii_lowercase();
+        if !seen.insert(normalized.clone()) {
+            return Err(anyhow!("agent alias `{trimmed}` is used for more than one agent"));
+        }
+        if let Some(builtin) = builtin_agent_id(&normalized).filter(|builtin| *builtin != id) {
+            return Err(anyhow!(
+                "agent alias `{trimmed}` already names the built-in agent {}",
+                canonical_agent_name(builtin)
+            ));
+        }
+        if sub_agent_by_alias(trimmed, sub_agents)
+            .is_some_and(|def| def.id.strip_suffix("_builtin").unwrap_or(&def.id) != id.as_str())
+        {
+            return Err(anyhow!("agent alias `{trimmed}` already names a subagent"));
+        }
+    }
+    Ok(())
+}
+
+fn builtin_agent_id(normalized: &str) -> Option<&'static str> {
+    match normalized {
         MAIN_AGENT_ID
         | MAIN_AGENT_PUBLIC_ALIAS
         | MAIN_AGENT_ALIAS
         | MAIN_AGENT_LEGACY_ALIAS
-        | MAIN_AGENT_FALLBACK_ALIAS => MAIN_AGENT_ID,
+        | MAIN_AGENT_FALLBACK_ALIAS => Some(MAIN_AGENT_ID),
         CONCIERGE_AGENT_ID | CONCIERGE_AGENT_ALIAS | CONCIERGE_AGENT_LEGACY_ALIAS => {
-            CONCIERGE_AGENT_ID
+            Some(CONCIERGE_AGENT_ID)
         }
-        "veles" | WELES_AGENT_ID => WELES_AGENT_ID,
-        _ => persona_by_alias(&normalized)
-            .map(|persona| persona.id)
-            .unwrap_or(MAIN_AGENT_ID),
+        "veles" | WELES_AGENT_ID => Some(WELES_AGENT_ID),
+        _ => persona_by_alias(normalized).map(|persona| persona.id),
     }
+}
+
+pub(crate) fn canonical_agent_id(alias: &str) -> &'static str {
+    let normalized = alias.trim().to_ascii_lowercase();
+    builtin_agent_id(&normalized)
+        .or_else(|| agent_id_for_alias(&normalized))
+        .unwrap_or(MAIN_AGENT_ID)
 }
 
 pub(crate) fn canonical_agent_name(alias: &str) -> &'static str {
@@ -797,5 +938,57 @@ mod tests {
                 "You specialize in negotiation between options, comparing tradeoffs, and surfacing the strongest route forward."
             )
         );
+    }
+
+    fn aliases(pairs: &[(&str, &str)]) -> std::collections::BTreeMap<String, String> {
+        pairs
+            .iter()
+            .map(|(id, alias)| (id.to_string(), alias.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn alias_resolves_to_the_canonical_agent_so_routing_keeps_using_ids() {
+        let map = aliases(&[(MAIN_AGENT_ID, "Atlas"), (CONCIERGE_AGENT_ID, "Butler")]);
+        assert_eq!(agent_id_for_alias_in(" atlas ", &map), Some(MAIN_AGENT_ID));
+        assert_eq!(agent_id_for_alias_in("BUTLER", &map), Some(CONCIERGE_AGENT_ID));
+        assert_eq!(agent_id_for_alias_in("weles", &map), None);
+    }
+
+    #[test]
+    fn display_name_uses_alias_and_falls_back_to_the_builtin_name() {
+        let map = aliases(&[(WELES_AGENT_ID, "Judge")]);
+        assert_eq!(agent_display_name_in(WELES_AGENT_ID, &map), "Judge");
+        assert_eq!(agent_display_name_in(CONCIERGE_AGENT_ID, &map), CONCIERGE_AGENT_NAME);
+    }
+
+    #[test]
+    fn only_builtin_names_pick_up_an_alias_so_subagents_are_never_renamed() {
+        let map = aliases(&[(MAIN_AGENT_ID, "Atlas")]);
+        assert_eq!(alias_for_agent_name_in(MAIN_AGENT_NAME, &map).as_deref(), Some("Atlas"));
+        assert_eq!(alias_for_agent_name_in("Coder", &map), None);
+        assert_eq!(alias_for_agent_name_in(RADOGOST_AGENT_NAME, &map), None);
+    }
+
+    #[test]
+    fn prompt_note_tells_agents_who_each_alias_is() {
+        let map = aliases(&[(MAIN_AGENT_ID, "Atlas")]);
+        let note = agent_alias_prompt_note_in(&map).expect("note");
+        assert!(note.contains("Atlas is the operator's name for Svarog"));
+        assert!(agent_alias_prompt_note_in(&aliases(&[(MAIN_AGENT_ID, "  ")])).is_none());
+    }
+
+    #[test]
+    fn validation_rejects_aliases_that_would_make_routing_ambiguous() {
+        assert!(validate_agent_aliases(&aliases(&[(MAIN_AGENT_ID, "Atlas")]), &[]).is_ok());
+        assert!(validate_agent_aliases(&aliases(&[(MAIN_AGENT_ID, "Svarog")]), &[]).is_ok());
+        assert!(validate_agent_aliases(&aliases(&[(MAIN_AGENT_ID, "Rarog")]), &[]).is_err());
+        assert!(validate_agent_aliases(&aliases(&[(MAIN_AGENT_ID, "Perun")]), &[]).is_err());
+        assert!(validate_agent_aliases(
+            &aliases(&[(MAIN_AGENT_ID, "Atlas"), (WELES_AGENT_ID, "atlas")]),
+            &[]
+        )
+        .is_err());
+        assert!(validate_agent_aliases(&aliases(&[("perun", "Atlas")]), &[]).is_err());
     }
 }

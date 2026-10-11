@@ -364,6 +364,9 @@ pub(super) fn handle_modal_enter(model: &mut TuiModel, kind: modal::ModalKind) {
         modal::ModalKind::GatewayDefaultAgentPicker => {
             model.submit_gateway_default_agent_picker();
         }
+        modal::ModalKind::GatewayLink => {
+            model.submit_gateway_link_modal();
+        }
         modal::ModalKind::GoalStepActionPicker => {
             let cursor = model.modal.picker_cursor();
             let items = model.goal_action_picker_items();

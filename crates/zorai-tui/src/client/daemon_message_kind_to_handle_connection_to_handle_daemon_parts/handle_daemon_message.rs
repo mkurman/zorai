@@ -14,6 +14,7 @@ impl DaemonClient {
             | DaemonMessage::AgentThreadList { .. }
             | DaemonMessage::AgentThreadDetail { .. }
             | DaemonMessage::AgentThreadHandoffResult { .. }
+            | DaemonMessage::AgentGatewayChats { .. }
             | DaemonMessage::AgentThreadDetailChunk { .. }
             | DaemonMessage::AgentTaskList { .. }
             | DaemonMessage::AgentGoalRunList { .. }

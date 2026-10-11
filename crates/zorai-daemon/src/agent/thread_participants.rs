@@ -1717,6 +1717,63 @@ impl AgentEngine {
         }
     }
 
+    async fn backfill_user_image_inventory(&self, thread_id: &str, messages: &mut [AgentMessage]) {
+        for message in messages.iter_mut() {
+            let needs_backfill = message.content_blocks.iter().any(|block| {
+                matches!(
+                    block,
+                    AgentContentBlock::Image {
+                        data_url: Some(_),
+                        inventory_path: None,
+                        ..
+                    }
+                )
+            });
+            if !needs_backfill {
+                continue;
+            }
+            let file_stem: String = message
+                .id
+                .chars()
+                .filter(|ch| ch.is_ascii_alphanumeric() || *ch == '-' || *ch == '_')
+                .collect();
+            let blocks = crate::agent::thread_crud::store_user_images_in_inventory(
+                self.history.data_root(),
+                thread_id,
+                &file_stem,
+                &message.content_blocks,
+            )
+            .await;
+            if blocks == message.content_blocks {
+                continue;
+            }
+            match serde_json::to_string(&blocks) {
+                Ok(blocks_json) => {
+                    if let Err(error) = self
+                        .history
+                        .update_message_content_blocks(&message.id, &blocks_json)
+                        .await
+                    {
+                        tracing::warn!(thread_id, message_id = %message.id, error = %error, "failed to persist backfilled image inventory paths");
+                    }
+                }
+                Err(error) => {
+                    tracing::warn!(thread_id, message_id = %message.id, error = %error, "failed to serialize backfilled image blocks");
+                }
+            }
+            if let Some(live) = self
+                .threads
+                .write()
+                .await
+                .get_mut(thread_id)
+                .and_then(|thread| thread.messages.iter_mut().find(|live| live.id == message.id))
+            {
+                live.content_blocks = blocks.clone();
+            }
+            message.content_blocks = blocks;
+        }
+    }
+
     pub async fn agent_thread_detail_json(
         &self,
         thread_id: &str,
@@ -1724,7 +1781,7 @@ impl AgentEngine {
         message_offset: Option<usize>,
         collapse_tool_calls: bool,
     ) -> String {
-        let detail_result = self
+        let mut detail_result = self
             .get_thread_filtered_with_tool_run_pagination(
                 thread_id,
                 false,
@@ -1733,6 +1790,10 @@ impl AgentEngine {
                 collapse_tool_calls,
             )
             .await;
+        if let Some(result) = detail_result.as_mut() {
+            self.backfill_user_image_inventory(thread_id, &mut result.thread.messages)
+                .await;
+        }
         let mut value = serde_json::to_value(detail_result.as_ref().map(|result| &result.thread))
             .unwrap_or(serde_json::Value::Null);
 

@@ -100,16 +100,17 @@ impl TuiModel {
                 &self.config.snapshot_max_size_mb.to_string(),
             ),
             "snapshot_stats" => {}
-            "agent_name" => {
+            "swarog_alias" | "rarog_alias" | "weles_alias" => {
                 let current = self
                     .config
                     .agent_config_raw
                     .as_ref()
-                    .and_then(|raw| raw.get("agent_name"))
+                    .and_then(|raw| raw.get("agent_aliases"))
+                    .and_then(|aliases| aliases.get(field.trim_end_matches("_alias")))
                     .and_then(|value| value.as_str())
-                    .unwrap_or("Zorai")
+                    .unwrap_or("")
                     .to_string();
-                self.settings.start_editing("agent_name", &current);
+                self.settings.start_editing(field, &current);
             }
             "system_prompt" => {
                 let current = self

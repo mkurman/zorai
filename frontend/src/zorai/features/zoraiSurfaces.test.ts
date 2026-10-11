@@ -872,9 +872,9 @@ describe("Zorai feature surfaces", () => {
     expect(source).toContain("threadHasOlderHistory");
     expect(railSource).toContain("threadHistoryLabel");
     expect(railSource).toContain("threadTabs");
-    expect(railSource).toContain("fixedThreadTabs");
-    expect(railSource).toContain("agentFilterOptions");
-    expect(railSource).toContain("Agents & subagents");
+    expect(railSource).toContain("visibleThreadTabs");
+    expect(railSource).toContain("searchThreadTabs");
+    expect(railSource).toContain("Search agents and filters");
     expect(source).toContain("shouldShowConversationSkeleton");
     expect(source).not.toContain("Loading messages");
     expect(railSource).not.toContain("threadTabs.map");

@@ -164,6 +164,7 @@ export function buildDaemonAgentConfig(
     auth_source: authSource,
     reasoning_effort: agentSettings.reasoning_effort || "high",
     system_prompt: agentSettings.system_prompt,
+    agent_aliases: agentSettings.agent_aliases,
     managed_sandbox_enabled: agentSettings.managed_sandbox_enabled,
     managed_security_level: agentSettings.managed_security_level,
     managed_execution: {
@@ -293,6 +294,11 @@ export function buildDaemonAgentConfig(
       whatsapp_phone_id: agentSettings.whatsapp_phone_id,
       whatsapp_allowed_contacts: agentSettings.whatsapp_allowed_contacts,
       command_prefix: agentSettings.gateway_command_prefix || "!zorai",
+      default_agent: agentSettings.gateway_default_agent || "rarog",
+      slack_default_agent: agentSettings.slack_default_agent,
+      discord_default_agent: agentSettings.discord_default_agent,
+      telegram_default_agent: agentSettings.telegram_default_agent,
+      whatsapp_default_agent: agentSettings.whatsapp_default_agent,
     },
     snapshot_retention: snapshotSettings
       ? {

@@ -1054,7 +1054,9 @@ pub(crate) fn assistant_responder_labels(
         }
         if let Some(event) = handoff_responder_event_for_message(msg) {
             if event.to_agent_name.is_some() {
-                responder = event.to_agent_name;
+                responder = event
+                    .to_agent_name
+                    .map(|name| crate::agent_aliases::display_agent_name(&name));
             }
         }
     }
@@ -1096,7 +1098,8 @@ pub(crate) fn message_responder_label(
         .author_agent_name
         .as_deref()
         .map(str::trim)
-        .filter(|value| !value.is_empty())?;
+        .filter(|value| !value.is_empty())
+        .map(crate::agent_aliases::display_agent_name)?;
     let author_id = msg
         .author_agent_id
         .as_deref()
@@ -1123,6 +1126,7 @@ pub(crate) fn initial_responder_name(thread: &crate::state::chat::AgentThread) -
             })
         })
         .or_else(|| Some(zorai_protocol::AGENT_NAME_SWAROG.to_string()))
+        .map(|name| crate::agent_aliases::display_agent_name(&name))
 }
 
 pub(crate) fn handoff_responder_event_for_message(

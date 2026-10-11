@@ -270,15 +270,21 @@ pub(super) fn fixed_tab_specs() -> Vec<ThreadPickerTabSpec> {
     vec![
         ThreadPickerTabSpec {
             tab: ThreadPickerTab::Swarog,
-            label: format!("[{AGENT_NAME_SWAROG}]"),
+            label: format!(
+                "[{}]",
+                crate::agent_aliases::display_agent_name(AGENT_NAME_SWAROG)
+            ),
         },
         ThreadPickerTabSpec {
             tab: ThreadPickerTab::Rarog,
-            label: format!("[{AGENT_NAME_RAROG}]"),
+            label: format!(
+                "[{}]",
+                crate::agent_aliases::display_agent_name(AGENT_NAME_RAROG)
+            ),
         },
         ThreadPickerTabSpec {
             tab: ThreadPickerTab::Weles,
-            label: "[Weles]".to_string(),
+            label: format!("[{}]", crate::agent_aliases::display_agent_name("Weles")),
         },
         ThreadPickerTabSpec {
             tab: ThreadPickerTab::Goals,
@@ -369,7 +375,7 @@ pub(super) fn tab_specs_inner(
     for thread in chat.threads() {
         if is_hidden_handoff_thread(thread)
             || is_internal_thread(thread)
-            || is_gateway_thread(thread)
+            || is_gateway_thread(thread, chat)
             || is_workspace_thread_with_index(thread, workspace_index)
             || is_goal_thread_with_index(thread, goal_index)
             || is_playground_thread(thread)
@@ -429,6 +435,7 @@ pub(crate) fn tab_specs_for_workspace(
 
 pub(super) fn thread_matches_agent_tab(
     thread: &AgentThread,
+    chat: &ChatState,
     agent_id: &str,
     subagents: &SubAgentsState,
     goal_index: Option<&GoalThreadIndex>,
@@ -436,7 +443,7 @@ pub(super) fn thread_matches_agent_tab(
 ) -> bool {
     if is_hidden_handoff_thread(thread)
         || is_internal_thread(thread)
-        || is_gateway_thread(thread)
+        || is_gateway_thread(thread, chat)
         || is_workspace_thread_with_index(thread, workspace_index)
         || is_goal_thread_with_index(thread, goal_index)
         || is_playground_thread(thread)
@@ -587,11 +594,12 @@ pub(crate) fn is_internal_thread(thread: &AgentThread) -> bool {
         || thread.title.starts_with(INTERNAL_DM_TITLE_PREFIX)
 }
 
-pub(crate) fn is_gateway_thread(thread: &AgentThread) -> bool {
+pub(crate) fn is_gateway_thread(thread: &AgentThread, chat: &ChatState) -> bool {
     !is_internal_thread(thread)
-        && GATEWAY_THREAD_TITLE_PREFIXES
-            .iter()
-            .any(|prefix| thread.title.trim().to_ascii_lowercase().starts_with(prefix))
+        && (chat.is_gateway_linked_thread(&thread.id)
+            || GATEWAY_THREAD_TITLE_PREFIXES
+                .iter()
+                .any(|prefix| thread.title.trim().to_ascii_lowercase().starts_with(prefix)))
 }
 
 pub(crate) fn is_playground_thread(thread: &AgentThread) -> bool {

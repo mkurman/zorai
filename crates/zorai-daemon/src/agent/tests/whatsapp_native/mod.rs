@@ -23,6 +23,10 @@ fn make_replay_gateway_config() -> super::super::types::GatewayConfig {
         whatsapp_phone_id: String::new(),
         command_prefix: "!".into(),
         default_agent: "rarog".into(),
+        slack_default_agent: String::new(),
+        discord_default_agent: String::new(),
+        telegram_default_agent: String::new(),
+        whatsapp_default_agent: String::new(),
         gateway_electron_bridges_enabled: false,
         whatsapp_link_fallback_electron: false,
     }

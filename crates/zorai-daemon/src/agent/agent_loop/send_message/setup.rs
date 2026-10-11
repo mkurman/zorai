@@ -612,6 +612,13 @@ impl<'a> SendMessageRunner<'a> {
                     .clear_deferred_visible_thread_continuations(&tid)
                     .await;
             }
+            let stored_user_content_blocks = crate::agent::thread_crud::store_user_images_in_inventory(
+                engine.history.data_root(),
+                &tid,
+                &now_millis().to_string(),
+                stored_user_content_blocks,
+            )
+            .await;
             {
                 let mut threads = engine.threads.write().await;
                 if let Some(thread) = threads.get_mut(&tid) {
@@ -1594,6 +1601,54 @@ mod tests {
     use crate::agent::types::{ApiTransport, AuthSource, ProviderConfig};
     use crate::session_manager::SessionManager;
     use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn pasted_images_are_copied_to_thread_inventory_so_ui_can_reload_them() {
+        let root = tempdir().expect("temp dir");
+        let blocks = vec![
+            AgentContentBlock::text("look at this"),
+            AgentContentBlock::Image {
+                url: None,
+                data_url: Some("data:image/png;base64,cG5nLWJ5dGVz".to_string()),
+                mime_type: Some("image/png".to_string()),
+                inventory_path: None,
+            },
+            AgentContentBlock::Image {
+                url: Some("https://example.com/remote.png".to_string()),
+                data_url: None,
+                mime_type: None,
+                inventory_path: None,
+            },
+        ];
+
+        let stored = crate::agent::thread_crud::store_user_images_in_inventory(
+            root.path(),
+            "thread-1",
+            "msg-1",
+            &blocks,
+        )
+        .await;
+
+        assert_eq!(stored[0], blocks[0]);
+        assert_eq!(stored[2], blocks[2]);
+        let AgentContentBlock::Image {
+            data_url,
+            inventory_path: Some(path),
+            ..
+        } = &stored[1]
+        else {
+            panic!("pasted image should record its inventory copy");
+        };
+        assert_eq!(
+            data_url.as_deref(),
+            Some("data:image/png;base64,cG5nLWJ5dGVz"),
+            "data_url must stay so the provider still receives the image"
+        );
+        let path = std::path::Path::new(path);
+        assert!(path.starts_with(zorai_protocol::thread_inventory_dir(root.path(), "thread-1")));
+        assert_eq!(path.extension().and_then(|ext| ext.to_str()), Some("png"));
+        assert_eq!(std::fs::read(path).expect("inventory copy"), b"png-bytes");
+    }
 
     fn session(id: &str, cwd: &str) -> zorai_protocol::SessionInfo {
         zorai_protocol::SessionInfo {

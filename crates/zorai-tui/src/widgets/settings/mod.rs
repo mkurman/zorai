@@ -40,6 +40,8 @@ mod tests {
 
     #[path = "advanced_tab_shows_repo_monitor_checkbox.rs"]
     mod advanced_tab_shows_repo_monitor_checkbox;
+    #[path = "gateway_tab.rs"]
+    mod gateway_tab;
     #[path = "mlflow_tab.rs"]
     mod mlflow_tab;
     #[path = "settings_handles_empty_state_to_auth_tab_shows_chatgpt_logout.rs"]

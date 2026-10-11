@@ -138,6 +138,8 @@ pub struct AgentConfig {
     pub claude_permission_mode: Option<String>,
     #[serde(default = "default_system_prompt")]
     pub system_prompt: String,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub agent_aliases: std::collections::BTreeMap<String, String>,
     #[serde(default = "default_max_tool_loops")]
     pub max_tool_loops: u32,
     #[serde(default = "default_max_retries")]

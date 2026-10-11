@@ -21,6 +21,7 @@ export function splitMessageAttachments(
       kind: block.type,
       name: mediaBlockName(block.type, block.mime_type, index),
       previewUrl,
+      inventoryPath: block.type === "image" ? block.inventory_path : undefined,
     });
   });
 

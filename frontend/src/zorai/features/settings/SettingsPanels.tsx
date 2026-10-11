@@ -27,6 +27,7 @@ import {
 } from "@/lib/agentStore/providers";
 import type { AgentProviderConfig, AgentProviderId, ApiTransportMode, AuthSource } from "@/lib/agentStore/types";
 import { getBridge } from "@/lib/bridge";
+import { useAgentDisplayName } from "@/lib/useAgentDisplayName";
 import { filterFetchedModelsForAudio, filterFetchedModelsForEmbeddings, filterFetchedModelsForImageGeneration } from "@/lib/providerModels";
 import { usePluginStore } from "@/lib/pluginStore";
 import { useSettingsStore } from "@/lib/settingsStore";
@@ -64,7 +65,7 @@ export const conciergeReasoningEffortOptions: Array<{ value: AgentSettings["reas
   { value: "xhigh", label: "xhigh" },
   { value: "max", label: "max" },
 ];
-const APP_VERSION = "1.0.9";
+const APP_VERSION = "1.0.10";
 const APP_AUTHOR = "Mariusz Kurman";
 const APP_GITHUB = "mkurman/zorai";
 const APP_HOMEPAGE = "zorai.app";
@@ -207,7 +208,7 @@ function ModelPanel() {
         <NumberRow label="Ctx Length" description="Context length override in tokens." value={Number(activeProviderConfig.context_window_tokens ?? 0)} onChange={(value) => updateProviderConfig({ context_window_tokens: value || null })} min={0} max={2000000} />
       </Panel>
       <Panel section="Svarog" title="Main agent identity and behavior">
-        <Metric label="Fixed Name" value="Svarog" />
+        <AgentAliasRow aliasKey="swarog" name="Svarog" />
         <SettingRow label="System Prompt" description="Primary agent identity prompt.">
           <textarea className="zorai-input" value={agentSettings.system_prompt} onChange={(event) => updateAgentSetting("system_prompt", event.target.value)} />
         </SettingRow>
@@ -410,6 +411,22 @@ function ToolsPanel() {
   );
 }
 
+function AgentAliasRow({ aliasKey, name }: { aliasKey: keyof AgentSettings["agent_aliases"]; name: string }) {
+  const aliases = useAgentStore((state) => state.agentSettings.agent_aliases);
+  const updateAgentSetting = useAgentStore((state) => state.updateAgentSetting);
+  return (
+    <SettingRow label="Alias" description={`Display name for ${name}. Agents still know it as ${name}. Leave empty to use ${name}.`}>
+      <input
+        className="zorai-input"
+        value={aliases[aliasKey]}
+        placeholder={name}
+        maxLength={40}
+        onChange={(event) => updateAgentSetting("agent_aliases", { ...aliases, [aliasKey]: event.target.value })}
+      />
+    </SettingRow>
+  );
+}
+
 function ConciergePanel() {
   const agentSettings = useAgentStore((state) => state.agentSettings);
   const config = useAgentStore((state) => state.conciergeConfig);
@@ -437,6 +454,7 @@ function ConciergePanel() {
   return (
     <SettingsGrid>
       <Panel section="Rarog" title="Welcome agent and operational assistant">
+        <AgentAliasRow aliasKey="rarog" name="Rarog" />
         <SettingRow label="Enabled" description="Allow the concierge to brief and guide operator sessions.">
           <Switch checked={config.enabled} onChange={(checked) => patchConfig({ enabled: checked })} />
         </SettingRow>
@@ -512,21 +530,36 @@ function GatewayPanel() {
         <SettingRow label="Command Prefix" description="Prefix used for external platform commands.">
           <input className="zorai-input" value={agentSettings.gateway_command_prefix} onChange={(event) => updateAgentSetting("gateway_command_prefix", event.target.value)} />
         </SettingRow>
+        <SettingRow label="Default agent" description="Agent that answers new gateway chats.">
+          <GatewayAgentSelect value={agentSettings.gateway_default_agent} onChange={(value) => updateAgentSetting("gateway_default_agent", value)} />
+        </SettingRow>
       </Panel>
       <Panel section="Gateway" title="Slack">
+        <SettingRow label="Default agent" description="Agent that answers new chats on this platform.">
+          <GatewayAgentSelect value={agentSettings.slack_default_agent} allowInherit onChange={(value) => updateAgentSetting("slack_default_agent", value)} />
+        </SettingRow>
         <SecretRow label="Bot Token" value={agentSettings.slack_token} onChange={(value) => updateAgentSetting("slack_token", value)} />
         <SettingRow label="Channel Filter" description="Allowed Slack channels."><input className="zorai-input" value={agentSettings.slack_channel_filter} onChange={(event) => updateAgentSetting("slack_channel_filter", event.target.value)} /></SettingRow>
       </Panel>
       <Panel section="Gateway" title="Telegram">
+        <SettingRow label="Default agent" description="Agent that answers new chats on this platform.">
+          <GatewayAgentSelect value={agentSettings.telegram_default_agent} allowInherit onChange={(value) => updateAgentSetting("telegram_default_agent", value)} />
+        </SettingRow>
         <SecretRow label="Bot Token" value={agentSettings.telegram_token} onChange={(value) => updateAgentSetting("telegram_token", value)} />
         <SettingRow label="Allowed Chats" description="Comma-separated Telegram chat ids."><input className="zorai-input" value={agentSettings.telegram_allowed_chats} onChange={(event) => updateAgentSetting("telegram_allowed_chats", event.target.value)} /></SettingRow>
       </Panel>
       <Panel section="Gateway" title="Discord">
+        <SettingRow label="Default agent" description="Agent that answers new chats on this platform.">
+          <GatewayAgentSelect value={agentSettings.discord_default_agent} allowInherit onChange={(value) => updateAgentSetting("discord_default_agent", value)} />
+        </SettingRow>
         <SecretRow label="Bot Token" value={agentSettings.discord_token} onChange={(value) => updateAgentSetting("discord_token", value)} />
         <SettingRow label="Channel Filter" description="Allowed Discord channels."><input className="zorai-input" value={agentSettings.discord_channel_filter} onChange={(event) => updateAgentSetting("discord_channel_filter", event.target.value)} /></SettingRow>
         <SettingRow label="Allowed Users" description="Allowed Discord users."><input className="zorai-input" value={agentSettings.discord_allowed_users} onChange={(event) => updateAgentSetting("discord_allowed_users", event.target.value)} /></SettingRow>
       </Panel>
       <Panel section="Gateway" title="WhatsApp">
+        <SettingRow label="Default agent" description="Agent that answers new chats on this platform.">
+          <GatewayAgentSelect value={agentSettings.whatsapp_default_agent} allowInherit onChange={(value) => updateAgentSetting("whatsapp_default_agent", value)} />
+        </SettingRow>
         <SettingRow label="Allowed Contacts" description="Comma or newline separated phone numbers."><textarea className="zorai-input" value={agentSettings.whatsapp_allowed_contacts} onChange={(event) => updateAgentSetting("whatsapp_allowed_contacts", event.target.value)} /></SettingRow>
         <SecretRow label="API Token" value={agentSettings.whatsapp_token} onChange={(value) => updateAgentSetting("whatsapp_token", value)} />
         <SettingRow label="Phone Number ID" description="WhatsApp Cloud API phone number id."><input className="zorai-input" value={agentSettings.whatsapp_phone_id} onChange={(event) => updateAgentSetting("whatsapp_phone_id", event.target.value)} /></SettingRow>
@@ -535,6 +568,20 @@ function GatewayPanel() {
         {whatsappStatus ? <p className="zorai-empty-state">{whatsappStatus}</p> : null}
       </Panel>
     </SettingsGrid>
+  );
+}
+
+function GatewayAgentSelect({ value, allowInherit = false, onChange }: { value: string; allowInherit?: boolean; onChange: (value: string) => void }) {
+  const subAgents = useAgentStore((state) => state.subAgents);
+  const agentDisplayName = useAgentDisplayName();
+  return (
+    <select className="zorai-input" value={value} onChange={(event) => onChange(event.target.value)}>
+      {allowInherit ? <option value="">Use gateway default</option> : null}
+      <option value="rarog">{agentDisplayName("Rarog")}</option>
+      <option value="swarog">{agentDisplayName("Svarog")}</option>
+      <option value="weles">{agentDisplayName("Weles")}</option>
+      {subAgents.filter((subAgent) => subAgent.enabled && !subAgent.builtin).map((subAgent) => <option key={subAgent.id} value={subAgent.id}>{subAgent.name}</option>)}
+    </select>
   );
 }
 

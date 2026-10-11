@@ -11,6 +11,7 @@ pub enum ModalKind {
     ThreadParticipantAgentPicker,
     ThreadParticipantActions,
     GatewayDefaultAgentPicker,
+    GatewayLink,
     ThreadPicker,
     GoalPicker,
     WorkspacePicker,

@@ -708,6 +708,7 @@ fn agent_content_blocks_to_api_blocks(
                 url,
                 data_url,
                 mime_type: _,
+                inventory_path: _,
             } => url
                 .as_ref()
                 .or(data_url.as_ref())

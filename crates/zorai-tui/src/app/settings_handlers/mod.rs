@@ -122,6 +122,8 @@ mod tests {
         std::env::temp_dir().join(format!("zorai-{name}-{nanos}.sqlite"))
     }
 
+    #[path = "agent_alias_settings_fields.rs"]
+    mod agent_alias_settings_fields;
     #[path = "collaboration_sessions_inspect_field_requests_collaboration_snapshot.rs"]
     mod collaboration_sessions_inspect_field_requests_collaboration_snapshot;
     #[path = "operator_model_inspect_field_requests_operator_model_snapshot_to_chat.rs"]

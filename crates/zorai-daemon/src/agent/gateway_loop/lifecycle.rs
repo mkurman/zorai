@@ -16,8 +16,10 @@ impl AgentEngine {
         let (thread_id, is_new_thread) = self
             .get_or_create_thread(existing_thread.as_deref(), &msg.content)
             .await;
-        self.ensure_thread_identity(&thread_id, &gateway_thread_title(msg), false)
-            .await;
+        if is_new_thread {
+            self.ensure_thread_identity(&thread_id, &gateway_thread_title(msg), false)
+                .await;
+        }
 
         {
             let mut threads = self.threads.write().await;
@@ -157,6 +159,10 @@ impl AgentEngine {
             whatsapp_phone_id: gw.whatsapp_phone_id.clone(),
             command_prefix: gw.command_prefix.clone(),
             default_agent: gw.default_agent.clone(),
+            slack_default_agent: gw.slack_default_agent.clone(),
+            discord_default_agent: gw.discord_default_agent.clone(),
+            telegram_default_agent: gw.telegram_default_agent.clone(),
+            whatsapp_default_agent: gw.whatsapp_default_agent.clone(),
             gateway_electron_bridges_enabled: gw.gateway_electron_bridges_enabled,
             whatsapp_link_fallback_electron: gw.whatsapp_link_fallback_electron,
         };

@@ -784,6 +784,9 @@ declare global {
         agentGetThreadExecutionProfile?: (threadId: string) => Promise<{ thread_id: string; profile: unknown; error?: string } | unknown>;
         agentSetThreadExecutionProfile?: (threadId: string, profile: unknown) => Promise<{ thread_id: string; profile: unknown; error?: string } | unknown>;
         agentForceCompact?: (threadId: string) => Promise<{ ok: boolean; error?: string } | unknown>;
+        agentDeleteThread?: (threadId: string) => Promise<boolean>;
+        agentRenameThread?: (threadId: string, title: string) => Promise<boolean>;
+        agentReadThreadInventoryImage?: (filePath: string) => Promise<string | null>;
         openAICodexAuthStatus?: (options?: { refresh?: boolean }) => Promise<ZoraiOpenAICodexAuthStatus>;
         openAICodexAuthLogin?: () => Promise<ZoraiOpenAICodexAuthLogin>;
         openAICodexAuthLogout?: () => Promise<{ ok: boolean }>;
@@ -856,6 +859,8 @@ declare global {
         agentSetSubAgent?: (subAgentJson: string) => Promise<{ ok?: boolean; error?: string }>;
         agentRemoveSubAgent?: (subAgentId: string) => Promise<{ ok?: boolean }>;
         agentListSubAgents?: () => Promise<unknown[]>;
+        agentListGatewayChats?: () => Promise<unknown>;
+        agentLinkThreadToGatewayChat?: (threadId: string, channelKey: string | null) => Promise<unknown>;
         agentGetConciergeConfig?: () => Promise<unknown>;
         agentSetConciergeConfig?: (config: unknown) => Promise<unknown>;
         agentDismissConciergeWelcome?: () => Promise<{ ok?: boolean }>;
