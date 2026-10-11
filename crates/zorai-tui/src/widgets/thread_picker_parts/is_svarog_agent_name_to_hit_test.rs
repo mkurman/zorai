@@ -53,14 +53,15 @@ pub(super) fn thread_display_title_inner(
     workspace_index: Option<&WorkspaceThreadIndex>,
 ) -> String {
     if thread.id == "concierge" || thread.title.eq_ignore_ascii_case("concierge") {
-        AGENT_NAME_RAROG.to_string()
+        crate::agent_aliases::display_agent_name(AGENT_NAME_RAROG)
     } else if is_workspace_thread_with_index(thread, workspace_index) {
         let role = thread
             .agent_name
             .as_deref()
             .map(str::trim)
             .filter(|value| !value.is_empty())
-            .unwrap_or("Workspace");
+            .map(crate::agent_aliases::display_agent_name)
+            .unwrap_or_else(|| "Workspace".to_string());
         format!("workspace: {role} · {}", thread.title)
     } else if is_goal_thread_with_index(thread, goal_index) {
         let role = thread
@@ -68,7 +69,8 @@ pub(super) fn thread_display_title_inner(
             .as_deref()
             .map(str::trim)
             .filter(|value| !value.is_empty())
-            .unwrap_or("Goal");
+            .map(crate::agent_aliases::display_agent_name)
+            .unwrap_or_else(|| "Goal".to_string());
         format!("goal: {role} · {}", thread.title)
     } else {
         thread.title.clone()
@@ -128,7 +130,7 @@ pub(super) fn filtered_threads_inner<'a>(
             ThreadPickerTab::Swarog => {
                 !is_rarog_thread(thread)
                     && !is_internal_thread(thread)
-                    && !is_gateway_thread(thread)
+                    && !is_gateway_thread(thread, chat)
                     && !is_weles_thread(thread)
                     && !is_workspace_thread_with_index(thread, workspace_index)
                     && !is_goal_thread_with_index(thread, goal_index)
@@ -144,10 +146,15 @@ pub(super) fn filtered_threads_inner<'a>(
             ThreadPickerTab::Workspace => is_workspace_thread_with_index(thread, workspace_index),
             ThreadPickerTab::Playgrounds => is_playground_thread(thread),
             ThreadPickerTab::Internal => is_internal_thread(thread),
-            ThreadPickerTab::Gateway => is_gateway_thread(thread),
-            ThreadPickerTab::Agent(agent_id) => {
-                thread_matches_agent_tab(thread, &agent_id, subagents, goal_index, workspace_index)
-            }
+            ThreadPickerTab::Gateway => is_gateway_thread(thread, chat),
+            ThreadPickerTab::Agent(agent_id) => thread_matches_agent_tab(
+                thread,
+                chat,
+                &agent_id,
+                subagents,
+                goal_index,
+                workspace_index,
+            ),
         })
         .filter(|thread| thread_matches_query(thread, query, goal_index, workspace_index))
         .collect()
@@ -530,7 +537,7 @@ fn filtered_thread_indices(
             ThreadPickerTab::Swarog => {
                 !is_rarog_thread(thread)
                     && !is_internal_thread(thread)
-                    && !is_gateway_thread(thread)
+                    && !is_gateway_thread(thread, chat)
                     && !is_weles_thread(thread)
                     && !is_workspace_thread_with_index(thread, Some(workspace_index))
                     && !is_goal_thread_with_index(thread, Some(goal_index))
@@ -548,9 +555,10 @@ fn filtered_thread_indices(
             }
             ThreadPickerTab::Playgrounds => is_playground_thread(thread),
             ThreadPickerTab::Internal => is_internal_thread(thread),
-            ThreadPickerTab::Gateway => is_gateway_thread(thread),
+            ThreadPickerTab::Gateway => is_gateway_thread(thread, chat),
             ThreadPickerTab::Agent(ref agent_id) => thread_matches_agent_tab(
                 thread,
+                chat,
                 agent_id,
                 subagents,
                 Some(goal_index),

@@ -291,6 +291,9 @@ fn resolve_thread_handoff_agent(alias: &str) -> Option<(String, String)> {
     if trimmed.is_empty() {
         return None;
     }
+    if let Some(agent_id) = crate::agent::agent_identity::agent_id_for_alias(trimmed) {
+        return resolve_thread_handoff_agent(agent_id);
+    }
     let normalized = trimmed.to_ascii_lowercase();
     let builtin = match normalized.as_str() {
         MAIN_AGENT_ID

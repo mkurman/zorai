@@ -120,6 +120,10 @@ impl TuiModel {
             self.execute_thread_handoff_slash(args);
             return true;
         }
+        if cmd == "gateway" {
+            self.open_gateway_link_modal();
+            return true;
+        }
         if cmd == "migrate" {
             self.execute_migration_slash_command(args);
             return true;
@@ -264,7 +268,9 @@ impl TuiModel {
                     self.start_new_thread_view_for_agent(Some(target_agent_id.as_str()));
                     self.status_line = format!(
                         "New conversation for {}",
-                        self.participant_display_name(&target_agent_id)
+                        crate::agent_aliases::display_agent_name(
+                            &self.participant_display_name(&target_agent_id)
+                        )
                     );
                 }
                 None => {

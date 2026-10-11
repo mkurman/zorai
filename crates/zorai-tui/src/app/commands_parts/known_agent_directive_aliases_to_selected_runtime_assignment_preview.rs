@@ -22,6 +22,7 @@ impl TuiModel {
             aliases.push(entry.id.clone());
             aliases.push(entry.name.clone());
         }
+        aliases.extend(crate::agent_aliases::current().into_values());
         aliases.sort();
         aliases.dedup_by(|left, right| left.eq_ignore_ascii_case(right));
         aliases

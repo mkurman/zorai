@@ -1,10 +1,14 @@
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ComposerAttachment } from "@/components/agent-chat-panel/chat-view/types";
+import { getBridge } from "@/lib/bridge";
 
 export type AttachmentTileModel = {
   id: string;
   kind: "image" | "audio" | "text";
   name: string;
   previewUrl?: string;
+  inventoryPath?: string;
 };
 
 export function composerAttachmentToTile(attachment: ComposerAttachment): AttachmentTileModel {
@@ -29,31 +33,89 @@ export function AttachmentTiles({
   return (
     <div className="zorai-attachment-tiles">
       {items.map((item) => (
-        <div key={item.id} className="zorai-attachment-tile">
-          {item.kind === "image" && item.previewUrl ? (
-            <span className="zorai-attachment-tile__preview">
-              <img src={item.previewUrl} alt="" />
-            </span>
-          ) : (
-            <span className="zorai-attachment-tile__preview zorai-attachment-tile__preview--icon" aria-hidden="true">
-              <AttachmentKindIcon kind={item.kind} />
-            </span>
-          )}
-          <span className="zorai-attachment-tile__caption" title={item.name}>{item.name}</span>
-          {onRemove ? (
-            <button
-              type="button"
-              className="zorai-attachment-tile__remove"
-              title={`Remove ${item.name}`}
-              aria-label={`Remove ${item.name}`}
-              onClick={() => onRemove(item.id)}
-            >
-              ×
-            </button>
-          ) : null}
-        </div>
+        <AttachmentTile key={item.id} item={item} onRemove={onRemove} />
       ))}
     </div>
+  );
+}
+
+function AttachmentTile({ item, onRemove }: { item: AttachmentTileModel; onRemove?: (id: string) => void }) {
+  const imageUrl = useAttachmentImageUrl(item);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  return (
+    <div className="zorai-attachment-tile">
+      {imageUrl ? (
+        <button
+          type="button"
+          className="zorai-attachment-tile__preview zorai-attachment-tile__preview--button"
+          title={`Preview ${item.name}`}
+          aria-label={`Preview ${item.name}`}
+          onClick={() => setPreviewOpen(true)}
+        >
+          <img src={imageUrl} alt="" />
+        </button>
+      ) : (
+        <span className="zorai-attachment-tile__preview zorai-attachment-tile__preview--icon" aria-hidden="true">
+          <AttachmentKindIcon kind={item.kind} />
+        </span>
+      )}
+      <span className="zorai-attachment-tile__caption" title={item.name}>{item.name}</span>
+      {onRemove ? (
+        <button
+          type="button"
+          className="zorai-attachment-tile__remove"
+          title={`Remove ${item.name}`}
+          aria-label={`Remove ${item.name}`}
+          onClick={() => onRemove(item.id)}
+        >
+          ×
+        </button>
+      ) : null}
+      {previewOpen && imageUrl ? (
+        <AttachmentImagePreview src={imageUrl} name={item.name} onClose={() => setPreviewOpen(false)} />
+      ) : null}
+    </div>
+  );
+}
+
+function useAttachmentImageUrl(item: AttachmentTileModel): string | undefined {
+  const [inventoryUrl, setInventoryUrl] = useState<string | undefined>(undefined);
+  const needsInventory = item.kind === "image" && !item.previewUrl && Boolean(item.inventoryPath);
+  useEffect(() => {
+    if (!needsInventory || !item.inventoryPath) {
+      return;
+    }
+    let cancelled = false;
+    void getBridge()?.agentReadThreadInventoryImage?.(item.inventoryPath).then((dataUrl) => {
+      if (!cancelled && dataUrl) {
+        setInventoryUrl(dataUrl);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsInventory, item.inventoryPath]);
+  if (item.kind !== "image") {
+    return undefined;
+  }
+  return item.previewUrl ?? inventoryUrl;
+}
+
+function AttachmentImagePreview({ src, name, onClose }: { src: string; name: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+  return createPortal(
+    <div className="zorai-image-preview" role="dialog" aria-modal="true" aria-label={name} onClick={onClose}>
+      <img src={src} alt={name} />
+    </div>,
+    document.body,
   );
 }
 

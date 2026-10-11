@@ -20,6 +20,8 @@ vi.mock("react", async () => {
   };
 });
 
+vi.mock("@/lib/useAgentDisplayName", () => ({ useAgentDisplayName: () => (nameOrId: string) => nameOrId }));
+
 import { ThreadHandoffControl } from "./ThreadHandoffControl";
 
 function elementText(node: ReactNode): string {

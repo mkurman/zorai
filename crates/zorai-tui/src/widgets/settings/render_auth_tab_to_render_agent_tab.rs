@@ -180,7 +180,10 @@ pub(crate) fn render_agent_tab<'a>(
 
     lines.push(Line::raw(""));
     lines.push(Line::from(Span::styled(
-        format!("  {}", zorai_protocol::AGENT_NAME_SWAROG),
+        format!(
+            "  {}",
+            crate::agent_aliases::display_agent_name(zorai_protocol::AGENT_NAME_SWAROG)
+        ),
         theme.fg_active,
     )));
     lines.push(Line::from(Span::styled(
@@ -189,10 +192,45 @@ pub(crate) fn render_agent_tab<'a>(
     )));
     lines.push(Line::raw(""));
 
-    lines.push(Line::from(vec![
-        Span::styled("  Fixed Name        ", theme.fg_dim),
-        Span::styled(zorai_protocol::AGENT_NAME_SWAROG, theme.fg_active),
-    ]));
+    {
+        let is_selected = settings.field_cursor() == 8;
+        let is_editing = settings.is_editing() && settings.editing_field() == Some("swarog_alias");
+        let marker = if is_selected { "> " } else { "  " };
+        let marker_style = if is_selected {
+            theme.accent_primary
+        } else {
+            theme.fg_dim
+        };
+        let alias = config
+            .agent_config_raw()
+            .and_then(|raw| raw.get("agent_aliases"))
+            .and_then(|aliases| aliases.get("swarog"))
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .unwrap_or("")
+            .to_string();
+        let (display_value, value_style) = if is_editing {
+            (
+                format!("{}\u{2588}", settings.edit_buffer()),
+                theme.fg_active,
+            )
+        } else if alias.is_empty() {
+            (zorai_protocol::AGENT_NAME_SWAROG.to_string(), theme.fg_dim)
+        } else if is_selected {
+            (alias, theme.accent_primary)
+        } else {
+            (alias, theme.fg_active)
+        };
+        let mut spans = vec![
+            Span::styled(marker, marker_style),
+            Span::styled("Alias             ", theme.fg_dim),
+            Span::styled(display_value, value_style),
+        ];
+        if is_selected && !is_editing {
+            spans.push(Span::styled(" [Enter: edit]", theme.fg_dim));
+        }
+        lines.push(Line::from(spans));
+    }
 
     let system_prompt = if let Some(raw) = config.agent_config_raw() {
         raw.get("system_prompt")
@@ -204,7 +242,7 @@ pub(crate) fn render_agent_tab<'a>(
     };
 
     let editable_fields: [(usize, &str, String, &str, &str); 1] = [(
-        8,
+        9,
         "System Prompt ",
         system_prompt,
         "system_prompt",
@@ -314,7 +352,7 @@ pub(crate) fn render_agent_tab<'a>(
     }
 
     {
-        let is_selected = settings.field_cursor() == 9;
+        let is_selected = settings.field_cursor() == 10;
         let marker = if is_selected { "> " } else { "  " };
         let marker_style = if is_selected {
             theme.accent_primary
@@ -334,7 +372,7 @@ pub(crate) fn render_agent_tab<'a>(
     }
 
     {
-        let is_selected = settings.field_cursor() == 10;
+        let is_selected = settings.field_cursor() == 11;
         let marker = if is_selected { "> " } else { "  " };
         let style = if is_selected {
             theme.accent_primary

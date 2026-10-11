@@ -6,11 +6,11 @@ use uuid::Uuid;
 mod basic;
 mod replay;
 mod runtime;
+mod thread_links;
 
 fn make_test_root(test_name: &str) -> std::path::PathBuf {
-    let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("target")
-        .join("test-artifacts")
+    let root = std::env::temp_dir()
+        .join("zorai-daemon-test-artifacts")
         .join(format!("{test_name}-{}", Uuid::new_v4()));
     fs::create_dir_all(&root).expect("failed to create test root");
     root
@@ -72,6 +72,10 @@ fn make_replay_gateway_config() -> super::types::GatewayConfig {
         whatsapp_phone_id: String::new(),
         command_prefix: "!".into(),
         default_agent: "rarog".into(),
+        slack_default_agent: String::new(),
+        discord_default_agent: String::new(),
+        telegram_default_agent: String::new(),
+        whatsapp_default_agent: String::new(),
         gateway_electron_bridges_enabled: false,
         whatsapp_link_fallback_electron: false,
     }

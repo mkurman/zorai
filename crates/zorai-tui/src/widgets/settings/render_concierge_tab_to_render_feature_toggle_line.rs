@@ -18,7 +18,10 @@ pub(crate) fn render_concierge_tab<'a>(
     };
     lines.push(Line::raw(""));
     lines.push(Line::from(Span::styled(
-        format!("  {}", zorai_protocol::AGENT_NAME_RAROG),
+        format!(
+            "  {}",
+            crate::agent_aliases::display_agent_name(zorai_protocol::AGENT_NAME_RAROG)
+        ),
         theme.fg_active,
     )));
     lines.push(Line::from(Span::styled(
@@ -337,6 +340,31 @@ pub(crate) fn render_concierge_tab<'a>(
                     theme.fg_dim
                 },
             ),
+        ]));
+        let is_selected = settings.field_cursor() == base_url_idx + 1;
+        let marker = if is_selected { "> " } else { "  " };
+        let alias = crate::agent_aliases::current()
+            .get("rarog")
+            .cloned()
+            .unwrap_or_default();
+        let (value, value_style) = if alias.is_empty() {
+            (zorai_protocol::AGENT_NAME_RAROG.to_string(), theme.fg_dim)
+        } else if is_selected {
+            (alias, theme.fg_active)
+        } else {
+            (alias, theme.fg_dim)
+        };
+        lines.push(Line::from(vec![
+            Span::styled(
+                marker,
+                if is_selected {
+                    theme.fg_active
+                } else {
+                    theme.fg_dim
+                },
+            ),
+            Span::styled("Alias:        ", theme.fg_dim),
+            Span::styled(edit_value("rarog_alias", value), value_style),
         ]));
     }
 

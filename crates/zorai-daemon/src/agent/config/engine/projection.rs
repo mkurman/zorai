@@ -34,6 +34,7 @@ impl AgentEngine {
         if let Err(error) = self.history.replace_agent_config_items(&items).await {
             tracing::warn!("failed to persist agent config to sqlite: {error}");
         }
+        crate::agent::agent_identity::set_agent_aliases(&config.agent_aliases);
         *self.config.write().await = config.clone();
         self.mlflow_tracing
             .reconfigure(config.mlflow_tracing.clone())
@@ -140,6 +141,7 @@ impl AgentEngine {
         sanitize_config_value(&mut merged_value);
         let merged = serde_json::from_value::<AgentConfig>(merged_value)
             .context("updated config item could not be parsed")?;
+        crate::agent::agent_identity::validate_agent_aliases(&merged.agent_aliases, &merged.sub_agents)?;
         Ok((merged, value))
     }
 

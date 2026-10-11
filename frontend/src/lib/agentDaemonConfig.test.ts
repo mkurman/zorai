@@ -28,6 +28,23 @@ describe("daemon agent config audio wiring", () => {
     expect(daemonConfig.search_timeout_secs).toBe(45);
   });
 
+  it("always serializes gateway default agents so the daemon receives every routing key, including cleared platform overrides", () => {
+    const daemonConfig = buildDaemonAgentConfig({
+      ...DEFAULT_AGENT_SETTINGS,
+      gateway_default_agent: "swarog",
+      telegram_default_agent: "weles",
+    });
+
+    expect(daemonConfig.gateway).toMatchObject({
+      default_agent: "swarog",
+      slack_default_agent: "",
+      discord_default_agent: "",
+      telegram_default_agent: "weles",
+      whatsapp_default_agent: "",
+    });
+    expect(buildDaemonAgentConfig({ ...DEFAULT_AGENT_SETTINGS, gateway_default_agent: "" }).gateway.default_agent).toBe("rarog");
+  });
+
   it("serializes participant observer restore window settings", () => {
     const daemonConfig = buildDaemonAgentConfig({
       ...DEFAULT_AGENT_SETTINGS,

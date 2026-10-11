@@ -18,6 +18,8 @@ vi.mock("react", async () => {
   };
 });
 
+vi.mock("@/lib/useAgentDisplayName", () => ({ useAgentDisplayName: () => (nameOrId: string) => nameOrId }));
+
 import { ThreadParticipantsDrawer } from "./ThreadParticipantsDrawer";
 
 function elementText(node: ReactNode): string {

@@ -266,6 +266,21 @@ pub(super) fn gateway_thread_title(msg: &gateway::IncomingMessage) -> String {
     format!("{} {}", msg.platform, msg.sender)
 }
 
+pub(super) fn gateway_default_agent_for_platform(gateway: &GatewayConfig, platform: &str) -> String {
+    let platform_default = match platform.to_ascii_lowercase().as_str() {
+        "slack" => &gateway.slack_default_agent,
+        "discord" => &gateway.discord_default_agent,
+        "telegram" => &gateway.telegram_default_agent,
+        "whatsapp" => &gateway.whatsapp_default_agent,
+        _ => &gateway.default_agent,
+    };
+    if platform_default.trim().is_empty() {
+        gateway.default_agent.clone()
+    } else {
+        platform_default.clone()
+    }
+}
+
 pub(super) fn gateway_reply_tool(platform: &str, channel: &str) -> (String, &'static str) {
     match platform.to_ascii_lowercase().as_str() {
         "discord" => (

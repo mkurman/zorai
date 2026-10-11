@@ -335,6 +335,8 @@ pub enum AgentContentBlock {
         data_url: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         mime_type: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        inventory_path: Option<String>,
     },
     Audio {
         #[serde(default, skip_serializing_if = "Option::is_none")]

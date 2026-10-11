@@ -61,7 +61,7 @@ fn gateway_tab_shows_connected_whatsapp_status_and_split_actions() {
     settings.reduce(crate::state::settings::SettingsAction::SwitchTab(
         SettingsTab::Gateway,
     ));
-    settings.reduce(crate::state::settings::SettingsAction::NavigateField(13));
+    settings.reduce(crate::state::settings::SettingsAction::NavigateField(17));
     let mut config = ConfigState::new();
     config.whatsapp_allowed_contacts = "+48663977535".to_string();
     let mut modal = ModalState::new();

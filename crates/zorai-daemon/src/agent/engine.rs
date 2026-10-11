@@ -390,6 +390,7 @@ impl AgentEngine {
             super::config::derive_startup_config_runtime_projection(&config);
 
         let initial_mlflow_config = config.mlflow_tracing.clone();
+        super::agent_identity::set_agent_aliases(&config.agent_aliases);
         let config = Arc::new(RwLock::new(config));
         let mlflow_tracing =
             super::mlflow_tracing::MlflowTracingRuntime::new(&data_dir, &initial_mlflow_config);

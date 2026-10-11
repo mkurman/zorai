@@ -33,6 +33,14 @@ pub struct GatewayConfig {
     pub command_prefix: String,
     #[serde(default = "default_gateway_agent")]
     pub default_agent: String,
+    #[serde(default)]
+    pub slack_default_agent: String,
+    #[serde(default)]
+    pub discord_default_agent: String,
+    #[serde(default)]
+    pub telegram_default_agent: String,
+    #[serde(default)]
+    pub whatsapp_default_agent: String,
     /// Feature flag: when false (default), only daemon gateways run.
     /// When true, Electron bridges run alongside daemon gateways. Per D-07.
     /// Note: platform tokens may also be provided via env vars as a fallback
@@ -203,6 +211,7 @@ impl Default for AgentConfig {
             reasoning_effort: default_reasoning_effort(),
             claude_permission_mode: None,
             system_prompt: default_system_prompt(),
+            agent_aliases: std::collections::BTreeMap::new(),
             max_tool_loops: default_max_tool_loops(),
             max_retries: default_max_retries(),
             retry_delay_ms: default_retry_delay_ms(),

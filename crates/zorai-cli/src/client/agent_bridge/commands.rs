@@ -124,6 +124,11 @@ where
                 .send(ClientMessage::AgentDeleteThread { thread_id })
                 .await?;
         }
+        AgentBridgeCommand::RenameThread { thread_id, title } => {
+            framed
+                .send(ClientMessage::AgentRenameThread { thread_id, title })
+                .await?;
+        }
         AgentBridgeCommand::PinThreadMessageForCompaction {
             thread_id,
             message_id,
@@ -676,6 +681,20 @@ where
         }
         AgentBridgeCommand::ListSubAgents => {
             framed.send(ClientMessage::AgentListSubAgents).await?;
+        }
+        AgentBridgeCommand::ListGatewayChats => {
+            framed.send(ClientMessage::AgentListGatewayChats).await?;
+        }
+        AgentBridgeCommand::LinkThreadToGatewayChat {
+            thread_id,
+            channel_key,
+        } => {
+            framed
+                .send(ClientMessage::AgentLinkThreadToGatewayChat {
+                    thread_id,
+                    channel_key,
+                })
+                .await?;
         }
         AgentBridgeCommand::GetConciergeConfig => {
             framed.send(ClientMessage::AgentGetConciergeConfig).await?;

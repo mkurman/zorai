@@ -3,6 +3,7 @@ import type { AgentThread, ThreadParticipantState } from "@/lib/agentStore/types
 import type { ThreadMutationResult } from "@/components/agent-chat-panel/runtime/types";
 import type { ThreadAgentOption } from "./threadHandoffModel";
 import { retainBusySuggestions, suggestionActionLabel, type SuggestionAction } from "./suggestionBusy";
+import { useAgentDisplayName } from "@/lib/useAgentDisplayName";
 
 export function ThreadParticipantsDrawer({
   thread,
@@ -21,6 +22,7 @@ export function ThreadParticipantsDrawer({
   onSendSuggestion: (threadId: string, suggestionId: string, forceSend?: boolean) => Promise<void>;
   onDismissSuggestion: (threadId: string, suggestionId: string) => Promise<void>;
 }) {
+  const agentDisplayName = useAgentDisplayName();
   const participants = thread.threadParticipants ?? [];
   const suggestions = thread.queuedParticipantSuggestions ?? [];
   const [agentId, setAgentId] = useState(agentOptions[0]?.id ?? "");
@@ -180,7 +182,7 @@ export function ThreadParticipantsDrawer({
             return (
               <article key={participant.agentId} className="zorai-participant-card">
                 <div>
-                  <strong>{participant.agentName}</strong>
+                  <strong>{agentDisplayName(participant.agentName)}</strong>
                   <span className="zorai-status-pill">{participant.status}</span>
                 </div>
                 {editing ? (

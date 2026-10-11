@@ -20,6 +20,7 @@ pub(crate) async fn dispatch_part4(
             | ClientMessage::AgentListThreads { .. }
             | ClientMessage::AgentGetThread { .. }
             | ClientMessage::AgentDeleteThread { .. }
+            | ClientMessage::AgentRenameThread { .. }
             | ClientMessage::AgentPinThreadMessageForCompaction { .. }
             | ClientMessage::AgentUnpinThreadMessageForCompaction { .. }
             | ClientMessage::AgentMessageFeedback { .. }
@@ -58,6 +59,8 @@ pub(crate) async fn dispatch_part4(
             | ClientMessage::AgentExternalRuntimeMigrationReport { .. }
             | ClientMessage::AgentExternalRuntimeMigrationShadowRun { .. }
             | ClientMessage::AgentGetGatewayConfig
+            | ClientMessage::AgentListGatewayChats
+            | ClientMessage::AgentLinkThreadToGatewayChat { .. }
             | ClientMessage::AgentGetEffectiveConfigState
             | ClientMessage::AgentListTaskApprovalRules
             | ClientMessage::AgentCreateTaskApprovalRule { .. }
@@ -210,6 +213,10 @@ pub(crate) async fn dispatch_part4(
             framed
                 .send(DaemonMessage::AgentThreadDeleted { thread_id, deleted })
                 .await?;
+        }
+
+        ClientMessage::AgentRenameThread { thread_id, title } => {
+            agent.rename_thread(&thread_id, &title).await;
         }
 
         ClientMessage::AgentPinThreadMessageForCompaction {
@@ -911,6 +918,42 @@ pub(crate) async fn dispatch_part4(
             framed
                 .send(DaemonMessage::AgentGatewayConfig { config_json: json })
                 .await?;
+        }
+
+        ClientMessage::AgentListGatewayChats => match agent.list_gateway_chats().await {
+            Ok(chats) => {
+                let chats_json = serde_json::to_string(&chats).unwrap_or_else(|_| "[]".into());
+                framed.send(DaemonMessage::AgentGatewayChats { chats_json }).await?;
+            }
+            Err(error) => {
+                framed
+                    .send(DaemonMessage::Error {
+                        message: format!("Failed to list gateway chats: {error}"),
+                    })
+                    .await?;
+            }
+        },
+
+        ClientMessage::AgentLinkThreadToGatewayChat {
+            thread_id,
+            channel_key,
+        } => {
+            let linked = agent
+                .link_thread_to_gateway_chat(&thread_id, channel_key.as_deref())
+                .await;
+            match (linked, agent.list_gateway_chats().await) {
+                (Ok(()), Ok(chats)) => {
+                    let chats_json = serde_json::to_string(&chats).unwrap_or_else(|_| "[]".into());
+                    framed.send(DaemonMessage::AgentGatewayChats { chats_json }).await?;
+                }
+                (Err(error), _) | (Ok(()), Err(error)) => {
+                    framed
+                        .send(DaemonMessage::Error {
+                            message: format!("Failed to link thread to gateway chat: {error}"),
+                        })
+                        .await?;
+                }
+            }
         }
 
         ClientMessage::AgentGetEffectiveConfigState => {

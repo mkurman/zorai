@@ -82,6 +82,32 @@ impl HistoryStore {
             .collect()
     }
 
+    pub async fn list_gateway_chat_history(&self) -> Result<Vec<(String, String, u64, bool)>> {
+        let rows = self
+            .read_db
+            .query(
+                "SELECT channel_key, thread_id, updated_at, deleted_at IS NULL FROM gateway_threads ORDER BY updated_at DESC",
+                db::Params::None,
+            )
+            .await?;
+        rows.iter()
+            .filter_map(|row| {
+                match (
+                    row.get::<String>(0),
+                    row.get::<String>(1),
+                    row.get::<i64>(2),
+                    row.get::<i64>(3),
+                ) {
+                    (Ok(key), Ok(thread_id), Ok(updated_at), Ok(active)) => {
+                        Some((key, thread_id, updated_at.max(0) as u64, active != 0))
+                    }
+                    _ => None,
+                }
+            })
+            .map(Ok)
+            .collect()
+    }
+
     pub async fn upsert_gateway_route_mode(
         &self,
         channel_key: &str,

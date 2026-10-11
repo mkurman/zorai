@@ -2,8 +2,12 @@ use super::*;
 impl TuiModel {
     pub(super) fn activate_gateway_settings_field(&mut self, field: &str) -> bool {
         match field {
-            "gateway_default_agent" => {
-                self.open_gateway_default_agent_picker();
+            "gateway_default_agent"
+            | "slack_default_agent"
+            | "discord_default_agent"
+            | "telegram_default_agent"
+            | "whatsapp_default_agent" => {
+                self.open_gateway_default_agent_picker(field);
             }
             "gateway_prefix" => {
                 self.settings

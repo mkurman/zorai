@@ -24,6 +24,7 @@ impl TuiModel {
         self.send_daemon_command(DaemonCommand::Refresh);
         self.send_daemon_command(DaemonCommand::GetConfig);
         self.send_daemon_command(DaemonCommand::ListPromptQueue { thread_id: None });
+        self.send_daemon_command(DaemonCommand::ListGatewayChats);
     }
 
     pub(in crate::app) fn handle_disconnected_event(&mut self) {

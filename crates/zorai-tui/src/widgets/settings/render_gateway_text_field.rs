@@ -100,6 +100,7 @@ pub(crate) fn render_gateway_tab<'a>(
         "slack_channel_filter",
         false,
     );
+    render_gateway_agent_field(settings, theme, &mut lines, 5, &config.slack_default_agent);
 
     lines.push(Line::raw(""));
     lines.push(Line::from(Span::styled(
@@ -110,7 +111,7 @@ pub(crate) fn render_gateway_tab<'a>(
         settings,
         theme,
         &mut lines,
-        5,
+        6,
         "Bot Token",
         &config.telegram_token,
         "telegram_token",
@@ -120,11 +121,18 @@ pub(crate) fn render_gateway_tab<'a>(
         settings,
         theme,
         &mut lines,
-        6,
+        7,
         "Allowed Chats",
         &config.telegram_allowed_chats,
         "telegram_allowed_chats",
         false,
+    );
+    render_gateway_agent_field(
+        settings,
+        theme,
+        &mut lines,
+        8,
+        &config.telegram_default_agent,
     );
 
     lines.push(Line::raw(""));
@@ -136,7 +144,7 @@ pub(crate) fn render_gateway_tab<'a>(
         settings,
         theme,
         &mut lines,
-        7,
+        9,
         "Bot Token",
         &config.discord_token,
         "discord_token",
@@ -146,7 +154,7 @@ pub(crate) fn render_gateway_tab<'a>(
         settings,
         theme,
         &mut lines,
-        8,
+        10,
         "Channel Filter",
         &config.discord_channel_filter,
         "discord_channel_filter",
@@ -156,11 +164,18 @@ pub(crate) fn render_gateway_tab<'a>(
         settings,
         theme,
         &mut lines,
-        9,
+        11,
         "Allowed Users",
         &config.discord_allowed_users,
         "discord_allowed_users",
         false,
+    );
+    render_gateway_agent_field(
+        settings,
+        theme,
+        &mut lines,
+        12,
+        &config.discord_default_agent,
     );
 
     lines.push(Line::raw(""));
@@ -172,7 +187,7 @@ pub(crate) fn render_gateway_tab<'a>(
         settings,
         theme,
         &mut lines,
-        10,
+        13,
         "Allowed Contacts",
         &config.whatsapp_allowed_contacts,
         "whatsapp_allowed_contacts",
@@ -182,7 +197,7 @@ pub(crate) fn render_gateway_tab<'a>(
         settings,
         theme,
         &mut lines,
-        11,
+        14,
         "API Token",
         &config.whatsapp_token,
         "whatsapp_token",
@@ -192,17 +207,24 @@ pub(crate) fn render_gateway_tab<'a>(
         settings,
         theme,
         &mut lines,
-        12,
+        15,
         "Phone Number ID",
         &config.whatsapp_phone_id,
         "whatsapp_phone_id",
         false,
     );
+    render_gateway_agent_field(
+        settings,
+        theme,
+        &mut lines,
+        16,
+        &config.whatsapp_default_agent,
+    );
     let whatsapp_link = modal.whatsapp_link();
     let linked = whatsapp_link.phase() == WhatsAppLinkPhase::Connected;
     let whatsapp_allowlist_ready = has_whatsapp_allowed_contacts(&config.whatsapp_allowed_contacts);
     {
-        let is_selected = settings.field_cursor() == 13;
+        let is_selected = settings.field_cursor() == 17;
         let marker = if is_selected { "> " } else { "  " };
         let marker_style = if is_selected {
             theme.accent_primary
@@ -228,7 +250,7 @@ pub(crate) fn render_gateway_tab<'a>(
         lines.push(Line::from(spans));
     }
     {
-        let is_selected = settings.field_cursor() == 14;
+        let is_selected = settings.field_cursor() == 18;
         let marker = if is_selected { "> " } else { "  " };
         let marker_style = if is_selected {
             theme.accent_primary
@@ -385,6 +407,41 @@ pub(crate) fn render_gateway_text_field<'a>(
     ];
     if is_selected && !is_editing {
         spans.push(Span::styled("  [Enter: edit]", theme.fg_dim));
+    }
+    lines.push(Line::from(spans));
+}
+
+fn render_gateway_agent_field<'a>(
+    settings: &SettingsState,
+    theme: &ThemeTokens,
+    lines: &mut Vec<Line<'a>>,
+    field_idx: usize,
+    value: &str,
+) {
+    let is_selected = settings.field_cursor() == field_idx;
+    let marker = if is_selected { "> " } else { "  " };
+    let marker_style = if is_selected {
+        theme.accent_primary
+    } else {
+        theme.fg_dim
+    };
+    let display_value = if value.trim().is_empty() {
+        "(gateway default)".to_string()
+    } else {
+        crate::agent_aliases::display_agent_name(value)
+    };
+    let value_style = if is_selected {
+        theme.accent_primary
+    } else {
+        theme.fg_active
+    };
+    let mut spans = vec![
+        Span::styled(marker, marker_style),
+        Span::styled(format!("{:<16} ", "Agent"), theme.fg_dim),
+        Span::styled(display_value, value_style),
+    ];
+    if is_selected {
+        spans.push(Span::styled("  [Enter: pick]", theme.fg_dim));
     }
     lines.push(Line::from(spans));
 }

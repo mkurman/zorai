@@ -14,7 +14,7 @@ fn whatsapp_link_device_probes_status_before_starting_link_flow() {
         .settings
         .reduce(SettingsAction::SwitchTab(SettingsTab::Gateway));
     model.config.whatsapp_allowed_contacts = "+48663977535".to_string();
-    model.settings.reduce(SettingsAction::NavigateField(13));
+    model.settings.reduce(SettingsAction::NavigateField(17));
     assert_eq!(model.settings.current_field_name(), "whatsapp_link_device");
 
     model.activate_settings_field();
@@ -61,7 +61,7 @@ fn whatsapp_link_device_does_not_reset_existing_link() {
         .settings
         .reduce(SettingsAction::SwitchTab(SettingsTab::Gateway));
     model.config.whatsapp_allowed_contacts = "+48663977535".to_string();
-    model.settings.reduce(SettingsAction::NavigateField(13));
+    model.settings.reduce(SettingsAction::NavigateField(17));
     model
         .modal
         .set_whatsapp_link_connected(Some("+48663977535".to_string()));
@@ -88,7 +88,7 @@ fn whatsapp_relink_device_resets_existing_link_before_restart() {
         .settings
         .reduce(SettingsAction::SwitchTab(SettingsTab::Gateway));
     model.config.whatsapp_allowed_contacts = "+48663977535".to_string();
-    model.settings.reduce(SettingsAction::NavigateField(14));
+    model.settings.reduce(SettingsAction::NavigateField(18));
     model
         .modal
         .set_whatsapp_link_connected(Some("+48663977535".to_string()));

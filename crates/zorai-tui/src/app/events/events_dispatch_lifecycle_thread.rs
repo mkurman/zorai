@@ -119,6 +119,10 @@ impl TuiModel {
                 self.handle_thread_handoff_result(result);
                 None
             }
+            ClientEvent::GatewayChats(chats) => {
+                self.handle_gateway_chats(chats);
+                None
+            }
             ClientEvent::ThreadReloadRequired { thread_id } => {
                 if !self.deleted_thread_ids.contains(&thread_id) {
                     self.handle_thread_reload_required_event(thread_id);

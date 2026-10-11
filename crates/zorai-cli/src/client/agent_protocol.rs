@@ -84,6 +84,10 @@ pub(super) enum AgentBridgeCommand {
     DeleteThread {
         thread_id: String,
     },
+    RenameThread {
+        thread_id: String,
+        title: String,
+    },
     PinThreadMessageForCompaction {
         thread_id: String,
         message_id: String,
@@ -335,6 +339,12 @@ pub(super) enum AgentBridgeCommand {
         sub_agent_id: String,
     },
     ListSubAgents,
+    ListGatewayChats,
+    LinkThreadToGatewayChat {
+        thread_id: String,
+        #[serde(default)]
+        channel_key: Option<String>,
+    },
     GetConciergeConfig,
     SetConciergeConfig {
         config_json: String,

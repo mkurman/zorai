@@ -183,6 +183,17 @@ describe("thread filters", () => {
     expect(filterThreads(all, { tab: "svarog", dateFilter: "all", fromDate: "", toDate: "", goalThreadIds: new Set() }).map((item) => item.id)).toEqual(["goal-thread", "svarog-thread"]);
   });
 
+  it("shows a thread continued on a gateway chat under Gateway without hiding it from its own agent tab", () => {
+    const linked = thread({ id: "local-1", daemonThreadId: "thread_linked", title: "Refactor planner" });
+    const titled = thread({ id: "gw-thread", daemonThreadId: "gw-1", title: "telegram alice" });
+    const plain = thread({ id: "plain", daemonThreadId: "thread_plain", title: "Other work" });
+    const options = { dateFilter: "all" as const, fromDate: "", toDate: "", goalThreadIds: new Set<string>(), gatewayThreadIds: new Set(["thread_linked"]) };
+
+    expect(filterThreads([linked, titled, plain], { ...options, tab: "gateway" }).map((item) => item.id)).toEqual(["local-1", "gw-thread"]);
+    expect(filterThreads([linked, titled, plain], { ...options, tab: "svarog" }).map((item) => item.id)).toEqual(["local-1", "plain"]);
+    expect(filterThreads([linked], { ...options, gatewayThreadIds: new Set<string>(), tab: "gateway" })).toEqual([]);
+  });
+
   it("keeps a thread with terminal panes on its agent tab instead of Workspace", () => {
     const terminalBacked = thread({ id: "snorkel", daemonThreadId: "thread_c7ba", workspaceId: "ws_1", surfaceId: "surface_1", paneId: "pane_727" });
     const options = { dateFilter: "all" as const, fromDate: "", toDate: "", goalThreadIds: new Set<string>() };

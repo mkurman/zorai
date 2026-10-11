@@ -34,6 +34,26 @@ impl TuiModel {
                 .filter(|v| !v.is_empty())
                 .unwrap_or("rarog")
                 .to_string();
+            self.config.slack_default_agent = gateway
+                .get("slack_default_agent")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            self.config.discord_default_agent = gateway
+                .get("discord_default_agent")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            self.config.telegram_default_agent = gateway
+                .get("telegram_default_agent")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            self.config.whatsapp_default_agent = gateway
+                .get("whatsapp_default_agent")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             self.config.slack_token = gateway
                 .get("slack_token")
                 .and_then(|v| v.as_str())
@@ -101,6 +121,7 @@ impl TuiModel {
             self.tier.on_tier_changed(tier_str);
         }
 
+        crate::agent_aliases::set_from_raw(&json);
         self.config.agent_config_raw = Some(json.clone());
         self.config
             .reduce(config::ConfigAction::ConfigRawReceived(json.clone()));

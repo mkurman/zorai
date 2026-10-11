@@ -4,23 +4,27 @@ import { startTransition, useCallback, useEffect, useMemo, useRef, useState } fr
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import { ACTIVE_RUN_POLL_MS, fetchAgentRuns, IDLE_RUN_POLL_MS, runListIsActive, type AgentRun } from "@/lib/agentRuns";
 import { useAgentStore, type AgentThread } from "@/lib/agentStore";
+import { getBridge } from "@/lib/bridge";
 import {
   buildThreadFilterTabs,
   daemonAgentFilterForThreadTab,
   dateFilters,
   DEFAULT_THREAD_DATE_FILTER,
   filterThreads,
-  fixedThreadTabs,
   mergeLocalDraftThreads,
   overlayStoreThreadTitles,
   resolveThreadCreationAgent,
   resolveThreadListSource,
+  searchThreadTabs,
   type DateFilterId,
   type ThreadFilterTab,
+  visibleThreadTabs,
 } from "./threadFilterModel";
 import { openListedThread } from "./openThreadTarget";
+import { fetchGatewayChats, gatewayLinkedThreadIds } from "./gatewayChatModel";
 import { isThreadLoading, useThreadLoadingStore } from "./threadLoadingStore";
 import { useThreadRailTabStore } from "./threadRailTabStore";
+import { useAgentDisplayName } from "@/lib/useAgentDisplayName";
 import { threadReadKey, useThreadReadStateStore } from "./threadReadStateStore";
 import {
   isWorkerThread,
@@ -51,10 +55,16 @@ export function ThreadsRail() {
   const [now, setNow] = useState(() => Date.now());
   const tab = useThreadRailTabStore((state) => state.tab);
   const setTab = useThreadRailTabStore((state) => state.setTab);
+  const favorites = useThreadRailTabStore((state) => state.favorites);
+  const toggleFavorite = useThreadRailTabStore((state) => state.toggleFavorite);
+  const agentDisplayName = useAgentDisplayName();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerQuery, setPickerQuery] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilterId>(DEFAULT_THREAD_DATE_FILTER);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [daemonFilteredThreads, setDaemonFilteredThreads] = useState<AgentThread[] | null>(null);
+  const [gatewayThreadIds, setGatewayThreadIds] = useState<Set<string>>(() => new Set());
   const [loadingTab, setLoadingTab] = useState<ThreadFilterTab | null>(tab);
   const pendingFetchIdRef = useRef(0);
   const loadedAgentFilterRef = useRef<string | null>(null);
@@ -80,15 +90,20 @@ export function ThreadsRail() {
     toDate,
     goalThreadIds: goalThreadIdSet,
     subAgents,
-  }), [dateFilter, fromDate, goalThreadIdSet, sourceThreads, subAgents, tab, toDate]);
+    gatewayThreadIds,
+  }), [dateFilter, fromDate, gatewayThreadIds, goalThreadIdSet, sourceThreads, subAgents, tab, toDate]);
   const threadTabs = useMemo(() => buildThreadFilterTabs(
     runtime.filteredThreads,
     subAgents,
     goalThreadIdSet,
-  ), [goalThreadIdSet, runtime.filteredThreads, subAgents]);
-  const agentFilterOptions = useMemo(
-    () => threadTabs.filter((item) => item.id.startsWith("agent:")),
-    [threadTabs],
+  ).map((item) => ({ ...item, label: agentDisplayName(item.label) })), [agentDisplayName, goalThreadIdSet, runtime.filteredThreads, subAgents]);
+  const visibleTabs = useMemo(
+    () => visibleThreadTabs(threadTabs, favorites, tab),
+    [favorites, tab, threadTabs],
+  );
+  const pickerTabs = useMemo(
+    () => searchThreadTabs(threadTabs, pickerQuery),
+    [pickerQuery, threadTabs],
   );
   const threadCreationAgent = useMemo(
     () => resolveThreadCreationAgent(tab, subAgents),
@@ -192,11 +207,24 @@ export function ThreadsRail() {
       });
   }, [daemonAgentFilter, fetchKey, fetchThreadList, tab]);
 
+  const refreshGatewayThreadIds = useCallback(() => {
+    void fetchGatewayChats()
+      .then((chats) => setGatewayThreadIds(gatewayLinkedThreadIds(chats)))
+      .catch(() => undefined);
+  }, []);
+
   useEffect(() => {
-    const onRefresh = () => refreshSelectedTab();
+    refreshGatewayThreadIds();
+  }, [refreshGatewayThreadIds]);
+
+  useEffect(() => {
+    const onRefresh = () => {
+      refreshSelectedTab();
+      refreshGatewayThreadIds();
+    };
     window.addEventListener(ZORAI_THREAD_LIST_REFRESH_EVENT, onRefresh);
     return () => window.removeEventListener(ZORAI_THREAD_LIST_REFRESH_EVENT, onRefresh);
-  }, [refreshSelectedTab]);
+  }, [refreshGatewayThreadIds, refreshSelectedTab]);
 
   return (
     <div className="zorai-rail-stack">
@@ -216,13 +244,13 @@ export function ThreadsRail() {
         >
           + New Thread
         </button>
-        <RefreshButton onClick={refreshSelectedTab} disabled={loadingTab !== null} busy={loadingTab !== null} />
+        <RefreshButton onClick={() => { refreshSelectedTab(); refreshGatewayThreadIds(); }} disabled={loadingTab !== null} busy={loadingTab !== null} />
       </div>
       <input ref={searchInputRef} className="zorai-search-input" value={runtime.searchQuery} onChange={(event) => runtime.setSearchQuery(event.target.value)} placeholder="Search threads" />
       <div className="zorai-thread-filters">
         <summary>Filters</summary>
       <div className="zorai-thread-filter-tabs" aria-label="Thread source filters">
-        {fixedThreadTabs.map((item) => (
+        {visibleTabs.map((item) => (
           <button
             type="button"
             key={item.id}
@@ -234,19 +262,66 @@ export function ThreadsRail() {
             {loadingTab === item.id ? <LoadingState size={12} className="zorai-thread-filter-tab__spinner" /> : null}
           </button>
         ))}
+        <button
+          type="button"
+          className={["zorai-thread-filter-tab", pickerOpen ? "zorai-thread-filter-tab--active" : ""].filter(Boolean).join(" ")}
+          onClick={() => setPickerOpen((open) => !open)}
+          aria-expanded={pickerOpen}
+          title="Find agents and filters, pin favorites"
+        >
+          + More
+        </button>
       </div>
-      {agentFilterOptions.length > 0 ? (
+      {pickerOpen ? (
         <div className="zorai-thread-agent-filter">
-          <select
-            aria-label="Agents and subagents"
-            className={tab.startsWith("agent:") ? "zorai-thread-agent-filter--active" : ""}
-            value={tab.startsWith("agent:") ? tab : ""}
-            onChange={(event) => setTab((event.target.value || "svarog") as ThreadFilterTab)}
-          >
-            <option value="">Agents & subagents</option>
-            {agentFilterOptions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-          </select>
-          {loadingTab?.startsWith("agent:") ? <LoadingState size={12} className="zorai-thread-filter-tab__spinner" /> : null}
+          <input
+            className="zorai-search-input"
+            value={pickerQuery}
+            onChange={(event) => setPickerQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setPickerOpen(false);
+              if (event.key === "Enter" && pickerTabs[0]) {
+                setTab(pickerTabs[0].id);
+                setPickerOpen(false);
+              }
+            }}
+            placeholder="Search agents and filters"
+            aria-label="Search agents and filters"
+            autoFocus
+          />
+          <div className="zorai-thread-agent-picker" role="listbox" aria-label="Agents and filters">
+            {pickerTabs.length === 0 ? (
+              <div className="zorai-empty">No matches.</div>
+            ) : pickerTabs.map((item) => {
+              const pinned = favorites.includes(item.id);
+              return (
+                <div key={item.id} className={["zorai-thread-agent-picker__row", tab === item.id ? "zorai-thread-agent-picker__row--active" : ""].filter(Boolean).join(" ")}>
+                  <button
+                    type="button"
+                    className="zorai-thread-agent-picker__select"
+                    role="option"
+                    aria-selected={tab === item.id}
+                    onClick={() => {
+                      setTab(item.id);
+                      setPickerOpen(false);
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                  <button
+                    type="button"
+                    className={["zorai-thread-agent-picker__pin", pinned ? "zorai-thread-agent-picker__pin--on" : ""].filter(Boolean).join(" ")}
+                    onClick={() => toggleFavorite(item.id)}
+                    aria-pressed={pinned}
+                    aria-label={pinned ? `Unpin ${item.label}` : `Pin ${item.label}`}
+                    title={pinned ? "Remove from favorites" : "Add to favorites"}
+                  >
+                    {pinned ? "★" : "☆"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       ) : null}
       <div className="zorai-thread-date-filters" aria-label="Thread date filters">
@@ -293,6 +368,9 @@ export function ThreadsRail() {
               onStartRename={() => setEditingThreadId(thread.id)}
               onRename={(title) => {
                 updateThreadTitle(thread.id, title);
+                if (thread.daemonThreadId && title.trim()) {
+                  void getBridge()?.agentRenameThread?.(thread.daemonThreadId, title.trim());
+                }
                 setEditingThreadId(null);
               }}
               onCancelRename={() => setEditingThreadId(null)}

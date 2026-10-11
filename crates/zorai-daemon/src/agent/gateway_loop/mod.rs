@@ -13,6 +13,7 @@ mod replay;
 mod run_loop;
 mod state;
 mod supervision;
+mod thread_links;
 
 #[allow(unused_imports)]
 pub(super) use lifecycle::*;

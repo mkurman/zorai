@@ -1,5 +1,6 @@
 #![recursion_limit = "256"]
 
+mod agent_aliases;
 mod app;
 mod auth;
 mod client;
@@ -1484,6 +1485,19 @@ fn start_daemon_bridge(
                             }
                             DaemonCommand::WhatsAppLinkStatus => {
                                 let _ = client.whatsapp_link_status();
+                            }
+                            DaemonCommand::ListGatewayChats => {
+                                let _ = client.list_gateway_chats();
+                            }
+                            DaemonCommand::LinkThreadToGatewayChat {
+                                thread_id,
+                                channel_key,
+                            } => {
+                                forward_bridge_command_result(
+                                    &daemon_event_tx,
+                                    "gateway chat link",
+                                    client.link_thread_to_gateway_chat(thread_id, channel_key),
+                                );
                             }
                             DaemonCommand::WhatsAppLinkSubscribe => {
                                 let _ = client.whatsapp_link_subscribe();

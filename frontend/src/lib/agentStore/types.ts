@@ -299,6 +299,7 @@ export type AgentContentBlock =
       url?: string;
       data_url?: string;
       mime_type?: string;
+      inventory_path?: string;
     }
   | {
       type: "audio";

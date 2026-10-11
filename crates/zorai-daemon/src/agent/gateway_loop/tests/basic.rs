@@ -88,7 +88,7 @@ async fn gateway_default_responder_routes_concierge_main_and_personas() {
         let mut config = engine.get_config().await;
         config.gateway.default_agent = agent.to_string();
         engine.set_config(config).await;
-        engine.resolve_gateway_default_responder().await
+        engine.resolve_gateway_default_responder("Telegram").await
     }
 
     assert_eq!(responder(&engine, "rarog").await, (true, None));

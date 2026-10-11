@@ -87,6 +87,10 @@ pub(super) fn default_command_items() -> Vec<CommandItem> {
             description: "Hand off or return current thread".into(),
         },
         CommandItem {
+            command: "gateway".into(),
+            description: "Continue current thread on a messaging gateway chat".into(),
+        },
+        CommandItem {
             command: "compact".into(),
             description: "Force compact current thread".into(),
         },

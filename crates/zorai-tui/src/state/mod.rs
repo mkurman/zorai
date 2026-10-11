@@ -348,6 +348,11 @@ pub enum DaemonCommand {
     WhatsAppLinkStart,
     WhatsAppLinkStop,
     WhatsAppLinkStatus,
+    ListGatewayChats,
+    LinkThreadToGatewayChat {
+        thread_id: String,
+        channel_key: Option<String>,
+    },
     WhatsAppLinkSubscribe,
     WhatsAppLinkUnsubscribe,
     WhatsAppLinkReset,

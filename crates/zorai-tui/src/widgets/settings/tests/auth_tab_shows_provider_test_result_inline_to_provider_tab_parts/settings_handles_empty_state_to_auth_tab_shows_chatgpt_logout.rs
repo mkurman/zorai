@@ -78,7 +78,7 @@ fn gateway_tab_shows_allowlist_requirement_before_linking() {
     settings.reduce(crate::state::settings::SettingsAction::SwitchTab(
         SettingsTab::Gateway,
     ));
-    settings.reduce(crate::state::settings::SettingsAction::NavigateField(13));
+    settings.reduce(crate::state::settings::SettingsAction::NavigateField(17));
     let config = ConfigState::new();
     let modal = ModalState::new();
 
@@ -397,7 +397,7 @@ fn gateway_tab_contains_selectable_link_device_row() {
     settings.reduce(crate::state::settings::SettingsAction::SwitchTab(
         SettingsTab::Gateway,
     ));
-    settings.reduce(crate::state::settings::SettingsAction::NavigateField(13));
+    settings.reduce(crate::state::settings::SettingsAction::NavigateField(17));
     let config = ConfigState::new();
     let modal = ModalState::new();
     let lines = render_gateway_tab(&settings, &config, &modal, &ThemeTokens::default());

@@ -340,6 +340,11 @@ pub(super) fn build_runtime_identity_prompt(
     provider_id: &str,
     model_id: &str,
 ) -> String {
+    let aliases = super::agent_identity::agent_aliases();
+    let agent_name = match super::agent_identity::alias_for_agent_name_in(agent_name, &aliases) {
+        Some(alias) => format!("{alias} (internally {agent_name})"),
+        None => agent_name.to_string(),
+    };
     let mut prompt = format!(
         "## Runtime Identity\n\
          - You are {agent_name} in zorai.\n\
@@ -347,6 +352,9 @@ pub(super) fn build_runtime_identity_prompt(
          - Active model: {model_id}\n\
          - If the operator asks which provider or model you are currently using, answer with these exact runtime values unless the task explicitly tells you otherwise."
     );
+    if let Some(note) = super::agent_identity::agent_alias_prompt_note_in(&aliases) {
+        append_prompt_section_if_missing(&mut prompt, "## Agent Aliases", &note);
+    }
     append_prompt_section_if_missing(&mut prompt, "## Time Context", &build_time_context_prompt());
     prompt
 }

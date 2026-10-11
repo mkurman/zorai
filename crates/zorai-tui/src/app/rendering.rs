@@ -1955,6 +1955,7 @@ impl TuiModel {
                 modal::ModalKind::GatewayDefaultAgentPicker => {
                     render_helpers::centered_rect(48, 46, area)
                 }
+                modal::ModalKind::GatewayLink => render_helpers::centered_rect(64, 50, area),
                 modal::ModalKind::ThreadPicker => render_helpers::centered_rect(60, 50, area),
                 modal::ModalKind::GoalPicker => render_helpers::centered_rect(60, 50, area),
                 modal::ModalKind::WorkspacePicker => render_helpers::centered_rect(54, 42, area),
@@ -2481,6 +2482,17 @@ impl TuiModel {
                         &self.theme,
                     );
                 }
+                modal::ModalKind::GatewayLink => {
+                    render_helpers::render_status_modal(
+                        frame,
+                        overlay_area,
+                        "CONTINUE ON GATEWAY",
+                        &self.gateway_link_modal_body(),
+                        self.gateway_link_modal_scroll(),
+                        true,
+                        &self.theme,
+                    );
+                }
                 modal::ModalKind::Help => {
                     render_helpers::render_help_modal(
                         frame,
@@ -2529,6 +2541,7 @@ impl TuiModel {
             modal::ModalKind::GatewayDefaultAgentPicker => {
                 render_helpers::centered_rect(48, 46, area)
             }
+            modal::ModalKind::GatewayLink => render_helpers::centered_rect(64, 50, area),
             modal::ModalKind::ThreadPicker => render_helpers::centered_rect(60, 50, area),
             modal::ModalKind::GoalPicker => render_helpers::centered_rect(60, 50, area),
             modal::ModalKind::WorkspacePicker => render_helpers::centered_rect(54, 42, area),

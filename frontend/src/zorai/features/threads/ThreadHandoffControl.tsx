@@ -6,6 +6,7 @@ import {
   canReturnHandoff,
   type ThreadAgentOption,
 } from "./threadHandoffModel";
+import { useAgentDisplayName } from "@/lib/useAgentDisplayName";
 
 export function ThreadHandoffControl({
   daemonLinked,
@@ -20,6 +21,7 @@ export function ThreadHandoffControl({
   onPush: (request: { targetAgentId: string; reason: string; summary: string }) => Promise<ThreadMutationResult>;
   onReturn: (request: { reason: string; summary: string }) => Promise<ThreadMutationResult>;
 }) {
+  const agentDisplayName = useAgentDisplayName();
   const [open, setOpen] = useState(false);
   const [targetAgentId, setTargetAgentId] = useState(options[0]?.id ?? "");
   const selected = useMemo(
@@ -92,7 +94,7 @@ export function ThreadHandoffControl({
               {handoffState.responderStack.map((frame, index) => (
                 <li key={`${frame.agentId}:${frame.enteredAt}`}>
                   <span>{index + 1}</span>
-                  <strong>{frame.agentName}</strong>
+                  <strong>{agentDisplayName(frame.agentName)}</strong>
                 </li>
               ))}
             </ol>

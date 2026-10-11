@@ -1376,6 +1376,18 @@ impl HistoryStore {
         Ok(())
     }
 
+    pub async fn update_message_content_blocks(&self, id: &str, content_blocks_json: &str) -> Result<()> {
+        let id_owned = id.to_string();
+        let blocks_owned = content_blocks_json.to_string();
+        self.conn_db
+            .execute(
+                "UPDATE agent_messages SET metadata_json = json_set(metadata_json, '$.content_blocks', json(?2), '$.contentBlocks', json(?2)) WHERE id = ?1 AND json_valid(metadata_json)",
+                db::db_params![id_owned, blocks_owned],
+            )
+            .await?;
+        Ok(())
+    }
+
     pub async fn update_thread_metadata_json(
         &self,
         id: &str,

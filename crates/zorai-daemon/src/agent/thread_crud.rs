@@ -5,6 +5,64 @@
 use super::*;
 use serde::{Deserialize, Serialize};
 
+pub(crate) async fn store_user_images_in_inventory(
+    data_root: &std::path::Path,
+    thread_id: &str,
+    file_stem: &str,
+    blocks: &[AgentContentBlock],
+) -> Vec<AgentContentBlock> {
+    use base64::Engine;
+    let dir = zorai_protocol::thread_inventory_dir(data_root, thread_id).join("attachments");
+    let mut stored = Vec::with_capacity(blocks.len());
+    for (index, block) in blocks.iter().enumerate() {
+        let AgentContentBlock::Image {
+            url,
+            data_url: Some(data_url),
+            mime_type,
+            inventory_path: None,
+        } = block
+        else {
+            stored.push(block.clone());
+            continue;
+        };
+        let Some((header, payload)) = data_url
+            .strip_prefix("data:")
+            .and_then(|data| data.split_once(','))
+            .filter(|(header, _)| header.ends_with(";base64"))
+        else {
+            stored.push(block.clone());
+            continue;
+        };
+        let extension = header
+            .trim_end_matches(";base64")
+            .strip_prefix("image/")
+            .map(|subtype| subtype.split('+').next().unwrap_or(subtype))
+            .filter(|subtype| subtype.chars().all(|ch| ch.is_ascii_alphanumeric()))
+            .unwrap_or("bin");
+        let path = dir.join(format!("image-{file_stem}-{index}.{extension}"));
+        let written = match base64::engine::general_purpose::STANDARD.decode(payload) {
+            Ok(bytes) => match tokio::fs::create_dir_all(&dir).await {
+                Ok(()) => tokio::fs::write(&path, bytes).await,
+                Err(error) => Err(error),
+            }
+            .map_err(anyhow::Error::from),
+            Err(error) => Err(anyhow::Error::from(error)),
+        };
+        if let Err(error) = written {
+            tracing::warn!(thread_id, error = %error, "failed to store pasted image in thread inventory");
+            stored.push(block.clone());
+            continue;
+        }
+        stored.push(AgentContentBlock::Image {
+            url: url.clone(),
+            data_url: Some(data_url.clone()),
+            mime_type: mime_type.clone(),
+            inventory_path: Some(path.to_string_lossy().into_owned()),
+        });
+    }
+    stored
+}
+
 const SESSION_ABANDON_WINDOW_MS: u64 = 30_000;
 const LAZY_CAPPED_IPC_MESSAGE_WINDOW: usize = 64;
 
@@ -1503,6 +1561,31 @@ impl AgentEngine {
             .ok()
             .flatten();
         planner_required_for_message(latest_user_message.as_deref().unwrap_or(""))
+    }
+
+    pub async fn rename_thread(&self, thread_id: &str, title: &str) -> bool {
+        let title = title.trim();
+        if title.is_empty() {
+            return false;
+        }
+        let updated_at = now_millis();
+        if let Some(thread) = self.threads.write().await.get_mut(thread_id) {
+            thread.title = title.to_string();
+            thread.updated_at = updated_at;
+        }
+        if let Err(error) = self
+            .history
+            .update_thread_title(thread_id, title, updated_at as i64)
+            .await
+        {
+            tracing::warn!(thread_id, error = %error, "failed to persist renamed thread title");
+            return false;
+        }
+        let _ = self.event_tx.send(AgentEvent::ThreadTitleUpdated {
+            thread_id: thread_id.to_string(),
+            title: title.to_string(),
+        });
+        true
     }
 
     pub async fn delete_thread(&self, thread_id: &str) -> bool {

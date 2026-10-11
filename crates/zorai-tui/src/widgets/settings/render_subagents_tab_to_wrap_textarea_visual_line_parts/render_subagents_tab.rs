@@ -23,8 +23,10 @@ pub(crate) fn render_subagents_tab<'a>(
     lines.push(Line::raw(""));
 
     if let Some(editor) = subagents.editor.as_ref() {
-        let name_is_editing =
-            settings.is_editing() && settings.editing_field() == Some("subagent_name");
+        let is_weles_builtin = editor.id.as_deref() == Some("weles_builtin");
+        let name_is_editing = settings.is_editing()
+            && (settings.editing_field() == Some("subagent_name")
+                || (is_weles_builtin && settings.editing_field() == Some("weles_alias")));
         let model_is_editing =
             settings.is_editing() && settings.editing_field() == Some("subagent_model");
         let base_url_is_editing =
@@ -41,6 +43,8 @@ pub(crate) fn render_subagents_tab<'a>(
             || render_edit_buffer_with_cursor(settings.edit_buffer(), settings.edit_cursor());
         let name_value = if name_is_editing {
             edit_buffer_with_cursor()
+        } else if is_weles_builtin {
+            crate::agent_aliases::display_agent_name(&editor.name)
         } else {
             editor.name.clone()
         };
@@ -431,6 +435,11 @@ pub(crate) fn render_subagents_tab<'a>(
                 .map(|r| format!(" [{}]", r))
                 .unwrap_or_default();
             let protection_str = if entry.builtin { " [built-in]" } else { "" };
+            let entry_name = if entry.id == "weles_builtin" {
+                crate::agent_aliases::display_agent_name(&entry.name)
+            } else {
+                entry.name.clone()
+            };
             let edit_label = "[Edit]";
             let delete_label = if entry.delete_allowed {
                 "[Delete]"
@@ -448,7 +457,7 @@ pub(crate) fn render_subagents_tab<'a>(
             };
             let left_width = marker.chars().count()
                 + dot.chars().count()
-                + entry.name.chars().count()
+                + entry_name.chars().count()
                 + format!(" ({}/{})", entry.provider, entry.model)
                     .chars()
                     .count()
@@ -476,7 +485,7 @@ pub(crate) fn render_subagents_tab<'a>(
                 ),
                 Span::styled(dot, dot_style),
                 Span::styled(
-                    entry.name.clone(),
+                    entry_name,
                     if is_selected {
                         theme.fg_active
                     } else {

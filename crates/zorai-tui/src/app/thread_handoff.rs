@@ -65,7 +65,7 @@ pub(crate) fn parse_thread_handoff_args(args: &str) -> Result<ThreadHandoffSlash
 }
 
 impl TuiModel {
-    fn active_daemon_handoff_thread_id(&mut self) -> Option<String> {
+    pub(super) fn active_daemon_handoff_thread_id(&mut self) -> Option<String> {
         let Some(thread_id) = self.chat.active_thread_id().map(str::to_string) else {
             self.status_line = "Start or load thread first".to_string();
             self.show_input_notice(
@@ -228,7 +228,9 @@ impl TuiModel {
                 )],
             )
         };
-        let active_label = self.participant_display_name(&active_agent_id);
+        let active_label = crate::agent_aliases::display_agent_name(
+            &self.participant_display_name(&active_agent_id),
+        );
         let active_canonical = canonical_handoff_agent_id(&active_agent_id);
         let mut body = format!(
             "Thread: {}\nActive responder: {}\nResponder stack ({})\n",
@@ -238,9 +240,9 @@ impl TuiModel {
         );
         for (index, (raw_id, _canonical, agent_name)) in frames.iter().enumerate() {
             let label = if agent_name.trim().is_empty() {
-                self.participant_display_name(raw_id)
+                crate::agent_aliases::display_agent_name(&self.participant_display_name(raw_id))
             } else {
-                agent_name.to_string()
+                crate::agent_aliases::display_agent_name(agent_name)
             };
             let active = raw_id == &active_agent_id
                 || canonical_handoff_agent_id(raw_id) == active_canonical;
@@ -267,7 +269,10 @@ impl TuiModel {
                     agent_id,
                     agent_name,
                 } => {
-                    body.push_str(&format!("{marker} Hand off to {agent_name} ({agent_id})\n"));
+                    body.push_str(&format!(
+                        "{marker} Hand off to {} ({agent_id})\n",
+                        crate::agent_aliases::display_agent_name(agent_name)
+                    ));
                 }
             }
         }

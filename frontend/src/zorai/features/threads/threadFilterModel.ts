@@ -106,9 +106,10 @@ export function filterThreads(
     toDate: string;
     goalThreadIds: Set<string>;
     subAgents?: SubAgentDefinition[];
+    gatewayThreadIds?: Set<string>;
   },
 ): AgentThread[] {
-  return threads.filter((thread) => matchesThreadTab(thread, options.tab, options.goalThreadIds, options.subAgents ?? []))
+  return threads.filter((thread) => matchesThreadTab(thread, options.tab, options.goalThreadIds, options.subAgents ?? [], options.gatewayThreadIds))
     .filter((thread) => matchesThreadDate(thread, options.dateFilter, options.fromDate, options.toDate));
 }
 
@@ -230,6 +231,7 @@ function matchesThreadTab(
   tab: ThreadFilterTab,
   goalThreadIds: Set<string>,
   subAgents: SubAgentDefinition[] = [],
+  gatewayThreadIds?: Set<string>,
 ): boolean {
   const flags = threadTabFlags(thread, goalThreadIds);
   if (tab === "goals") return flags.isGoal;
@@ -238,7 +240,7 @@ function matchesThreadTab(
   if (tab === "rarog") return flags.isRarog;
   if (tab === "playgrounds") return flags.isPlayground;
   if (tab === "internal") return flags.isInternal;
-  if (tab === "gateway") return flags.isGateway;
+  if (tab === "gateway") return flags.isGateway || Boolean(thread.daemonThreadId && gatewayThreadIds?.has(thread.daemonThreadId));
   if (tab.startsWith("agent:")) return threadMatchesAgentTab(thread, tab.slice("agent:".length), subAgents, goalThreadIds);
   if (flags.isGoal && (flags.agentId === "svarog" || flags.agentId == null)) return true;
   return flags.agentId === "svarog" && matchesSvarogTabExclusions(thread, goalThreadIds);
@@ -341,4 +343,28 @@ function matchesThreadDate(thread: AgentThread, dateFilter: DateFilterId, fromDa
   const from = fromDate ? new Date(`${fromDate}T00:00:00`).getTime() : Number.NEGATIVE_INFINITY;
   const to = toDate ? new Date(`${toDate}T23:59:59`).getTime() : Number.POSITIVE_INFINITY;
   return updatedMs >= from && updatedMs <= to;
+}
+
+export function visibleThreadTabs(
+  allTabs: Array<{ id: ThreadFilterTab; label: string }>,
+  favorites: ThreadFilterTab[],
+  activeTab: ThreadFilterTab,
+): Array<{ id: ThreadFilterTab; label: string }> {
+  const byId = new Map(allTabs.map((item) => [item.id, item]));
+  const visible = favorites.flatMap((id) => {
+    const item = byId.get(id);
+    return item ? [item] : [];
+  });
+  const active = byId.get(activeTab);
+  if (active && !favorites.includes(activeTab)) visible.push(active);
+  return visible;
+}
+
+export function searchThreadTabs(
+  allTabs: Array<{ id: ThreadFilterTab; label: string }>,
+  query: string,
+): Array<{ id: ThreadFilterTab; label: string }> {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return allTabs;
+  return allTabs.filter((item) => item.label.toLowerCase().includes(needle) || item.id.toLowerCase().includes(needle));
 }

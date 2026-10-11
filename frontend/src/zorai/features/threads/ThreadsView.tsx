@@ -24,6 +24,7 @@ import { classifyThreadActivityMessage } from "./threadActivityModel";
 import { endThreadCompaction, messageTimeMs, useThreadCompaction } from "./threadCompactionStatus";
 import { isCompactionArtifactMessage } from "@/components/agent-chat-panel/chat-view/compactionArtifact";
 import { ThreadHandoffControl } from "./ThreadHandoffControl";
+import { ThreadGatewayControl } from "./ThreadGatewayControl";
 import { ThreadParticipantsDrawer } from "./ThreadParticipantsDrawer";
 import { buildThreadAgentOptions } from "./threadHandoffModel";
 import { BUILTIN_WORKSPACE_PERSONAS } from "../workspaces/workspaceActorPicker";
@@ -41,6 +42,7 @@ import type { ZoraiReturnTarget } from "../../shell/zoraiNavigationEvents";
 import { isThreadLoading, shouldShowConversationSkeleton, useThreadLoadingStore } from "./threadLoadingStore";
 import { threadReadKey, useThreadReadStateStore } from "./threadReadStateStore";
 import { useThreadRailTabStore } from "./threadRailTabStore";
+import { useAgentDisplayName } from "@/lib/useAgentDisplayName";
 import { resolveThreadCreationAgent } from "./threadFilterModel";
 import { DelegatedSessionSlot } from "./DelegatedSessionBar";
 import { ThreadSessionTabs } from "./SessionTabStrip";
@@ -82,6 +84,7 @@ export function ThreadsView({
   const [readTasks, setReadTasks] = useState<AgentQueueTask[]>([]);
   const subAgents = useAgentStore((state) => state.subAgents);
   const railTab = useThreadRailTabStore((state) => state.tab);
+  const agentDisplayName = useAgentDisplayName();
   const messageActionsRef = useRef<ThreadMessageActions | null>(null);
   const viewMountedAtRef = useRef(Date.now());
   const scrollerRef = useRef<HTMLDivElement | null>(null);
@@ -292,8 +295,8 @@ export function ThreadsView({
     ?? activeThread.agent_name;
   const agentOptions = buildThreadAgentOptions(
     [
-      { id: "swarog", name: "Svarog" },
-      { id: "rarog", name: "Rarog" },
+      { id: "swarog", name: agentDisplayName("Svarog") },
+      { id: "rarog", name: agentDisplayName("Rarog") },
       ...BUILTIN_WORKSPACE_PERSONAS.map((persona) => ({ id: persona.id, name: persona.label })),
     ],
     subAgents.filter((agent) => agent.enabled).map((agent) => ({ id: agent.id, name: agent.name })),
@@ -375,7 +378,7 @@ export function ThreadsView({
           ) : null}
           <div className="zorai-code-agent-thread-header__meta">
             <strong>{activeThread.title}</strong>
-            <span>Responder · {actualThreadResponderLabel(activeThread)} · {profile.model} · {profile.provider}</span>
+            <span>Responder · {agentDisplayName(actualThreadResponderLabel(activeThread))} · {profile.model} · {profile.provider}</span>
           </div>
           <div className="zorai-code-agent-thread-actions">
             {compactHeaderActions}
@@ -407,7 +410,7 @@ export function ThreadsView({
               <ToolEventList
                 groups={item.groups}
                 attribution={item.attribution}
-                fallbackAuthorName={runtime.activeThread?.agent_name}
+                fallbackAuthorName={agentDisplayName(runtime.activeThread?.agent_name)}
               />
             );
           } else if (item.type === "tool") {
@@ -425,7 +428,7 @@ export function ThreadsView({
             ) : (
               <NativeThreadMessageBubble
                 message={message}
-                threadAgentName={runtime.activeThread?.agent_name}
+                threadAgentName={agentDisplayName(runtime.activeThread?.agent_name)}
                 ttsEnabled={speech.ttsEnabled}
                 speaking={speech.speakingMessageId === message.id}
                 speechLoading={speech.loadingMessageId === message.id}
@@ -461,7 +464,7 @@ export function ThreadsView({
           <ThinkingIndicator label="Compaction" />
         ) : runtime.isStreamingResponse ? (
           <ThinkingIndicator
-            label={runtime.activeThread.agent_name}
+            label={agentDisplayName(runtime.activeThread.agent_name)}
             continueAttributedTurn={streamingContinuesAttributedToolSet}
           />
         ) : null}
@@ -544,8 +547,9 @@ function ThreadHeader({
   const participants = thread.threadParticipants ?? [];
   const activeParticipants = participants.filter((participant) => participant.status === "active");
   const responderStack = thread.threadHandoffState?.responderStack ?? [];
-  const activeResponder = responderStack[responderStack.length - 1]?.agentName
-    ?? thread.agent_name;
+  const agentDisplayName = useAgentDisplayName();
+  const activeResponder = agentDisplayName(responderStack[responderStack.length - 1]?.agentName
+    ?? thread.agent_name);
 
   const agentSettings = useAgentStore((state) => state.agentSettings);
   const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
@@ -574,6 +578,7 @@ function ThreadHeader({
           onPush={onPushHandoff}
           onReturn={onReturnHandoff}
         />
+        <ThreadGatewayControl daemonThreadId={thread.daemonThreadId} />
         <button type="button" className="zorai-ghost-button" onClick={onOpenParticipants}>
           Participants {activeParticipants.length}
         </button>
@@ -636,6 +641,7 @@ function ThreadScrollToBottomButton({ hidden, onClick }: { hidden: boolean; onCl
 }
 
 function ParticipantStrip({ thread, onOpen }: { thread: AgentThread; onOpen: () => void }) {
+  const agentDisplayName = useAgentDisplayName();
   const participants = thread.threadParticipants ?? [];
   const queued = thread.queuedParticipantSuggestions ?? [];
   if (participants.length === 0 && queued.length === 0) return null;
@@ -644,7 +650,7 @@ function ParticipantStrip({ thread, onOpen }: { thread: AgentThread; onOpen: () 
     <button type="button" className="zorai-thread-participants" onClick={onOpen}>
       {participants.map((participant) => (
         <span key={participant.agentId} className="zorai-status-pill">
-          {participant.agentName} / {participant.status}
+          {agentDisplayName(participant.agentName)} / {participant.status}
         </span>
       ))}
       {queued.map((suggestion) => (

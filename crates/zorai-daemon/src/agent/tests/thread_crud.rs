@@ -3658,3 +3658,72 @@ async fn get_thread_does_not_replace_richer_live_tool_payload_with_empty_db_stub
     );
     assert_eq!(live.content, "file.txt\n");
 }
+
+#[tokio::test]
+async fn thread_detail_backfills_inventory_only_for_fetched_page_images() {
+    let root = tempdir().expect("temp dir");
+    let manager = SessionManager::new_test(root.path()).await;
+    let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+    let legacy_image = |id: &str, timestamp: u64| {
+        let mut message = AgentMessage::user_with_blocks(
+            "legacy pasted image",
+            vec![AgentContentBlock::Image {
+                url: None,
+                data_url: Some("data:image/png;base64,cG5nLWJ5dGVz".to_string()),
+                mime_type: Some("image/png".to_string()),
+                inventory_path: None,
+            }],
+            timestamp,
+        );
+        message.id = id.to_string();
+        message
+    };
+    engine.threads.write().await.insert(
+        "thread-legacy".to_string(),
+        make_thread(
+            "thread-legacy",
+            Some(crate::agent::agent_identity::MAIN_AGENT_NAME),
+            "Legacy images",
+            false,
+            1,
+            2,
+            vec![legacy_image("old-msg", 1), legacy_image("new-msg", 2)],
+        ),
+    );
+    engine.persist_thread_by_id("thread-legacy").await;
+
+    let json = engine
+        .agent_thread_detail_json("thread-legacy", Some(1), None, true)
+        .await;
+    let detail: serde_json::Value = serde_json::from_str(&json).expect("detail json");
+    let page = detail["messages"].as_array().expect("messages");
+    assert_eq!(page.len(), 1);
+    assert_eq!(page[0]["id"], "new-msg");
+    let path = page[0]["content_blocks"][0]["inventory_path"]
+        .as_str()
+        .expect("fetched legacy image should gain an inventory copy");
+    assert_eq!(std::fs::read(path).expect("inventory copy"), b"png-bytes");
+
+    let persisted = engine
+        .history
+        .list_messages("thread-legacy", None)
+        .await
+        .expect("messages");
+    let persisted_blocks = |id: &str| -> serde_json::Value {
+        let message = persisted.iter().find(|message| message.id == id).expect("message");
+        let metadata: serde_json::Value =
+            serde_json::from_str(message.metadata_json.as_deref().expect("metadata")).expect("metadata json");
+        metadata["content_blocks"][0].clone()
+    };
+    assert_eq!(persisted_blocks("new-msg")["inventory_path"], path);
+    assert!(
+        persisted_blocks("old-msg").get("inventory_path").is_none(),
+        "messages outside the fetched page must not be scanned"
+    );
+    let threads = engine.threads.read().await;
+    let old = threads["thread-legacy"].messages.iter().find(|m| m.id == "old-msg").unwrap();
+    assert!(matches!(
+        old.content_blocks.first(),
+        Some(AgentContentBlock::Image { inventory_path: None, .. })
+    ));
+}

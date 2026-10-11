@@ -24,6 +24,7 @@ mod config_io;
 pub(crate) mod conversion;
 mod events;
 mod gateway_agent_picker;
+mod gateway_link;
 mod input_ops;
 mod keyboard;
 mod modal_handlers;
@@ -127,6 +128,9 @@ pub struct TuiModel {
     bootstrap_pending_activity_threads: std::collections::HashSet<String>,
     pending_prompt_response_threads: std::collections::HashSet<String>,
     deleted_thread_ids: std::collections::HashSet<String>,
+    gateway_chats: Vec<crate::client::GatewayChatVm>,
+    gateway_link_pending: Option<String>,
+    gateway_agent_picker_field: String,
     pending_local_message_delete_reload_suppression: std::collections::HashMap<String, usize>,
     pending_local_message_delete_backfills: std::collections::HashMap<String, usize>,
     pending_local_message_delete_fetches:

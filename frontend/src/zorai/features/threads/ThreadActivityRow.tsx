@@ -131,7 +131,7 @@ export function ThreadActivityRow({
         onClick={() => setExpanded((value) => !value)}
       >
         <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>
-        <strong>{title}</strong>
+        <span>{title}</span>
         <time>{formatActivityTime(createdAt)}</time>
       </button>
 

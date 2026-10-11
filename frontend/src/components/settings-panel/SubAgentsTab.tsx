@@ -6,6 +6,9 @@ import { selectableProviderAuthStates } from "./agentTabHelpers";
 import { ModelSelector } from "./shared";
 import { SUB_AGENT_ROLE_PRESETS, findSubAgentRolePreset } from "./subAgentRolePresets";
 import { OpenRouterProviderRoutingControls } from "./OpenRouterProviderRoutingControls";
+import { displayAgentName } from "../../lib/agentNames";
+
+const WELES_BUILTIN_SUBAGENT_ID = "weles_builtin";
 
 type SubAgentForm = {
     name: string;
@@ -55,6 +58,8 @@ export function SubAgentsTab() {
     const addSubAgent = useAgentStore((s) => s.addSubAgent);
     const removeSubAgent = useAgentStore((s) => s.removeSubAgent);
     const updateSubAgent = useAgentStore((s) => s.updateSubAgent);
+    const agentAliases = useAgentStore((s) => s.agentSettings.agent_aliases);
+    const updateAgentSetting = useAgentStore((s) => s.updateAgentSetting);
 
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -207,7 +212,7 @@ export function SubAgentsTab() {
                                             aria-hidden
                                         />
                                         <div className="zorai-subagent-card__copy">
-                                            <strong>{sa.name}</strong>
+                                            <strong>{sa.id === WELES_BUILTIN_SUBAGENT_ID ? displayAgentName(sa.name, agentAliases) : sa.name}</strong>
                                             <div className="zorai-subagent-card__meta">
                                                 {capabilities.isProtected && (
                                                     <span className="zorai-subagent-card__pill zorai-subagent-card__pill--warning">Built-in</span>
@@ -251,12 +256,14 @@ export function SubAgentsTab() {
 
             {showForm ? (
                 <div className="zorai-subagents__form">
-                    <Field label="Name">
+                    <Field label={editingId === WELES_BUILTIN_SUBAGENT_ID ? "Name (alias)" : "Name"}>
                         <input
                             className="zorai-input"
-                            value={form.name}
-                            onChange={(e) => setForm({ ...form, name: e.target.value })}
-                            placeholder="e.g., Code Reviewer"
+                            value={editingId === WELES_BUILTIN_SUBAGENT_ID ? agentAliases.weles : form.name}
+                            onChange={(e) => editingId === WELES_BUILTIN_SUBAGENT_ID
+                                ? updateAgentSetting("agent_aliases", { ...agentAliases, weles: e.target.value })
+                                : setForm({ ...form, name: e.target.value })}
+                            placeholder={editingId === WELES_BUILTIN_SUBAGENT_ID ? "Weles" : "e.g., Code Reviewer"}
                         />
                     </Field>
                     <Field label="Provider">
