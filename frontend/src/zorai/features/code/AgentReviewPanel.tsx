@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
+import { AgentChatPanelRuntimeContext } from "@/components/agent-chat-panel/runtime/context";
+import { openThreadTarget } from "@/zorai/features/threads/openThreadTarget";
 import { navigateZorai } from "@/zorai/shell/zoraiNavigationEvents";
 import {
   codeReviewStateFor,
@@ -26,6 +28,7 @@ export function AgentReviewPanel({ root, reviewerLabel, commitWindow, onFindIssu
   const review = useCodeReviewStore((state) => codeReviewStateFor(state.byRoot, root));
   const skipFindings = useCodeReviewStore((state) => state.skipFindings);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const runtime = useContext(AgentChatPanelRuntimeContext);
 
   const run = () => void onFindIssues();
   const hasFindings = review.status === "done" && review.findings.length > 0;
@@ -70,6 +73,11 @@ export function AgentReviewPanel({ root, reviewerLabel, commitWindow, onFindIssu
               : "No issues found")}
             {review.status === "idle" && `Reviews the last ${commitWindow} commit${commitWindow === 1 ? "" : "s"} with ${reviewerLabel}.`}
           </div>
+          {review.threadId && runtime ? (
+            <button type="button" className="zorai-agent-review-configure" onClick={() => void openThreadTarget(runtime, review.threadId!)}>
+              Open review thread
+            </button>
+          ) : null}
           <button type="button" className="zorai-agent-review-configure" onClick={() => navigateZorai({ view: "settings", settingsTab: "features" })}>
             Change reviewer or commit count
           </button>

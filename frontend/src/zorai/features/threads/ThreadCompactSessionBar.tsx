@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
-import { formatRunStatus, isRunActive, runStatusColor, type AgentRun } from "@/lib/agentRuns";
 import {
   fetchGitDiff,
   fetchThreadWorkContext,
@@ -28,6 +27,7 @@ import {
   type FileLineStats,
 } from "./compactSessionModel";
 import { useThreadFilePreview } from "./ThreadFilePreviewContext";
+import { SpawnedContext } from "./ThreadsSpawnedContext";
 import { pushToast } from "@/lib/toastStore";
 
 const MAX_TRACKED_FILES = 40;
@@ -136,6 +136,10 @@ export function ThreadCompactSessionBar() {
       && (!gitRoot || sameFilesystemPath(gitRoot, workspaceRoot))
     ) {
       requestFileView(localThreadId, workspacePath, "diff");
+      return;
+    }
+    if (localThreadId && entry.isText !== false && !isRelativeWorkspacePath(entry.path)) {
+      requestFileView(localThreadId, entry.path, "edit", { external: true });
       return;
     }
     openThreadFilePreview(entry);
@@ -279,39 +283,23 @@ export function ThreadCompactSessionBar() {
             {spawned.length} {spawned.length === 1 ? "Agent" : "Agents"}
           </button>
           {openSection === "spawned" ? (
-            <ul className="zorai-compact-session__list">
-              {spawned.map((item) => (
-                <SpawnedRow
-                  key={item.id}
-                  run={item}
-                  canOpen={runtime.canOpenSpawnedThread(item)}
-                  onOpen={() => void runtime.openSpawnedThread(item)}
-                />
-              ))}
-            </ul>
+            <div className="zorai-compact-session__spawned-tree">
+              <SpawnedContext
+                tree={runtime.spawnedAgentTree}
+                selectedDaemonThreadId={daemonThreadId}
+                canGoBackThread={runtime.canGoBackThread}
+                threadNavigationDepth={runtime.threadNavigationDepth}
+                backThreadTitle={runtime.backThreadTitle}
+                canOpenSpawnedThread={runtime.canOpenSpawnedThread}
+                openSpawnedThread={runtime.openSpawnedThread}
+                goBackThread={runtime.goBackThread}
+                compact
+              />
+            </div>
           ) : null}
         </section>
       ) : null}
     </div>
-  );
-}
-
-function SpawnedRow({
-  run,
-  canOpen,
-  onOpen,
-}: {
-  run: AgentRun;
-  canOpen: boolean;
-  onOpen: () => void;
-}) {
-  return (
-    <li className={isRunActive(run) ? "zorai-compact-session__spawned zorai-compact-session__spawned--live" : "zorai-compact-session__spawned"}>
-      <button type="button" className="zorai-compact-session__spawned-main" disabled={!canOpen} onClick={onOpen}>
-        <strong>{run.description.trim() || run.title}</strong>
-        <span style={{ color: runStatusColor(run.status) }}>{formatRunStatus(run)}</span>
-      </button>
-    </li>
   );
 }
 

@@ -3155,6 +3155,94 @@ async fn start_goal_run_tool_forwards_launch_assignments_to_goal_snapshot() {
 }
 
 #[tokio::test]
+async fn spawn_subagent_is_held_from_dispatch_until_configured_then_released() {
+    let root = tempdir().expect("tempdir should succeed");
+    let manager = SessionManager::new_test(root.path()).await;
+    let engine = AgentEngine::new_test(manager.clone(), AgentConfig::default(), root.path()).await;
+    let (event_tx, _) = broadcast::channel(8);
+    let thread_id = "thread-parent";
+    let parent_task = engine
+        .enqueue_task(
+            "Parent goal task".to_string(),
+            "Coordinate child work".to_string(),
+            "normal",
+            None,
+            None,
+            Vec::new(),
+            None,
+            "goal_run",
+            Some("goal-spawn-1".to_string()),
+            None,
+            None,
+            Some("daemon".to_string()),
+        )
+        .await;
+
+    {
+        let mut threads = engine.threads.write().await;
+        threads.insert(
+            thread_id.to_string(),
+            crate::agent::types::AgentThread {
+                id: thread_id.to_string(),
+                agent_name: None,
+                title: "Parent".to_string(),
+                messages: vec![crate::agent::types::AgentMessage::user(
+                    "Delegate this to a child agent.",
+                    1,
+                )],
+                pinned: false,
+                upstream_thread_id: None,
+                upstream_transport: None,
+                upstream_provider: None,
+                upstream_model: None,
+                upstream_assistant_id: None,
+                total_input_tokens: 0,
+                total_output_tokens: 0,
+                created_at: 1,
+                updated_at: 1,
+            },
+        );
+    }
+
+    let result = super::execute_spawn_subagent(
+        &serde_json::json!({
+            "title": "Configured child",
+            "description": "Reserve the child thread immediately."
+        }),
+        &engine,
+        thread_id,
+        Some(&parent_task.id),
+        &manager,
+        None,
+        &event_tx,
+    )
+    .await
+    .expect("spawn_subagent should succeed");
+
+    let _ = result;
+    let spawned_task = engine
+        .list_tasks()
+        .await
+        .into_iter()
+        .find(|task| task.id != parent_task.id)
+        .expect("spawned subagent task should exist");
+    assert_eq!(
+        spawned_task.status,
+        TaskStatus::Queued,
+        "the configuration hold must be released once the spawn finished configuring the task"
+    );
+    assert_eq!(spawned_task.scheduled_at, None);
+    assert_eq!(spawned_task.blocked_reason, None);
+    let queue_log = spawned_task
+        .logs
+        .iter()
+        .find(|entry| entry.phase == "queue")
+        .expect("enqueue log should exist");
+    assert_eq!(queue_log.message, "task enqueued");
+    assert_eq!(queue_log.details, None);
+}
+
+#[tokio::test]
 async fn spawn_subagent_reserves_thread_id_immediately() {
     let root = tempdir().expect("tempdir should succeed");
     let manager = SessionManager::new_test(root.path()).await;

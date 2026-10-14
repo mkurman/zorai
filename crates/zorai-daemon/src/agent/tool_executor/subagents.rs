@@ -471,6 +471,33 @@ fn derive_subagent_limits(
     })
 }
 
+const SUBAGENT_CONFIGURATION_HOLD_MS: u64 = 10 * 60 * 1000;
+
+fn release_subagent_configuration_hold(subagent: &mut AgentTask, scheduled_at: Option<u64>) {
+    let schedule_reason = scheduled_at
+        .filter(|deadline| *deadline > crate::agent::task_prompt::now_millis())
+        .map(crate::agent::task_scheduler::describe_scheduled_time);
+    subagent.scheduled_at = scheduled_at;
+    subagent.status = if schedule_reason.is_some() {
+        TaskStatus::Blocked
+    } else {
+        TaskStatus::Queued
+    };
+    subagent.blocked_reason = schedule_reason.clone();
+    if let Some(entry) = subagent
+        .logs
+        .iter_mut()
+        .find(|entry| entry.phase == "queue")
+    {
+        entry.message = if schedule_reason.is_some() {
+            "task scheduled".to_string()
+        } else {
+            "task enqueued".to_string()
+        };
+        entry.details = schedule_reason;
+    }
+}
+
 pub(crate) async fn execute_spawn_subagent(
     args: &serde_json::Value,
     agent: &AgentEngine,
@@ -701,6 +728,8 @@ pub(crate) async fn execute_spawn_subagent(
         }
     }
 
+    let configuration_hold =
+        crate::agent::task_prompt::now_millis() + SUBAGENT_CONFIGURATION_HOLD_MS;
     let mut subagent = agent
         .enqueue_task(
             title.clone(),
@@ -709,7 +738,7 @@ pub(crate) async fn execute_spawn_subagent(
             command,
             chosen_session,
             dependencies,
-            scheduled_at,
+            Some(configuration_hold),
             "subagent",
             task_snapshot
                 .as_ref()
@@ -899,6 +928,7 @@ pub(crate) async fn execute_spawn_subagent(
             .register_subagent_collaboration(parent_task_id, &subagent)
             .await;
     }
+    release_subagent_configuration_hold(&mut subagent, scheduled_at);
     {
         let mut tasks = agent.tasks.lock().await;
         if let Some(existing) = tasks.iter_mut().find(|t| t.id == subagent.id) {

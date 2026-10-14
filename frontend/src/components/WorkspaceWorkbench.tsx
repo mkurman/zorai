@@ -36,7 +36,8 @@ import { WorkspaceSourceControlChanges } from "@/zorai/features/code/WorkspaceSo
 import { BranchSwitcher } from "@/zorai/features/code/BranchSwitcher";
 import { CommitGraph } from "@/zorai/features/code/CommitGraph";
 import { AgentReviewPanel } from "@/zorai/features/code/AgentReviewPanel";
-import { buildReviewPrompt, NO_ISSUES_MARKER, parseReviewFindings, resolveCodeReviewer, useCodeReviewStore } from "@/zorai/features/code/codeReview";
+import { buildReviewPrompt, extractSpawnedSubagentId, resolveCodeReviewer, resolveReviewReport, useCodeReviewStore, waitForSubagentRun } from "@/zorai/features/code/codeReview";
+import { fetchAgentRuns } from "@/lib/agentRuns";
 import { confirmWorkspaceDiscard, runWorkspaceGitMutation } from "@/zorai/features/code/workspaceGitActions";
 import { loadWorkspaceRootState, loadWorkspaceGitState, runWorkspacePathMutation } from "@/zorai/features/code/workspaceRefresh";
 import { useComposerDraftStore } from "@/zorai/features/threads/composerDraftStore";
@@ -954,43 +955,51 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     try {
       const history = await bridge.workspaceGitHistory?.(root, { limit: commitWindow }) ?? [];
       if (history.length === 0) {
-        store.finishReview(root, [], "");
+        store.failReview(root, "There are no commits on this branch to review yet.");
         return null;
       }
-      const detailResults = await Promise.all(history.map(async (commit) => {
-        const detail = await bridge.workspaceGitCommitDetail?.(root, commit.hash).catch(() => null);
-        return detail ? { ...commit, body: detail.body, files: detail.files } : commit;
-      }));
-      const diffs = (await Promise.all(history.map(async (commit) => {
-        const diff = await bridge.workspaceGitShow?.(root, "", commit.hash).catch(() => "");
-        return { shortHash: commit.shortHash, diff: diff ?? "" };
-      }))).filter((entry) => entry.diff.trim());
       const prompt = buildReviewPrompt({
         root,
         branch: gitOverview?.branch ?? null,
-        commits: detailResults,
-        diffs,
+        commits: history,
       });
       const reviewer = resolveCodeReviewer(agentSettings.code_review_agent, useAgentStore.getState().subAgents);
       const result = await bridge.agentSpawnSubagent(activeDaemonThreadId, {
-        title: `Code review · ${root.split(/[\\/]/).slice(-1)[0]}`,
+        title: reviewer.spawnTitle ?? `Code review · ${root.split(/[\\/]/).slice(-1)[0]}`,
         description: prompt,
         cwd: root,
         priority: "normal",
-        ...(reviewer.provider && reviewer.model ? { provider: reviewer.provider, model: reviewer.model } : {}),
       });
       if (result?.ok === false) {
         store.failReview(root, result.error ?? "Review agent failed.");
         return null;
       }
-      const raw = typeof result?.content === "string" ? result.content : "";
-      if (raw.includes(NO_ISSUES_MARKER)) {
-        store.finishReview(root, [], raw);
-        return raw;
+      const spawnReply = typeof result?.content === "string" ? result.content : "";
+      const subagentId = extractSpawnedSubagentId(spawnReply);
+      if (!subagentId) {
+        store.failReview(root, `The review agent did not start: ${spawnReply.slice(0, 240) || "no reply from the daemon"}`);
+        return null;
       }
-      const findings = parseReviewFindings(raw);
-      store.finishReview(root, findings, raw);
-      return raw;
+      const parentThreadId = activeDaemonThreadId;
+      const run = await waitForSubagentRun(() => fetchAgentRuns(parentThreadId), subagentId, {
+        onThread: (threadId) => useCodeReviewStore.getState().setReviewThread(root, threadId),
+      });
+      if (run.status !== "completed") {
+        useCodeReviewStore.getState().failReview(root, run.error ?? run.last_error ?? `The review agent stopped (${run.status}).`);
+        return null;
+      }
+      const thread = run.thread_id ? await bridge.agentGetThread?.(run.thread_id, { messageLimit: 20 }).catch(() => null) : null;
+      const replies = ((thread as { messages?: Array<{ role?: string; content?: string }> } | null)?.messages ?? [])
+        .filter((message) => message.role === "assistant" && message.content)
+        .map((message) => message.content)
+        .reverse();
+      const report = resolveReviewReport([run.result, ...replies]);
+      if (!report) {
+        useCodeReviewStore.getState().failReview(root, "The review agent finished without reporting findings or NO_ISSUES_FOUND; open its thread to read its reply.");
+        return null;
+      }
+      store.finishReview(root, report.findings, report.raw);
+      return report.raw;
     } catch (reason: any) {
       useCodeReviewStore.getState().failReview(root, reason?.message ?? String(reason));
       return null;

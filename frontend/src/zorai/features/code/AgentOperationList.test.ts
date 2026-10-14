@@ -18,12 +18,12 @@ describe("agent operation rows", () => {
 describe("resolveCodeReviewer", () => {
   const reviewer = { id: "reviewer", name: "Strict reviewer", provider: "anthropic", model: "claude-opus-5-5", enabled: true };
 
-  it("uses the configured subagent's provider and model so Find Issues actually runs on it", () => {
-    expect(resolveCodeReviewer("reviewer", [reviewer])).toEqual({ label: "Strict reviewer", provider: "anthropic", model: "claude-opus-5-5" });
+  it("spawns under the subagent's name, because the daemon applies a definition's persona, prompt and model only when the spawn title matches it", () => {
+    expect(resolveCodeReviewer("reviewer", [reviewer])).toEqual({ label: "Strict reviewer", spawnTitle: "Strict reviewer" });
   });
 
   it("falls back to the thread's own agent for lead personas that cannot be spawned or disabled subagents", () => {
-    expect(resolveCodeReviewer("weles", [reviewer]).provider).toBeNull();
+    expect(resolveCodeReviewer("weles", [reviewer]).spawnTitle).toBeNull();
     expect(resolveCodeReviewer("reviewer", [{ ...reviewer, enabled: false }]).label).toBe("this thread's agent");
   });
 });
