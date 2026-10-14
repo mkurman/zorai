@@ -368,7 +368,7 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   compact_threshold_pct: 80,
   keep_recent_on_compact: 10,
   weles_max_concurrent_reviews: 2,
-  code_review_agent: "weles",
+  code_review_agent: "thread",
   code_review_commit_window: 5,
   compaction: {
     strategy: "heuristic",

@@ -470,6 +470,10 @@ where
             let msg = serde_json::json!({"type":"sub-agent-removed","data":{"sub_agent_id":sub_agent_id}});
             emit_agent_event(&msg.to_string())?;
         }
+        Some(Ok(DaemonMessage::AgentFileOperationBefore { result_json })) => {
+            let msg = serde_json::json!({"type":"file-operation-before","data":serde_json::from_str::<serde_json::Value>(&result_json).unwrap_or_default()});
+            emit_agent_event(&msg.to_string())?;
+        }
         Some(Ok(DaemonMessage::DataQueryResult { result_json })) => {
             let msg = serde_json::json!({"type":"data-query-result","data":serde_json::from_str::<serde_json::Value>(&result_json).unwrap_or_default()});
             emit_agent_event(&msg.to_string())?;

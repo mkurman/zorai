@@ -30,6 +30,18 @@ pub(crate) struct OperationSnapshotManifest {
     pub entries: Vec<OperationSnapshotEntry>,
 }
 
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct OperationBeforeContent {
+    pub operation_id: String,
+    pub path: String,
+    pub resolved_path: Option<String>,
+    pub available: bool,
+    pub before_existed: bool,
+    pub binary: bool,
+    pub content: Option<String>,
+    pub error: Option<String>,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct OperationSnapshotStatus {
     pub operation_id: String,
@@ -680,6 +692,73 @@ impl AgentEngine {
             retained_bytes,
             entries: manifest.entries,
             reason,
+        }
+    }
+
+    pub async fn file_operation_before_content(
+        &self,
+        operation_id: &str,
+        path: &str,
+    ) -> OperationBeforeContent {
+        let result = |resolved_path: Option<String>,
+                      available: bool,
+                      before_existed: bool,
+                      binary: bool,
+                      content: Option<String>,
+                      error: Option<String>| OperationBeforeContent {
+            operation_id: operation_id.to_string(),
+            path: path.to_string(),
+            resolved_path,
+            available,
+            before_existed,
+            binary,
+            content,
+            error,
+        };
+        let unavailable = |error: String| result(None, false, false, false, None, Some(error));
+        let operation_dir = self
+            .data_dir
+            .join("operation-snapshots")
+            .join(operation_snapshot_component(operation_id));
+        let Ok(manifest_bytes) = tokio::fs::read(operation_dir.join("manifest.json")).await else {
+            return unavailable("No retained snapshot exists for this operation.".to_string());
+        };
+        let manifest: OperationSnapshotManifest = match serde_json::from_slice(&manifest_bytes) {
+            Ok(manifest) => manifest,
+            Err(error) => {
+                return unavailable(format!("Invalid operation snapshot manifest: {error}"));
+            }
+        };
+        if manifest.operation_id != operation_id {
+            return unavailable("operation snapshot identity mismatch".to_string());
+        }
+        let suffix = format!("/{}", path.trim_start_matches("./"));
+        let suffix_matches = manifest
+            .entries
+            .iter()
+            .filter(|entry| entry.path.ends_with(&suffix))
+            .collect::<Vec<_>>();
+        let entry = match manifest.entries.iter().find(|entry| entry.path == path) {
+            Some(entry) => entry,
+            None if suffix_matches.len() == 1 => suffix_matches[0],
+            None => return unavailable(format!("{path} is not part of this operation.")),
+        };
+        let resolved = Some(entry.path.clone());
+        if !entry.before_existed {
+            return result(resolved, true, false, false, Some(String::new()), None);
+        }
+        let Some(snapshot_file) = entry.snapshot_file.as_deref() else {
+            return unavailable(
+                "Pre-operation bytes were not retained for a sensitive or oversized file."
+                    .to_string(),
+            );
+        };
+        match tokio::fs::read(operation_dir.join(snapshot_file)).await {
+            Ok(bytes) => match String::from_utf8(bytes) {
+                Ok(content) => result(resolved, true, true, false, Some(content), None),
+                Err(_) => result(resolved, true, true, true, None, None),
+            },
+            Err(error) => unavailable(format!("Failed to read retained snapshot: {error}")),
         }
     }
 
@@ -1504,6 +1583,69 @@ mod tests {
             std::fs::read(&file).expect("read later edit"),
             b"later edit"
         );
+    }
+
+    #[tokio::test]
+    async fn operation_before_content_lets_the_change_be_reviewed_before_revert() {
+        let root = tempdir().expect("tempdir");
+        let manager = SessionManager::new_test(root.path()).await;
+        let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+        let edited = root.path().join("edited.txt");
+        let created = root.path().join("created.txt");
+        std::fs::write(&edited, b"line one\n").expect("write before");
+        let snapshots = vec![
+            ToolFileSnapshot {
+                path: edited.to_string_lossy().to_string(),
+                before_hash: file_sha256(edited.to_string_lossy().as_ref()),
+                before_existed: true,
+                before_bytes: Some(b"line one\n".to_vec()),
+            },
+            ToolFileSnapshot {
+                path: created.to_string_lossy().to_string(),
+                before_hash: None,
+                before_existed: false,
+                before_bytes: None,
+            },
+        ];
+        std::fs::write(&edited, b"line one\nline two\n").expect("write after");
+        std::fs::write(&created, b"new").expect("create");
+        engine
+            .persist_operation_snapshot(
+                "thread-1",
+                None,
+                "apply_patch",
+                "operation-view",
+                &snapshots,
+            )
+            .await;
+
+        let before = engine
+            .file_operation_before_content("operation-view", edited.to_string_lossy().as_ref())
+            .await;
+        assert!(before.available);
+        assert_eq!(before.content.as_deref(), Some("line one\n"));
+
+        let by_relative_path = engine
+            .file_operation_before_content("operation-view", "edited.txt")
+            .await;
+        assert_eq!(by_relative_path.content.as_deref(), Some("line one\n"));
+        assert_eq!(
+            by_relative_path.resolved_path.as_deref(),
+            Some(edited.to_string_lossy().as_ref())
+        );
+
+        let created_before = engine
+            .file_operation_before_content("operation-view", created.to_string_lossy().as_ref())
+            .await;
+        assert!(created_before.available);
+        assert!(!created_before.before_existed);
+        assert_eq!(created_before.content.as_deref(), Some(""));
+
+        let foreign = engine
+            .file_operation_before_content("operation-view", "/etc/passwd")
+            .await;
+        assert!(!foreign.available);
+        assert!(foreign.content.is_none());
     }
 
     #[tokio::test]

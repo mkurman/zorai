@@ -41,6 +41,7 @@ pub(crate) async fn dispatch_part4(
             | ClientMessage::AgentGetTodos { .. }
             | ClientMessage::AgentGetWorkContext { .. }
             | ClientMessage::AgentGetFileOperationSnapshot { .. }
+            | ClientMessage::AgentGetFileOperationBefore { .. }
             | ClientMessage::AgentRevertFileOperation { .. }
             | ClientMessage::AgentGetThreadWorkspaceContext { .. }
             | ClientMessage::AgentSetThreadWorkspaceContext { .. }
@@ -592,6 +593,17 @@ pub(crate) async fn dispatch_part4(
                 .send(DaemonMessage::AgentWorkContextDetail {
                     thread_id,
                     context_json: json,
+                })
+                .await?;
+        }
+
+        ClientMessage::AgentGetFileOperationBefore { operation_id, path } => {
+            let content = agent
+                .file_operation_before_content(&operation_id, &path)
+                .await;
+            framed
+                .send(DaemonMessage::AgentFileOperationBefore {
+                    result_json: serde_json::to_string(&content).unwrap_or_default(),
                 })
                 .await?;
         }

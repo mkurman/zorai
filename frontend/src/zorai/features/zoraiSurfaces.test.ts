@@ -87,8 +87,10 @@ describe("Zorai feature surfaces", () => {
     expect(workbenchSource).not.toContain('<details className="zorai-workspace-isolated-reviews" open>');
     expect(workbenchSource).not.toContain('<details className="zorai-workspace-problems" open>');
     expect(workbenchSource).not.toContain('<details className="zorai-workspace-conflicts" open>');
-    expect(workbenchSource).not.toContain('<details className="zorai-workspace-operation-changes" open>');
-    expect(workbenchSource).not.toContain('<details className="zorai-workspace-agent-changes" open>');
+    expect(workbenchSource).toContain('<CodeRailTabs');
+    expect(workbenchSource).toContain('{railTab === "agent" ? (');
+    expect(workbenchSource).toContain('<details className="zorai-workspace-operation-changes" open>');
+    expect(workbenchSource).toContain('<details className="zorai-workspace-agent-changes" open>');
     expect(workbenchSource).toContain("shouldRestoreWorkspaceDocument");
     expect(workbenchSource).toContain("shouldPassthroughCodeCommand");
     expect(workbenchSource).toContain("shouldPassthroughCodeCommand(command.id, event.target)");

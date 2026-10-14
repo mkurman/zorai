@@ -1926,6 +1926,48 @@
   font-size: var(--text-sm);
 }
 
+.zorai-workspace-editor { position: relative; }
+.zorai-code-preview { position: absolute; inset: 0; overflow: auto; padding: 18px 28px; background: var(--zorai-bg-panel); }
+.zorai-code-preview__markdown { max-width: 920px; margin: 0 auto; }
+.zorai-code-rail-tabs { position: sticky; top: 0; z-index: 3; display: flex; gap: 2px; padding: 6px 8px; background: var(--zorai-bg-panel); border-bottom: 1px solid var(--zorai-border); }
+.zorai-code-rail-tabs button { flex: 1; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 6px 4px; border: 0; border-radius: 4px; background: transparent; color: var(--zorai-muted); font-size: var(--text-xs); white-space: nowrap; cursor: pointer; }
+.zorai-code-rail-tabs button > span:first-child { overflow: hidden; text-overflow: ellipsis; }
+.zorai-code-rail-tabs button:hover { background: var(--zorai-bg-active); color: var(--zorai-text); }
+.zorai-code-rail-tabs button.is-active { background: var(--zorai-bg-active); color: var(--zorai-text); box-shadow: inset 0 -2px var(--zorai-accent); }
+.zorai-code-rail-tabs__badge { flex-shrink: 0; min-width: 16px; padding: 0 4px; border-radius: 999px; background: color-mix(in srgb, var(--zorai-text) 12%, transparent); color: var(--zorai-text); font: 600 9px/16px var(--font-mono); }
+.zorai-code-rail-tabs__badge.is-danger { background: var(--danger); color: var(--text-on-accent); }
+@container (max-width: 300px) { .zorai-code-rail-tabs button { font-size: var(--text-2xs); } }
+.zorai-code-toolbar-menu { position: relative; display: inline-flex; }
+.zorai-code-toolbar-menu__list { position: absolute; z-index: 60; top: calc(100% + 4px); right: 0; min-width: 240px; padding: 4px; border: 1px solid var(--zorai-border-strong); border-radius: 6px; background: var(--zorai-bg-elevated); box-shadow: var(--shadow-md); display: grid; }
+.zorai-code-toolbar-menu__list button { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 6px 10px; border: 0; border-radius: 4px; background: transparent; color: var(--zorai-text); font-size: var(--text-xs); text-align: left; cursor: pointer; }
+.zorai-code-toolbar-menu__list button:hover:not(:disabled) { background: var(--zorai-bg-active); }
+.zorai-code-toolbar-menu__list button.has-separator { margin-top: 4px; border-top: 1px solid var(--zorai-border); border-radius: 0 0 4px 4px; padding-top: 8px; }
+.zorai-code-toolbar-menu__list button.is-danger { color: var(--danger); }
+.zorai-code-toolbar-menu__list kbd { color: var(--zorai-muted); font: 10px var(--font-mono); }
+.zorai-agent-review-configure { align-self: center; border: 0; background: transparent; color: var(--zorai-muted); font-size: var(--text-2xs); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.zorai-agent-review-configure:hover { color: var(--zorai-accent); }
+.zorai-agent-operations { display: grid; }
+.zorai-agent-operation { padding: 8px 10px; border-bottom: 1px solid var(--zorai-border); }
+.zorai-agent-operation header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.zorai-agent-operation__tool { color: var(--zorai-text); font: 600 10px var(--font-mono); }
+.zorai-agent-operation__meta { flex-shrink: 0; color: var(--zorai-muted); font-size: var(--text-2xs); }
+.zorai-agent-operation__file { width: 100%; min-width: 0; display: flex; align-items: baseline; gap: 6px; padding: 3px 4px; border: 0; border-radius: 4px; background: transparent; color: var(--zorai-text); font-size: var(--text-xs); text-align: left; cursor: pointer; }
+.zorai-agent-operation__file:hover { background: var(--zorai-bg-active); }
+.zorai-agent-operation__file strong { flex-shrink: 0; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.zorai-agent-operation__file small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--zorai-muted); font-size: var(--text-2xs); }
+.zorai-agent-operation__mark { flex-shrink: 0; width: 12px; color: var(--warning); font: 700 9px var(--font-mono); }
+.zorai-agent-operation__mark.is-created { color: var(--success); }
+.zorai-agent-operation footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; color: var(--zorai-muted); font-size: var(--text-2xs); }
+.zorai-agent-operation footer button { padding: 2px 8px; border: 1px solid var(--zorai-border-strong); border-radius: 4px; background: transparent; color: var(--zorai-text); font-size: var(--text-2xs); cursor: pointer; }
+.zorai-agent-operation footer button:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
+.zorai-agent-operation footer button:disabled { opacity: .45; cursor: default; }
+.zorai-agent-operation__reason { margin: 4px 0 0; color: var(--zorai-muted); font-size: var(--text-2xs); }
+.zorai-operation-diff__actions { display: flex; align-items: center; gap: 8px; }
+.zorai-operation-diff__actions .zorai-ghost-button { padding: 4px 10px; }
+.zorai-operation-diff__revert:not(:disabled) { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+.zorai-operation-diff__editor { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.zorai-operation-diff__editor > * { flex: 1; min-height: 0; }
+
 .zorai-file-preview-overlay__body {
   min-height: 0;
   overflow: hidden;
@@ -1998,8 +2040,9 @@
 }
 
 .zorai-view-toggle__button--active {
-  background: var(--zorai-bg-surface);
-  color: var(--zorai-text);
+  background: var(--accent-soft);
+  color: var(--zorai-accent);
+  font-weight: 600;
 }
 
 .zorai-file-preview-overlay__markdown {
@@ -3959,15 +4002,16 @@
   color: var(--zorai-muted);
   font: 11px var(--font-mono);
 }
-.zorai-workspace-actionbar > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zorai-workspace-actionbar > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zorai-workspace-actionbar .zorai-view-toggle { flex-shrink: 0; border-radius: 5px; }
+.zorai-workspace-actionbar .zorai-view-toggle .zorai-view-toggle__button { border: 0; border-radius: 0; padding: 2px 8px; background: transparent; color: var(--zorai-muted); font: 10px var(--font-mono); }
+.zorai-workspace-actionbar .zorai-view-toggle .zorai-view-toggle__button--active { background: var(--accent-soft); color: var(--zorai-accent); font-weight: 600; }
 .zorai-code-toolbar {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 5px;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
+  flex-shrink: 0;
 }
 .zorai-code-toolbar::-webkit-scrollbar { display: none; }
 .zorai-code-toolbar-group { display: flex; align-items: center; gap: 2px; }
@@ -4120,9 +4164,6 @@
 .zorai-workspace-source-control { max-height: 34%; overflow: auto; border-block: 1px solid var(--zorai-border); }
 .zorai-workspace-source-control summary { position: sticky; top: 0; z-index: 1; padding: 7px 9px; background: var(--zorai-bg-elevated); color: var(--zorai-muted); font-size: 10px; text-transform: uppercase; cursor: pointer; }
 .zorai-workspace-source-control > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px; padding: 4px 7px; border-bottom: 1px solid var(--zorai-border); }
-.zorai-workspace-change-path { min-width: 0; display: flex; justify-content: space-between; gap: 5px; border: 0; background: transparent; color: var(--zorai-text); font: 10px var(--font-mono); text-align: left; }
-.zorai-workspace-change-path strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.zorai-workspace-change-path span { color: var(--zorai-accent-secondary); }
 .zorai-workspace-change-actions { display: flex; gap: 3px; }
 .zorai-workspace-change-actions button { padding: 2px 4px; border: 1px solid var(--zorai-border); border-radius: 3px; background: var(--zorai-bg-elevated); color: var(--zorai-muted); font-size: 9px; cursor: pointer; }
 
@@ -4149,8 +4190,8 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-workspace-git-overview { display: grid; gap: 5px; padding: 8px; border-block: 1px solid var(--zorai-border); background: var(--zorai-bg-panel); color: var(--zorai-muted); font-size: 10px; }
 .zorai-workspace-git-overview > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .zorai-workspace-git-overview textarea { width: 100%; resize: vertical; box-sizing: border-box; border: 1px solid var(--zorai-border); border-radius: 4px; padding: 6px; background: var(--zorai-bg-surface); color: var(--zorai-text); font: 10px/1.4 var(--font-mono); }
-.zorai-workspace-git-overview button { padding: 5px 7px; border: 1px solid var(--zorai-accent); border-radius: 4px; background: var(--accent-soft); color: var(--zorai-accent); font-size: 10px; cursor: pointer; }
-.zorai-workspace-git-overview button:disabled { opacity: .45; cursor: default; }
+.zorai-workspace-git-overview .zorai-scm-commit { padding: 5px 7px; border: 1px solid var(--zorai-accent); border-radius: 4px; background: var(--accent-soft); color: var(--zorai-accent); font-size: 10px; cursor: pointer; }
+.zorai-workspace-git-overview .zorai-scm-commit:disabled { opacity: .45; cursor: default; }
 
 .zorai-workspace-operation-changes { max-height: 38%; overflow: auto; border-block: 1px solid var(--zorai-border); }
 .zorai-workspace-operation-changes summary { position: sticky; top: 0; z-index: 1; padding: 7px 9px; background: var(--zorai-bg-elevated); color: var(--zorai-muted); font-size: 10px; text-transform: uppercase; cursor: pointer; }
@@ -5906,6 +5947,17 @@ button.zorai-composer-context-chip { cursor: pointer; }
 /* --- Branch switcher --- */
 .zorai-code-source-heading-actions { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
 .zorai-branch-switcher { position: relative; display: inline-flex; }
+.zorai-branch-switcher-button span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.zorai-scm-branch-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.zorai-scm-branch-row .zorai-branch-switcher { flex: 1; min-width: 0; position: static; }
+.zorai-scm-branch-row .zorai-branch-switcher-button { width: 100%; min-height: 26px; padding: 0 8px; color: var(--zorai-text); font-size: var(--text-xs); }
+.zorai-scm-branch-row .zorai-branch-switcher-menu { left: 8px; right: 8px; top: auto; margin-top: 4px; min-width: 0; }
+.zorai-scm-branch-row > strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--zorai-text); }
+.zorai-scm-sync { flex-shrink: 0; color: var(--zorai-muted); font: 10px var(--font-mono); }
+.zorai-workspace-git-overview { position: relative; }
+.zorai-code-commit-graph-section > summary { padding: 7px 9px !important; min-height: 0 !important; background: var(--zorai-bg-elevated); font-weight: 400 !important; letter-spacing: normal !important; border-top: 1px solid var(--zorai-border); }
+.zorai-agent-review-action { background: var(--accent-soft) !important; color: var(--zorai-accent) !important; border-color: color-mix(in srgb, var(--zorai-accent) 45%, transparent) !important; }
+
 .zorai-branch-switcher-button { display: inline-flex; align-items: center; gap: 4px; min-height: 20px; border: 1px solid var(--zorai-border); border-radius: 4px; padding: 0 6px; background: transparent; color: var(--zorai-muted); font-size: 9px; cursor: pointer; }
 .zorai-branch-switcher-button:hover { background: var(--zorai-bg-active); color: var(--zorai-text); }
 .zorai-branch-switcher-button svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -5922,7 +5974,8 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-workspace-change-row { min-height: 30px; display: flex; align-items: center; gap: 2px; padding: 0 5px; }
 .zorai-workspace-change-row:hover { background: var(--zorai-bg-active); }
 .zorai-workspace-change-path { min-width: 0; flex: 1; display: flex; align-items: center; gap: 3px; border: 0; background: transparent; color: var(--zorai-text); text-align: left; cursor: pointer; }
-.zorai-workspace-change-path > span { min-width: 0; display: flex; flex: 1; flex-direction: column; }
+.zorai-workspace-change-path > span:not(.zorai-code-file-icon) { min-width: 0; display: flex; flex: 1; flex-direction: column; }
+.zorai-workspace-change-path .zorai-code-file-icon { flex: 0 0 18px; text-align: center; }
 .zorai-workspace-change-path strong, .zorai-workspace-change-path small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .zorai-workspace-change-path small { color: var(--zorai-muted); font-size: 8px; }.zorai-workspace-change-path em { color: var(--zorai-accent); font: 700 10px var(--font-mono); }
 .zorai-workspace-change-actions { display: flex; opacity: 0; }.zorai-workspace-change-row:hover .zorai-workspace-change-actions, .zorai-workspace-change-actions:focus-within { opacity: 1; }

@@ -17,6 +17,8 @@ export function CodeIcon({ icon }: { icon: CodeIconId }) {
     case "pin": return <svg {...common}><path d="m8 3 8 8-2 2 3 4-1 1-4-3-2 2-8-8zM8 16l-5 5" /></svg>;
     case "terminal": return <svg {...common}><path d="m4 6 5 5-5 5M11 18h9" /></svg>;
     case "text": return <svg {...common}><path d="M5 5h14M12 5v14M8 19h8" /></svg>;
+    case "diff": return <svg {...common}><path d="M6 3v12M3 6h6M15 21V9M12 18h6M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6M18 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6" /></svg>;
+    case "more": return <svg {...common}><circle cx="5" cy="12" r="1.4" /><circle cx="12" cy="12" r="1.4" /><circle cx="19" cy="12" r="1.4" /></svg>;
     case "edit": return <svg {...common}><path d="m4 20 4-1 11-11-3-3L5 16zM14 7l3 3" /></svg>;
     default: return <svg {...common}><path d="M5 3h10l4 4v14H5zM14 3v5h5" /></svg>;
   }

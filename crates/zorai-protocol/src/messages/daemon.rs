@@ -210,4 +210,5 @@ pub enum DaemonMessage {
     AgentThreadExecutionProfile { thread_id: String, profile_json: String },
     AgentGatewayChats { chats_json: String },
     DataQueryResult { result_json: String },
+    AgentFileOperationBefore { result_json: String },
 }

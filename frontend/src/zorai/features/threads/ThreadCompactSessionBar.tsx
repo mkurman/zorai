@@ -15,6 +15,7 @@ import {
   flattenSpawnedRuns,
   gitStatusMatchesPath,
   isRelativeWorkspacePath,
+  pendingWorkContextEntries,
   isUntrackedGitStatus,
   rejectUsesOperationSnapshot,
   sameFilesystemPath,
@@ -27,6 +28,7 @@ import {
   type FileLineStats,
 } from "./compactSessionModel";
 import { useThreadFilePreview } from "./ThreadFilePreviewContext";
+import { pushToast } from "@/lib/toastStore";
 
 const MAX_TRACKED_FILES = 40;
 
@@ -42,6 +44,7 @@ export function ThreadCompactSessionBar() {
   const [entries, setEntries] = useState<WorkContextEntry[]>([]);
   const [statsByPath, setStatsByPath] = useState<Record<string, FileLineStats>>({});
   const [busyPath, setBusyPath] = useState<string | null>(null);
+  const [statusByRoot, setStatusByRoot] = useState<Record<string, ZoraiWorkspaceGitStatus[]>>({});
   const [openSection, setOpenSection] = useState<CompactSessionSection | null>(null);
   const spawned = useMemo(
     () => flattenSpawnedRuns(runtime.spawnedAgentTree),
@@ -72,6 +75,26 @@ export function ThreadCompactSessionBar() {
     });
   }, [daemonThreadId, refresh]);
 
+  const refreshGitStatus = useCallback(async () => {
+    const bridge = getBridge();
+    if (!bridge?.workspaceGitStatus) return;
+    const roots = [...new Set(entries.map((entry) => entry.repoRoot ?? workspaceRoot).filter((root): root is string => Boolean(root)))];
+    const next: Record<string, ZoraiWorkspaceGitStatus[]> = {};
+    for (const root of roots) {
+      next[root] = await bridge.workspaceGitStatus(root).catch(() => []);
+    }
+    setStatusByRoot(next);
+  }, [entries, workspaceRoot]);
+
+  useEffect(() => {
+    void refreshGitStatus();
+  }, [refreshGitStatus]);
+
+  const pending = useMemo(
+    () => pendingWorkContextEntries(entries, statusByRoot, workspaceRoot),
+    [entries, statusByRoot, workspaceRoot],
+  );
+
   useEffect(() => {
     let cancelled = false;
     const loadStats = async () => {
@@ -79,7 +102,9 @@ export function ThreadCompactSessionBar() {
       for (const entry of entries) {
         const root = entry.repoRoot ?? workspaceRoot;
         if (!root) continue;
-        next[entry.path] = await loadFileLineStats(root, workContextRelativePath(entry.path, root));
+        const relative = workContextRelativePath(entry.path, root);
+        if (!isRelativeWorkspacePath(relative)) continue;
+        next[entry.path] = await loadFileLineStats(root, relative);
       }
       if (!cancelled) setStatsByPath(next);
     };
@@ -122,9 +147,13 @@ export function ThreadCompactSessionBar() {
     const bridge = getBridge();
     setBusyPath(entry.path);
     try {
-      if (root && bridge?.workspaceGitStage) {
+      if (!isRelativeWorkspacePath(relative)) {
+        pushToast(`${workContextFileName(entry.path)} is outside the repository, so there is nothing to stage.`, "info");
+      } else if (root && bridge?.workspaceGitStage) {
         await bridge.workspaceGitStage(root, relative);
       }
+    } catch (reason) {
+      pushToast(`Could not keep ${workContextFileName(entry.path)}: ${reason instanceof Error ? reason.message : String(reason)}`, "error");
     } finally {
       setBusyPath(null);
     }
@@ -139,26 +168,32 @@ export function ThreadCompactSessionBar() {
     try {
       if (rejectUsesOperationSnapshot(entry) && entry.operationId && bridge?.agentRevertFileOperation) {
         await bridge.agentRevertFileOperation(entry.operationId);
+      } else if (!isRelativeWorkspacePath(relative)) {
+        pushToast(`${workContextFileName(entry.path)} is outside the repository and has no operation snapshot to restore.`, "info");
       } else if (root && bridge?.workspaceGitDiscard) {
         await bridge.workspaceGitDiscard(root, relative);
       }
       await refresh();
+    } catch (reason) {
+      pushToast(`Could not reject ${workContextFileName(entry.path)}: ${reason instanceof Error ? reason.message : String(reason)}`, "error");
     } finally {
       setBusyPath(null);
     }
   };
 
   const rejectAll = async () => {
-    if (!window.confirm(`Reject all ${entries.length} file changes?`)) return;
-    for (const entry of entries) {
+    if (!window.confirm(`Undo the agent's changes in ${pending.length} file${pending.length === 1 ? "" : "s"}? Files are restored from the operation snapshot or discarded in git.`)) return;
+    for (const entry of pending) {
       await rejectFile(entry, false);
     }
+    await refreshGitStatus();
   };
 
   const keepAll = async () => {
-    for (const entry of entries) {
+    for (const entry of pending) {
       await keepFile(entry);
     }
+    await refreshGitStatus();
   };
 
   return (
@@ -169,14 +204,19 @@ export function ThreadCompactSessionBar() {
             <button type="button" className="zorai-compact-session__toggle" aria-expanded={openSection === "files"} onClick={() => toggle("files")}>
               <span aria-hidden="true">{openSection === "files" ? "▾" : "▸"}</span>
               {entries.length} {entries.length === 1 ? "File" : "Files"}
+              {pending.length > 0 ? <span className="zorai-compact-session__pending"> · {pending.length} to review</span> : null}
             </button>
             <div className="zorai-compact-session__actions">
-              <button type="button" className="zorai-compact-session__keep" disabled={Boolean(busyPath)} onClick={() => void keepAll()}>
-                Keep All
-              </button>
-              <button type="button" className="zorai-compact-session__reject" disabled={Boolean(busyPath)} onClick={() => void rejectAll()}>
-                Reject All
-              </button>
+              {pending.length > 0 ? (
+                <>
+                  <button type="button" className="zorai-compact-session__keep" disabled={Boolean(busyPath)} title="Accept the agent's changes by staging them in git" onClick={() => void keepAll()}>
+                    Keep All
+                  </button>
+                  <button type="button" className="zorai-compact-session__reject" disabled={Boolean(busyPath)} title="Undo the agent's changes: restore the pre-operation snapshot or discard them in git" onClick={() => void rejectAll()}>
+                    Reject All
+                  </button>
+                </>
+              ) : null}
               <button type="button" className="zorai-compact-session__review" onClick={() => setOpenSection("files")}>
                 Review
               </button>
@@ -202,7 +242,7 @@ export function ThreadCompactSessionBar() {
                       )}
                     </span>
                     <span className="zorai-compact-session__file-actions">
-                      <button type="button" disabled={busyPath === entry.path} onClick={() => void keepFile(entry)}>Keep</button>
+                      <button type="button" disabled={busyPath === entry.path} onClick={() => void keepFile(entry).then(refreshGitStatus)}>Keep</button>
                       <button type="button" disabled={busyPath === entry.path} onClick={() => void rejectFile(entry)}>Reject</button>
                     </span>
                   </li>

@@ -410,6 +410,11 @@ where
                 .send(ClientMessage::AgentGetWorkContext { thread_id })
                 .await?;
         }
+        AgentBridgeCommand::GetFileOperationBefore { operation_id, path } => {
+            framed
+                .send(ClientMessage::AgentGetFileOperationBefore { operation_id, path })
+                .await?;
+        }
         AgentBridgeCommand::GetFileOperationSnapshot { operation_id } => {
             framed
                 .send(ClientMessage::AgentGetFileOperationSnapshot { operation_id })

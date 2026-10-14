@@ -340,6 +340,7 @@ const bridgeApi = {
     agentGetTodos: (threadId) => ipcRenderer.invoke('agent-get-todos', threadId),
     agentGetWorkContext: (threadId) => ipcRenderer.invoke('agent-get-work-context', threadId),
     agentGetFileOperationSnapshot: (operationId) => ipcRenderer.invoke('agent-get-file-operation-snapshot', operationId),
+    agentGetFileOperationBefore: (operationId, filePath) => ipcRenderer.invoke('agent-get-file-operation-before', operationId, filePath),
     agentRevertFileOperation: (operationId) => ipcRenderer.invoke('agent-revert-file-operation', operationId),
     agentGetThreadWorkspaceContext: (threadId) => ipcRenderer.invoke('agent-get-thread-workspace-context', threadId),
     agentSetThreadWorkspaceContext: (threadId, context) => ipcRenderer.invoke('agent-set-thread-workspace-context', threadId, context),

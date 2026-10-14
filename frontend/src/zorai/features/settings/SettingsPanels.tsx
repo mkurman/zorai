@@ -740,10 +740,10 @@ function FeaturesPanel() {
         </SettingRow>
       </Panel>
       <Panel section="Features" title="Code review">
-        <SettingRow label="Review Agent" description="Agent or subagent that runs code review from the GUI Code tab.">
-          <select className="zorai-input" value={agentSettings.code_review_agent} onChange={(event) => updateAgentSetting("code_review_agent", event.target.value)}>
-            {codeReviewAgentOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            {subAgents.map((subAgent) => <option key={subAgent.id} value={subAgent.id}>{subAgent.name}</option>)}
+        <SettingRow label="Review Agent" description="Runs Find Issues in the Code tab's Source Control view. Pick a subagent to review with its own provider and model; Svarog, Rarog and Weles lead threads and cannot be spawned as reviewers.">
+          <select className="zorai-input" value={subAgents.some((subAgent) => subAgent.enabled && subAgent.id === agentSettings.code_review_agent) ? agentSettings.code_review_agent : "thread"} onChange={(event) => updateAgentSetting("code_review_agent", event.target.value)}>
+            <option value="thread">This thread&apos;s agent</option>
+            {subAgents.filter((subAgent) => subAgent.enabled).map((subAgent) => <option key={subAgent.id} value={subAgent.id}>{subAgent.name} · {subAgent.provider}/{subAgent.model}</option>)}
           </select>
         </SettingRow>
         <NumberRow label="Commits per review" description="How many latest commits the reviewer examines." value={agentSettings.code_review_commit_window} onChange={(value) => updateAgentSetting("code_review_commit_window", value)} min={1} max={50} />
@@ -751,12 +751,6 @@ function FeaturesPanel() {
     </SettingsGrid>
   );
 }
-
-const codeReviewAgentOptions = [
-  { value: "weles", label: "Weles (built-in reviewer)" },
-  { value: "swarog", label: "Svarog" },
-  { value: "rarog", label: "Rarog" },
-];
 
 function AdvancedPanel() {
   const agentSettings = useAgentStore((state) => state.agentSettings);

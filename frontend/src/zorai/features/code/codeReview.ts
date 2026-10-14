@@ -137,3 +137,15 @@ export function buildReviewPrompt(input: {
 }
 
 export const NO_ISSUES_MARKER = "NO_ISSUES_FOUND";
+
+export type CodeReviewer = { label: string; provider: string | null; model: string | null };
+
+export function resolveCodeReviewer(
+  agentId: string | null | undefined,
+  subAgents: ReadonlyArray<{ id: string; name: string; provider: string; model: string; enabled: boolean }>,
+): CodeReviewer {
+  const wanted = agentId?.trim().toLowerCase();
+  const subAgent = wanted ? subAgents.find((candidate) => candidate.enabled && candidate.id.toLowerCase() === wanted) : undefined;
+  if (!subAgent) return { label: "this thread's agent", provider: null, model: null };
+  return { label: subAgent.name || subAgent.id, provider: subAgent.provider || null, model: subAgent.model || null };
+}

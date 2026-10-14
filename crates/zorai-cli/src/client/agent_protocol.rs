@@ -222,6 +222,10 @@ pub(super) enum AgentBridgeCommand {
     GetFileOperationSnapshot {
         operation_id: String,
     },
+    GetFileOperationBefore {
+        operation_id: String,
+        path: String,
+    },
     RevertFileOperation {
         operation_id: String,
     },

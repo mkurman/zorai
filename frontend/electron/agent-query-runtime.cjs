@@ -5,6 +5,7 @@ const AGENT_QUERY_RESPONSE_TYPES = [
   'thread-message-pin-result',
   'thread-workspace-context',
   'file-operation-snapshot',
+  'file-operation-before',
   'file-operation-reverted',
   'subagent-spawned',
   'task-list',

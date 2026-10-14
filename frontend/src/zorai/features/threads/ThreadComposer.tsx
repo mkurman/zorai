@@ -524,7 +524,7 @@ export function ThreadComposer({
 
           <div className="zorai-composer-actions__right">
             {compact ? (
-              <CodeThreadRuntimeSwitcher key={runtime.activeThread?.id ?? "none"} thread={runtime.activeThread ?? null} variant="composer" />
+              <CodeThreadRuntimeSwitcher thread={runtime.activeThread ?? null} variant="composer" />
             ) : showTargetSelector ? (
               <label className="zorai-composer-target">
                 <select

@@ -82,6 +82,21 @@ export function compactSessionHasContent(
   return files.length > 0 || todos.length > 0 || spawned.length > 0;
 }
 
+export function pendingWorkContextEntries(
+  entries: WorkContextEntry[],
+  statusesByRoot: Record<string, Array<{ path: string; worktreeStatus: string }> | undefined>,
+  workspaceRoot: string | null | undefined,
+): WorkContextEntry[] {
+  return entries.filter((entry) => {
+    const root = entry.repoRoot ?? workspaceRoot;
+    if (!root) return false;
+    const relative = workContextRelativePath(entry.path, root);
+    if (!isRelativeWorkspacePath(relative)) return false;
+    const match = statusesByRoot[root]?.find((status) => gitStatusMatchesPath(status.path, relative));
+    return Boolean(match?.worktreeStatus.trim());
+  });
+}
+
 export function rejectUsesOperationSnapshot(entry: Pick<WorkContextEntry, "operationId">): boolean {
   return Boolean(entry.operationId);
 }
