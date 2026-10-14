@@ -107,7 +107,7 @@ export function AgentStatisticsView() {
             {totalsItems.length > 0 ? <MetricRibbon items={totalsItems} /> : <EmptyPanel message="No totals available for this window." />}
 
             {snapshot?.has_incomplete_cost_history ? (
-                <div style={{ padding: "var(--space-3)", borderRadius: "var(--radius-lg)", border: "1px solid rgba(245, 158, 11, 0.5)", background: "rgba(245, 158, 11, 0.08)", color: "var(--text-primary)" }}>
+                <div style={{ padding: "var(--space-3)", borderRadius: "var(--radius-lg)", border: "1px solid color-mix(in srgb, var(--warning) 50%, transparent)", background: "color-mix(in srgb, var(--warning) 8%, transparent)", color: "var(--text-primary)" }}>
                     Cost data is incomplete for part of this window. Totals are still useful, but some rows are missing pricing history.
                 </div>
             ) : null}
@@ -192,7 +192,7 @@ function StatisticsTable<T extends Record<string, unknown>>({
             </thead>
             <tbody>
                 {rows.map((row) => (
-                    <tr key={rowKey(row)} style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                    <tr key={rowKey(row)} style={{ borderTop: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)" }}>
                         {renderRow(row).map((value, index) => (
                             <Td key={`${rowKey(row)}-${index}`}>{value}</Td>
                         ))}
@@ -233,7 +233,7 @@ function RankingTable<T extends { provider: string; model: string }>({
                     </thead>
                     <tbody>
                         {rows.map((row, index) => (
-                            <tr key={rowKey(row)} style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                            <tr key={rowKey(row)} style={{ borderTop: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)" }}>
                                 <Td>{index + 1}. {renderMeta(row)}</Td>
                                 <Td>{renderValue(row)}</Td>
                             </tr>
@@ -256,7 +256,7 @@ function TableShell({ children }: { children: React.ReactNode }) {
 }
 
 function Th({ children }: { children: React.ReactNode }) {
-    return <th style={{ textAlign: "left", padding: "8px 10px", color: "var(--text-muted)", fontWeight: 600, borderBottom: "1px solid rgba(255,255,255,0.1)", whiteSpace: "nowrap" }}>{children}</th>;
+    return <th style={{ textAlign: "left", padding: "8px 10px", color: "var(--text-muted)", fontWeight: 600, borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 10%, transparent)", whiteSpace: "nowrap" }}>{children}</th>;
 }
 
 function Td({ children }: { children: React.ReactNode }) {

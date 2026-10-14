@@ -457,6 +457,13 @@ where
                 .send(ClientMessage::GetFilePreview { path, max_bytes })
                 .await?;
         }
+        AgentBridgeCommand::DataQuery { request } => {
+            framed
+                .send(ClientMessage::DataQuery {
+                    request_json: request.to_string(),
+                })
+                .await?;
+        }
         AgentBridgeCommand::GetConfig => {
             framed.send(ClientMessage::AgentGetConfig).await?;
         }

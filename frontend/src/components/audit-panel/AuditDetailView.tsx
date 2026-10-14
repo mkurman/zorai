@@ -15,7 +15,7 @@ export function AuditDetailView({ entry }: { entry: AuditEntry }) {
     <div
       style={{
         padding: "var(--space-4)",
-        background: "rgba(196, 181, 253, 0.1)",
+        background: "color-mix(in srgb, var(--reasoning) 10%, transparent)",
         borderTop: "1px solid var(--border)",
       }}
     >

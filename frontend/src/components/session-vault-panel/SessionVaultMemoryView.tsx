@@ -39,8 +39,8 @@ export function SessionVaultMemoryView({
                     <div
                         key={entry.id}
                         style={{
-                            border: "1px solid rgba(255,255,255,0.08)",
-                            background: "rgba(255,255,255,0.03)",
+                            border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
+                            background: "color-mix(in srgb, var(--text-primary) 3%, transparent)",
                             padding: 14,
                             display: "grid",
                             gap: 8,
@@ -59,7 +59,7 @@ export function SessionVaultMemoryView({
                                         style={{
                                             fontSize: "var(--text-sm)",
                                             padding: "4px 8px",
-                                            border: "1px solid rgba(255,255,255,0.08)",
+                                            border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
                                             background: "var(--bg-secondary)",
                                             color: "var(--text-primary)",
                                             cursor: "pointer",
@@ -75,7 +75,7 @@ export function SessionVaultMemoryView({
                                         style={{
                                             fontSize: "var(--text-sm)",
                                             padding: "4px 8px",
-                                            border: "1px solid rgba(255,255,255,0.08)",
+                                            border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
                                             background: "var(--bg-secondary)",
                                             color: "var(--text-primary)",
                                             cursor: "pointer",
@@ -117,7 +117,7 @@ export function SessionVaultMemoryView({
 
 function Metric({ label, value }: { label: string; value: string }) {
     return (
-        <div style={{ border: "1px solid rgba(255,255,255,0.08)", background: "var(--bg-secondary)", padding: "10px 12px", minWidth: 100, display: "grid", gap: 4 }}>
+        <div style={{ border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)", background: "var(--bg-secondary)", padding: "10px 12px", minWidth: 100, display: "grid", gap: 4 }}>
             <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</span>
             <span style={{ fontSize: "var(--text-base)", fontWeight: 700 }}>{value}</span>
         </div>

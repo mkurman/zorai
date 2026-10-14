@@ -76,6 +76,24 @@ fn anthropic_http_529_is_temporary_upstream_even_without_body_details() {
 }
 
 #[test]
+fn openai_edge_507_retry_buffer_overflow_is_retried_as_temporary_upstream() {
+    let err = classify_http_failure_with_retry_after(
+        reqwest::StatusCode::INSUFFICIENT_STORAGE,
+        "openai",
+        "exceeded request buffer limit while retrying upstream",
+        None,
+    );
+
+    let failure = upstream_failure_error(&err).expect("structured upstream failure");
+    assert_eq!(failure.class, UpstreamFailureClass::TemporaryUpstream);
+    assert_eq!(
+        crate::agent::llm_client::analyze_retry_failure(&err).failure_class,
+        "upstream",
+        "the edge proxy failed its own upstream retry; the daemon must retry instead of failing the turn"
+    );
+}
+
+#[test]
 fn anthropic_http_413_is_request_invalid_even_without_typed_body() {
     let err = classify_http_failure_with_retry_after(
         reqwest::StatusCode::PAYLOAD_TOO_LARGE,

@@ -23,8 +23,8 @@ export type SearchActions = {
 };
 
 export const navBtn: CSSProperties = {
-    background: "rgba(255,255,255,0.04)",
-    border: "1px solid rgba(255,255,255,0.08)",
+    background: "color-mix(in srgb, var(--text-primary) 4%, transparent)",
+    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
     color: "var(--text-secondary)",
     cursor: "pointer",
     fontSize: 13,
@@ -42,7 +42,7 @@ export const toggleBtn: CSSProperties = {
 };
 
 export const activeToggleBtn: CSSProperties = {
-    background: "rgba(245, 158, 11, 0.18)",
-    borderColor: "rgba(245, 158, 11, 0.45)",
-    color: "#f59e0b",
+    background: "color-mix(in srgb, var(--warning) 18%, transparent)",
+    borderColor: "color-mix(in srgb, var(--warning) 45%, transparent)",
+    color: "var(--warning)",
 };

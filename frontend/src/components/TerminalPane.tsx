@@ -317,7 +317,7 @@ export function TerminalPane({ paneId, sessionId, hideHeader }: TerminalPaneProp
       style={{
         width: "100%",
         height: "100%",
-        background: "var(--bg-primary)",
+        background: "var(--terminal-pane-bg, var(--bg-primary))",
         padding: `${Math.max(12, settings.padding)}px`,
         position: "relative",
         outline: "none",

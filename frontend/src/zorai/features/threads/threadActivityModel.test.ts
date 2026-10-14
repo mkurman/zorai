@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AgentMessage } from "@/lib/agentStore";
 
-import { classifyThreadActivityMessage } from "./threadActivityModel";
+import { classifySystemNotice, classifyThreadActivityMessage } from "./threadActivityModel";
 
 function message(content: string, role: AgentMessage["role"] = "system"): AgentMessage {
   return {
@@ -418,5 +418,23 @@ Operation results saved to file.
       title: "Compaction",
       rawText: "Manual compaction skipped; there was no older context slice to compact.",
     });
+  });
+});
+
+describe("classifySystemNotice", () => {
+  it("collapses unclassified system messages like child reports behind their first line", () => {
+    const content = "\nChild  medicus-8  finished and reported back.\nResult: Completed all 10 assigned sources.";
+    expect(classifyThreadActivityMessage(message(content))).toBeNull();
+    expect(classifySystemNotice(message(content))).toEqual({
+      kind: "notice",
+      title: "Child medicus-8 finished and reported back.",
+      rawText: content,
+    });
+  });
+
+  it("leaves user and assistant messages as regular bubbles", () => {
+    expect(classifySystemNotice(message("Child finished", "user"))).toBeNull();
+    expect(classifySystemNotice(message("Child finished", "assistant"))).toBeNull();
+    expect(classifySystemNotice(message("  \n  "))).toBeNull();
   });
 });

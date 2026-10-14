@@ -248,6 +248,7 @@ async fn hibernated_worker_is_not_requeued_by_review_nudge() {
             repetitions_remaining: Some(1),
             wakeup_kind: "generic".to_string(),
             goal_run_id: None,
+            reason: None,
             created_at: now_millis(),
         },
     );

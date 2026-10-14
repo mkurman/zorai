@@ -244,6 +244,9 @@ pub(super) enum AgentBridgeCommand {
         path: String,
         max_bytes: Option<usize>,
     },
+    DataQuery {
+        request: serde_json::Value,
+    },
     GetConfig,
     GetMlflowTracingStatus,
     TestMlflowTracingConnection,

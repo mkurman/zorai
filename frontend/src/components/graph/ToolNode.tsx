@@ -33,7 +33,7 @@ export const ToolNode = memo(function ToolNode({ data, selected }: NodeProps) {
           background: selected
             ? "var(--bg-secondary)"
             : "var(--zorai-bg)",
-          border: `1px solid ${selected ? "rgba(137, 180, 250, 0.36)" : "var(--glass-border)"}`,
+          border: `1px solid ${selected ? "color-mix(in srgb, var(--info) 36%, transparent)" : "var(--glass-border)"}`,
           boxShadow: "none",
           transition: "all 0.15s ease",
         }}

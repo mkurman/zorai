@@ -625,6 +625,7 @@ impl AgentEngine {
                             repetitions_remaining: row.repetitions_remaining,
                             wakeup_kind: row.wakeup_kind,
                             goal_run_id: row.goal_run_id,
+                            reason: row.reason,
                             created_at: row.created_at,
                         },
                     );

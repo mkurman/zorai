@@ -290,4 +290,8 @@ async fn extend_subagent_budget_raises_child_ceiling_and_unlocks_budget_exceeded
     assert_eq!(stored.context_budget_tokens, Some(1_512));
     assert_eq!(stored.status, TaskStatus::InProgress);
     assert!(stored.error.is_none());
+    assert!(
+        !engine.operator_stream_stop_requested("thread-child").await,
+        "waking the idle child must not leave an operator-stop flag that drops its resume continuation"
+    );
 }

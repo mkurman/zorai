@@ -210,7 +210,7 @@ export function CodingAgentsView() {
                                         borderRadius: 999,
                                         fontSize: "var(--text-xs)",
                                         border: "1px solid var(--border)",
-                                        color: agent.available ? "var(--success, #86efac)" : "var(--text-muted)",
+                                        color: agent.available ? "var(--success, var(--success))" : "var(--text-muted)",
                                     }}
                                 >
                                     {agent.available ? "Available" : "Unavailable"}
@@ -222,9 +222,9 @@ export function CodingAgentsView() {
                                         fontSize: "var(--text-xs)",
                                         border: "1px solid var(--glass-border)",
                                         color: agent.readiness === "ready"
-                                            ? "var(--success, #86efac)"
+                                            ? "var(--success, var(--success))"
                                             : agent.readiness === "needs-setup"
-                                                ? "var(--warning, #facc15)"
+                                                ? "var(--warning, var(--warning))"
                                                 : "var(--text-muted)",
                                     }}
                                 >

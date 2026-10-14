@@ -44,16 +44,16 @@
   --bg-overlay: rgba(2, 4, 6, 0.92);
 
   /* Neutral Grays - For UI chrome */
-  --neutral-50: #f8fafc;
-  --neutral-100: #f1f5f9;
-  --neutral-200: #e2e8f0;
-  --neutral-300: #cbd5e1;
-  --neutral-400: #94a3b8;
-  --neutral-500: #64748b;
-  --neutral-600: #475569;
-  --neutral-700: #334155;
-  --neutral-800: #1e293b;
-  --neutral-900: #0f172a;
+  --neutral-50: color-mix(in srgb, var(--text-primary) 96%, var(--bg-primary));
+  --neutral-100: color-mix(in srgb, var(--text-primary) 90%, var(--bg-primary));
+  --neutral-200: color-mix(in srgb, var(--text-primary) 80%, var(--bg-primary));
+  --neutral-300: color-mix(in srgb, var(--text-primary) 66%, var(--bg-primary));
+  --neutral-400: color-mix(in srgb, var(--text-primary) 50%, var(--bg-primary));
+  --neutral-500: color-mix(in srgb, var(--text-primary) 40%, var(--bg-primary));
+  --neutral-600: color-mix(in srgb, var(--text-primary) 30%, var(--bg-primary));
+  --neutral-700: color-mix(in srgb, var(--text-primary) 20%, var(--bg-primary));
+  --neutral-800: color-mix(in srgb, var(--text-primary) 12%, var(--bg-primary));
+  --neutral-900: color-mix(in srgb, var(--text-primary) 6%, var(--bg-primary));
   
   /* Shadow Color Base */
   --shadow-color: rgba(0, 0, 0, 0.6);
@@ -88,18 +88,18 @@
   --accent-glow: rgba(94, 231, 223, 0.2);
   
   /* Neon Gradient Presets */
-  --neon-gradient-cyan: linear-gradient(135deg, #5ee7df 0%, #22d3ee 100%);
-  --neon-gradient-purple: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
-  --neon-gradient-pink: linear-gradient(135deg, #f472b6 0%, #ec4899 100%);
-  --neon-gradient-green: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
-  --neon-gradient-amber: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-  --neon-gradient-blue: linear-gradient(135deg, #82aaff 0%, #60a5fa 100%);
+  --neon-gradient-cyan: linear-gradient(135deg, var(--mission) 0%, var(--accent) 100%);
+  --neon-gradient-purple: linear-gradient(135deg, var(--reasoning) 0%, var(--accent-secondary) 100%);
+  --neon-gradient-pink: linear-gradient(135deg, var(--timeline) 0%, var(--danger) 100%);
+  --neon-gradient-green: linear-gradient(135deg, var(--success) 0%, var(--human) 100%);
+  --neon-gradient-amber: linear-gradient(135deg, var(--approval) 0%, var(--warning) 100%);
+  --neon-gradient-blue: linear-gradient(135deg, var(--agent) 0%, var(--info) 100%);
   
   /* Accent Shimmer Animation */
   --shimmer-gradient: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.04) 50%,
+    color-mix(in srgb, var(--text-primary) 4%, transparent) 50%,
     transparent 100%
   );
 
@@ -113,78 +113,78 @@
    * Cool blue - trustworthy, computational, systematic
    * ───────────────────────────────────────────────────────────────────── */
   --agent: #64b5f6;
-  --agent-hover: #90caf9;
+  --agent-hover: color-mix(in srgb, var(--agent) 72%, var(--text-primary));
   --agent-soft: rgba(100, 181, 246, 0.12);
-  --agent-dim: rgba(100, 181, 246, 0.04);
-  --agent-glow: rgba(100, 181, 246, 0.2);
-  --agent-border: rgba(100, 181, 246, 0.3);
+  --agent-dim: color-mix(in srgb, var(--agent) 4%, transparent);
+  --agent-glow: color-mix(in srgb, var(--agent) 20%, transparent);
+  --agent-border: color-mix(in srgb, var(--agent) 30%, transparent);
   
   /* Agent Lane Variants - For per-agent visual identity */
-  --agent-lane-1: #64b5f6;
-  --agent-lane-1-soft: rgba(100, 181, 246, 0.12);
-  --agent-lane-2: #a78bfa;
-  --agent-lane-2-soft: rgba(167, 139, 250, 0.12);
-  --agent-lane-3: #f472b6;
-  --agent-lane-3-soft: rgba(244, 114, 182, 0.12);
-  --agent-lane-4: #22d3ee;
-  --agent-lane-4-soft: rgba(34, 211, 238, 0.12);
-  --agent-lane-5: #a3e635;
-  --agent-lane-5-soft: rgba(163, 230, 53, 0.12);
+  --agent-lane-1: var(--agent);
+  --agent-lane-1-soft: color-mix(in srgb, var(--agent) 12%, transparent);
+  --agent-lane-2: var(--reasoning);
+  --agent-lane-2-soft: color-mix(in srgb, var(--reasoning) 12%, transparent);
+  --agent-lane-3: var(--timeline);
+  --agent-lane-3-soft: color-mix(in srgb, var(--timeline) 12%, transparent);
+  --agent-lane-4: var(--mission);
+  --agent-lane-4-soft: color-mix(in srgb, var(--mission) 12%, transparent);
+  --agent-lane-5: var(--success);
+  --agent-lane-5-soft: color-mix(in srgb, var(--success) 12%, transparent);
   
   /* ─────────────────────────────────────────────────────────────────────
    * HUMAN - User input, direct commands, manual overrides
    * Vibrant green - organic, intentional, human agency
    * ───────────────────────────────────────────────────────────────────── */
   --human: #4ade80;
-  --human-hover: #86efac;
+  --human-hover: color-mix(in srgb, var(--human) 72%, var(--text-primary));
   --human-soft: rgba(74, 222, 128, 0.12);
-  --human-dim: rgba(74, 222, 128, 0.04);
-  --human-glow: rgba(74, 222, 128, 0.2);
-  --human-border: rgba(74, 222, 128, 0.3);
+  --human-dim: color-mix(in srgb, var(--human) 4%, transparent);
+  --human-glow: color-mix(in srgb, var(--human) 20%, transparent);
+  --human-border: color-mix(in srgb, var(--human) 30%, transparent);
   
   /* ─────────────────────────────────────────────────────────────────────
    * APPROVAL - Gatekeeping, permissions, confirmations
    * Amber gold - attention, decision point, valuable
    * ───────────────────────────────────────────────────────────────────── */
   --approval: #fbbf24;
-  --approval-hover: #fcd34d;
+  --approval-hover: color-mix(in srgb, var(--approval) 72%, var(--text-primary));
   --approval-soft: rgba(251, 191, 36, 0.12);
-  --approval-dim: rgba(251, 191, 36, 0.04);
-  --approval-glow: rgba(251, 191, 36, 0.25);
-  --approval-border: rgba(251, 191, 36, 0.3);
+  --approval-dim: color-mix(in srgb, var(--approval) 4%, transparent);
+  --approval-glow: color-mix(in srgb, var(--approval) 20%, transparent);
+  --approval-border: color-mix(in srgb, var(--approval) 30%, transparent);
   
   /* ─────────────────────────────────────────────────────────────────────
    * REASONING - AI thought traces, chain-of-thought, planning
    * Ethereal purple - contemplation, intelligence, insight
    * ───────────────────────────────────────────────────────────────────── */
   --reasoning: #c4b5fd;
-  --reasoning-hover: #ddd6fe;
+  --reasoning-hover: color-mix(in srgb, var(--reasoning) 72%, var(--text-primary));
   --reasoning-soft: rgba(196, 181, 253, 0.12);
-  --reasoning-dim: rgba(196, 181, 253, 0.04);
-  --reasoning-glow: rgba(196, 181, 253, 0.2);
-  --reasoning-border: rgba(196, 181, 253, 0.3);
+  --reasoning-dim: color-mix(in srgb, var(--reasoning) 4%, transparent);
+  --reasoning-glow: color-mix(in srgb, var(--reasoning) 20%, transparent);
+  --reasoning-border: color-mix(in srgb, var(--reasoning) 30%, transparent);
   
   /* ─────────────────────────────────────────────────────────────────────
    * TIMELINE - Historical events, chronological markers
    * Soft pink - temporal, narrative, journey
    * ───────────────────────────────────────────────────────────────────── */
   --timeline: #f472b6;
-  --timeline-hover: #f9a8d4;
+  --timeline-hover: color-mix(in srgb, var(--timeline) 72%, var(--text-primary));
   --timeline-soft: rgba(244, 114, 182, 0.12);
-  --timeline-dim: rgba(244, 114, 182, 0.04);
-  --timeline-glow: rgba(244, 114, 182, 0.2);
-  --timeline-border: rgba(244, 114, 182, 0.3);
+  --timeline-dim: color-mix(in srgb, var(--timeline) 4%, transparent);
+  --timeline-glow: color-mix(in srgb, var(--timeline) 20%, transparent);
+  --timeline-border: color-mix(in srgb, var(--timeline) 30%, transparent);
   
   /* ─────────────────────────────────────────────────────────────────────
    * MISSION - Active objectives, task tracking, goals
    * Bright cyan - active, focused, progress
    * ───────────────────────────────────────────────────────────────────── */
   --mission: #22d3ee;
-  --mission-hover: #67e8f9;
+  --mission-hover: color-mix(in srgb, var(--mission) 72%, var(--text-primary));
   --mission-soft: rgba(34, 211, 238, 0.12);
-  --mission-dim: rgba(34, 211, 238, 0.04);
-  --mission-glow: rgba(34, 211, 238, 0.2);
-  --mission-border: rgba(34, 211, 238, 0.3);
+  --mission-dim: color-mix(in srgb, var(--mission) 4%, transparent);
+  --mission-glow: color-mix(in srgb, var(--mission) 20%, transparent);
+  --mission-border: color-mix(in srgb, var(--mission) 30%, transparent);
 
   /* ═══════════════════════════════════════════════════════════════════════
    * STATUS COLORS
@@ -192,24 +192,24 @@
    * ═══════════════════════════════════════════════════════════════════════ */
   
   --success: #4ade80;
-  --success-hover: #86efac;
+  --success-hover: color-mix(in srgb, var(--success) 72%, var(--text-primary));
   --success-soft: rgba(74, 222, 128, 0.1);
-  --success-glow: rgba(74, 222, 128, 0.2);
+  --success-glow: color-mix(in srgb, var(--success) 20%, transparent);
   
   --warning: #fbbf24;
-  --warning-hover: #fcd34d;
+  --warning-hover: color-mix(in srgb, var(--warning) 72%, var(--text-primary));
   --warning-soft: rgba(251, 191, 36, 0.1);
-  --warning-glow: rgba(251, 191, 36, 0.2);
+  --warning-glow: color-mix(in srgb, var(--warning) 20%, transparent);
   
   --danger: #f87171;
-  --danger-hover: #fca5a5;
+  --danger-hover: color-mix(in srgb, var(--danger) 72%, var(--text-primary));
   --danger-soft: rgba(248, 113, 113, 0.1);
-  --danger-glow: rgba(248, 113, 113, 0.2);
+  --danger-glow: color-mix(in srgb, var(--danger) 20%, transparent);
   
   --info: #60a5fa;
-  --info-hover: #93c5fd;
+  --info-hover: color-mix(in srgb, var(--info) 72%, var(--text-primary));
   --info-soft: rgba(96, 165, 250, 0.1);
-  --info-glow: rgba(96, 165, 250, 0.2);
+  --info-glow: color-mix(in srgb, var(--info) 20%, transparent);
 
   /* ═══════════════════════════════════════════════════════════════════════
    * RISK LEVELS
@@ -222,10 +222,10 @@
   --risk-critical: rgba(239, 68, 68, 0.15);
   
   /* Risk level solid colors */
-  --risk-low-solid: #4ade80;
-  --risk-medium-solid: #fbbf24;
-  --risk-high-solid: #f87171;
-  --risk-critical-solid: #ef4444;
+  --risk-low-solid: var(--success);
+  --risk-medium-solid: var(--warning);
+  --risk-high-solid: var(--danger);
+  --risk-critical-solid: color-mix(in srgb, var(--danger) 80%, var(--text-primary));
 
   /* ═══════════════════════════════════════════════════════════════════════
    * TYPOGRAPHY
@@ -384,7 +384,8 @@
 
   --glass-light: transparent;
   --glass-medium: transparent;
-  --glass-heavy: rgba(255, 255, 255, 0.04);
+  --shade: #000000;
+  --glass-heavy: color-mix(in srgb, var(--text-primary) 4%, transparent);
   --glass-dark: var(--zorai-bg);
   --glass-darker: var(--bg-deep);
 

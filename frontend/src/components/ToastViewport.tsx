@@ -1,9 +1,9 @@
 import { useToastStore } from "@/lib/toastStore";
 
 const kindColors: Record<string, { border: string; text: string; icon: string }> = {
-  error: { border: "rgba(255, 118, 117, 0.55)", text: "#ff9f9c", icon: "⚠" },
-  info: { border: "rgba(125, 219, 200, 0.45)", text: "#7ddbc8", icon: "ℹ" },
-  success: { border: "rgba(125, 219, 200, 0.45)", text: "#7ddbc8", icon: "✓" },
+  error: { border: "color-mix(in srgb, var(--danger) 55%, transparent)", text: "var(--danger)", icon: "⚠" },
+  info: { border: "color-mix(in srgb, var(--accent) 45%, transparent)", text: "var(--accent)", icon: "ℹ" },
+  success: { border: "color-mix(in srgb, var(--accent) 45%, transparent)", text: "var(--accent)", icon: "✓" },
 };
 
 export function ToastViewport() {
@@ -38,11 +38,11 @@ export function ToastViewport() {
               display: "flex",
               alignItems: "flex-start",
               gap: 10,
-              background: "rgba(10, 14, 23, 0.96)",
+              background: "color-mix(in srgb, var(--shade) 96%, transparent)",
               border: `1px solid ${colors.border}`,
               borderRadius: 10,
               padding: "10px 12px",
-              boxShadow: "0 8px 28px rgba(0, 0, 0, 0.5)",
+              boxShadow: "0 8px 28px color-mix(in srgb, var(--shade) 50%, transparent)",
               backdropFilter: "blur(12px)",
               WebkitBackdropFilter: "blur(12px)",
             }}
@@ -50,7 +50,7 @@ export function ToastViewport() {
             <span style={{ color: colors.text, fontSize: "var(--text-sm)", lineHeight: 1.4, flexShrink: 0 }} aria-hidden="true">
               {colors.icon}
             </span>
-            <span style={{ fontSize: "var(--text-sm)", color: "var(--text-primary, #dbe4f2)", lineHeight: 1.45, minWidth: 0, overflowWrap: "anywhere" }}>
+            <span style={{ fontSize: "var(--text-sm)", color: "var(--text-primary, var(--text-primary))", lineHeight: 1.45, minWidth: 0, overflowWrap: "anywhere" }}>
               {toast.message}
             </span>
             <button
@@ -61,7 +61,7 @@ export function ToastViewport() {
                 flexShrink: 0,
                 background: "transparent",
                 border: "none",
-                color: "var(--text-muted, #8a97ab)",
+                color: "var(--text-muted, var(--text-secondary))",
                 cursor: "pointer",
                 fontSize: "var(--text-base)",
                 lineHeight: 1,

@@ -15,10 +15,10 @@ export function RuntimeModeBanner() {
         left: 12,
         right: 12,
         zIndex: 5000,
-        border: "1px solid rgba(255, 196, 107, 0.4)",
-        background: "linear-gradient(180deg, rgba(64, 39, 10, 0.96), rgba(31, 20, 7, 0.94))",
-        boxShadow: "0 18px 48px rgba(0, 0, 0, 0.35)",
-        color: "#ffe1b0",
+        border: "1px solid color-mix(in srgb, var(--warning) 40%, transparent)",
+        background: "linear-gradient(180deg, color-mix(in srgb, var(--warning) 22%, var(--bg-elevated)), color-mix(in srgb, var(--warning) 10%, var(--bg-elevated)))",
+        boxShadow: "0 18px 48px color-mix(in srgb, var(--shade) 35%, transparent)",
+        color: "var(--warning)",
         padding: "12px 14px",
         display: "grid",
         gap: 4,
@@ -28,7 +28,7 @@ export function RuntimeModeBanner() {
         {runtimeMode.title}
       </strong>
       <span style={{ fontSize: "var(--text-base)", fontWeight: 600 }}>{runtimeMode.summary}</span>
-      <span style={{ fontSize: "var(--text-sm)", lineHeight: 1.45, color: "rgba(255, 232, 194, 0.92)" }}>
+      <span style={{ fontSize: "var(--text-sm)", lineHeight: 1.45, color: "color-mix(in srgb, var(--warning) 92%, transparent)" }}>
         {runtimeMode.detail}
       </span>
     </div>

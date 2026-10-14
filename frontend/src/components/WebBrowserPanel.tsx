@@ -206,7 +206,7 @@ export function WebBrowserPanel({ style, className, enableInternalResize = false
                         height: "100%",
                         cursor: "col-resize",
                         zIndex: 30,
-                        background: "linear-gradient(90deg, rgba(148, 163, 184, 0.28), rgba(148, 163, 184, 0.5), transparent)",
+                        background: "linear-gradient(90deg, color-mix(in srgb, var(--text-secondary) 28%, transparent), color-mix(in srgb, var(--text-secondary) 50%, transparent), transparent)",
                     }}
                 />
             ) : null}

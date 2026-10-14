@@ -127,10 +127,11 @@ pub(crate) fn add_available_tools_part_d(
             "unit": { "type": "string", "enum": ["seconds", "minutes", "hours"], "description": "Time unit for delay (default: minutes)" },
             "repetitions": { "type": "integer", "description": "How many times to fire (default 1). Goal supervision requires exactly 1 so each triggered turn reassesses whether another follow-up is useful." },
             "message": { "type": "string", "description": "What you want to be reminded to do when the wakeup fires" },
+            "reason": { "type": "string", "description": "Why you are scheduling this wakeup (what you are waiting for and what to verify). Returned to you when it fires and preserved across compaction." },
             "kind": { "type": "string", "enum": ["generic", "goal_supervision"], "description": "Wakeup policy. Goal supervision is status-aware and finite." },
             "goal_run_id": { "type": "string", "description": "Goal handle such as `release-goal` (preferred) or the full goal id. Required when kind=goal_supervision." }
         },
-        "required": ["delay"]
+        "required": ["delay", "reason"]
     })));
     tools.push(tool_def(tool_names::CANCEL_WAKEUP, "Cancel a previously scheduled wakeup by its wakeup_id.", serde_json::json!({
         "type": "object",

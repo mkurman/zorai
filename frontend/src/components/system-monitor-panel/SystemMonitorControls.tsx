@@ -20,7 +20,7 @@ export function SystemMonitorControls({
     timestampLabel: string;
 }) {
     return (
-        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.2fr 1fr auto auto", gap: 10, padding: 14, borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", alignItems: "center" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.2fr 1fr auto auto", gap: 10, padding: 14, borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)", background: "color-mix(in srgb, var(--text-primary) 2%, transparent)", alignItems: "center" }}>
             <input
                 type="text"
                 value={processQuery}

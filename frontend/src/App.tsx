@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { startAgentWorkspaceReclaim } from "./lib/agentWorkspaceReclaim";
 import { startAutoSave } from "./lib/sessionPersistence";
-import { coerceThemeNameForAppearance } from "./lib/themes";
+import { coerceThemeNameForAppearance, getThemeByName } from "./lib/themes";
 import { applyAppShellTheme, getAppShellTheme } from "./lib/themesAppShell";
 import {
   applyUiInterfacePrefs,
@@ -62,6 +62,8 @@ export default function App() {
       uiFontFamily: settings.uiFontFamily,
       uiFontScale: normalizeUiFontScale(settings.uiFontScale),
       appearance,
+      themeName,
+      themeFonts: getThemeByName(themeName).fonts,
     });
     if (themeName !== settings.themeName) {
       updateSetting("themeName", themeName);

@@ -425,8 +425,8 @@ export function UsageView({
 
             <SectionTitle title="Usage Graphs" subtitle="Rolling daily, weekly, and monthly sums" />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
-                <UsageBarGraph title="Token Usage" color="#5ee7df" rows={graphSeries.map((row) => ({ label: row.label, value: row.tokens, formatted: row.tokens.toLocaleString() }))} />
-                <UsageBarGraph title="Cost Usage" color="#f6ad55" rows={graphSeries.map((row) => ({ label: row.label, value: row.cost, formatted: `$${row.cost.toFixed(6)}` }))} />
+                <UsageBarGraph title="Token Usage" color="var(--accent)" rows={graphSeries.map((row) => ({ label: row.label, value: row.tokens, formatted: row.tokens.toLocaleString() }))} />
+                <UsageBarGraph title="Cost Usage" color="var(--warning)" rows={graphSeries.map((row) => ({ label: row.label, value: row.cost, formatted: `$${row.cost.toFixed(6)}` }))} />
             </div>
 
             <SectionTitle title="By Provider / Model" subtitle="Detailed usage ranked by selected sort" />
@@ -508,7 +508,7 @@ function UsageBarGraph({ title, color, rows }: { title: string; color: string; r
                 {rows.map((row) => (
                     <div key={row.label} style={{ display: "grid", gridTemplateColumns: "72px 1fr auto", alignItems: "center", gap: 8 }}>
                         <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>{row.label}</span>
-                        <div style={{ height: 12, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                        <div style={{ height: 12, borderRadius: 999, background: "color-mix(in srgb, var(--text-primary) 8%, transparent)", overflow: "hidden" }}>
                             <div style={{ height: "100%", width: `${Math.max(2, (row.value / maxValue) * 100)}%`, background: color, borderRadius: 999 }} />
                         </div>
                         <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", minWidth: 70, textAlign: "right" }}>{row.formatted}</span>
@@ -524,7 +524,7 @@ function UsageProviderTable({ rows }: { rows: Array<{ key: string; provider: str
         <div style={{ overflow: "auto", border: "1px solid var(--glass-border)", borderRadius: "var(--radius-lg)" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>
                 <thead><tr style={{ position: "sticky", top: 0, background: "var(--bg-tertiary)", zIndex: 1 }}><Th>Provider / Model</Th><Th>Req</Th><Th>Prompt</Th><Th>Completion</Th><Th>Total</Th><Th>Reasoning</Th><Th>Audio</Th><Th>Video</Th><Th>Cost</Th><Th>Avg TPS</Th></tr></thead>
-                <tbody>{rows.map((row) => (<tr key={row.key} style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}><Td>{row.provider}/{row.model}</Td><Td>{row.requests}</Td><Td>{row.promptTokens.toLocaleString()}</Td><Td>{row.completionTokens.toLocaleString()}</Td><Td>{row.totalTokens.toLocaleString()}</Td><Td>{row.reasoningTokens.toLocaleString()}</Td><Td>{row.audioTokens.toLocaleString()}</Td><Td>{row.videoTokens.toLocaleString()}</Td><Td>${row.cost.toFixed(6)}</Td><Td>{row.avgTps.toFixed(1)}</Td></tr>))}</tbody>
+                <tbody>{rows.map((row) => (<tr key={row.key} style={{ borderTop: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)" }}><Td>{row.provider}/{row.model}</Td><Td>{row.requests}</Td><Td>{row.promptTokens.toLocaleString()}</Td><Td>{row.completionTokens.toLocaleString()}</Td><Td>{row.totalTokens.toLocaleString()}</Td><Td>{row.reasoningTokens.toLocaleString()}</Td><Td>{row.audioTokens.toLocaleString()}</Td><Td>{row.videoTokens.toLocaleString()}</Td><Td>${row.cost.toFixed(6)}</Td><Td>{row.avgTps.toFixed(1)}</Td></tr>))}</tbody>
             </table>
         </div>
     );
@@ -535,14 +535,14 @@ function UsageSessionTable({ rows }: { rows: Array<{ threadId: string; title: st
         <div style={{ overflow: "auto", border: "1px solid var(--glass-border)", borderRadius: "var(--radius-lg)" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>
                 <thead><tr style={{ position: "sticky", top: 0, background: "var(--bg-tertiary)", zIndex: 1 }}><Th>Session</Th><Th>Providers</Th><Th>Req</Th><Th>Prompt</Th><Th>Completion</Th><Th>Total</Th><Th>Reasoning</Th><Th>Cost</Th><Th>Avg</Th><Th>Max</Th><Th>Min</Th><Th>Updated</Th></tr></thead>
-                <tbody>{rows.map((row) => (<tr key={row.threadId} style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}><Td>{row.title}</Td><Td>{row.providerModels || "unknown"}</Td><Td>{row.requests}</Td><Td>{row.promptTokens.toLocaleString()}</Td><Td>{row.completionTokens.toLocaleString()}</Td><Td>{row.totalTokens.toLocaleString()}</Td><Td>{row.reasoningTokens.toLocaleString()}</Td><Td>${row.cost.toFixed(6)}</Td><Td>{row.avgTps.toFixed(1)}</Td><Td>{row.maxTps.toFixed(1)}</Td><Td>{row.minTps.toFixed(1)}</Td><Td>{new Date(row.updatedAt).toLocaleDateString()}</Td></tr>))}</tbody>
+                <tbody>{rows.map((row) => (<tr key={row.threadId} style={{ borderTop: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)" }}><Td>{row.title}</Td><Td>{row.providerModels || "unknown"}</Td><Td>{row.requests}</Td><Td>{row.promptTokens.toLocaleString()}</Td><Td>{row.completionTokens.toLocaleString()}</Td><Td>{row.totalTokens.toLocaleString()}</Td><Td>{row.reasoningTokens.toLocaleString()}</Td><Td>${row.cost.toFixed(6)}</Td><Td>{row.avgTps.toFixed(1)}</Td><Td>{row.maxTps.toFixed(1)}</Td><Td>{row.minTps.toFixed(1)}</Td><Td>{new Date(row.updatedAt).toLocaleDateString()}</Td></tr>))}</tbody>
             </table>
         </div>
     );
 }
 
 function Th({ children }: { children: React.ReactNode }) {
-    return <th style={{ textAlign: "left", padding: "8px 10px", color: "var(--text-muted)", fontWeight: 600, borderBottom: "1px solid rgba(255,255,255,0.1)", whiteSpace: "nowrap" }}>{children}</th>;
+    return <th style={{ textAlign: "left", padding: "8px 10px", color: "var(--text-muted)", fontWeight: 600, borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 10%, transparent)", whiteSpace: "nowrap" }}>{children}</th>;
 }
 
 function Td({ children }: { children: React.ReactNode }) {

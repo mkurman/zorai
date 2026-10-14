@@ -252,10 +252,10 @@ export function ThreadComposer({
     if (history.handleKeyDown(event)) return;
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      if (isStreamingResponse) {
-        queueCurrentInput();
-      } else if (queue.editingId) {
+      if (queue.editingId) {
         updateQueuedInput();
+      } else if (isStreamingResponse) {
+        queueCurrentInput();
       } else {
         void sendCurrentInput();
       }
@@ -576,7 +576,7 @@ export function ThreadComposer({
                     setAttachments([]);
                   }}
                 >
-                  <ComposerIcon kind="stop" />
+                  <ComposerIcon kind="cancel" />
                 </button>
                 <button
                   type="button"
@@ -586,7 +586,7 @@ export function ThreadComposer({
                   onClick={updateQueuedInput}
                   disabled={!canSend}
                 >
-                  <ComposerIcon kind="queue" />
+                  <ComposerIcon kind="accept" />
                 </button>
               </>
             ) : isStreamingResponse ? (
@@ -636,7 +636,7 @@ export function ThreadComposer({
   );
 }
 
-function ComposerIcon({ kind }: { kind: "attach" | "mic" | "send" | "stop" | "queue" | "autoplay" | "edit" }) {
+function ComposerIcon({ kind }: { kind: "attach" | "mic" | "send" | "stop" | "queue" | "autoplay" | "edit" | "cancel" | "accept" }) {
   const common = {
     width: 16,
     height: 16,
@@ -677,6 +677,21 @@ function ComposerIcon({ kind }: { kind: "attach" | "mic" | "send" | "stop" | "qu
     return (
       <svg {...common}>
         <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  }
+  if (kind === "cancel") {
+    return (
+      <svg {...common}>
+        <line x1="18" y1="6" x2="6" y2="18" />
+        <line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+    );
+  }
+  if (kind === "accept") {
+    return (
+      <svg {...common}>
+        <polyline points="20 6 9 17 4 12" />
       </svg>
     );
   }

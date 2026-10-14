@@ -60,11 +60,11 @@ export function NotificationList({
               key={notification.id}
               style={{
                 padding: "12px 16px",
-                borderBottom: "1px solid rgba(255,255,255,0.03)",
+                borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 3%, transparent)",
                 margin: "0 10px 8px",
                 borderRadius: 0,
-                border: `1px solid ${notification.source === "approval" ? "var(--approval-border)" : "rgba(255,255,255,0.06)"}`,
-                background: notification.source === "approval" ? "var(--approval-soft)" : "rgba(255,255,255,0.02)",
+                border: `1px solid ${notification.source === "approval" ? "var(--approval-border)" : "color-mix(in srgb, var(--text-primary) 6%, transparent)"}`,
+                background: notification.source === "approval" ? "var(--approval-soft)" : "color-mix(in srgb, var(--text-primary) 2%, transparent)",
                 opacity: notification.isRead ? 0.82 : 1,
               }}
             >
@@ -163,12 +163,12 @@ function ActionButton({
   tone: "info" | "success" | "neutral" | "danger";
 }) {
   const palette = tone === "danger"
-    ? { border: "rgba(248, 113, 113, 0.36)", background: "rgba(248, 113, 113, 0.14)", color: "var(--danger)" }
+    ? { border: "color-mix(in srgb, var(--danger) 36%, transparent)", background: "color-mix(in srgb, var(--danger) 14%, transparent)", color: "var(--danger)" }
     : tone === "success"
-      ? { border: "rgba(74, 222, 128, 0.36)", background: "rgba(74, 222, 128, 0.16)", color: "var(--success)" }
+      ? { border: "color-mix(in srgb, var(--success) 36%, transparent)", background: "color-mix(in srgb, var(--success) 16%, transparent)", color: "var(--success)" }
       : tone === "info"
-        ? { border: "rgba(97, 197, 255, 0.36)", background: "rgba(97, 197, 255, 0.14)", color: "var(--accent)" }
-        : { border: "rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)", color: "var(--text-secondary)" };
+        ? { border: "color-mix(in srgb, var(--info) 36%, transparent)", background: "color-mix(in srgb, var(--info) 14%, transparent)", color: "var(--accent)" }
+        : { border: "color-mix(in srgb, var(--text-primary) 12%, transparent)", background: "color-mix(in srgb, var(--text-primary) 4%, transparent)", color: "var(--text-secondary)" };
   return (
     <button
       type="button"

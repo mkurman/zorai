@@ -72,7 +72,7 @@ export function SessionVaultContent({
 
     return (
         <>
-            <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", display: "grid", gap: 12 }}>
+            <div style={{ padding: "12px 14px", borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)", background: "color-mix(in srgb, var(--text-primary) 2%, transparent)", display: "grid", gap: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
                     <div>
                         <div style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}>Time Travel Timeline</div>
@@ -107,7 +107,7 @@ export function SessionVaultContent({
                                     }}
                                     style={{
                                         ...timelineCardStyle,
-                                        borderColor: isSelected ? "rgba(137, 180, 250, 0.36)" : "rgba(255,255,255,0.08)",
+                                        borderColor: isSelected ? "color-mix(in srgb, var(--info) 36%, transparent)" : "color-mix(in srgb, var(--text-primary) 8%, transparent)",
                                         background: isSelected ? "var(--bg-secondary)" : timelineCardStyle.background,
                                     }}
                                 >
@@ -205,7 +205,7 @@ export function SessionVaultContent({
                     </div>
                 ) : (
                     <div style={{ display: "grid", gridTemplateColumns: "420px minmax(0, 1fr)", minHeight: 560 }}>
-                        <div style={{ borderRight: "1px solid rgba(255,255,255,0.08)", overflow: "auto" }}>
+                        <div style={{ borderRight: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)", overflow: "auto" }}>
                             {display.map((tx) => (
                                 <button
                                     key={tx.id}
@@ -216,8 +216,8 @@ export function SessionVaultContent({
                                         textAlign: "left",
                                         padding: "12px 16px",
                                         border: 0,
-                                        borderBottom: "1px solid rgba(255,255,255,0.03)",
-                                        background: selected?.id === tx.id ? "rgba(255,255,255,0.04)" : "transparent",
+                                        borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 3%, transparent)",
+                                        background: selected?.id === tx.id ? "color-mix(in srgb, var(--text-primary) 4%, transparent)" : "transparent",
                                         color: "var(--text-primary)",
                                         cursor: "pointer",
                                     }}
@@ -238,7 +238,7 @@ export function SessionVaultContent({
                         <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                             {selected ? (
                                 <>
-                                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "12px 16px", borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)" }}>
                                         <div>
                                             <div style={{ fontSize: "var(--text-base)", fontWeight: 600 }}>{selected.filename}</div>
                                             <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginTop: 3 }}>

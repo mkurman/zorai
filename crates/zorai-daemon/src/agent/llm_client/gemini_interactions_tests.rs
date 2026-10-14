@@ -201,3 +201,19 @@ fn function_call_string_arguments_are_unwrapped_for_the_tool_executor() {
         other => panic!("expected tool calls, got {other:?}"),
     }
 }
+
+#[test]
+fn empty_tool_result_is_sent_as_placeholder_because_gemini_rejects_empty_text_parts() {
+    let tool = ApiMessage {
+        role: "tool".into(),
+        content: ApiContent::Text(String::new()),
+        reasoning: None,
+        tool_call_id: Some("call_286884".into()),
+        name: Some("read_file".into()),
+        tool_calls: None,
+    };
+    let body = build_gemini_interaction_body("gemini-3.8-flash", "", &[tool], &[], true, Some("v1_prev"));
+
+    assert_eq!(body["input"][0]["type"], "function_result");
+    assert_eq!(body["input"][0]["result"][0]["text"], "(empty result)");
+}

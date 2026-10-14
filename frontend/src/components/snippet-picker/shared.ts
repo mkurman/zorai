@@ -61,7 +61,7 @@ export const labelStyle: CSSProperties = {
 export const actionBtnStyle: CSSProperties = {
     background: "var(--accent)",
     border: "none",
-    color: "#000",
+    color: "var(--shade)",
     cursor: "pointer",
     fontSize: 12,
     fontWeight: 600,

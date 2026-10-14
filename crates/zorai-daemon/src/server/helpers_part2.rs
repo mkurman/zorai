@@ -738,6 +738,7 @@ pub(crate) fn agent_event_thread_id(event: &crate::agent::types::AgentEvent) -> 
         | AgentEvent::CounterWhoAlert { thread_id, .. }
         | AgentEvent::MessageFeedbackUpdated { thread_id, .. }
         | AgentEvent::PromptQueueUpdate { thread_id, .. }
+        | AgentEvent::QueuedPromptDelivered { thread_id, .. }
         | AgentEvent::ApprovalRequired { thread_id, .. } => Some(thread_id.as_str()),
         AgentEvent::OperatorQuestion { thread_id, .. }
         | AgentEvent::OperatorQuestionResolved { thread_id, .. } => thread_id.as_deref(),

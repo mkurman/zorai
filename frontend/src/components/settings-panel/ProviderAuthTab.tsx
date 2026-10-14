@@ -244,7 +244,7 @@ export function ProviderAuthTab() {
                                             width: 8,
                                             height: 8,
                                             borderRadius: "50%",
-                                            background: rowState.authenticated ? "#4ade80" : "#6b7280",
+                                            background: rowState.authenticated ? "var(--success)" : "var(--text-muted)",
                                             flexShrink: 0,
                                         }} />
                                         <span style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>{state.provider_name}</span>
@@ -276,7 +276,7 @@ export function ProviderAuthTab() {
                                                 ) : rowState.showApiKeyLogout ? (
                                                     <button
                                                         onClick={() => handleLogout(state.provider_id)}
-                                                        style={{ ...smallBtnStyle, fontSize: "var(--text-sm)", color: "#ef4444" }}
+                                                        style={{ ...smallBtnStyle, fontSize: "var(--text-sm)", color: "var(--danger)" }}
                                                     >
                                                         Logout
                                                     </button>
@@ -293,7 +293,7 @@ export function ProviderAuthTab() {
                                                 {canUseChatgptSubscription && rowState.showChatgptLogout ? (
                                                     <button
                                                         onClick={handleChatgptLogout}
-                                                        style={{ ...smallBtnStyle, fontSize: "var(--text-sm)", color: "#ef4444" }}
+                                                        style={{ ...smallBtnStyle, fontSize: "var(--text-sm)", color: "var(--danger)" }}
                                                     >
                                                         Logout
                                                     </button>
@@ -311,7 +311,7 @@ export function ProviderAuthTab() {
                                                 {state.authenticated ? (
                                                     <button
                                                         onClick={() => handleLogout(state.provider_id)}
-                                                        style={{ ...smallBtnStyle, fontSize: "var(--text-sm)", color: "#ef4444" }}
+                                                        style={{ ...smallBtnStyle, fontSize: "var(--text-sm)", color: "var(--danger)" }}
                                                     >
                                                         Logout
                                                     </button>
@@ -362,7 +362,7 @@ export function ProviderAuthTab() {
                                     <div style={{
                                         fontSize: "var(--text-sm)",
                                         marginTop: 4,
-                                        color: vr.valid ? "#4ade80" : "#ef4444",
+                                        color: vr.valid ? "var(--success)" : "var(--danger)",
                                     }}>
                                         {vr.valid ? "Connection OK" : `Error: ${vr.error || "unknown"}`}
                                     </div>

@@ -64,7 +64,7 @@
 
   .zorai-shell-card {
     background: white;
-    border: 1px solid #ccc;
+    border: 1px solid var(--text-primary);
     box-shadow: none;
   }
 

@@ -212,7 +212,7 @@ export function AITrainingView() {
                                         borderRadius: 999,
                                         fontSize: "var(--text-xs)",
                                         border: "1px solid var(--border)",
-                                        color: profile.available ? "var(--success, #86efac)" : "var(--text-muted)",
+                                        color: profile.available ? "var(--success, var(--success))" : "var(--text-muted)",
                                     }}
                                 >
                                     {profile.available ? "Available" : "Unavailable"}
@@ -224,9 +224,9 @@ export function AITrainingView() {
                                         fontSize: "var(--text-xs)",
                                         border: "1px solid var(--glass-border)",
                                         color: profile.readiness === "ready"
-                                            ? "var(--success, #86efac)"
+                                            ? "var(--success, var(--success))"
                                             : profile.readiness === "needs-setup"
-                                                ? "var(--warning, #facc15)"
+                                                ? "var(--warning, var(--warning))"
                                                 : "var(--text-muted)",
                                     }}
                                 >

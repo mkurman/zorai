@@ -1,3 +1,4 @@
+import type { ThemeFonts } from "./themes";
 import type { NightModePreference, UiFontScale } from "./types";
 
 export const UI_FONT_SCALE_OPTIONS: ReadonlyArray<{ id: UiFontScale; label: string }> = [
@@ -72,6 +73,8 @@ export function applyUiInterfacePrefs(options: {
   uiFontFamily: string;
   uiFontScale: UiFontScale;
   appearance: ResolvedAppearance;
+  themeName?: string;
+  themeFonts?: ThemeFonts;
 }): void {
   if (typeof document === "undefined") {
     return;
@@ -79,9 +82,17 @@ export function applyUiInterfacePrefs(options: {
 
   const root = document.documentElement;
   const scale = UI_FONT_SCALE_FACTORS[normalizeUiFontScale(options.uiFontScale)];
-  root.style.setProperty("--font-ui", buildUiFontFamilyStack(options.uiFontFamily));
-  root.style.setProperty("--font-display", "var(--font-ui)");
+  if (options.themeFonts) {
+    root.style.setProperty("--font-ui", options.themeFonts.ui);
+    root.style.setProperty("--font-mono", options.themeFonts.mono);
+    root.style.setProperty("--font-display", options.themeFonts.display);
+  } else {
+    root.style.setProperty("--font-ui", buildUiFontFamilyStack(options.uiFontFamily));
+    root.style.removeProperty("--font-mono");
+    root.style.setProperty("--font-display", "var(--font-ui)");
+  }
   root.style.setProperty("--ui-font-scale", String(scale));
   root.dataset.appearance = options.appearance;
+  root.dataset.theme = (options.themeName ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
   root.style.colorScheme = options.appearance;
 }

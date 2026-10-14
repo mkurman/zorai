@@ -48,7 +48,7 @@ export function SurfaceCreateButton({
                     transition: "all var(--transition-fast)",
                 }}
                 onMouseEnter={(event) => {
-                    event.currentTarget.style.background = "rgba(94, 231, 223, 0.2)";
+                    event.currentTarget.style.background = "color-mix(in srgb, var(--accent) 20%, transparent)";
                     event.currentTarget.style.borderColor = "var(--accent)";
                 }}
                 onMouseLeave={(event) => {
@@ -70,7 +70,7 @@ export function SurfaceCreateButton({
                         border: "1px solid var(--glass-border)",
                         background: "var(--zorai-bg)",
                         borderRadius: "var(--radius-md)",
-                        boxShadow: "var(--shadow-sm), 0 12px 28px rgba(0,0,0,0.28)",
+                        boxShadow: "var(--shadow-sm), 0 12px 28px color-mix(in srgb, var(--shade) 28%, transparent)",
                         zIndex: 2600,
                         overflow: "hidden",
                     }}

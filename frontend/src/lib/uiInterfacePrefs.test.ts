@@ -1,12 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   UI_FONT_SCALE_FACTORS,
+  applyUiInterfacePrefs,
   buildUiFontFamilyStack,
   normalizeNightMode,
   normalizeUiFontScale,
   resolveAppearance,
 } from "./uiInterfacePrefs";
-import { coerceThemeNameForAppearance, themesForAppearance } from "./themes";
+import { coerceThemeNameForAppearance, getThemeByName, themesForAppearance } from "./themes";
 import { getAppShellTheme } from "./themesAppShell";
 
 describe("uiInterfacePrefs", () => {
@@ -63,6 +64,65 @@ describe("app shell appearance", () => {
   });
 });
 
+describe("ClinicalGym theme", () => {
+  it("uses the site's exact paper, ink and accent rather than colors derived from the terminal palette", () => {
+    const shell = getAppShellTheme("ClinicalGym", false, undefined, undefined, undefined, undefined, "light");
+    expect(shell["--bg-primary"]).toBe("#f7f6f1");
+    expect(shell["--text-primary"]).toBe("#222820");
+    expect(shell["--accent"]).toBe("#b94220");
+    expect(shell["--border"]).toBe("#dcded4");
+  });
+
+  it("lets custom terminal colors win over the fixed site palette", () => {
+    const shell = getAppShellTheme("ClinicalGym", true, "#ffffff", "#000000", undefined, undefined, "light");
+    expect(shell["--bg-primary"]).not.toBe("#f7f6f1");
+  });
+
+  it("only overrides tokens every theme of its appearance sets, so switching away leaves nothing stale", () => {
+    const lightBase = getAppShellTheme("GitHub Light", false, undefined, undefined, undefined, undefined, "light");
+    const darkBase = getAppShellTheme("Nord", false, undefined, undefined, undefined, undefined, "dark");
+    const lightOverrides = Object.keys(getThemeByName("ClinicalGym").appShell ?? {});
+    const darkOverrides = Object.keys(getThemeByName("ClinicalGym Dark").appShell ?? {});
+    expect(lightOverrides.filter((name) => !(name in lightBase))).toEqual([]);
+    expect(darkOverrides.filter((name) => !(name in darkBase))).toEqual([]);
+  });
+
+  it("gives the dark edition the same tokens as the light one so neither leaves gaps when night mode flips", () => {
+    const light = Object.keys(getThemeByName("ClinicalGym").appShell ?? {}).sort();
+    const dark = Object.keys(getThemeByName("ClinicalGym Dark").appShell ?? {}).sort();
+    expect(dark).toEqual(light);
+    expect(getAppShellTheme("ClinicalGym Dark", false, undefined, undefined, undefined, undefined, "dark")["--bg-primary"]).toBe("#1b211d");
+  });
+
+  it("flips between the light and dark editions with night mode", () => {
+    expect(coerceThemeNameForAppearance("ClinicalGym", "dark")).toBe("ClinicalGym Dark");
+    expect(coerceThemeNameForAppearance("ClinicalGym Dark", "light")).toBe("ClinicalGym");
+  });
+
+  it("applies the site fonts over the UI font setting and restores defaults when another theme is chosen", () => {
+    const properties = new Map<string, string>();
+    const root = {
+      dataset: {} as Record<string, string>,
+      style: {
+        colorScheme: "",
+        setProperty: (name: string, value: string) => properties.set(name, value),
+        removeProperty: (name: string) => properties.delete(name),
+        getPropertyValue: (name: string) => properties.get(name) ?? "",
+      },
+    };
+    vi.stubGlobal("document", { documentElement: root });
+    applyUiInterfacePrefs({ uiFontFamily: "Cascadia Code", uiFontScale: "medium", appearance: "light", themeName: "ClinicalGym", themeFonts: getThemeByName("ClinicalGym").fonts });
+    expect(root.style.getPropertyValue("--font-ui")).toContain("Inter Variable");
+    expect(root.style.getPropertyValue("--font-mono")).toContain("ui-monospace");
+    expect(root.dataset.theme).toBe("clinicalgym");
+    applyUiInterfacePrefs({ uiFontFamily: "Cascadia Code", uiFontScale: "medium", appearance: "light", themeName: "GitHub Light", themeFonts: getThemeByName("GitHub Light").fonts });
+    expect(root.style.getPropertyValue("--font-ui")).toContain('"Cascadia Code"');
+    expect(root.style.getPropertyValue("--font-mono")).toBe("");
+    expect(root.dataset.theme).toBe("github-light");
+    vi.unstubAllGlobals();
+  });
+});
+
 describe("theme appearance catalog", () => {
   it("exposes separate light and dark color styles", () => {
     expect(themesForAppearance("dark").every((theme) => theme.appearance === "dark")).toBe(true);
@@ -73,6 +133,7 @@ describe("theme appearance catalog", () => {
       "One Light",
       "GitHub Light",
       "Default Light",
+      "ClinicalGym",
     ]));
     expect(themesForAppearance("dark").map((theme) => theme.name)).toEqual(expect.arrayContaining([
       "Catppuccin Mocha",

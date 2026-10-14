@@ -54,7 +54,7 @@ export function SidebarHeader({
                             onClick={() => setMenuOpen((current) => !current)}
                             style={createButtonStyle}
                             onMouseEnter={(e) => {
-                                e.currentTarget.style.background = "rgba(94, 231, 223, 0.2)";
+                                e.currentTarget.style.background = "color-mix(in srgb, var(--accent) 20%, transparent)";
                                 e.currentTarget.style.borderColor = "var(--accent)";
                             }}
                             onMouseLeave={(e) => {

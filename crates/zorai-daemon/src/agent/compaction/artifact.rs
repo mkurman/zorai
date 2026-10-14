@@ -139,6 +139,7 @@ impl AgentEngine {
         let payload = self
             .append_previously_read_section(thread_id, payload, target_tokens)
             .await;
+        let payload = self.append_pending_runtime_section(thread_id, payload).await;
 
         let visible_content = build_compaction_visible_content(
             pre_compaction_total_tokens,
@@ -444,6 +445,76 @@ impl AgentEngine {
         } else {
             format!("{payload}{section}")
         }
+    }
+
+    pub(crate) async fn append_pending_runtime_section(
+        &self,
+        thread_id: &str,
+        payload: String,
+    ) -> String {
+        let now = now_millis();
+        let mut wakeups = self
+            .timer_wakeups
+            .lock()
+            .await
+            .values()
+            .filter(|wakeup| wakeup.thread_id == thread_id)
+            .cloned()
+            .collect::<Vec<_>>();
+        wakeups.sort_by_key(|wakeup| wakeup.next_fire_at);
+        let subagents = self
+            .tasks
+            .lock()
+            .await
+            .iter()
+            .filter(|task| {
+                task.parent_thread_id.as_deref() == Some(thread_id)
+                    && task.is_spawned_subagent()
+                    && !task.status.is_terminal()
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        if wakeups.is_empty() && subagents.is_empty() {
+            return payload;
+        }
+
+        let mut section = String::new();
+        if !wakeups.is_empty() {
+            section.push_str("\n\n## ⏰ Pending Scheduled Wakeups");
+            for wakeup in &wakeups {
+                let fires_in_secs = wakeup.next_fire_at.saturating_sub(now) / 1_000;
+                let repetitions = wakeup
+                    .repetitions_remaining
+                    .map(|value| value.to_string())
+                    .unwrap_or_else(|| "infinite".to_string());
+                section.push_str(&format!(
+                    "\n* `{}` fires in ~{fires_in_secs}s (kind: {}, repetitions left: {repetitions}) - message: {}",
+                    wakeup.id,
+                    wakeup.wakeup_kind,
+                    crate::agent::goal_parsing::summarize_text(&wakeup.message, 240),
+                ));
+                if let Some(reason) = wakeup.reason.as_deref() {
+                    section.push_str(&format!(
+                        " - reason: {}",
+                        crate::agent::goal_parsing::summarize_text(reason, 240)
+                    ));
+                }
+            }
+        }
+        if !subagents.is_empty() {
+            section.push_str("\n\n## 🧵 Subagents In Progress");
+            for task in &subagents {
+                section.push_str(&format!(
+                    "\n* `{}` **{}** ({:?}, thread: `{}`) - spawned for: {}",
+                    task.id,
+                    task.title,
+                    task.status,
+                    task.thread_id.as_deref().unwrap_or("pending"),
+                    crate::agent::goal_parsing::summarize_text(&task.description, 240),
+                ));
+            }
+        }
+        format!("{payload}{section}")
     }
 
     pub(crate) async fn run_llm_compaction(

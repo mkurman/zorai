@@ -32,8 +32,8 @@ function readonlyBlockStyle(minHeight: number): CSSProperties {
         maxHeight: 240,
         overflow: "auto",
         padding: "10px 12px",
-        border: "1px solid rgba(255,255,255,0.08)",
-        background: "rgba(9, 16, 24, 0.72)",
+        border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
+        background: "color-mix(in srgb, var(--shade) 72%, transparent)",
         color: "var(--text-primary)",
         fontSize: "var(--text-sm)",
         lineHeight: 1.55,
@@ -101,9 +101,9 @@ export function PromptPreviewSection({
                             onClick={() => setSelectedAgent(target.value)}
                             style={{
                                 ...smallBtnStyle,
-                                background: active ? "rgba(200, 168, 82, 0.18)" : smallBtnStyle.background,
+                                background: active ? "color-mix(in srgb, var(--warning) 18%, transparent)" : smallBtnStyle.background,
                                 border: active
-                                    ? "1px solid rgba(200, 168, 82, 0.55)"
+                                    ? "1px solid color-mix(in srgb, var(--warning) 55%, transparent)"
                                     : smallBtnStyle.border,
                                 color: active ? "var(--text-primary)" : undefined,
                             }}
@@ -116,7 +116,7 @@ export function PromptPreviewSection({
             </div>
 
             {loading ? <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginBottom: 12 }}>Loading prompt preview...</div> : null}
-            {error ? <div style={{ fontSize: "var(--text-sm)", color: "#fca5a5", marginBottom: 12 }}>{error}</div> : null}
+            {error ? <div style={{ fontSize: "var(--text-sm)", color: "var(--danger)", marginBottom: 12 }}>{error}</div> : null}
 
             {inspection ? (
                 <>

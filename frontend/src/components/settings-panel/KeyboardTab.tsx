@@ -73,7 +73,7 @@ export function KeyboardTab() {
                     key={binding.action}
                     style={{
                         display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0",
-                        fontSize: "var(--text-sm)", borderBottom: "1px solid rgba(255,255,255,0.03)",
+                        fontSize: "var(--text-sm)", borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 3%, transparent)",
                     }}
                 >
                     <span style={{ color: "var(--text-secondary)" }}>{binding.description}</span>

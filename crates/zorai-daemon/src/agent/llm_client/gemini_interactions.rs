@@ -197,7 +197,10 @@ fn messages_to_interaction_input(messages: &[ApiMessage]) -> serde_json::Value {
                 else {
                     continue;
                 };
-                let result_text = text_from_content(&message.content);
+                let mut result_text = text_from_content(&message.content);
+                if result_text.trim().is_empty() {
+                    result_text = "(empty result)".to_string();
+                }
                 steps.push(serde_json::json!({
                     "type": "function_result",
                     "name": message.name.clone().unwrap_or_default(),

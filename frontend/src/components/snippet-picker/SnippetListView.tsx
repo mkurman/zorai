@@ -93,7 +93,7 @@ export function SnippetListView({
                             display: "flex",
                             alignItems: "center",
                             padding: "8px 16px",
-                            borderBottom: "1px solid rgba(255,255,255,0.03)",
+                            borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 3%, transparent)",
                             cursor: "pointer",
                             gap: 8,
                         }}

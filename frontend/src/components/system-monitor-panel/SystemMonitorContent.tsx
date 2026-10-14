@@ -21,7 +21,7 @@ export function SystemMonitorContent({
 
     return (
         <div style={{ display: "grid", gridTemplateColumns: "420px minmax(0, 1fr)", minHeight: 0 }}>
-            <div style={{ borderRight: "1px solid rgba(255,255,255,0.08)", overflow: "auto", padding: 16, display: "grid", gap: 12, alignContent: "start" }}>
+            <div style={{ borderRight: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)", overflow: "auto", padding: 16, display: "grid", gap: 12, alignContent: "start" }}>
                 <ResourceCard
                     title="CPU"
                     value={snapshot ? `${snapshot.cpu.usagePercent.toFixed(1)}%` : loading ? "sampling" : "n/a"}
@@ -66,7 +66,7 @@ export function SystemMonitorContent({
             </div>
 
             <div style={{ display: "grid", gridTemplateRows: "auto 1fr", minHeight: 0 }}>
-                <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                <div style={{ padding: "14px 16px", borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)", display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
                     <div>
                         <div style={{ fontSize: "var(--text-base)", fontWeight: 700 }}>Process Table</div>
                         <div style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)", marginTop: 4 }}>
@@ -83,7 +83,7 @@ export function SystemMonitorContent({
                     ) : (
                         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>
                             <thead>
-                                <tr style={{ position: "sticky", top: 0, background: "rgba(13, 23, 35, 0.98)", borderBottom: "1px solid rgba(255,255,255,0.08)", textAlign: "left", color: "var(--text-secondary)" }}>
+                                <tr style={{ position: "sticky", top: 0, background: "color-mix(in srgb, var(--shade) 98%, transparent)", borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)", textAlign: "left", color: "var(--text-secondary)" }}>
                                     <th style={headerCellStyle}>PID</th>
                                     <th style={headerCellStyle}>Process</th>
                                     <th style={headerCellStyle}>CPU</th>
@@ -94,7 +94,7 @@ export function SystemMonitorContent({
                             </thead>
                             <tbody>
                                 {filteredProcesses.map((processEntry) => (
-                                    <tr key={`${processEntry.pid}-${processEntry.command}`} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                                    <tr key={`${processEntry.pid}-${processEntry.command}`} style={{ borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 3%, transparent)" }}>
                                         <td style={bodyCellStyle}>{processEntry.pid}</td>
                                         <td style={bodyCellStyle}>
                                             <div style={{ display: "grid", gap: 4 }}>
@@ -123,7 +123,7 @@ export function SystemMonitorContent({
 
 function ResourceCard({ title, value, subtitle, detail, meterValue }: { title: string; value: string; subtitle: string; detail: string; meterValue: number }) {
     return (
-        <div style={{ display: "grid", gap: 10, borderRadius: 0, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(18, 33, 47, 0.8)", padding: 14 }}>
+        <div style={{ display: "grid", gap: 10, borderRadius: 0, border: "1px solid color-mix(in srgb, var(--text-primary) 6%, transparent)", background: "color-mix(in srgb, var(--bg-surface) 80%, transparent)", padding: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                 <div style={{ display: "grid", gap: 4 }}>
                     <span className="zorai-panel-title">{title}</span>
@@ -131,7 +131,7 @@ function ResourceCard({ title, value, subtitle, detail, meterValue }: { title: s
                 </div>
                 <span className="zorai-chip">{subtitle}</span>
             </div>
-            <div style={{ height: 8, borderRadius: 0, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
+            <div style={{ height: 8, borderRadius: 0, background: "color-mix(in srgb, var(--text-primary) 6%, transparent)", overflow: "hidden" }}>
                 <div style={{ width: `${Math.max(0, Math.min(100, meterValue))}%`, height: "100%", background: "var(--bg-secondary)", borderRadius: 0 }} />
             </div>
             <span style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)", lineHeight: 1.45 }}>{detail}</span>

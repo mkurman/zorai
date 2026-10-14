@@ -134,7 +134,7 @@ export function AgentChatPanelHeader() {
             <span
               key={`${participant.agentId}:active`}
               title={participant.instruction}
-              style={{ fontSize: "var(--text-sm)", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 999, padding: "2px 8px", background: "rgba(94, 231, 223, 0.12)" }}
+              style={{ fontSize: "var(--text-sm)", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 999, padding: "2px 8px", background: "color-mix(in srgb, var(--accent) 12%, transparent)" }}
             >
               {participant.agentName}
             </span>

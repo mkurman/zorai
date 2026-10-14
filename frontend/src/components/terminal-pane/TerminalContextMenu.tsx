@@ -67,7 +67,7 @@ export function TerminalContextMenu({
                             width: "100%",
                             border: 0,
                             background: "transparent",
-                            color: item.danger ? "#ef4444" : item.disabled ? "#6b6b85" : "#e2e2e9",
+                            color: item.danger ? "var(--danger)" : item.disabled ? "var(--text-muted)" : "var(--text-primary)",
                             display: "flex",
                             justifyContent: "space-between",
                             alignItems: "center",
@@ -78,7 +78,7 @@ export function TerminalContextMenu({
                         }}
                     >
                         <span>{item.label}</span>
-                        <span style={{ color: "#8f8fa8", fontSize: "var(--text-xs)" }}>{item.shortcut ?? ""}</span>
+                        <span style={{ color: "var(--text-secondary)", fontSize: "var(--text-xs)" }}>{item.shortcut ?? ""}</span>
                     </button>
                 );
             })}

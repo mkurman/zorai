@@ -43,7 +43,7 @@ export function BuiltinAgentRuntimeSetupDialog({
         position: "absolute",
         inset: 0,
         zIndex: 20,
-        background: "rgba(6, 8, 14, 0.72)",
+        background: "color-mix(in srgb, var(--shade) 72%, transparent)",
         display: "grid",
         placeItems: "center",
         padding: "var(--space-4)",
@@ -57,8 +57,8 @@ export function BuiltinAgentRuntimeSetupDialog({
           padding: "var(--space-5)",
           borderRadius: "var(--radius-xl)",
           border: "1px solid var(--border)",
-          background: "linear-gradient(180deg, rgba(18,24,36,0.98), rgba(11,15,24,0.98))",
-          boxShadow: "0 24px 80px rgba(0,0,0,0.38)",
+          background: "linear-gradient(180deg, color-mix(in srgb, var(--bg-surface) 98%, transparent), color-mix(in srgb, var(--shade) 98%, transparent))",
+          boxShadow: "0 24px 80px color-mix(in srgb, var(--shade) 38%, transparent)",
         }}
       >
         <div style={{ display: "grid", gap: "var(--space-1)" }}>
@@ -114,9 +114,9 @@ export function BuiltinAgentRuntimeSetupDialog({
           {value.error && (
             <div
               style={{
-                border: "1px solid rgba(255, 120, 120, 0.35)",
-                background: "rgba(120, 18, 18, 0.22)",
-                color: "rgb(255, 210, 210)",
+                border: "1px solid color-mix(in srgb, var(--danger) 35%, transparent)",
+                background: "color-mix(in srgb, var(--danger) 7%, transparent)",
+                color: "var(--danger)",
                 borderRadius: "var(--radius-md)",
                 padding: "var(--space-3)",
                 fontSize: "var(--text-sm)",

@@ -42,9 +42,9 @@ export function SidebarActions({
                         onClick={(e) => { e.stopPropagation(); item.onClick(); }}
                         title={item.label}
                         style={{
-                            background: item.accent ? "rgba(59, 130, 246, 0.08)" : "var(--zorai-bg-surface)",
+                            background: item.accent ? "color-mix(in srgb, var(--info) 8%, transparent)" : "var(--zorai-bg-surface)",
                             border: "1px solid",
-                            borderColor: item.accent ? "rgba(59, 130, 246, 0.2)" : "var(--glass-border)",
+                            borderColor: item.accent ? "color-mix(in srgb, var(--info) 20%, transparent)" : "var(--glass-border)",
                             color: item.accent ? "var(--agent)" : "var(--text-muted)",
                             cursor: "pointer",
                             fontSize: "var(--text-xs)",
@@ -58,11 +58,11 @@ export function SidebarActions({
                             textAlign: "center",
                         }}
                         onMouseEnter={(e) => {
-                            e.currentTarget.style.background = item.accent ? "rgba(59, 130, 246, 0.15)" : "rgba(255,255,255,0.06)";
+                            e.currentTarget.style.background = item.accent ? "color-mix(in srgb, var(--info) 15%, transparent)" : "color-mix(in srgb, var(--text-primary) 6%, transparent)";
                             e.currentTarget.style.color = item.accent ? "var(--agent)" : "var(--text-primary)";
                         }}
                         onMouseLeave={(e) => {
-                            e.currentTarget.style.background = item.accent ? "rgba(59, 130, 246, 0.08)" : "var(--zorai-bg-surface)";
+                            e.currentTarget.style.background = item.accent ? "color-mix(in srgb, var(--info) 8%, transparent)" : "var(--zorai-bg-surface)";
                             e.currentTarget.style.color = item.accent ? "var(--agent)" : "var(--text-muted)";
                         }}
                     >

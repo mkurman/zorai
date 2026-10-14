@@ -1,8 +1,8 @@
 import type { CSSProperties } from "react";
 
 export const actionBtnStyle: CSSProperties = {
-    background: "rgba(255,255,255,0.04)",
-    border: "1px solid rgba(255,255,255,0.08)",
+    background: "color-mix(in srgb, var(--text-primary) 4%, transparent)",
+    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
     color: "var(--text-secondary)",
     cursor: "pointer",
     fontSize: "var(--text-sm)",

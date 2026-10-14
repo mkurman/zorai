@@ -51,7 +51,7 @@ export const StaticLog = memo(function StaticLog({
                     wordBreak: "break-word",
                     fontFamily: "var(--font-mono)",
                     color: "var(--text-primary)",
-                    background: "rgba(255,255,255,0.03)",
+                    background: "color-mix(in srgb, var(--text-primary) 3%, transparent)",
                 }}
             >
                 {content}
@@ -61,8 +61,8 @@ export const StaticLog = memo(function StaticLog({
 });
 
 const viewToggleBtn: React.CSSProperties = {
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.1)",
+    background: "color-mix(in srgb, var(--text-primary) 6%, transparent)",
+    border: "1px solid color-mix(in srgb, var(--text-primary) 10%, transparent)",
     color: "var(--text-secondary)",
     borderRadius: 8,
     padding: "4px 10px",

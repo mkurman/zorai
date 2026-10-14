@@ -62,7 +62,7 @@ impl<'a> SendMessageRunner<'a> {
 }
 
 impl AgentEngine {
-    fn parse_content_blocks_json(
+    pub(in crate::agent) fn parse_content_blocks_json(
         content_blocks_json: Option<&str>,
     ) -> Result<Vec<AgentContentBlock>> {
         match content_blocks_json
@@ -498,6 +498,13 @@ impl<'a> SendMessageRunner<'a> {
             if self.stream_cancel_token.is_cancelled() {
                 self.was_cancelled = true;
                 break;
+            }
+            if self.loop_count > 0 {
+                let delivered = self
+                    .engine
+                    .deliver_queued_prompts_after_tool_results(&self.tid)
+                    .await;
+                self.delivered_queued_message_ids.extend(delivered);
             }
             self.loop_count += 1;
 

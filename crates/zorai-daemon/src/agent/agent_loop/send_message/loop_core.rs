@@ -188,11 +188,37 @@ impl<'a> SendMessageRunner<'a> {
             );
         }
         // Materialize patched messages only if needed.
-        let patched_messages: Option<Vec<AgentMessage>> = if needs_patch {
+        let reused_prompt_preceding_index = if self.reuse_existing_user_message {
+            self.reused_prompt_preceding_message_id
+                .as_deref()
+                .and_then(|id| thread.messages.iter().position(|message| message.id == id))
+        } else {
+            None
+        };
+        let reused_user_message = match reused_prompt_preceding_index {
+            Some(_) => None,
+            None => self
+                .reuse_existing_user_message
+                .then_some(self.llm_user_content),
+        };
+        let patched_messages: Option<Vec<AgentMessage>> = if let Some(index) =
+            reused_prompt_preceding_index.filter(|index| {
+                thread.messages[*index].role != MessageRole::User
+                    && !self.llm_user_content.trim().is_empty()
+            }) {
+            let mut v = thread.messages.clone();
+            v.insert(
+                index + 1,
+                AgentMessage::user(self.llm_user_content, thread.messages[index].timestamp),
+            );
+            Some(v)
+        } else if needs_patch {
             let idx = thread
                 .messages
                 .iter()
-                .rposition(|m| m.role == MessageRole::User);
+                .rposition(|m| {
+                    m.role == MessageRole::User && !self.delivered_queued_message_ids.contains(&m.id)
+                });
             if let Some(i) = idx {
                 let mut v = thread.messages.clone();
                 v[i].content = self.llm_user_content.to_string();
@@ -213,16 +239,14 @@ impl<'a> SendMessageRunner<'a> {
                 thread,
                 &self.config,
                 &self.provider_config,
-                self.reuse_existing_user_message
-                    .then_some(self.llm_user_content),
+                reused_user_message,
             )
         } else {
             prepare_llm_request_with_reused_user_message(
                 thread,
                 &self.config,
                 &self.provider_config,
-                self.reuse_existing_user_message
-                    .then_some(self.llm_user_content),
+                reused_user_message,
             )
         };
         prepared.force_connection_close = compaction_inserted;

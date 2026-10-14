@@ -476,6 +476,7 @@ async fn wake_spawned_thread_after_budget_extension(
     };
     if idle {
         let _ = agent.stop_stream(child_thread_id).await;
+        agent.clear_operator_stream_stop(child_thread_id).await;
     }
     if let Err(error) = agent
         .flush_deferred_visible_thread_continuations(child_thread_id)

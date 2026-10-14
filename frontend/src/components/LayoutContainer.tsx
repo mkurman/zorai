@@ -195,7 +195,7 @@ function SplitHandle({
       style={style}
       onPointerDown={handlePointerDown}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = "rgba(94, 231, 223, 0.18)";
+        e.currentTarget.style.background = "color-mix(in srgb, var(--accent) 18%, transparent)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = "transparent";

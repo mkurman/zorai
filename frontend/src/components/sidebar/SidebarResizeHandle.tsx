@@ -10,7 +10,7 @@ export function SidebarResizeHandle() {
                 height: "100%",
                 cursor: "col-resize",
                 zIndex: 20,
-                background: "linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.35), transparent)",
+                background: "linear-gradient(90deg, transparent, color-mix(in srgb, var(--text-secondary) 35%, transparent), transparent)",
             }}
         />
     );

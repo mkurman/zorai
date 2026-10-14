@@ -244,7 +244,7 @@ export function InfiniteCanvasSurface({ surface }: InfiniteCanvasSurfaceProps) {
         height: "100%",
         position: "relative",
         overflow: "hidden",
-        background: "radial-gradient(circle at top right, rgba(96, 165, 250, 0.09), transparent 58%), var(--bg-deep)",
+        background: "radial-gradient(circle at top right, color-mix(in srgb, var(--info) 9%, transparent), transparent 58%), var(--bg-deep)",
         cursor: ctrlHeld ? "zoom-in" : isPanning ? "grabbing" : "grab",
       }}
       onContextMenu={(event) => {
@@ -271,7 +271,7 @@ export function InfiniteCanvasSurface({ surface }: InfiniteCanvasSurfaceProps) {
           inset: 0,
           pointerEvents: "none",
           zIndex: 0,
-          backgroundImage: snapEnabled ? "radial-gradient(circle, rgba(148, 163, 184, 0.26) 1px, transparent 1.2px)" : "none",
+          backgroundImage: snapEnabled ? "radial-gradient(circle, color-mix(in srgb, var(--text-secondary) 26%, transparent) 1px, transparent 1.2px)" : "none",
           backgroundSize: snapEnabled ? `${gridMetrics.size}px ${gridMetrics.size}px` : undefined,
           backgroundPosition: snapEnabled ? `${gridMetrics.offsetX}px ${gridMetrics.offsetY}px` : undefined,
         }}
@@ -327,7 +327,7 @@ export function InfiniteCanvasSurface({ surface }: InfiniteCanvasSurfaceProps) {
             width: Math.abs(marquee.currentX - marquee.startX) * surface.canvasState.zoomLevel,
             height: Math.abs(marquee.currentY - marquee.startY) * surface.canvasState.zoomLevel,
             border: "1px solid var(--accent)",
-            background: "rgba(94, 231, 223, 0.14)",
+            background: "color-mix(in srgb, var(--accent) 14%, transparent)",
           }}
         />
       ) : null}

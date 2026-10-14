@@ -47,22 +47,22 @@ export function AppearanceTab({
                         <SettingRow label="Background">
                             <ColorInput value={settings.customTerminalBackground}
                                 onChange={(value) => updateSetting("customTerminalBackground", value)}
-                                placeholder="#1e1e2e" />
+                                placeholder="var(--bg-surface)" />
                         </SettingRow>
                         <SettingRow label="Foreground">
                             <ColorInput value={settings.customTerminalForeground}
                                 onChange={(value) => updateSetting("customTerminalForeground", value)}
-                                placeholder="#cdd6f4" />
+                                placeholder="var(--text-primary)" />
                         </SettingRow>
                         <SettingRow label="Cursor">
                             <ColorInput value={settings.customTerminalCursor}
                                 onChange={(value) => updateSetting("customTerminalCursor", value)}
-                                placeholder="#f5e0dc" />
+                                placeholder="var(--text-primary)" />
                         </SettingRow>
                         <SettingRow label="Selection">
                             <ColorInput value={settings.customTerminalSelection}
                                 onChange={(value) => updateSetting("customTerminalSelection", value)}
-                                placeholder="#45475a" />
+                                placeholder="var(--text-muted)" />
                         </SettingRow>
                     </>
                 ) : null}

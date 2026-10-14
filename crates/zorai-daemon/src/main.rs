@@ -20,6 +20,7 @@ static _rjem_malloc_conf: &[u8] =
 
 pub mod agent;
 mod criu;
+mod data_query;
 mod db_cli;
 mod git;
 mod governance;

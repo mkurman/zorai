@@ -77,8 +77,8 @@ export function AboutTab() {
                     </div>
 
                     <div style={{
-                        border: "1px solid rgba(255,255,255,0.08)",
-                        background: "rgba(255,255,255,0.02)",
+                        border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
+                        background: "color-mix(in srgb, var(--text-primary) 2%, transparent)",
                         padding: 10,
                         display: "grid",
                         gap: 6,
@@ -99,8 +99,8 @@ export function AboutTab() {
                     </div>
 
                     <div style={{
-                        border: "1px solid rgba(255,255,255,0.08)",
-                        background: "rgba(255,255,255,0.02)",
+                        border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
+                        background: "color-mix(in srgb, var(--text-primary) 2%, transparent)",
                         padding: 10,
                         display: "grid",
                         gap: 6,
@@ -127,8 +127,8 @@ export function AboutTab() {
                     </div>
 
                     <div style={{
-                        border: "1px solid rgba(255,255,255,0.08)",
-                        background: "rgba(255,255,255,0.02)",
+                        border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
+                        background: "color-mix(in srgb, var(--text-primary) 2%, transparent)",
                         padding: 10,
                         display: "grid",
                         gap: 6,

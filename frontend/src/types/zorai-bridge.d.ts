@@ -661,6 +661,7 @@ declare global {
         agentSpawnSubagent?: (threadId: string, request: { title: string; description: string; cwd?: string | null; session?: string | null; priority?: string; provider?: string; model?: string; reasoning_effort?: string; runtime?: string; max_depth?: number; budget?: { max_tokens?: number; max_wall_time_secs?: number } }) => Promise<{ ok: boolean; content?: string; error?: string }>;
         agentGetGitDiff?: (repoPath: string, filePath?: string | null) => Promise<{ repo_path: string; file_path?: string | null; diff: string } | string | unknown>;
         agentGetFilePreview?: (path: string, maxBytes?: number | null) => Promise<{ path: string; content: string; truncated: boolean; is_text: boolean } | null | unknown>;
+        agentDataQuery?: (request: Record<string, unknown>) => Promise<unknown>;
         agentStartGoalRun?: (payload: { goal: string; title?: string | null; sessionId?: string | null; priority?: string | null; threadId?: string | null; targetAgentId?: string | null; clientRequestId?: string | null; requiresApproval?: boolean; launchAssignments?: Array<{ role_id: string; enabled: boolean; provider: string; model: string; reasoning_effort?: string | null; inherit_from_main: boolean }> }) => Promise<ZoraiGoalRun | unknown>;
         agentListGoalRuns?: () => Promise<ZoraiGoalRun[] | unknown>;
         agentGetGoalRun?: (goalRunId: string) => Promise<ZoraiGoalRun | unknown>;
@@ -786,7 +787,7 @@ declare global {
         agentForceCompact?: (threadId: string) => Promise<{ ok: boolean; error?: string } | unknown>;
         agentDeleteThread?: (threadId: string) => Promise<boolean>;
         agentRenameThread?: (threadId: string, title: string) => Promise<boolean>;
-        agentReadThreadInventoryImage?: (filePath: string) => Promise<string | null>;
+        agentReadImageFile?: (filePath: string) => Promise<string | null>;
         openAICodexAuthStatus?: (options?: { refresh?: boolean }) => Promise<ZoraiOpenAICodexAuthStatus>;
         openAICodexAuthLogin?: () => Promise<ZoraiOpenAICodexAuthLogin>;
         openAICodexAuthLogout?: () => Promise<{ ok: boolean }>;
