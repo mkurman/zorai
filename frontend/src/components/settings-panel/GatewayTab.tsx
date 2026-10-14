@@ -155,14 +155,14 @@ function WhatsAppConnector({ allowlistState }: { allowlistState: WhatsAppAllowli
                         <button onClick={connect} disabled={!allowlistState.hasValidContacts} style={{
                             ...smallBtnStyle,
                             color: allowlistState.hasValidContacts ? "var(--success)" : "var(--text-muted)",
-                            borderColor: allowlistState.hasValidContacts ? "rgba(166, 227, 161, 0.2)" : "var(--border)",
+                            borderColor: allowlistState.hasValidContacts ? "color-mix(in srgb, var(--success) 20%, transparent)" : "var(--border)",
                             opacity: allowlistState.hasValidContacts ? 1 : 0.6,
                             cursor: allowlistState.hasValidContacts ? "pointer" : "not-allowed",
                         }}>Link Device</button>
                     ) : null}
                     {status === "connected" ? (
                         <button onClick={disconnect} style={{
-                            ...smallBtnStyle, color: "var(--danger)", borderColor: "rgba(243, 139, 168, 0.2)",
+                            ...smallBtnStyle, color: "var(--danger)", borderColor: "color-mix(in srgb, var(--danger) 20%, transparent)",
                         }}>Disconnect</button>
                     ) : null}
                     {status === "qr_ready" ? (
@@ -175,10 +175,10 @@ function WhatsAppConnector({ allowlistState }: { allowlistState: WhatsAppAllowli
                 marginBottom: 10,
                 padding: "6px 10px",
                 borderRadius: 0,
-                background: allowlistState.hasValidContacts ? "rgba(255,255,255,0.03)" : "rgba(243, 139, 168, 0.08)",
+                background: allowlistState.hasValidContacts ? "color-mix(in srgb, var(--text-primary) 3%, transparent)" : "color-mix(in srgb, var(--danger) 8%, transparent)",
                 border: allowlistState.hasValidContacts
-                    ? "1px solid rgba(255,255,255,0.06)"
-                    : "1px solid rgba(243, 139, 168, 0.2)",
+                    ? "1px solid color-mix(in srgb, var(--text-primary) 6%, transparent)"
+                    : "1px solid color-mix(in srgb, var(--danger) 20%, transparent)",
                 fontSize: "var(--text-sm)",
                 color: allowlistState.hasValidContacts ? "var(--text-muted)" : "var(--danger)",
                 lineHeight: 1.4,
@@ -193,8 +193,8 @@ function WhatsAppConnector({ allowlistState }: { allowlistState: WhatsAppAllowli
                     marginBottom: 10,
                     padding: "6px 10px",
                     borderRadius: 0,
-                    background: "rgba(250, 179, 135, 0.08)",
-                    border: "1px solid rgba(250, 179, 135, 0.2)",
+                    background: "color-mix(in srgb, var(--warning) 8%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--warning) 20%, transparent)",
                     fontSize: "var(--text-sm)",
                     color: "var(--warning)",
                     lineHeight: 1.4,
@@ -207,7 +207,7 @@ function WhatsAppConnector({ allowlistState }: { allowlistState: WhatsAppAllowli
                 <div style={{
                     display: "flex", flexDirection: "column", alignItems: "center",
                     padding: 16, borderRadius: 0,
-                    background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
+                    background: "color-mix(in srgb, var(--text-primary) 3%, transparent)", border: "1px solid color-mix(in srgb, var(--text-primary) 6%, transparent)",
                 }}>
                     {qrDataUrl ? (
                         <>
@@ -220,8 +220,8 @@ function WhatsAppConnector({ allowlistState }: { allowlistState: WhatsAppAllowli
                                     maxWidth: 320,
                                     height: "auto",
                                     padding: 12,
-                                    background: "rgba(255,255,255,0.98)",
-                                    border: "1px solid rgba(255,255,255,0.08)",
+                                    background: "color-mix(in srgb, var(--text-primary) 98%, transparent)",
+                                    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
                                     imageRendering: "pixelated",
                                 }}
                             />
@@ -240,7 +240,7 @@ function WhatsAppConnector({ allowlistState }: { allowlistState: WhatsAppAllowli
             {status === "connected" ? (
                 <div style={{
                     padding: "8px 10px", borderRadius: 0,
-                    background: "rgba(166, 227, 161, 0.05)", border: "1px solid rgba(166, 227, 161, 0.15)",
+                    background: "color-mix(in srgb, var(--success) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--success) 15%, transparent)",
                     fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.5,
                 }}>
                     Session is active. Messages from allowed contacts will be forwarded to zorai.
@@ -251,7 +251,7 @@ function WhatsAppConnector({ allowlistState }: { allowlistState: WhatsAppAllowli
             {error ? (
                 <div style={{
                     marginTop: 8, padding: "6px 10px", borderRadius: 0,
-                    background: "rgba(243, 139, 168, 0.08)", border: "1px solid rgba(243, 139, 168, 0.2)",
+                    background: "color-mix(in srgb, var(--danger) 8%, transparent)", border: "1px solid color-mix(in srgb, var(--danger) 20%, transparent)",
                     fontSize: "var(--text-sm)", color: "var(--danger)", lineHeight: 1.4,
                 }}>
                     {error}
@@ -355,7 +355,7 @@ export function GatewayTab({
 
                 <div style={{
                     marginTop: 12, padding: "8px 10px", borderRadius: 0,
-                    background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)",
+                    background: "color-mix(in srgb, var(--text-primary) 2%, transparent)", border: "1px solid color-mix(in srgb, var(--text-primary) 5%, transparent)",
                 }}>
                     <div style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginBottom: 6, fontWeight: 600 }}>
                         Alternative: Business API

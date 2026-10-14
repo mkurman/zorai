@@ -44,10 +44,10 @@ export function CommandLogTable({
                     style={{
                         color: "var(--text-secondary)",
                         textAlign: "left",
-                        borderBottom: "1px solid rgba(255,255,255,0.08)",
+                        borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
                         position: "sticky",
                         top: 0,
-                        background: "rgba(13, 23, 35, 0.98)",
+                        background: "color-mix(in srgb, var(--shade) 98%, transparent)",
                     }}
                 >
                     <th style={{ padding: "8px 12px" }}>Workspace</th>
@@ -65,9 +65,9 @@ export function CommandLogTable({
                 {entries.map((entry) => (
                     <tr
                         key={entry.id}
-                        style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}
+                        style={{ borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 3%, transparent)" }}
                         onMouseEnter={(ev) =>
-                            (ev.currentTarget.style.background = "rgba(255,255,255,0.03)")
+                            (ev.currentTarget.style.background = "color-mix(in srgb, var(--text-primary) 3%, transparent)")
                         }
                         onMouseLeave={(ev) =>
                             (ev.currentTarget.style.background = "transparent")

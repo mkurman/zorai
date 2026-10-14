@@ -10,6 +10,7 @@ pub(in crate::agent) struct AgentWakeup {
     pub(in crate::agent) repetitions_remaining: Option<u64>,
     pub(in crate::agent) wakeup_kind: String,
     pub(in crate::agent) goal_run_id: Option<String>,
+    pub(in crate::agent) reason: Option<String>,
     pub(in crate::agent) created_at: u64,
 }
 
@@ -24,6 +25,7 @@ impl AgentWakeup {
             repetitions_remaining: self.repetitions_remaining,
             wakeup_kind: self.wakeup_kind.clone(),
             goal_run_id: self.goal_run_id.clone(),
+            reason: self.reason.clone(),
             created_at: self.created_at,
         }
     }
@@ -45,6 +47,7 @@ impl AgentEngine {
             message,
             "generic",
             None,
+            None,
         )
         .await
         .expect("generic wakeup configuration is always valid")
@@ -58,6 +61,7 @@ impl AgentEngine {
         message: &str,
         wakeup_kind: &str,
         goal_run_id: Option<&str>,
+        reason: Option<&str>,
     ) -> Result<AgentWakeup> {
         if !matches!(wakeup_kind, "generic" | "goal_supervision") {
             anyhow::bail!("unsupported wakeup kind '{wakeup_kind}'");
@@ -91,6 +95,10 @@ impl AgentEngine {
             repetitions_remaining: (repetitions != 0).then_some(repetitions),
             wakeup_kind: wakeup_kind.to_string(),
             goal_run_id: goal_run_id.map(str::to_string),
+            reason: reason
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string),
             created_at: now,
         };
         self.history.upsert_agent_wakeup(&wakeup.to_row()).await?;
@@ -236,12 +244,21 @@ impl AgentEngine {
                 } else {
                     wakeup.message.clone()
                 };
+                let mut message = match wakeup.reason.as_deref() {
+                    Some(reason) => format!("{message}\nScheduled because: {reason}"),
+                    None => message,
+                };
+                let is_last =
+                    matches!(wakeup.repetitions_remaining, Some(remaining) if remaining <= 1);
+                if !is_last {
+                    message.push_str(&format!(
+                        "\nCancel this scheduled wakeup with cancel_wakeup(wakeup_id=\"{id}\") if you no longer need it."
+                    ));
+                }
                 fired_by_thread
                     .entry(wakeup.thread_id.clone())
                     .or_default()
                     .push((id.clone(), message, wakeup.goal_run_id.clone()));
-                let is_last =
-                    matches!(wakeup.repetitions_remaining, Some(remaining) if remaining <= 1);
                 if is_last {
                     if let Some(removed) = wakeups.remove(&id) {
                         to_delete.push(removed);
@@ -550,6 +567,7 @@ mod tests {
                 "check progress",
                 "goal_supervision",
                 Some(&goal_run_id),
+                None,
             )
             .await
             .expect("valid goal supervision");
@@ -617,6 +635,7 @@ mod tests {
                 "should not fire",
                 "goal_supervision",
                 Some(&goal_run_id),
+                None,
             )
             .await
             .expect("valid goal supervision");
@@ -663,6 +682,7 @@ mod tests {
                 "owned",
                 "goal_supervision",
                 Some(&owned_goal_run_id),
+                None,
             )
             .await
             .expect("valid goal supervision");
@@ -674,6 +694,7 @@ mod tests {
                 "other",
                 "goal_supervision",
                 Some(&other_goal_run_id),
+                None,
             )
             .await
             .expect("valid goal supervision");
@@ -704,6 +725,7 @@ mod tests {
                 "persisted supervision",
                 "goal_supervision",
                 Some(&goal_run_id),
+                None,
             )
             .await
             .expect("valid goal supervision");
@@ -743,6 +765,7 @@ mod tests {
                 "missing",
                 "goal_supervision",
                 Some("goal-missing"),
+                None,
             )
             .await
             .expect_err("missing goal must be rejected");
@@ -757,6 +780,7 @@ mod tests {
                 "terminal",
                 "goal_supervision",
                 Some(&terminal_goal_run_id),
+                None,
             )
             .await
             .expect_err("terminal goal must be rejected");
@@ -775,6 +799,7 @@ mod tests {
                 "do not loop forever",
                 "goal_supervision",
                 Some("goal-infinite"),
+                None,
             )
             .await
             .expect_err("infinite goal supervision must be rejected");
@@ -839,6 +864,7 @@ mod tests {
                 "owned",
                 "goal_supervision",
                 Some(&goal_run_id),
+                None,
             )
             .await
             .expect("valid goal supervision");
@@ -892,6 +918,137 @@ mod tests {
         assert!(
             !rows.iter().any(|row| row.id == wakeup.id),
             "a cancelled wakeup must be deleted from the database"
+        );
+    }
+}
+
+#[cfg(test)]
+mod reason_tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    async fn engine_with_thread(thread_id: &str) -> std::sync::Arc<AgentEngine> {
+        let root = tempdir().expect("tempdir should succeed");
+        let manager = SessionManager::new_test(root.path()).await;
+        let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+        let now = now_millis();
+        engine.threads.write().await.insert(
+            thread_id.to_string(),
+            AgentThread {
+                id: thread_id.to_string(),
+                agent_name: None,
+                title: "Wakeup".to_string(),
+                messages: vec![AgentMessage::user("kick off the job", now)],
+                pinned: false,
+                upstream_thread_id: None,
+                upstream_transport: None,
+                upstream_provider: None,
+                upstream_model: None,
+                upstream_assistant_id: None,
+                created_at: now,
+                updated_at: now,
+                total_input_tokens: 0,
+                total_output_tokens: 0,
+            },
+        );
+        engine
+    }
+
+    #[tokio::test]
+    async fn fired_wakeup_tells_agent_why_it_was_scheduled_and_how_to_cancel() {
+        let thread_id = "thread-wakeup-reason";
+        let engine = engine_with_thread(thread_id).await;
+        let wakeup = engine
+            .schedule_wakeup_with_context(
+                thread_id,
+                60_000,
+                2,
+                "poll",
+                "generic",
+                None,
+                Some("waiting for the release build to finish"),
+            )
+            .await
+            .expect("generic wakeup is valid");
+        let rows = engine
+            .history
+            .list_agent_wakeups()
+            .await
+            .expect("listing wakeups should succeed");
+        assert_eq!(
+            rows.iter().find(|row| row.id == wakeup.id).and_then(|row| row.reason.as_deref()),
+            Some("waiting for the release build to finish"),
+            "the reason must survive a daemon restart"
+        );
+        engine.timer_wakeups.lock().await.get_mut(&wakeup.id).unwrap().next_fire_at = 0;
+        let (_generation, _, _) = engine.begin_stream_cancellation(thread_id).await;
+
+        engine
+            .supervise_timer_wakeups()
+            .await
+            .expect("wakeup supervision should succeed");
+
+        let continuations = engine
+            .deferred_visible_thread_continuations_for(thread_id)
+            .await;
+        let content = &continuations[0].llm_user_content;
+        assert!(
+            content.contains("Scheduled because: waiting for the release build to finish"),
+            "a woken agent that lost context to compaction must learn why it was woken: {content}"
+        );
+        assert!(
+            content.contains(&format!("cancel_wakeup(wakeup_id=\"{}\")", wakeup.id)),
+            "a repeating wakeup must tell the agent how to stop it: {content}"
+        );
+    }
+
+    #[tokio::test]
+    async fn compaction_payload_keeps_pending_wakeups_and_running_subagents() {
+        let thread_id = "thread-wakeup-compaction";
+        let engine = engine_with_thread(thread_id).await;
+        let wakeup = engine
+            .schedule_wakeup_with_context(
+                thread_id,
+                60_000,
+                1,
+                "check the deploy",
+                "generic",
+                None,
+                Some("deploy takes ten minutes"),
+            )
+            .await
+            .expect("generic wakeup is valid");
+        let task = |id: &str, status: &str| -> AgentTask {
+            serde_json::from_value(serde_json::json!({
+                "id": id,
+                "title": format!("worker {id}"),
+                "description": format!("investigate flaky test for {id}"),
+                "status": status,
+                "created_at": 1,
+                "source": "subagent",
+                "parent_thread_id": thread_id,
+            }))
+            .expect("task fixture should deserialize")
+        };
+        {
+            let mut tasks = engine.tasks.lock().await;
+            tasks.push_back(task("task-running", "in_progress"));
+            tasks.push_back(task("task-done", "completed"));
+        }
+
+        let payload = engine
+            .append_pending_runtime_section(thread_id, "checkpoint".to_string())
+            .await;
+
+        assert!(payload.contains(&wakeup.id), "{payload}");
+        assert!(payload.contains("reason: deploy takes ten minutes"), "{payload}");
+        assert!(
+            payload.contains("investigate flaky test for task-running"),
+            "running subagents and why they were spawned must survive compaction: {payload}"
+        );
+        assert!(
+            !payload.contains("task-done"),
+            "finished subagents are not pending work: {payload}"
         );
     }
 }

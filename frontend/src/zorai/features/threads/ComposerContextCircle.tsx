@@ -155,7 +155,7 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
           <circle cx={18} cy={18} r={radius} fill="none" stroke="var(--zorai-border)" strokeWidth={2} opacity={0.9} />
           <circle
             cx={18} cy={18} r={radius} fill="none"
-            stroke={tone === "danger" ? "var(--danger, #e5484d)" : tone === "warn" ? "#c9a100" : "var(--zorai-accent, #7c5cff)"}
+            stroke={tone === "danger" ? "var(--danger, var(--danger))" : tone === "warn" ? "var(--warning)" : "var(--zorai-accent, var(--reasoning))"}
             strokeWidth={2.5} strokeLinecap="round"
             strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ * 0.25}
             style={{ transition: "stroke-dasharray 260ms ease" }}

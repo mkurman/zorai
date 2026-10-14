@@ -406,4 +406,9 @@ pub enum AgentEvent {
         thread_id: String,
         prompts: Vec<zorai_protocol::QueuedPromptRecord>,
     },
+    QueuedPromptDelivered {
+        thread_id: String,
+        message_id: String,
+        prompt: zorai_protocol::QueuedPromptRecord,
+    },
 }

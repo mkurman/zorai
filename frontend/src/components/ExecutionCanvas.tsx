@@ -86,7 +86,7 @@ export function ExecutionCanvas({ style, className }: ExecutionCanvasProps = {})
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(3,8,14,0.72)",
+        background: "color-mix(in srgb, var(--shade) 72%, transparent)",
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "center",
@@ -118,7 +118,7 @@ export function ExecutionCanvas({ style, className }: ExecutionCanvasProps = {})
             justifyContent: "space-between",
             alignItems: "center",
             padding: "16px 20px",
-            borderBottom: "1px solid rgba(255,255,255,0.08)",
+            borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
           }}
         >
           <div style={{ display: "grid", gap: 4 }}>
@@ -179,12 +179,12 @@ export function ExecutionCanvas({ style, className }: ExecutionCanvasProps = {})
                 variant={BackgroundVariant.Dots}
                 gap={20}
                 size={1}
-                color="rgba(255,255,255,0.04)"
+                color="color-mix(in srgb, var(--text-primary) 4%, transparent)"
               />
               <Controls
                 position="bottom-left"
                 style={{
-                  background: "rgba(14, 24, 35, 0.9)",
+                  background: "color-mix(in srgb, var(--shade) 90%, transparent)",
                   border: "1px solid var(--glass-border)",
                   borderRadius: 0,
                 }}
@@ -192,12 +192,12 @@ export function ExecutionCanvas({ style, className }: ExecutionCanvasProps = {})
               <MiniMap
                 position="bottom-right"
                 style={{
-                  background: "rgba(14, 24, 35, 0.9)",
+                  background: "color-mix(in srgb, var(--shade) 90%, transparent)",
                   border: "1px solid var(--glass-border)",
                   borderRadius: 0,
                 }}
                 nodeColor={() => "var(--accent)"}
-                maskColor="rgba(0, 0, 0, 0.5)"
+                maskColor="color-mix(in srgb, var(--shade) 50%, transparent)"
               />
             </ReactFlow>
           )}
@@ -213,8 +213,8 @@ function MetricChip({ label, value }: { label: string; value: number }) {
       style={{
         padding: "4px 10px",
         borderRadius: 0,
-        border: "1px solid rgba(255,255,255,0.08)",
-        background: "rgba(255,255,255,0.03)",
+        border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
+        background: "color-mix(in srgb, var(--text-primary) 3%, transparent)",
         fontSize: "var(--text-sm)",
         display: "flex",
         gap: 6,
@@ -228,8 +228,8 @@ function MetricChip({ label, value }: { label: string; value: number }) {
 }
 
 const closeBtnStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.04)",
-  border: "1px solid rgba(255,255,255,0.08)",
+  background: "color-mix(in srgb, var(--text-primary) 4%, transparent)",
+  border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
   color: "var(--text-secondary)",
   cursor: "pointer",
   fontSize: "var(--text-base)",

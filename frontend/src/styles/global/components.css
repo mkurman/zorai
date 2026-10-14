@@ -105,13 +105,13 @@
 
 .zorai-chip--accent {
   background: var(--accent-soft);
-  border-color: rgba(94, 231, 223, 0.2);
+  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
   color: var(--accent);
 }
 
 .zorai-chip--accent:hover {
-  background: rgba(94, 231, 223, 0.18);
-  border-color: rgba(94, 231, 223, 0.35);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .zorai-chip--agent {
@@ -121,8 +121,8 @@
 }
 
 .zorai-chip--agent:hover {
-  background: rgba(100, 181, 246, 0.18);
-  border-color: rgba(100, 181, 246, 0.4);
+  background: color-mix(in srgb, var(--info) 18%, transparent);
+  border-color: color-mix(in srgb, var(--info) 40%, transparent);
 }
 
 .zorai-chip--human {
@@ -132,8 +132,8 @@
 }
 
 .zorai-chip--human:hover {
-  background: rgba(74, 222, 128, 0.18);
-  border-color: rgba(74, 222, 128, 0.4);
+  background: color-mix(in srgb, var(--success) 18%, transparent);
+  border-color: color-mix(in srgb, var(--success) 40%, transparent);
 }
 
 .zorai-chip--approval {
@@ -143,8 +143,8 @@
 }
 
 .zorai-chip--approval:hover {
-  background: rgba(251, 191, 36, 0.18);
-  border-color: rgba(251, 191, 36, 0.45);
+  background: color-mix(in srgb, var(--warning) 18%, transparent);
+  border-color: color-mix(in srgb, var(--warning) 45%, transparent);
 }
 
 .zorai-chip--reasoning {
@@ -161,19 +161,19 @@
 
 .zorai-chip--success {
   background: var(--success-soft);
-  border-color: rgba(74, 222, 128, 0.25);
+  border-color: color-mix(in srgb, var(--success) 25%, transparent);
   color: var(--success);
 }
 
 .zorai-chip--warning {
   background: var(--warning-soft);
-  border-color: rgba(251, 191, 36, 0.25);
+  border-color: color-mix(in srgb, var(--warning) 25%, transparent);
   color: var(--warning);
 }
 
 .zorai-chip--danger {
   background: var(--danger-soft);
-  border-color: rgba(248, 113, 113, 0.25);
+  border-color: color-mix(in srgb, var(--danger) 25%, transparent);
   color: var(--danger);
 }
 
@@ -224,31 +224,31 @@
 .zorai-agent-indicator--lane-1 {
   --agent: var(--agent-lane-1);
   --agent-soft: var(--agent-lane-1-soft);
-  --agent-border: rgba(100, 181, 246, 0.3);
+  --agent-border: color-mix(in srgb, var(--info) 30%, transparent);
 }
 
 .zorai-agent-indicator--lane-2 {
   --agent: var(--agent-lane-2);
   --agent-soft: var(--agent-lane-2-soft);
-  --agent-border: rgba(167, 139, 250, 0.3);
+  --agent-border: color-mix(in srgb, var(--reasoning) 30%, transparent);
 }
 
 .zorai-agent-indicator--lane-3 {
   --agent: var(--agent-lane-3);
   --agent-soft: var(--agent-lane-3-soft);
-  --agent-border: rgba(244, 114, 182, 0.3);
+  --agent-border: color-mix(in srgb, var(--reasoning) 30%, transparent);
 }
 
 .zorai-agent-indicator--lane-4 {
   --agent: var(--agent-lane-4);
   --agent-soft: var(--agent-lane-4-soft);
-  --agent-border: rgba(34, 211, 238, 0.3);
+  --agent-border: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .zorai-agent-indicator--lane-5 {
   --agent: var(--agent-lane-5);
   --agent-soft: var(--agent-lane-5-soft);
-  --agent-border: rgba(163, 230, 53, 0.3);
+  --agent-border: color-mix(in srgb, var(--success) 30%, transparent);
 }
 
 @keyframes agent-pulse {
@@ -327,12 +327,12 @@
 
 .zorai-btn--primary {
   background: var(--accent-soft);
-  border: 1px solid rgba(94, 231, 223, 0.2);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
   color: var(--accent);
 }
 
 .zorai-btn--primary:hover {
-  background: rgba(94, 231, 223, 0.18);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
   border-color: var(--accent);
 }
 
@@ -366,7 +366,7 @@
 }
 
 .zorai-btn--agent:hover {
-  background: rgba(100, 181, 246, 0.18);
+  background: color-mix(in srgb, var(--info) 18%, transparent);
   border-color: var(--agent);
 }
 
@@ -377,18 +377,18 @@
 }
 
 .zorai-btn--human:hover {
-  background: rgba(74, 222, 128, 0.18);
+  background: color-mix(in srgb, var(--success) 18%, transparent);
   border-color: var(--human);
 }
 
 .zorai-btn--danger {
   background: var(--danger-soft);
-  border: 1px solid rgba(248, 113, 113, 0.25);
+  border: 1px solid color-mix(in srgb, var(--danger) 25%, transparent);
   color: var(--danger);
 }
 
 .zorai-btn--danger:hover {
-  background: rgba(248, 113, 113, 0.18);
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
   border-color: var(--danger);
 }
 

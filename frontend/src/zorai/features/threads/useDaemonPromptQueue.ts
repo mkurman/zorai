@@ -4,6 +4,7 @@ import { getBridge } from "@/lib/bridge";
 import { pushToast } from "@/lib/toastStore";
 import {
   createQueuedComposerId,
+  queuedPromptsFromDaemon,
   readPromptQueueResponse,
   reconcileSentQueuedPromptMessages,
   shouldApplyPromptQueueSnapshot,
@@ -116,7 +117,17 @@ export function useDaemonPromptQueue(daemonThreadId: string | null | undefined) 
     if (!threadIdAtEffect) return;
     const bridge = getBridge();
     if (!bridge?.onAgentEvent) return;
-    return bridge.onAgentEvent((event: { type?: string; thread_id?: string; prompts?: unknown }) => {
+    return bridge.onAgentEvent((event: { type?: string; thread_id?: string; prompts?: unknown; prompt?: unknown }) => {
+      if (event?.type === "queued_prompt_delivered" && event.thread_id === threadIdAtEffect) {
+        const [prompt] = queuedPromptsFromDaemon([event.prompt]);
+        const state = useAgentStore.getState();
+        const localThread = state.threads.find((thread) => thread.daemonThreadId === threadIdAtEffect);
+        if (prompt && localThread) {
+          const messageCount = (state.messages[localThread.id] ?? []).length;
+          reconcileSentQueuedPrompt(localThread.id, prompt, messageCount, localThread.messageCount);
+        }
+        return;
+      }
       if (event?.type !== "prompt_queue_update" || event.thread_id !== threadIdAtEffect) return;
       daemonEventRevisionRef.current += 1;
       usePromptQueueStore.getState().applyDaemonUpdate(threadIdAtEffect, event.prompts);

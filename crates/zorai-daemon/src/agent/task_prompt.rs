@@ -176,6 +176,18 @@ fn build_task_prompt_with_handles(task: &AgentTask, handles: &TaskPromptHandles)
         prompt.push_str(
             "\nYou are running as a supervised subagent. Stay tightly scoped to this assignment, avoid duplicating sibling work, and report concise results back through your normal response.",
         );
+        let owes_outcome_report = task.completion_contract.as_ref().is_some_and(|contract| {
+            contract.required_deliverables.iter().any(|requirement| {
+                requirement.description
+                    == crate::agent::types::SUBAGENT_REPORT_REQUIREMENT_DESCRIPTION
+                    && !requirement.completed
+            })
+        });
+        if owes_outcome_report {
+            prompt.push_str(
+                "\nThis task stays open until you call `report_subagent_outcome`. When the work is finished, call it once with status `done` and put the complete result the assignment asks for in `summary`, verbatim and in the requested format; the parent reads only that summary. Use status `error` or `cancelled` if you cannot finish.",
+            );
+        }
     }
 
     prompt.push_str(&format!("\nAssigned runtime: {}", task.runtime));
@@ -726,6 +738,33 @@ mod tests {
         assert!(
             prompt.contains("You are running as a supervised subagent"),
             "chat-spawned children still need the supervised scoping note"
+        );
+    }
+
+    #[test]
+    fn build_task_prompt_tells_subagent_its_task_closes_only_through_outcome_report() {
+        let mut task = sample_task();
+        task.source = "subagent".to_string();
+        task.parent_thread_id = Some("thread-parent".to_string());
+        task.completion_contract = Some(crate::agent::types::TaskCompletionContract::for_new_task(
+            "review commits",
+            "subagent",
+        ));
+
+        let prompt = build_task_prompt(&task);
+        assert!(
+            prompt.contains("stays open until you call `report_subagent_outcome`"),
+            "without this the child answers in chat, the contract stays open, and the dispatcher reruns the same assignment"
+        );
+        assert!(prompt.contains("the parent reads only that summary"));
+
+        task.completion_contract.as_mut().unwrap().satisfy_requirement(
+            crate::agent::types::SUBAGENT_REPORT_REQUIREMENT_DESCRIPTION,
+            "reported",
+        );
+        assert!(
+            !build_task_prompt(&task).contains("report_subagent_outcome"),
+            "a child that already reported must not be pushed to report again"
         );
     }
 

@@ -558,7 +558,7 @@ export function ChatView({
                       </div>
                     </div>
                     <div className="acp-modal__card-body">{suggestion.instruction}</div>
-                    {suggestion.error && <div style={{ fontSize: "var(--text-sm)", color: "#ff7675" }}>{suggestion.error}</div>}
+                    {suggestion.error && <div style={{ fontSize: "var(--text-sm)", color: "var(--danger)" }}>{suggestion.error}</div>}
                   </div>
                 ))}
               </div>

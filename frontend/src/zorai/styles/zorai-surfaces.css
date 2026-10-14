@@ -134,9 +134,9 @@
 
 .zorai-danger-button {
   min-height: 34px;
-  border: 1px solid rgba(248, 113, 113, 0.45);
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
   border-radius: 6px;
-  background: rgba(248, 113, 113, 0.12);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
   color: var(--zorai-danger);
   padding: 0 12px;
   font: inherit;
@@ -942,7 +942,7 @@ select.zorai-input:disabled option {
 }
 
 .zorai-button--active {
-  background: #71dcca14;
+  background: color-mix(in srgb, var(--accent) 7.8%, transparent);
   color: var(--zorai-accent);
 }
 
@@ -1522,7 +1522,7 @@ select.zorai-input:disabled option {
   border: 1px solid var(--zorai-border-strong);
   border-radius: 7px;
   background: var(--zorai-bg-panel);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 20px 60px color-mix(in srgb, var(--shade) 45%, transparent);
 }
 
 .zorai-workspace-modal__header {
@@ -1584,7 +1584,7 @@ select.zorai-input:disabled option {
   border: 1px solid var(--zorai-border-strong);
   border-radius: 8px;
   background: var(--zorai-bg-panel);
-  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.52);
+  box-shadow: 0 20px 70px color-mix(in srgb, var(--shade) 52%, transparent);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
   overflow: hidden;

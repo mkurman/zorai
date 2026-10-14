@@ -126,7 +126,7 @@ export function DataTable({ data, maxRows = 200 }: DataTableProps) {
               <tr
                 key={ri}
                 style={{
-                  background: ri % 2 === 0 ? "transparent" : "rgba(255,255,255,0.015)",
+                  background: ri % 2 === 0 ? "transparent" : "color-mix(in srgb, var(--text-primary) 1.5%, transparent)",
                 }}
               >
                 {parsed.headers.map((_, ci) => (
@@ -159,7 +159,7 @@ const thStyle: React.CSSProperties = {
 
 const tdStyle: React.CSSProperties = {
   padding: "4px 10px",
-  borderBottom: "1px solid rgba(255,255,255,0.03)",
+  borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 3%, transparent)",
   color: "var(--text-primary)",
   whiteSpace: "pre-wrap",
   wordBreak: "break-word",

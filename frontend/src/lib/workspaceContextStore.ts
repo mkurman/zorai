@@ -27,6 +27,7 @@ type WorkspaceContextState = {
   byThreadId: Record<string, ThreadWorkspaceContext>;
   hydrate: () => Promise<void>;
   bindRoot: (threadId: string, root: string) => void;
+  adoptRoot: (threadId: string, root: string) => void;
   clearRoot: (threadId: string) => void;
   setActiveFile: (threadId: string, filePath: string | null) => void;
   setSelection: (threadId: string, selection: WorkspaceSelection | null) => void;
@@ -103,6 +104,28 @@ export const useWorkspaceContextStore = create<WorkspaceContextState>((set, get)
           isolatedWorktreeStates: {},
           pinnedFiles: [],
         },
+    };
+    persist(byThreadId);
+    return { byThreadId };
+  }),
+  adoptRoot: (threadId, root) => set((state) => {
+    if (state.byThreadId[threadId]) return state;
+    const template = Object.values(state.byThreadId)
+      .filter((context) => context.root === root)
+      .sort((left, right) => right.updatedAt - left.updatedAt)[0];
+    const byThreadId = {
+      ...state.byThreadId,
+      [threadId]: {
+        root,
+        activeFile: template?.activeFile ?? null,
+        selection: null,
+        attachedFiles: [],
+        openFiles: template?.openFiles ?? [],
+        updatedAt: 0,
+        isolateAgentTasks: template?.isolateAgentTasks ?? true,
+        isolatedWorktreeStates: {},
+        pinnedFiles: template?.pinnedFiles ?? [],
+      },
     };
     persist(byThreadId);
     return { byThreadId };

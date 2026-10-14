@@ -21,6 +21,7 @@ pub(crate) async fn dispatch_part4(
             | ClientMessage::AgentGetThread { .. }
             | ClientMessage::AgentDeleteThread { .. }
             | ClientMessage::AgentRenameThread { .. }
+            | ClientMessage::DataQuery { .. }
             | ClientMessage::AgentPinThreadMessageForCompaction { .. }
             | ClientMessage::AgentUnpinThreadMessageForCompaction { .. }
             | ClientMessage::AgentMessageFeedback { .. }
@@ -40,6 +41,7 @@ pub(crate) async fn dispatch_part4(
             | ClientMessage::AgentGetTodos { .. }
             | ClientMessage::AgentGetWorkContext { .. }
             | ClientMessage::AgentGetFileOperationSnapshot { .. }
+            | ClientMessage::AgentGetFileOperationBefore { .. }
             | ClientMessage::AgentRevertFileOperation { .. }
             | ClientMessage::AgentGetThreadWorkspaceContext { .. }
             | ClientMessage::AgentSetThreadWorkspaceContext { .. }
@@ -217,6 +219,26 @@ pub(crate) async fn dispatch_part4(
 
         ClientMessage::AgentRenameThread { thread_id, title } => {
             agent.rename_thread(&thread_id, &title).await;
+        }
+
+        ClientMessage::DataQuery { request_json } => {
+            let response = match serde_json::from_str::<crate::data_query::DataQueryRequest>(
+                &request_json,
+            ) {
+                Ok(request) => crate::data_query::run_data_query(request).await,
+                Err(error) => crate::data_query::DataQueryResponse {
+                    request_id: serde_json::from_str::<serde_json::Value>(&request_json)
+                        .ok()
+                        .and_then(|value| value.get("request_id")?.as_str().map(str::to_string)),
+                    ok: false,
+                    error: Some(format!("invalid data query request: {error}")),
+                    ..Default::default()
+                },
+            };
+            let result_json = serde_json::to_string(&response).unwrap_or_default();
+            framed
+                .send(DaemonMessage::DataQueryResult { result_json })
+                .await?;
         }
 
         ClientMessage::AgentPinThreadMessageForCompaction {
@@ -571,6 +593,17 @@ pub(crate) async fn dispatch_part4(
                 .send(DaemonMessage::AgentWorkContextDetail {
                     thread_id,
                     context_json: json,
+                })
+                .await?;
+        }
+
+        ClientMessage::AgentGetFileOperationBefore { operation_id, path } => {
+            let content = agent
+                .file_operation_before_content(&operation_id, &path)
+                .await;
+            framed
+                .send(DaemonMessage::AgentFileOperationBefore {
+                    result_json: serde_json::to_string(&content).unwrap_or_default(),
                 })
                 .await?;
         }

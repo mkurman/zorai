@@ -222,6 +222,10 @@ pub(super) enum AgentBridgeCommand {
     GetFileOperationSnapshot {
         operation_id: String,
     },
+    GetFileOperationBefore {
+        operation_id: String,
+        path: String,
+    },
     RevertFileOperation {
         operation_id: String,
     },
@@ -243,6 +247,9 @@ pub(super) enum AgentBridgeCommand {
     GetFilePreview {
         path: String,
         max_bytes: Option<usize>,
+    },
+    DataQuery {
+        request: serde_json::Value,
     },
     GetConfig,
     GetMlflowTracingStatus,

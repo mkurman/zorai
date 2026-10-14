@@ -1529,6 +1529,7 @@ async fn stopping_goal_run_records_operator_stop_resume_decision() {
             "supervise stop",
             "goal_supervision",
             Some(goal_run_id),
+            None,
         )
         .await
         .expect("valid goal supervision");
@@ -1718,6 +1719,7 @@ async fn stopping_goal_run_cancels_all_related_goal_tasks_and_streams() {
             1,
             "child generic wakeup",
             "generic",
+            None,
             None,
         )
         .await
@@ -3231,6 +3233,7 @@ async fn delete_goal_run_removes_goal_and_related_tasks() {
             "supervise deletion",
             "goal_supervision",
             Some("goal-delete"),
+            None,
         )
         .await
         .expect("valid goal supervision");

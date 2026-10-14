@@ -57,6 +57,8 @@ pub(super) struct SendMessageRunner<'a> {
     pub(super) consecutive_same_tool_calls: u32,
     pub(super) last_pre_compaction_flush_signature: Option<u64>,
     pub(super) recorded_compaction_provenance: bool,
+    pub(super) delivered_queued_message_ids: Vec<String>,
+    pub(super) reused_prompt_preceding_message_id: Option<String>,
     pub(super) trace_collector: crate::agent::learning::traces::TraceCollector,
     pub(super) termination_tool_calls: u32,
     pub(super) termination_tool_successes: u32,

@@ -24,7 +24,7 @@ const ACTIVE_GOAL_STATUSES = new Set(["queued", "planning", "running", "paused"]
 /**
  * Module-level empty fallback so the projectThreadIds selector never returns
  * a fresh array reference per snapshot (that re-renders forever — React
- * error #185 — because useSyncExternalStore compares snapshots by identity).
+ * error var(--success) — because useSyncExternalStore compares snapshots by identity).
  */
 const NO_PROJECT_THREADS: string[] = [];
 

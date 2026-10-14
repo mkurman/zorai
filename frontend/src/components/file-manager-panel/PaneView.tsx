@@ -122,7 +122,7 @@ const headerCellStyle: React.CSSProperties = {
 const cellStyle: React.CSSProperties = {
     padding: "6px 8px",
     fontSize: "var(--text-xs)",
-    borderBottom: "1px solid rgba(255,255,255,0.05)",
+    borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 5%, transparent)",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",

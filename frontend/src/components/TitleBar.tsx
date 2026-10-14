@@ -277,7 +277,7 @@ export function TitleBar() {
                     borderRadius: "var(--radius-lg)",
                     border: "1px solid var(--glass-border)",
                     background: "var(--bg-elevated)",
-                    boxShadow: "0 18px 48px rgba(0, 0, 0, 0.35)",
+                    boxShadow: "0 18px 48px color-mix(in srgb, var(--shade) 35%, transparent)",
                     display: "grid",
                     gap: 2,
                     zIndex: 40,
@@ -304,7 +304,7 @@ export function TitleBar() {
                         textAlign: "left",
                       }}
                       onMouseEnter={(event) => {
-                        event.currentTarget.style.background = item.tone === "agent" ? "rgba(130, 170, 255, 0.2)" : "var(--bg-tertiary)";
+                        event.currentTarget.style.background = item.tone === "agent" ? "color-mix(in srgb, var(--info) 20%, transparent)" : "var(--bg-tertiary)";
                       }}
                       onMouseLeave={(event) => {
                         event.currentTarget.style.background = item.tone === "agent" ? "var(--agent-soft)" : "transparent";
@@ -402,7 +402,7 @@ function ActionPill({ label, onClick, tone = "default" }: { label: string; onCli
         transition: "all var(--transition-fast)",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = tone === "agent" ? "rgba(130, 170, 255, 0.2)" : "var(--bg-tertiary)";
+        e.currentTarget.style.background = tone === "agent" ? "color-mix(in srgb, var(--info) 20%, transparent)" : "var(--bg-tertiary)";
         e.currentTarget.style.color = "var(--text-primary)";
       }}
       onMouseLeave={(e) => {
@@ -436,7 +436,7 @@ function WindowButton({ label, onClick, isClose }: { label: string; onClick: () 
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.background = isClose ? "var(--danger)" : "var(--bg-tertiary)";
-        e.currentTarget.style.color = isClose ? "#fff" : "var(--text-primary)";
+        e.currentTarget.style.color = isClose ? "var(--text-on-accent)" : "var(--text-primary)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = "transparent";

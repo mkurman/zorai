@@ -197,7 +197,7 @@ export function CanvasPanelShell({
         height: panel.height,
         border: "1px solid var(--glass-border)",
         boxShadow: panel.status === "needs_approval"
-          ? "0 0 0 1px var(--approval), 0 0 24px rgba(251, 191, 36, 0.22)"
+          ? "0 0 0 1px var(--approval), 0 0 24px color-mix(in srgb, var(--warning) 22%, transparent)"
           : "none",
         background: "var(--zorai-bg)",
         borderRadius: "8px",

@@ -19,6 +19,8 @@ mod request_agent_status_to_defer_operator_profile_question_to_get_operator;
 
 #[path = "mod_parts/get_string_lossy.rs"]
 mod get_string_lossy;
+#[path = "mod_parts/data_query_preview.rs"]
+mod data_query_preview;
 
 #[cfg(test)]
 pub(crate) use handle_activity_profile_gateway_daemon_messages::*;

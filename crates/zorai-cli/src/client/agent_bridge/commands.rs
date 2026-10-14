@@ -410,6 +410,11 @@ where
                 .send(ClientMessage::AgentGetWorkContext { thread_id })
                 .await?;
         }
+        AgentBridgeCommand::GetFileOperationBefore { operation_id, path } => {
+            framed
+                .send(ClientMessage::AgentGetFileOperationBefore { operation_id, path })
+                .await?;
+        }
         AgentBridgeCommand::GetFileOperationSnapshot { operation_id } => {
             framed
                 .send(ClientMessage::AgentGetFileOperationSnapshot { operation_id })
@@ -455,6 +460,13 @@ where
         AgentBridgeCommand::GetFilePreview { path, max_bytes } => {
             framed
                 .send(ClientMessage::GetFilePreview { path, max_bytes })
+                .await?;
+        }
+        AgentBridgeCommand::DataQuery { request } => {
+            framed
+                .send(ClientMessage::DataQuery {
+                    request_json: request.to_string(),
+                })
                 .await?;
         }
         AgentBridgeCommand::GetConfig => {

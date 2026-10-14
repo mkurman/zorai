@@ -37,13 +37,13 @@ export function AppConfirmDialog({
 
   const confirmStyle = tone === "danger"
     ? {
-      border: "1px solid rgba(248, 113, 113, 0.4)",
+      border: "1px solid color-mix(in srgb, var(--danger) 40%, transparent)",
       background: "var(--danger-soft)",
       color: "var(--danger)",
     }
     : tone === "warning"
       ? {
-        border: "1px solid rgba(251, 191, 36, 0.4)",
+        border: "1px solid color-mix(in srgb, var(--warning) 40%, transparent)",
         background: "var(--warning-soft)",
         color: "var(--warning)",
       }

@@ -1,9 +1,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { getZoraiDataDir } = require('./app-data.cjs');
+const os = require('node:os');
 
-const INVENTORY_IMAGE_MIME_TYPES = {
+const IMAGE_FILE_MAX_BYTES = 25 * 1024 * 1024;
+const IMAGE_FILE_MIME_TYPES = {
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
@@ -13,14 +14,15 @@ const INVENTORY_IMAGE_MIME_TYPES = {
     '.svg': 'image/svg+xml',
 };
 
-async function readThreadInventoryImage(filePath) {
+async function readImageFileAsDataUrl(filePath) {
     if (typeof filePath !== 'string' || !filePath.trim()) return null;
-    const threadsRoot = path.join(fs.realpathSync(getZoraiDataDir()), 'threads') + path.sep;
-    const resolved = await fs.promises.realpath(filePath).catch(() => null);
-    if (!resolved || !resolved.startsWith(threadsRoot)) return null;
-    if (!resolved.slice(threadsRoot.length).split(path.sep).includes('inventory')) return null;
-    const mimeType = INVENTORY_IMAGE_MIME_TYPES[path.extname(resolved).toLowerCase()];
+    const expanded = filePath.startsWith('~/') ? path.join(os.homedir(), filePath.slice(2)) : filePath;
+    const resolved = await fs.promises.realpath(expanded).catch(() => null);
+    if (!resolved) return null;
+    const mimeType = IMAGE_FILE_MIME_TYPES[path.extname(resolved).toLowerCase()];
     if (!mimeType) return null;
+    const stat = await fs.promises.stat(resolved);
+    if (!stat.isFile() || stat.size > IMAGE_FILE_MAX_BYTES) return null;
     const bytes = await fs.promises.readFile(resolved);
     return `data:${mimeType};base64,${bytes.toString('base64')}`;
 }
@@ -272,7 +274,7 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
         }
     });
     ipcMain.handle('agent-delete-thread', async (_event, threadId) => { try { sendAgentCommand({ type: 'delete-thread', thread_id: threadId }); return true; } catch { return false; } });
-    ipcMain.handle('agent-read-thread-inventory-image', async (_event, filePath) => { try { return await readThreadInventoryImage(filePath); } catch { return null; } });
+    ipcMain.handle('agent-read-image-file', async (_event, filePath) => { try { return await readImageFileAsDataUrl(filePath); } catch { return null; } });
     ipcMain.handle('agent-rename-thread', async (_event, threadId, title) => { try { sendAgentCommand({ type: 'rename-thread', thread_id: threadId, title }); return true; } catch { return false; } });
     ipcMain.handle('agent-add-task', async (_event, payload) => {
         try {
@@ -301,6 +303,7 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
     ipcMain.handle('agent-list-todos', async () => { try { return await sendAgentQuery({ type: 'list-todos' }, 'todo-list'); } catch { return {}; } });
     ipcMain.handle('agent-get-todos', async (_event, threadId) => { try { return await sendAgentQuery({ type: 'get-todos', thread_id: threadId }, 'todo-detail'); } catch { return { thread_id: threadId, items: [] }; } });
     ipcMain.handle('agent-get-work-context', async (_event, threadId) => { try { return await sendAgentQuery({ type: 'get-work-context', thread_id: threadId }, 'work-context-detail'); } catch { return { thread_id: threadId, context: { thread_id: threadId, entries: [] } }; } });
+    ipcMain.handle('agent-get-file-operation-before', async (_event, operationId, filePath) => { try { return await sendAgentQuery({ type: 'get-file-operation-before', operation_id: operationId, path: filePath }, 'file-operation-before'); } catch (err) { return { operation_id: operationId, path: filePath, available: false, before_existed: false, binary: false, content: null, error: err?.message || String(err) }; } });
     ipcMain.handle('agent-get-file-operation-snapshot', async (_event, operationId) => { try { return await sendAgentQuery({ type: 'get-file-operation-snapshot', operation_id: operationId }, 'file-operation-snapshot'); } catch (err) { return { operation_id: operationId, status: { available: false, revertible: false, reason: err?.message || String(err), entries: [], stale_paths: [], retained_bytes: 0 } }; } });
     ipcMain.handle('agent-revert-file-operation', async (_event, operationId) => { try { return await sendAgentQuery({ type: 'revert-file-operation', operation_id: operationId }, 'file-operation-reverted'); } catch (err) { return { ok: false, error: err?.message || String(err) }; } });
     ipcMain.handle('agent-get-thread-workspace-context', async (_event, threadId) => { try { return await sendAgentQuery({ type: 'get-thread-workspace-context', thread_id: threadId }, 'thread-workspace-context'); } catch { return { thread_id: threadId, context: null, updated: false }; } });
@@ -314,6 +317,7 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
         }
     });
     ipcMain.handle('agent-get-git-diff', async (_event, repoPath, filePath) => { try { return await sendAgentQuery({ type: 'get-git-diff', repo_path: repoPath, file_path: typeof filePath === 'string' && filePath.trim() ? filePath.trim() : null }, 'git-diff'); } catch { return { repo_path: repoPath, file_path: filePath ?? null, diff: '' }; } });
+    ipcMain.handle('agent-data-query', async (_event, request) => { try { return await sendAgentQuery({ type: 'data-query', request }, 'data-query-result', 35000); } catch (error) { return { ok: false, error: error instanceof Error ? error.message : String(error), request_id: request?.request_id ?? null }; } });
     ipcMain.handle('agent-get-file-preview', async (_event, filePath, maxBytes) => { try { return await sendAgentQuery({ type: 'get-file-preview', path: filePath, max_bytes: Number.isFinite(maxBytes) ? Math.max(1024, Math.trunc(maxBytes)) : null }, 'file-preview'); } catch { return { path: filePath, content: '', truncated: false, is_text: false }; } });
     ipcMain.handle('agent-start-goal-run', async (_event, payload) => { try { return await sendAgentQuery({ type: 'start-goal-run', goal: payload?.goal, title: typeof payload?.title === 'string' && payload.title.trim() ? payload.title.trim() : null, thread_id: typeof payload?.threadId === 'string' && payload.threadId.trim() ? payload.threadId.trim() : null, session_id: typeof payload?.sessionId === 'string' && payload.sessionId.trim() ? payload.sessionId.trim() : null, priority: typeof payload?.priority === 'string' && payload.priority.trim() ? payload.priority.trim() : null, client_request_id: typeof payload?.clientRequestId === 'string' && payload.clientRequestId.trim() ? payload.clientRequestId.trim() : null, launch_assignments: normalizeGoalLaunchAssignments(payload?.launchAssignments), target_agent_id: typeof payload?.targetAgentId === 'string' && payload.targetAgentId.trim() ? payload.targetAgentId.trim() : null, requires_approval: payload?.requiresApproval !== false }, 'goal-run-started'); } catch (err) { return { ok: false, error: err?.message || String(err) }; } });
     ipcMain.handle('agent-list-goal-runs', async () => { try { return await sendAgentQuery({ type: 'list-goal-runs' }, 'goal-run-list'); } catch { return []; } });

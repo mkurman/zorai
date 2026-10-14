@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
+import { AgentChatPanelRuntimeContext } from "@/components/agent-chat-panel/runtime/context";
+import { openThreadTarget } from "@/zorai/features/threads/openThreadTarget";
+import { navigateZorai } from "@/zorai/shell/zoraiNavigationEvents";
 import {
   codeReviewStateFor,
   formatFinding,
@@ -10,6 +13,8 @@ import {
 
 export type AgentReviewPanelProps = {
   root: string;
+  reviewerLabel: string;
+  commitWindow: number;
   onFindIssues: () => Promise<string | null>;
   /** Prefill the code agent composer. mode "replace" sets the whole text; "append" adds after existing content. */
   onPrefillAgentInput: (text: string, mode: "replace" | "append") => void;
@@ -19,10 +24,11 @@ export type AgentReviewPanelProps = {
  * Cursor-style AGENT REVIEW block: Find Issues → Reviewing… → Review Again,
  * with Skip / Fix All above a collapsible details list of findings.
  */
-export function AgentReviewPanel({ root, onFindIssues, onPrefillAgentInput }: AgentReviewPanelProps) {
+export function AgentReviewPanel({ root, reviewerLabel, commitWindow, onFindIssues, onPrefillAgentInput }: AgentReviewPanelProps) {
   const review = useCodeReviewStore((state) => codeReviewStateFor(state.byRoot, root));
   const skipFindings = useCodeReviewStore((state) => state.skipFindings);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const runtime = useContext(AgentChatPanelRuntimeContext);
 
   const run = () => void onFindIssues();
   const hasFindings = review.status === "done" && review.findings.length > 0;
@@ -65,8 +71,16 @@ export function AgentReviewPanel({ root, onFindIssues, onPrefillAgentInput }: Ag
             {review.status === "done" && (review.findings.length > 0
               ? `${review.findings.length} issue${review.findings.length === 1 ? "" : "s"} found`
               : "No issues found")}
-            {review.status === "idle" && "Review recent commits with the configured agent."}
+            {review.status === "idle" && `Reviews the last ${commitWindow} commit${commitWindow === 1 ? "" : "s"} with ${reviewerLabel}.`}
           </div>
+          {review.threadId && runtime ? (
+            <button type="button" className="zorai-agent-review-configure" onClick={() => void openThreadTarget(runtime, review.threadId!)}>
+              Open review thread
+            </button>
+          ) : null}
+          <button type="button" className="zorai-agent-review-configure" onClick={() => navigateZorai({ view: "settings", settingsTab: "features" })}>
+            Change reviewer or commit count
+          </button>
           {hasFindings ? (
             <>
               <div className="zorai-agent-review-result-actions">

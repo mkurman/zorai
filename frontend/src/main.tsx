@@ -14,6 +14,7 @@ import { hydrateSnippetStore } from "./lib/snippetStore";
 import { hydrateStatusStore } from "./lib/statusStore";
 import { hydrateTierStore } from "./lib/tierStore";
 import { useWorkspaceStore } from "./lib/workspaceStore";
+import "@fontsource-variable/inter";
 import "./styles/global.css";
 
 const setBootStatus = (text: string): void => {

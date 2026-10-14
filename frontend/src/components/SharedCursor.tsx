@@ -1,9 +1,9 @@
 export function SharedCursor({ mode }: { mode: "idle" | "human" | "agent" | "approval" }) {
     const palette = {
-        idle: { label: "Idle", color: "var(--text-secondary)", glow: "rgba(166, 173, 200, 0.18)" },
-        human: { label: "Human", color: "var(--success)", glow: "rgba(166, 227, 161, 0.22)" },
-        agent: { label: "Agent", color: "var(--accent)", glow: "rgba(137, 180, 250, 0.22)" },
-        approval: { label: "Approval", color: "var(--warning)", glow: "rgba(249, 226, 175, 0.22)" },
+        idle: { label: "Idle", color: "var(--text-secondary)", glow: "color-mix(in srgb, var(--text-secondary) 18%, transparent)" },
+        human: { label: "Human", color: "var(--success)", glow: "color-mix(in srgb, var(--success) 22%, transparent)" },
+        agent: { label: "Agent", color: "var(--accent)", glow: "color-mix(in srgb, var(--info) 22%, transparent)" },
+        approval: { label: "Approval", color: "var(--warning)", glow: "color-mix(in srgb, var(--warning) 22%, transparent)" },
     }[mode];
 
     return (
@@ -18,8 +18,8 @@ export function SharedCursor({ mode }: { mode: "idle" | "human" | "agent" | "app
                 gap: 8,
                 padding: "6px 10px",
                 borderRadius: 0,
-                border: "1px solid rgba(255,255,255,0.08)",
-                background: "rgba(10, 15, 24, 0.72)",
+                border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
+                background: "color-mix(in srgb, var(--shade) 72%, transparent)",
                 backdropFilter: "none",
                 boxShadow: "none",
             }}

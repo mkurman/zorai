@@ -658,6 +658,7 @@ pub(super) async fn apply_schema_migrations<E: super::db::DbExecutor + ?Sized>(
     )
     .await?;
     ensure_column(&mut *exec, "agent_wakeups", "goal_run_id", "TEXT").await?;
+    ensure_column(&mut *exec, "agent_wakeups", "reason", "TEXT").await?;
     exec.execute_batch(
         "CREATE INDEX IF NOT EXISTS idx_agent_wakeups_goal_run ON agent_wakeups(goal_run_id, next_fire_at ASC);",
     )

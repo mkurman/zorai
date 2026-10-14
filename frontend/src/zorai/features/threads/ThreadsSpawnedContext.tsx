@@ -10,6 +10,7 @@ export function SpawnedContext({
   canOpenSpawnedThread,
   openSpawnedThread,
   goBackThread,
+  compact = false,
 }: {
   tree: SpawnedAgentTree<AgentRun> | null;
   selectedDaemonThreadId: string | null;
@@ -19,12 +20,13 @@ export function SpawnedContext({
   canOpenSpawnedThread: (run: AgentRun) => boolean;
   openSpawnedThread: (run: AgentRun) => Promise<boolean>;
   goBackThread: () => void;
+  compact?: boolean;
 }) {
   const backLabel = backThreadTitle ? `Back to ${backThreadTitle}` : "Back";
 
   return (
-    <section className="zorai-spawned-context">
-      <div className="zorai-spawned-context__header">
+    <section className={compact ? "zorai-spawned-context zorai-spawned-context--compact" : "zorai-spawned-context"}>
+      {compact ? null : <div className="zorai-spawned-context__header">
         <div>
           <div className="zorai-section-label">Spawned Agents</div>
           <span>{threadNavigationDepth > 0 ? `${threadNavigationDepth} hop history` : "Child work for this thread"}</span>
@@ -32,7 +34,7 @@ export function SpawnedContext({
         <button type="button" className="zorai-ghost-button" disabled={!canGoBackThread} onClick={canGoBackThread ? goBackThread : undefined}>
           {backLabel}
         </button>
-      </div>
+      </div>}
       <div className="zorai-spawned-context__list">
         {!tree ? <div className="zorai-empty">No spawned agents for this thread yet.</div> : null}
         {tree?.anchor ? (
@@ -42,6 +44,7 @@ export function SpawnedContext({
             selectedDaemonThreadId={selectedDaemonThreadId}
             canOpenSpawnedThread={canOpenSpawnedThread}
             openSpawnedThread={openSpawnedThread}
+            compact={compact}
           />
         ) : null}
         {tree?.roots.map((root) => (
@@ -52,6 +55,7 @@ export function SpawnedContext({
             selectedDaemonThreadId={selectedDaemonThreadId}
             canOpenSpawnedThread={canOpenSpawnedThread}
             openSpawnedThread={openSpawnedThread}
+            compact={compact}
           />
         ))}
       </div>
@@ -73,17 +77,52 @@ function SpawnedContextNode({
   selectedDaemonThreadId,
   canOpenSpawnedThread,
   openSpawnedThread,
+  compact,
 }: {
   node: SpawnedAgentTreeNode<AgentRun>;
   depth: number;
   selectedDaemonThreadId: string | null;
   canOpenSpawnedThread: (run: AgentRun) => boolean;
   openSpawnedThread: (run: AgentRun) => Promise<boolean>;
+  compact: boolean;
 }) {
   const run = node.item;
   const canOpen = canOpenSpawnedThread(run);
   const selected = Boolean(run.thread_id && run.thread_id === selectedDaemonThreadId);
   const runtimeLabel = spawnedRuntimeLabel(run);
+
+  const children = node.children.map((child) => (
+    <SpawnedContextNode
+      key={child.item.id}
+      node={child}
+      depth={depth + 1}
+      selectedDaemonThreadId={selectedDaemonThreadId}
+      canOpenSpawnedThread={canOpenSpawnedThread}
+      openSpawnedThread={openSpawnedThread}
+      compact={compact}
+    />
+  ));
+
+  if (compact) {
+    return (
+      <>
+        <button
+          type="button"
+          className={selected ? "zorai-spawned-row is-active" : "zorai-spawned-row"}
+          style={{ paddingLeft: 8 + depth * 12 }}
+          disabled={!canOpen}
+          title={[run.title, runtimeLabel, formatRunStatus(run)].filter(Boolean).join("\n")}
+          onClick={canOpen ? () => void openSpawnedThread(run) : undefined}
+        >
+          <span className="zorai-spawned-row__dot" style={{ background: runStatusColor(run.status) }} aria-hidden="true" />
+          <span className="zorai-spawned-row__title">{run.title}</span>
+          {run.model ? <span className="zorai-spawned-row__model">{run.model}</span> : null}
+          <span className="zorai-spawned-row__status" style={{ color: runStatusColor(run.status) }}>{formatRunStatus(run)}</span>
+        </button>
+        {children}
+      </>
+    );
+  }
 
   return (
     <div className="zorai-spawned-node" style={{ marginLeft: depth > 0 ? 10 : 0 }}>
@@ -100,16 +139,7 @@ function SpawnedContextNode({
           </button>
         </div>
       </article>
-      {node.children.map((child) => (
-        <SpawnedContextNode
-          key={child.item.id}
-          node={child}
-          depth={depth + 1}
-          selectedDaemonThreadId={selectedDaemonThreadId}
-          canOpenSpawnedThread={canOpenSpawnedThread}
-          openSpawnedThread={openSpawnedThread}
-        />
-      ))}
+      {children}
     </div>
   );
 }

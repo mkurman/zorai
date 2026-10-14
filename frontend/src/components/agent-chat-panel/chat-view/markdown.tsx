@@ -4,6 +4,8 @@ import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import renderMathInElement from "katex/contrib/auto-render";
 import "katex/dist/katex.min.css";
+import { FencedDataBlock, fencedBlockKind } from "@/components/data-viewers/FencedDataBlock";
+import { MarkdownTable, hastText } from "@/components/data-viewers/MarkdownTable";
 
 export const KATEX_DELIMITERS = [
   { left: "$$", right: "$$", display: true },
@@ -33,7 +35,17 @@ const markdownComponents: Components = {
       {children}
     </a>
   ),
-  pre: ({ children }) => <pre>{children}</pre>,
+  pre: ({ node, children }) => {
+    const code = node?.children.find((child) => child.type === "element" && child.tagName === "code");
+    const className = code && code.type === "element" ? code.properties.className : undefined;
+    const language = Array.isArray(className)
+      ? String(className.find((value) => String(value).startsWith("language-")) ?? "").slice("language-".length)
+      : "";
+    if (code && language && fencedBlockKind(language)) {
+      return <FencedDataBlock language={language} source={hastText(code).replace(/\n$/, "")} />;
+    }
+    return <pre>{children}</pre>;
+  },
   code: ({ className, children }) => {
     const isBlock = className?.startsWith("language-");
     if (isBlock) {
@@ -47,11 +59,7 @@ const markdownComponents: Components = {
   h4: ({ children }) => <h6>{children}</h6>,
   h5: ({ children }) => <h6>{children}</h6>,
   h6: ({ children }) => <h6>{children}</h6>,
-  table: ({ children }) => (
-    <div style={{ overflowX: "auto", margin: "6px 0", maxWidth: "100%", minWidth: 0 }}>
-      <table>{children}</table>
-    </div>
-  ),
+  table: ({ node, children }) => <MarkdownTable node={node}>{children}</MarkdownTable>,
 };
 
 const MATH_TOKEN_OPEN = "\uE100";

@@ -297,7 +297,7 @@ export function AgentTab({
             }}>
                 <span style={{
                     width: 8, height: 8, borderRadius: "50%",
-                    background: providerAuthenticated ? "#4ade80" : "#6b7280",
+                    background: providerAuthenticated ? "var(--success)" : "var(--text-muted)",
                 }} />
                 <span style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
                     {PRIMARY_AGENT_NAME}: {allProviderOptions.find((p) => p.id === settings.active_provider)?.label || settings.active_provider}
@@ -756,7 +756,7 @@ export function AgentTab({
                         <SettingRow label="ChatGPT Auth">
                             <div style={{ display: "grid", gap: 6, width: "100%" }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
-                                    <span style={{ fontSize: "var(--text-sm)", color: subscriptionAuthStatus?.available ? "var(--success, #6ee7b7)" : "var(--text-secondary)" }}>
+                                    <span style={{ fontSize: "var(--text-sm)", color: subscriptionAuthStatus?.available ? "var(--success, var(--success))" : "var(--text-secondary)" }}>
                                         {subscriptionAuthStatus?.available
                                             ? `Connected (${subscriptionAuthStatus.source || subscriptionAuthStatus.authMode || "zorai"})`
                                             : subscriptionAuthStatus?.error || "No ChatGPT subscription auth found"}
@@ -781,7 +781,7 @@ export function AgentTab({
                                                 event.preventDefault();
                                                 openSubscriptionAuthUrl(subscriptionAuthUi.authUrl!);
                                             }}
-                                            style={{ fontSize: "var(--text-sm)", color: "var(--accent, #60a5fa)", wordBreak: "break-all", textAlign: "right" }}
+                                            style={{ fontSize: "var(--text-sm)", color: "var(--accent, var(--info))", wordBreak: "break-all", textAlign: "right" }}
                                         >
                                             {subscriptionAuthUi.authUrl}
                                         </a>

@@ -78,6 +78,8 @@ lancedb = { workspace = true, optional = true }
 arrow-array = { workspace = true, optional = true }
 arrow-schema = { workspace = true, optional = true }
 tempfile = "3"
+duckdb = { version = "1.10506.0", features = ["bundled", "parquet", "json"] }
+calamine = "0.36.1"
 
 [target.'cfg(windows)'.dependencies]
 interprocess = { version = "2", features = ["tokio"] }
@@ -96,3 +98,6 @@ tokio = { workspace = true, features = ["net"] }
 # target-specific gate; macOS and Windows keep their platform allocators.
 [target.'cfg(target_os = "linux")'.dependencies]
 tikv-jemallocator = "0.6"
+
+[dev-dependencies]
+rust_xlsxwriter = "0.99.1"

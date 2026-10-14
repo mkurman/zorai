@@ -31,11 +31,11 @@ export function StatusBadge({
     onClick?: () => void;
 }) {
     const colors = {
-        success: { bg: "var(--success-soft)", text: "var(--success)", border: "rgba(74, 222, 128, 0.2)" },
-        warning: { bg: "var(--warning-soft)", text: "var(--warning)", border: "rgba(251, 191, 36, 0.2)" },
-        agent: { bg: "var(--agent-soft)", text: "var(--agent)", border: "rgba(130, 170, 255, 0.2)" },
+        success: { bg: "var(--success-soft)", text: "var(--success)", border: "color-mix(in srgb, var(--success) 20%, transparent)" },
+        warning: { bg: "var(--warning-soft)", text: "var(--warning)", border: "color-mix(in srgb, var(--warning) 20%, transparent)" },
+        agent: { bg: "var(--agent-soft)", text: "var(--agent)", border: "color-mix(in srgb, var(--info) 20%, transparent)" },
         neutral: { bg: "var(--bg-tertiary)", text: "var(--text-muted)", border: "var(--glass-border)" },
-        info: { bg: "var(--agent-soft)", text: "var(--agent)", border: "rgba(130, 170, 255, 0.2)" },
+        info: { bg: "var(--agent-soft)", text: "var(--agent)", border: "color-mix(in srgb, var(--info) 20%, transparent)" },
     }[tone];
 
     return (

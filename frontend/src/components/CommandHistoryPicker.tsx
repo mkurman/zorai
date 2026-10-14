@@ -65,7 +65,7 @@ export function CommandHistoryPicker({ style, className }: CommandHistoryPickerP
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.5)",
+        background: "color-mix(in srgb, var(--shade) 50%, transparent)",
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "center",

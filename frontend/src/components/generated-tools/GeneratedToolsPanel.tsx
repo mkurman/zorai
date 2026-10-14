@@ -249,11 +249,11 @@ export function GeneratedToolsPanel({ enabled }: { enabled: boolean }) {
             ) : null}
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
                 {tools.length === 0 ? (
-                    <div style={{ fontSize: 11, color: "var(--text-secondary)", padding: 8, border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ fontSize: 11, color: "var(--text-secondary)", padding: 8, border: "1px solid color-mix(in srgb, var(--text-primary) 6%, transparent)" }}>
                         No generated tools registered yet.
                     </div>
                 ) : tools.map((tool) => (
-                    <div key={tool.id} style={{ border: "1px solid rgba(255,255,255,0.06)", padding: 10, background: "rgba(0,0,0,0.12)" }}>
+                    <div key={tool.id} style={{ border: "1px solid color-mix(in srgb, var(--text-primary) 6%, transparent)", padding: 10, background: "color-mix(in srgb, var(--shade) 12%, transparent)" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
                             <div>
                                 <div style={{ fontSize: 12, fontWeight: 600 }}>{tool.name}</div>
@@ -309,7 +309,7 @@ export function GeneratedToolsPanel({ enabled }: { enabled: boolean }) {
                                 resize: "vertical",
                                 borderRadius: 0,
                                 border: "1px solid var(--border)",
-                                background: "rgba(0,0,0,0.18)",
+                                background: "color-mix(in srgb, var(--shade) 18%, transparent)",
                                 color: "var(--text-primary)",
                                 fontSize: "var(--text-sm)",
                                 fontFamily: "var(--font-mono)",
@@ -326,9 +326,9 @@ export function GeneratedToolsPanel({ enabled }: { enabled: boolean }) {
                             maxHeight: 160,
                             overflow: "auto",
                             padding: 8,
-                            border: "1px solid rgba(255,255,255,0.06)",
+                            border: "1px solid color-mix(in srgb, var(--text-primary) 6%, transparent)",
                             color: "var(--text-secondary)",
-                            background: "rgba(0,0,0,0.18)",
+                            background: "color-mix(in srgb, var(--shade) 18%, transparent)",
                             fontSize: "var(--text-sm)",
                             lineHeight: 1.5,
                             whiteSpace: "pre-wrap",

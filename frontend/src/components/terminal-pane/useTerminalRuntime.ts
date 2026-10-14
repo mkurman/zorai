@@ -282,7 +282,7 @@ export function useTerminalRuntime({
       if (settings.visualBell && wrapperRef.current) {
         const wrapper = wrapperRef.current;
         const previousBoxShadow = wrapper.style.boxShadow;
-        wrapper.style.boxShadow = "inset 0 0 0 9999px rgba(255,255,255,0.08)";
+        wrapper.style.boxShadow = "inset 0 0 0 9999px color-mix(in srgb, var(--text-primary) 8%, transparent)";
         window.setTimeout(() => {
           if (wrapperRef.current === wrapper) {
             wrapper.style.boxShadow = previousBoxShadow;

@@ -186,6 +186,8 @@ export function buildDaemonAgentConfig(
     llm_stream_chunk_timeout_secs: agentSettings.llm_stream_chunk_timeout_secs,
     auto_retry: agentSettings.auto_retry,
     auto_thread_title: agentSettings.auto_thread_title,
+    code_review_agent: agentSettings.code_review_agent,
+    code_review_commit_window: agentSettings.code_review_commit_window,
     context_window_tokens: providerConfig
       ? getEffectiveContextWindow(providerKey, providerConfig)
       : 128000,

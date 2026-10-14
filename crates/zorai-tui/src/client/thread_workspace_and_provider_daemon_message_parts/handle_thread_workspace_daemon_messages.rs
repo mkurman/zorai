@@ -266,6 +266,18 @@ impl DaemonClient {
                     })
                     .await;
             }
+            DaemonMessage::DataQueryResult { result_json } => {
+                let (path, content) =
+                    crate::client::data_query_preview::render_data_query_preview(&result_json);
+                let _ = event_tx
+                    .send(ClientEvent::FilePreview {
+                        path,
+                        content,
+                        truncated: false,
+                        is_text: true,
+                    })
+                    .await;
+            }
             DaemonMessage::AgentConfigResponse { config_json } => {
                 info!(
                     json_len = config_json.len(),

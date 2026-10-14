@@ -30,10 +30,19 @@ impl DaemonClient {
         path: impl Into<String>,
         max_bytes: Option<usize>,
     ) -> Result<()> {
-        self.send(ClientMessage::GetFilePreview {
-            path: path.into(),
-            max_bytes,
-        })
+        let path = path.into();
+        if crate::client::data_query_preview::is_data_preview_path(&path) {
+            return self.send(ClientMessage::DataQuery {
+                request_json: serde_json::json!({
+                    "request_id": "tui-file-preview",
+                    "op": "page",
+                    "path": path,
+                    "limit": crate::client::data_query_preview::DATA_PREVIEW_ROWS,
+                })
+                .to_string(),
+            });
+        }
+        self.send(ClientMessage::GetFilePreview { path, max_bytes })
     }
 
     pub fn send_message(

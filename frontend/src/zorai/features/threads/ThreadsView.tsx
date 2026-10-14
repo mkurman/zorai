@@ -20,7 +20,7 @@ import { ThreadFilePreviewOverlay } from "./ThreadFilePreviewOverlay";
 import { ThreadComposer } from "./ThreadComposer";
 import { ThreadCompactSessionBar } from "./ThreadCompactSessionBar";
 import { ThreadActivityRow } from "./ThreadActivityRow";
-import { classifyThreadActivityMessage } from "./threadActivityModel";
+import { classifySystemNotice, classifyThreadActivityMessage } from "./threadActivityModel";
 import { endThreadCompaction, messageTimeMs, useThreadCompaction } from "./threadCompactionStatus";
 import { isCompactionArtifactMessage } from "@/components/agent-chat-panel/chat-view/compactionArtifact";
 import { ThreadHandoffControl } from "./ThreadHandoffControl";
@@ -417,7 +417,7 @@ export function ThreadsView({
             row = <MemoizedToolEventRow group={item.group} />;
           } else {
             const message = item.message;
-            const activity = classifyThreadActivityMessage(message);
+            const activity = classifyThreadActivityMessage(message) ?? classifySystemNotice(message);
             row = activity ? (
               <ThreadActivityRow
                 activity={activity}

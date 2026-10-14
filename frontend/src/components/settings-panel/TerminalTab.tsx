@@ -92,7 +92,7 @@ export function TerminalTab({
 
             <Section title="Shell Profiles">
                 {profiles.map((profile) => (
-                    <div key={profile.id} style={{ display: "grid", gap: 8, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                    <div key={profile.id} style={{ display: "grid", gap: 8, padding: "10px 0", borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 4%, transparent)" }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <strong style={{ fontSize: "var(--text-sm)" }}>{profile.name || "Unnamed profile"}</strong>

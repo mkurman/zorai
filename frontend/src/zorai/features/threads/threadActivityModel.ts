@@ -55,6 +55,11 @@ export type ThreadActivity =
       kind: "compaction";
       title: string;
       rawText: string;
+    }
+  | {
+      kind: "notice";
+      title: string;
+      rawText: string;
     };
 
 type JsonRecord = Record<string, unknown>;
@@ -103,6 +108,23 @@ function classifyThreadActivityMessageUncached(message: AgentMessage): ThreadAct
   }
 
   return classifyOperation(rawText);
+}
+
+export function classifySystemNotice(message: AgentMessage): ThreadActivity | null {
+  if (message.role !== "system") {
+    return null;
+  }
+  const rawText = message.content;
+  const firstLine = rawText.split("\n").map((line) => line.trim()).find(Boolean);
+  if (!firstLine) {
+    return null;
+  }
+  const title = firstLine.replace(/\s+/g, " ");
+  return {
+    kind: "notice",
+    title: title.length > 120 ? `${title.slice(0, 119)}…` : title,
+    rawText,
+  };
 }
 
 function classifyCompaction(message: AgentMessage): ThreadActivity | null {

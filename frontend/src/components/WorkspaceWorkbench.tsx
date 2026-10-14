@@ -36,10 +36,18 @@ import { WorkspaceSourceControlChanges } from "@/zorai/features/code/WorkspaceSo
 import { BranchSwitcher } from "@/zorai/features/code/BranchSwitcher";
 import { CommitGraph } from "@/zorai/features/code/CommitGraph";
 import { AgentReviewPanel } from "@/zorai/features/code/AgentReviewPanel";
-import { buildReviewPrompt, NO_ISSUES_MARKER, parseReviewFindings, useCodeReviewStore } from "@/zorai/features/code/codeReview";
+import { buildReviewPrompt, extractSpawnedSubagentId, resolveCodeReviewer, resolveReviewReport, useCodeReviewStore, waitForSubagentRun } from "@/zorai/features/code/codeReview";
+import { fetchAgentRuns } from "@/lib/agentRuns";
 import { confirmWorkspaceDiscard, runWorkspaceGitMutation } from "@/zorai/features/code/workspaceGitActions";
 import { loadWorkspaceRootState, loadWorkspaceGitState, runWorkspacePathMutation } from "@/zorai/features/code/workspaceRefresh";
 import { useComposerDraftStore } from "@/zorai/features/threads/composerDraftStore";
+import { isRelativeWorkspacePath, workContextRelativePath } from "@/zorai/features/threads/compactSessionModel";
+import { AgentOperationDiffView, type AgentOperationDiffTarget } from "@/zorai/features/code/AgentOperationDiffView";
+import { CodeDocumentPreview, codePreviewKind } from "@/zorai/features/code/CodeDocumentPreview";
+import { CodeRailTabs, useCodeRailTab } from "@/zorai/features/code/CodeRailTabs";
+import { CodeToolbarMenu } from "@/zorai/features/code/CodeToolbarMenu";
+import { AgentOperationList } from "@/zorai/features/code/AgentOperationList";
+import { ViewModeToggle } from "@/components/data-viewers/ViewModeToggle";
 
 const WorkspaceCodeEditor = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.WorkspaceCodeEditor })));
 const WorkspaceDiffEditor = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.WorkspaceDiffEditor })));
@@ -51,6 +59,11 @@ function statusLabel(entry?: ZoraiWorkspaceGitStatus) {
   if (entry.indexStatus === "?" && entry.worktreeStatus === "?") return "U";
   return (entry.worktreeStatus.trim() || entry.indexStatus.trim()).slice(0, 1);
 }
+
+const CODE_PREVIEW_MODES = [
+  { id: "code", label: "Code" },
+  { id: "preview", label: "Preview" },
+] as const;
 
 export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null } = {}) {
   const bridge = getBridge();
@@ -234,7 +247,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     }).catch(() => {});
   }, [activeDaemonThreadId, activeThreadId, bridge, daemonContextLoadedFor]);
   useEffect(() => {
-    if (!activeThreadId || !activeDaemonThreadId || !context || !bridge?.agentSetThreadWorkspaceContext) return;
+    if (!activeThreadId || !activeDaemonThreadId || !context || context.updatedAt === 0 || !bridge?.agentSetThreadWorkspaceContext) return;
     if (workspaceSyncTimer.current !== null) window.clearTimeout(workspaceSyncTimer.current);
     workspaceSyncTimer.current = window.setTimeout(() => {
       void bridge.agentSetThreadWorkspaceContext!(activeDaemonThreadId, toDaemonWorkspaceContext(context)).catch(() => {});
@@ -616,6 +629,23 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     }
   };
 
+  const [operationDiff, setOperationDiff] = useState<AgentOperationDiffTarget | null>(null);
+  const [previewPaths, setPreviewPaths] = useState<Record<string, boolean>>({});
+  const [railTab, setRailTab] = useCodeRailTab();
+  const codeReviewAgentId = useAgentStore((state) => state.agentSettings.code_review_agent);
+  const codeReviewCommitWindow = useAgentStore((state) => state.agentSettings.code_review_commit_window) || 5;
+  const reviewSubAgents = useAgentStore((state) => state.subAgents);
+  const codeReviewer = useMemo(() => resolveCodeReviewer(codeReviewAgentId, reviewSubAgents), [codeReviewAgentId, reviewSubAgents]);
+
+  const openAgentChange = (path: string) => {
+    const relative = workContextRelativePath(path, context?.root);
+    if (isRelativeWorkspacePath(relative)) {
+      void openFile(relative, undefined, "diff");
+      return;
+    }
+    void openExternalFile(path);
+  };
+
   const saveDocument = async (path: string): Promise<boolean> => {
     if (!activeThreadId) return false;
     const document = documents[path];
@@ -769,9 +799,9 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     return () => { cancelled = true; };
   }, [bridge, operationGroups]);
 
-  const revertAgentOperation = async (operationId: string) => {
-    if (!bridge?.agentRevertFileOperation) return;
-    if (!window.confirm(`Revert every file change from operation ${operationId}? This is allowed only if no later edit changed those files.`)) return;
+  const revertAgentOperation = async (operationId: string): Promise<boolean> => {
+    if (!bridge?.agentRevertFileOperation) return false;
+    if (!window.confirm(`Revert every file change from operation ${operationId}? This is allowed only if no later edit changed those files.`)) return false;
     try {
       const result = await bridge.agentRevertFileOperation(operationId);
       if (result?.ok === false || result?.error) throw new Error(result.error || "Operation revert failed.");
@@ -783,7 +813,11 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         setAgentChanges(Array.isArray(workContext?.entries) ? workContext.entries : []);
       }
       setError(null);
-    } catch (reason: any) { setError(reason?.message ?? String(reason)); }
+      return true;
+    } catch (reason: any) {
+      setError(reason?.message ?? String(reason));
+      return false;
+    }
   };
 
   const inspectCommit = async (hash: string) => {
@@ -921,25 +955,17 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     try {
       const history = await bridge.workspaceGitHistory?.(root, { limit: commitWindow }) ?? [];
       if (history.length === 0) {
-        store.finishReview(root, [], "");
+        store.failReview(root, "There are no commits on this branch to review yet.");
         return null;
       }
-      const detailResults = await Promise.all(history.map(async (commit) => {
-        const detail = await bridge.workspaceGitCommitDetail?.(root, commit.hash).catch(() => null);
-        return detail ? { ...commit, body: detail.body, files: detail.files } : commit;
-      }));
-      const diffs = (await Promise.all(history.map(async (commit) => {
-        const diff = await bridge.workspaceGitShow?.(root, "", commit.hash).catch(() => "");
-        return { shortHash: commit.shortHash, diff: diff ?? "" };
-      }))).filter((entry) => entry.diff.trim());
       const prompt = buildReviewPrompt({
         root,
         branch: gitOverview?.branch ?? null,
-        commits: detailResults,
-        diffs,
+        commits: history,
       });
+      const reviewer = resolveCodeReviewer(agentSettings.code_review_agent, useAgentStore.getState().subAgents);
       const result = await bridge.agentSpawnSubagent(activeDaemonThreadId, {
-        title: `Code review · ${root.split(/[\\/]/).slice(-1)[0]}`,
+        title: reviewer.spawnTitle ?? `Code review · ${root.split(/[\\/]/).slice(-1)[0]}`,
         description: prompt,
         cwd: root,
         priority: "normal",
@@ -948,14 +974,32 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         store.failReview(root, result.error ?? "Review agent failed.");
         return null;
       }
-      const raw = typeof result?.content === "string" ? result.content : "";
-      if (raw.includes(NO_ISSUES_MARKER)) {
-        store.finishReview(root, [], raw);
-        return raw;
+      const spawnReply = typeof result?.content === "string" ? result.content : "";
+      const subagentId = extractSpawnedSubagentId(spawnReply);
+      if (!subagentId) {
+        store.failReview(root, `The review agent did not start: ${spawnReply.slice(0, 240) || "no reply from the daemon"}`);
+        return null;
       }
-      const findings = parseReviewFindings(raw);
-      store.finishReview(root, findings, raw);
-      return raw;
+      const parentThreadId = activeDaemonThreadId;
+      const run = await waitForSubagentRun(() => fetchAgentRuns(parentThreadId), subagentId, {
+        onThread: (threadId) => useCodeReviewStore.getState().setReviewThread(root, threadId),
+      });
+      if (run.status !== "completed") {
+        useCodeReviewStore.getState().failReview(root, run.error ?? run.last_error ?? `The review agent stopped (${run.status}).`);
+        return null;
+      }
+      const thread = run.thread_id ? await bridge.agentGetThread?.(run.thread_id, { messageLimit: 20 }).catch(() => null) : null;
+      const replies = ((thread as { messages?: Array<{ role?: string; content?: string }> } | null)?.messages ?? [])
+        .filter((message) => message.role === "assistant" && message.content)
+        .map((message) => message.content)
+        .reverse();
+      const report = resolveReviewReport([run.result, ...replies]);
+      if (!report) {
+        useCodeReviewStore.getState().failReview(root, "The review agent finished without reporting findings or NO_ISSUES_FOUND; open its thread to read its reply.");
+        return null;
+      }
+      store.finishReview(root, report.findings, report.raw);
+      return report.raw;
     } catch (reason: any) {
       useCodeReviewStore.getState().failReview(root, reason?.message ?? String(reason));
       return null;
@@ -1186,6 +1230,12 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
 
   useEffect(() => {
     const root = openedRoot?.trim();
+    if (!root || !activeThreadId || context) return;
+    useWorkspaceContextStore.getState().adoptRoot(activeThreadId, root);
+  }, [activeThreadId, context, openedRoot]);
+
+  useEffect(() => {
+    const root = openedRoot?.trim();
     if (!root || root === context?.root) return;
     setRootInput(root);
     // The Code surface passes its bound root down; this workbench must not
@@ -1214,235 +1264,256 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             {!explorerPortalHost ? (
               <div className="zorai-workspace-explorer-heading"><strong>{context.root.split(/[\\/]/).slice(-1)[0]}</strong><button type="button" title="Refresh Explorer" aria-label="Refresh Explorer" onClick={() => void refreshRoot()}><RefreshIcon /></button></div>
             ) : null}
-            <details className="zorai-code-open-editors">
-              <summary>Open Editors ({context.openFiles.length})</summary>
-              {context.openFiles.map((filePath) => {
-                const doc = documents[filePath];
-                const isExternal = doc?.external !== undefined;
-                const reactivate = () => {
-                  if (isExternal) {
-                    setActiveFile(activeThreadId, filePath);
-                    setActiveEditorTabId(`file:${filePath}`);
-                    setMode("edit");
-                    return;
-                  }
-                  void openFile(filePath);
-                };
-                return (
-                  <button type="button" key={filePath} className={filePath === context.activeFile ? "active" : ""} onClick={reactivate} title={isExternal ? filePath : undefined}>
-                    {isExternal ? `${filePath.split(/[\\/]/).slice(-1)[0]} ⬈` : filePath.split(/[\\/]/).slice(-1)[0]}
-                  </button>
-                );
-              })}
-            </details>
-            <details className="zorai-code-files" open>
-              <summary className="zorai-code-files-heading">
-                <span>Files</span>
-                <span className="zorai-code-explorer-actions">
-                  <button type="button" title="New file" aria-label="New file" onClick={(event) => { event.preventDefault(); setPathDialogError(null); setPathDialog({ operation: "file", initialPath: newPath }); }}>＋</button>
-                  <button type="button" title="New folder" aria-label="New folder" onClick={(event) => { event.preventDefault(); setPathDialogError(null); setPathDialog({ operation: "directory", initialPath: newPath }); }}>◇</button>
-                  <button type="button" title="Refresh Explorer" aria-label="Refresh Explorer" onClick={(event) => { event.preventDefault(); void refreshRoot(); }}><RefreshIcon /></button>
-                </span>
-              </summary>
-              <WorkspaceExplorerTree root={context.root} entries={rootEntries} status={statusMap} onOpen={(path) => void openFile(path)} refreshToken={explorerRefreshToken} />
-            </details>
-            <details className="zorai-code-workspace-actions">
-              <summary>Workspace Actions</summary>
-              <label className="zorai-workspace-isolation-toggle"><input type="checkbox" checked={context.isolateAgentTasks} onChange={(event) => setIsolateAgentTasks(activeThreadId, event.target.checked)} /><span>Isolate agent tasks in worktrees</span></label>
-              <div className="zorai-workspace-create-row">
-                <input value={newPath} onChange={(event) => setNewPath(event.target.value)} placeholder="relative/path" />
-                <button type="button" title="New file" onClick={() => void createPath("file")}>+F</button>
-                <button type="button" title="New directory" onClick={() => void createPath("directory")}>+D</button>
-              </div>
-              <div className="zorai-workspace-search-row">
-                <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search workspace" onKeyDown={(event) => { if (event.key === "Enter") void runSearch(); }} />
-                <button type="button" onClick={() => void runSearch()}>⌕</button>
-              </div>
-            </details>
-            {workspaceTests.length > 0 ? (
-              <details className="zorai-workspace-tests">
-                <summary>Tests ({workspaceTests.length})</summary>
-                <div className="zorai-workspace-test-actions">
-                  <button type="button" disabled={testRun?.status === "running"} onClick={() => void runWorkspaceTest()}>Run all</button>
-                  {testRun?.status === "running" ? <button type="button" onClick={() => bridge?.workspaceTestsCancel?.(testRun.runId)}>Stop</button> : null}
-                  {testRun ? <span className={`status-${testRun.status}`}>{testRun.status}{testRun.evidence ? ` · ✓${testRun.evidence.passed} ✗${testRun.evidence.failed} ↷${testRun.evidence.skipped}` : ""}{testRun.durationMs ? ` · ${testRun.durationMs}ms` : ""}</span> : null}
-                  {testRun?.evidence?.failed ? <button type="button" disabled={testRun.status === "running"} onClick={() => {
-                    const failed = testRun.evidence?.results.find((result) => result.status === "failed");
-                    const known = workspaceTests.find((test) => test.name === failed?.name || failed?.name.endsWith(test.name));
-                    if (known) void runWorkspaceTest(known);
-                    else void runWorkspaceTest();
-                  }}>Rerun failed</button> : null}
-                </div>
-                {workspaceTests.slice(0, 500).map((test) => (
-                  <div key={test.id}>
-                    <button type="button" onClick={() => void openFile(test.path, { line: test.line, column: 1 })}><span>{test.framework}</span><strong>{test.name}</strong><code>{test.path}:{test.line}</code></button>
-                    <button type="button" disabled={testRun?.status === "running"} onClick={() => void runWorkspaceTest(test)}>Run</button>
+            <CodeRailTabs
+              value={railTab}
+              onChange={setRailTab}
+              badges={{
+                scm: { count: (gitOverview?.stagedFiles ?? 0) + (gitOverview?.unstagedFiles ?? 0) + gitConflicts.length },
+                testing: testProblems.length > 0 ? { count: testProblems.length, tone: "danger" } : { count: workspaceTests.length },
+                agent: { count: operationGroups.length },
+              }}
+            />
+            {railTab === "explorer" ? (
+              <>
+                <details className="zorai-code-open-editors">
+                  <summary>Open Editors ({context.openFiles.length})</summary>
+                  {context.openFiles.map((filePath) => {
+                    const doc = documents[filePath];
+                    const isExternal = doc?.external !== undefined;
+                    const reactivate = () => {
+                      if (isExternal) {
+                        setActiveFile(activeThreadId, filePath);
+                        setActiveEditorTabId(`file:${filePath}`);
+                        setMode("edit");
+                        return;
+                      }
+                      void openFile(filePath);
+                    };
+                    return (
+                      <button type="button" key={filePath} className={filePath === context.activeFile ? "active" : ""} onClick={reactivate} title={isExternal ? filePath : undefined}>
+                        {isExternal ? `${filePath.split(/[\\/]/).slice(-1)[0]} ⬈` : filePath.split(/[\\/]/).slice(-1)[0]}
+                      </button>
+                    );
+                  })}
+                </details>
+                <details className="zorai-code-files" open>
+                  <summary className="zorai-code-files-heading">
+                    <span>Files</span>
+                    <span className="zorai-code-explorer-actions">
+                      <button type="button" title="New file" aria-label="New file" onClick={(event) => { event.preventDefault(); setPathDialogError(null); setPathDialog({ operation: "file", initialPath: newPath }); }}>＋</button>
+                      <button type="button" title="New folder" aria-label="New folder" onClick={(event) => { event.preventDefault(); setPathDialogError(null); setPathDialog({ operation: "directory", initialPath: newPath }); }}>◇</button>
+                      <button type="button" title="Refresh Explorer" aria-label="Refresh Explorer" onClick={(event) => { event.preventDefault(); void refreshRoot(); }}><RefreshIcon /></button>
+                    </span>
+                  </summary>
+                  <WorkspaceExplorerTree root={context.root} entries={rootEntries} status={statusMap} onOpen={(path) => void openFile(path)} refreshToken={explorerRefreshToken} />
+                </details>
+                <details className="zorai-code-workspace-actions">
+                  <summary>Workspace Actions</summary>
+                  <label className="zorai-workspace-isolation-toggle"><input type="checkbox" checked={context.isolateAgentTasks} onChange={(event) => setIsolateAgentTasks(activeThreadId, event.target.checked)} /><span>Isolate agent tasks in worktrees</span></label>
+                  <div className="zorai-workspace-create-row">
+                    <input value={newPath} onChange={(event) => setNewPath(event.target.value)} placeholder="relative/path" />
+                    <button type="button" title="New file" onClick={() => void createPath("file")}>+F</button>
+                    <button type="button" title="New directory" onClick={() => void createPath("directory")}>+D</button>
                   </div>
-                ))}
-                {testRun?.output ? <pre>{testRun.output}</pre> : null}
-              </details>
-            ) : null}
-            {isolatedTaskWorktrees.length > 0 ? (
-              <details className="zorai-workspace-isolated-reviews">
-                <summary>Awaiting isolated review ({isolatedTaskWorktrees.length})</summary>
-                {isolatedTaskWorktrees.map((worktree) => {
-                  const review = worktreeReviews[worktree.path];
-                  const lifecycle = context.isolatedWorktreeStates[worktree.path] ?? (review?.commits.length === 0 ? "integrated" : "awaiting_review");
-                  return (
-                    <div key={worktree.path}>
-                      <button type="button" onClick={() => switchThreadWorktree(worktree.path)}><strong>{worktree.branch}</strong><span>{worktree.path}</span></button>
-                      <em>{lifecycle.replace("_", " ")} · {review ? `${review.commits.length} commit(s) · ${review.files.length} file(s) · source ${review.source.clean ? "clean" : "dirty"} · target ${review.target.clean ? "clean" : "dirty"}` : "Loading review…"}</em>
-                      {review?.commits.map((commit) => <code key={commit.hash}>{commit.hash.slice(0, 8)} · {commit.subject}</code>)}
-                      {review?.canIntegrate && lifecycle === "awaiting_review" ? <button type="button" className="zorai-workspace-integrate-button" onClick={() => void integrateIsolatedWorktree(worktree.path)}>Integrate reviewed commits</button> : null}
-                      <span className="zorai-workspace-lifecycle-actions">
-                        <button type="button" onClick={() => setIsolatedWorktreeState(activeThreadId, worktree.path, "retained")}>Retain</button>
-                        <button type="button" onClick={() => setIsolatedWorktreeState(activeThreadId, worktree.path, "rejected")}>Reject</button>
-                        <button type="button" onClick={() => setIsolatedWorktreeState(activeThreadId, worktree.path, "awaiting_review")}>Review</button>
-                      </span>
-                    </div>
-                  );
-                })}
-              </details>
-            ) : null}
-            {testProblems.length > 0 ? (
-              <details className="zorai-workspace-problems">
-                <summary>Test failures ({testProblems.length})</summary>
-                {testProblems.map((result, index) => (
-                  <button type="button" key={`${result.name}:${index}`} onClick={() => result.location && void openFile(result.location.path, { line: result.location.line, column: result.location.column })}>
-                    <span className="severity-1">T</span><strong>{result.name}: {result.message ?? "Test failed"}</strong><code>{result.location?.path}:{result.location?.line}</code>
-                  </button>
-                ))}
-              </details>
-            ) : null}
-            {workspaceDiagnostics.length > 0 ? (
-              <details className="zorai-workspace-problems">
-                <summary>Problems ({workspaceDiagnostics.length})</summary>
-                {workspaceDiagnostics.slice(0, 500).map((diagnostic, index) => (
-                  <button type="button" key={`${diagnostic.path}:${diagnostic.startLine}:${diagnostic.startColumn}:${diagnostic.code ?? index}`} onClick={() => void openFile(diagnostic.path, { line: diagnostic.startLine, column: diagnostic.startColumn })}>
-                    <span className={`severity-${diagnostic.severity}`}>{diagnostic.severity === 1 ? "E" : diagnostic.severity === 2 ? "W" : "I"}</span>
-                    <strong>{diagnostic.message}</strong>
-                    <code>{diagnostic.path}:{diagnostic.startLine}{diagnostic.source ? ` · ${diagnostic.source}` : ""}</code>
-                  </button>
-                ))}
-              </details>
-            ) : null}
-            {gitConflicts.length > 0 ? (
-              <details className="zorai-workspace-conflicts">
-                <summary>Merge conflicts ({gitConflicts.length})</summary>
-                {gitConflicts.map((conflict) => <button type="button" key={conflict.path} onClick={() => void openFile(conflict.path)}>{conflict.path}</button>)}
-                <span>Resolve in the editor, then stage the file explicitly.</span>
-              </details>
-            ) : null}
-            {gitHistory.length > 0 ? (
-              <details className="zorai-workspace-history">
-                <summary>History ({gitHistory.length})</summary>
-                {gitHistory.slice(0, 100).map((commit) => <button type="button" key={commit.hash} onClick={() => void inspectCommit(commit.hash)}><code>{commit.shortHash}</code><strong>{commit.subject}</strong><span>{commit.author}</span></button>)}
-                {commitDetail ? <article><header>{commitDetail.subject}</header><span>{commitDetail.hash} · {commitDetail.author} · {commitDetail.date}</span>{commitDetail.body ? <pre>{commitDetail.body}</pre> : null}{commitDetail.files.map((file) => <button type="button" key={`${file.status}:${file.path}`} onClick={() => void openFile(file.path)}>{file.status} {file.path}</button>)}</article> : null}
-              </details>
-            ) : null}
-            {gitOverview?.isRepository ? (
-              <details className="zorai-workspace-worktrees">
-                <summary>Worktrees ({gitWorktrees.length})</summary>
-                <div className="zorai-workspace-worktree-create">
-                  <input value={worktreeName} onChange={(event) => setWorktreeName(event.target.value)} placeholder="folder-name" />
-                  <input value={worktreeBranch} onChange={(event) => setWorktreeBranch(event.target.value)} placeholder="feature/branch" />
-                  <input value={worktreeBaseRef} onChange={(event) => setWorktreeBaseRef(event.target.value)} placeholder="base ref" />
-                  <button type="button" disabled={!worktreeName.trim() || !worktreeBranch.trim()} onClick={() => void createManagedWorktree()}>Create</button>
-                </div>
-                {gitWorktrees.slice(0, 200).map((worktree) => (
-                  <div key={worktree.path} className={worktree.path === context.root ? "active" : ""}>
-                    <button type="button" className="zorai-workspace-worktree-path" onClick={() => switchThreadWorktree(worktree.path)}><strong>{worktree.branch || "detached"}</strong><span>{worktree.path}</span></button>
-                    {worktree.path !== context.root && worktree.path.includes("-worktrees") ? <button type="button" onClick={() => void removeManagedWorktree(worktree.path)}>Remove</button> : null}
+                  <div className="zorai-workspace-search-row">
+                    <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search workspace" onKeyDown={(event) => { if (event.key === "Enter") void runSearch(); }} />
+                    <button type="button" onClick={() => void runSearch()}>⌕</button>
                   </div>
-                ))}
-              </details>
-            ) : null}
-            {gitOverview?.isRepository ? (
-              <details className="zorai-code-source-control" open>
-                <summary className="zorai-code-source-heading">
-                  <span>Source Control ({gitOverview.stagedFiles + gitOverview.unstagedFiles})</span>
-                  <span className="zorai-code-source-heading-actions">
-                    {bridge?.workspaceGitBranches && bridge?.workspaceGitCheckout ? (
-                      <BranchSwitcher root={context.root} bridge={bridge} currentBranch={gitOverview.branch} onSwitched={() => refreshRoot()} />
-                    ) : null}
-                    <button type="button" title="Refresh Source Control" aria-label="Refresh Source Control" onClick={(event) => { event.preventDefault(); void refreshGitOnly(); }}><RefreshIcon /></button>
-                  </span>
-                </summary>
-                <div className="zorai-workspace-git-overview">
-                  <span><strong>{gitOverview.branch || "detached HEAD"}</strong>{gitOverview.upstream ? ` · ${gitOverview.upstream}` : " · no upstream"}</span>
-                  <span>↑{gitOverview.ahead} ↓{gitOverview.behind} · {gitOverview.stagedFiles} staged · {gitOverview.unstagedFiles} unstaged</span>
-                  <textarea value={commitMessage} onChange={(event) => setCommitMessage(event.target.value)} placeholder="Commit message" rows={2} maxLength={4096} />
-                  <button type="button" disabled={committing || !commitMessage.trim() || gitOverview.stagedFiles === 0} onClick={() => void commitStagedChanges()}>{committing ? "Committing…" : "Commit staged"}</button>
-                </div>
-                {bridge?.agentSpawnSubagent ? (
-                  <AgentReviewPanel
-                    root={context.root}
-                    onFindIssues={() => runAgentReview(context.root)}
-                    onPrefillAgentInput={prefillAgentInput}
-                  />
-                ) : null}
-              </details>
-            ) : null}
-            <WorkspaceSourceControlChanges status={gitStatus} onOpen={openFile} onReview={reviewHunks} onAction={runGitAction} onBulkAction={runBulkGitAction} />
-            {gitOverview?.isRepository && bridge?.workspaceGitHistory ? (
-              <details className="zorai-code-commit-graph-section">
-                <summary>GRAPH</summary>
-                <CommitGraph root={context.root} bridge={bridge} />
-              </details>
-            ) : null}
-            {searchResults.length > 0 ? <div className="zorai-workspace-search-results">{searchResults.map((result) => <button type="button" key={`${result.path}:${result.line}:${result.column}`} onClick={() => void openFile(result.path, { line: result.line, column: result.column })}><strong>{result.path}:{result.line}</strong><span>{result.preview}</span></button>)}</div> : null}
-            {reviewedChange ? (
-              <div className="zorai-workspace-hunk-review">
-                <div className="zorai-workspace-hunk-heading">
-                  <strong>{reviewedChange.staged ? "Staged" : "Unstaged"} hunks · {reviewedChange.path}</strong>
-                  <button type="button" title="Refresh hunks" aria-label="Refresh hunks" onClick={() => void reviewHunks(reviewedChange.path, reviewedChange.staged)}><RefreshIcon /></button>
-                  <button type="button" onClick={() => setReviewedChange(null)}>×</button>
-                </div>
-                {reviewedChange.hunks.length === 0 ? <span className="zorai-workspace-empty">No matching hunks.</span> : reviewedChange.hunks.map((hunk) => (
-                  <article key={hunk.id}>
-                    <header><code>{hunk.header}</code><span>+{hunk.additions} −{hunk.deletions}</span></header>
-                    {hunk.section ? <strong>{hunk.section}</strong> : null}
-                    <pre>{hunk.preview}</pre>
-                    <footer>
-                      {reviewedChange.staged ? <button type="button" onClick={() => void applyHunkAction(hunk, "unstage")}>Unstage hunk</button> : <button type="button" onClick={() => void applyHunkAction(hunk, "stage")}>Stage hunk</button>}
-                      {!reviewedChange.staged ? <button type="button" onClick={() => void applyHunkAction(hunk, "discard")}>Discard hunk</button> : null}
-                    </footer>
-                  </article>
-                ))}
-              </div>
-            ) : null}
-            {operationGroups.length > 0 ? (
-              <details className="zorai-workspace-operation-changes">
-                <summary>Agent operations ({operationGroups.length})</summary>
-                {operationGroups.slice(0, 30).map(([operationId, entries]) => (
-                  <article key={operationId}>
-                    <header><code>{operationId}</code><span>{entries[0]?.source}</span></header>
-                    {entries.map((entry) => (
-                      <button type="button" key={`${operationId}:${entry.path}`} onClick={() => void openFile(entry.path)}>
-                        <strong>{entry.path}</strong>
-                        <span>{entry.before_hash ? entry.before_hash.slice(0, 8) : "∅"} → {entry.after_hash ? entry.after_hash.slice(0, 8) : "∅"}{entry.task_id ? ` · task ${entry.task_id}` : ""}{entry.goal_run_id ? ` · goal ${entry.goal_run_id}` : ""}</span>
+                </details>
+                {searchResults.length > 0 ? <div className="zorai-workspace-search-results">{searchResults.map((result) => <button type="button" key={`${result.path}:${result.line}:${result.column}`} onClick={() => void openFile(result.path, { line: result.line, column: result.column })}><strong>{result.path}:{result.line}</strong><span>{result.preview}</span></button>)}</div> : null}
+                {workspaceDiagnostics.length > 0 ? (
+                  <details className="zorai-workspace-problems">
+                    <summary>Problems ({workspaceDiagnostics.length})</summary>
+                    {workspaceDiagnostics.slice(0, 500).map((diagnostic, index) => (
+                      <button type="button" key={`${diagnostic.path}:${diagnostic.startLine}:${diagnostic.startColumn}:${diagnostic.code ?? index}`} onClick={() => void openFile(diagnostic.path, { line: diagnostic.startLine, column: diagnostic.startColumn })}>
+                        <span className={`severity-${diagnostic.severity}`}>{diagnostic.severity === 1 ? "E" : diagnostic.severity === 2 ? "W" : "I"}</span>
+                        <strong>{diagnostic.message}</strong>
+                        <code>{diagnostic.path}:{diagnostic.startLine}{diagnostic.source ? ` · ${diagnostic.source}` : ""}</code>
                       </button>
                     ))}
-                    <footer>
-                      {operationSnapshots[operationId]?.available ? <span>{Math.round(operationSnapshots[operationId].retained_bytes / 1024)} KiB retained{operationSnapshots[operationId].reason ? ` · ${operationSnapshots[operationId].reason}` : ""}</span> : <span>Snapshot unavailable</span>}
-                      <button type="button" disabled={!operationSnapshots[operationId]?.revertible} onClick={() => void revertAgentOperation(operationId)}>Revert operation</button>
-                    </footer>
-                  </article>
-                ))}
-              </details>
+                  </details>
+                ) : null}
+              </>
             ) : null}
-            {agentChanges.length > 0 ? (
-              <details className="zorai-workspace-agent-changes">
-                <summary>Agent changes ({agentChanges.length})</summary>
-                {agentChanges.slice(0, 40).map((entry) => (
-                  <button type="button" key={`${entry.path}:${entry.updated_at}:${entry.source}`} onClick={() => void openFile(entry.path)}>
-                    <strong>{entry.path}</strong>
-                    <span>{entry.change_kind ?? entry.kind ?? "changed"} · {entry.source}</span>
-                  </button>
-                ))}
-              </details>
+            {railTab === "scm" ? (
+              <>
+                {gitOverview?.isRepository ? (
+                  <details className="zorai-code-source-control" open>
+                    <summary className="zorai-code-source-heading">
+                      <span>Source Control ({gitOverview.stagedFiles + gitOverview.unstagedFiles})</span>
+                      <span className="zorai-code-source-heading-actions">
+                        <button type="button" title="Refresh Source Control" aria-label="Refresh Source Control" onClick={(event) => { event.preventDefault(); void refreshGitOnly(); }}><RefreshIcon /></button>
+                      </span>
+                    </summary>
+                    <div className="zorai-workspace-git-overview">
+                      <div className="zorai-scm-branch-row">
+                        {bridge?.workspaceGitBranches && bridge?.workspaceGitCheckout ? (
+                          <BranchSwitcher root={context.root} bridge={bridge} currentBranch={gitOverview.branch} onSwitched={() => refreshRoot()} />
+                        ) : <strong>{gitOverview.branch || "detached HEAD"}</strong>}
+                        <span className="zorai-scm-sync" title={`${gitOverview.ahead} commit(s) to push, ${gitOverview.behind} to pull`}>↑{gitOverview.ahead} ↓{gitOverview.behind}</span>
+                      </div>
+                      <span>{gitOverview.upstream ?? "no upstream"} · {gitOverview.stagedFiles} staged · {gitOverview.unstagedFiles} unstaged</span>
+                      <textarea value={commitMessage} onChange={(event) => setCommitMessage(event.target.value)} placeholder="Commit message" rows={2} maxLength={4096} />
+                      <button type="button" className="zorai-scm-commit" disabled={committing || !commitMessage.trim() || gitOverview.stagedFiles === 0} onClick={() => void commitStagedChanges()}>{committing ? "Committing…" : "Commit staged"}</button>
+                    </div>
+                    {bridge?.agentSpawnSubagent ? (
+                      <AgentReviewPanel
+                        root={context.root}
+                        reviewerLabel={codeReviewer.label}
+                        commitWindow={codeReviewCommitWindow}
+                        onFindIssues={() => runAgentReview(context.root)}
+                        onPrefillAgentInput={prefillAgentInput}
+                      />
+                    ) : null}
+                  </details>
+                ) : null}
+                <WorkspaceSourceControlChanges status={gitStatus} onOpen={(path) => openFile(path, undefined, "diff")} onReview={reviewHunks} onAction={runGitAction} onBulkAction={runBulkGitAction} />
+                {reviewedChange ? (
+                  <div className="zorai-workspace-hunk-review">
+                    <div className="zorai-workspace-hunk-heading">
+                      <strong>{reviewedChange.staged ? "Staged" : "Unstaged"} hunks · {reviewedChange.path}</strong>
+                      <button type="button" title="Refresh hunks" aria-label="Refresh hunks" onClick={() => void reviewHunks(reviewedChange.path, reviewedChange.staged)}><RefreshIcon /></button>
+                      <button type="button" onClick={() => setReviewedChange(null)}>×</button>
+                    </div>
+                    {reviewedChange.hunks.length === 0 ? <span className="zorai-workspace-empty">No matching hunks.</span> : reviewedChange.hunks.map((hunk) => (
+                      <article key={hunk.id}>
+                        <header><code>{hunk.header}</code><span>+{hunk.additions} −{hunk.deletions}</span></header>
+                        {hunk.section ? <strong>{hunk.section}</strong> : null}
+                        <pre>{hunk.preview}</pre>
+                        <footer>
+                          {reviewedChange.staged ? <button type="button" onClick={() => void applyHunkAction(hunk, "unstage")}>Unstage hunk</button> : <button type="button" onClick={() => void applyHunkAction(hunk, "stage")}>Stage hunk</button>}
+                          {!reviewedChange.staged ? <button type="button" onClick={() => void applyHunkAction(hunk, "discard")}>Discard hunk</button> : null}
+                        </footer>
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
+                {gitConflicts.length > 0 ? (
+                  <details className="zorai-workspace-conflicts">
+                    <summary>Merge conflicts ({gitConflicts.length})</summary>
+                    {gitConflicts.map((conflict) => <button type="button" key={conflict.path} onClick={() => void openFile(conflict.path)}>{conflict.path}</button>)}
+                    <span>Resolve in the editor, then stage the file explicitly.</span>
+                  </details>
+                ) : null}
+                {gitHistory.length > 0 ? (
+                  <details className="zorai-workspace-history">
+                    <summary>History ({gitHistory.length})</summary>
+                    {gitHistory.slice(0, 100).map((commit) => <button type="button" key={commit.hash} onClick={() => void inspectCommit(commit.hash)}><code>{commit.shortHash}</code><strong>{commit.subject}</strong><span>{commit.author}</span></button>)}
+                    {commitDetail ? <article><header>{commitDetail.subject}</header><span>{commitDetail.hash} · {commitDetail.author} · {commitDetail.date}</span>{commitDetail.body ? <pre>{commitDetail.body}</pre> : null}{commitDetail.files.map((file) => <button type="button" key={`${file.status}:${file.path}`} onClick={() => void openFile(file.path)}>{file.status} {file.path}</button>)}</article> : null}
+                  </details>
+                ) : null}
+                {gitOverview?.isRepository && bridge?.workspaceGitHistory ? (
+                  <details className="zorai-code-commit-graph-section">
+                    <summary>Graph</summary>
+                    <CommitGraph root={context.root} bridge={bridge} />
+                  </details>
+                ) : null}
+                {gitOverview?.isRepository ? (
+                  <details className="zorai-workspace-worktrees">
+                    <summary>Worktrees ({gitWorktrees.length})</summary>
+                    <div className="zorai-workspace-worktree-create">
+                      <input value={worktreeName} onChange={(event) => setWorktreeName(event.target.value)} placeholder="folder-name" />
+                      <input value={worktreeBranch} onChange={(event) => setWorktreeBranch(event.target.value)} placeholder="feature/branch" />
+                      <input value={worktreeBaseRef} onChange={(event) => setWorktreeBaseRef(event.target.value)} placeholder="base ref" />
+                      <button type="button" disabled={!worktreeName.trim() || !worktreeBranch.trim()} onClick={() => void createManagedWorktree()}>Create</button>
+                    </div>
+                    {gitWorktrees.slice(0, 200).map((worktree) => (
+                      <div key={worktree.path} className={worktree.path === context.root ? "active" : ""}>
+                        <button type="button" className="zorai-workspace-worktree-path" onClick={() => switchThreadWorktree(worktree.path)}><strong>{worktree.branch || "detached"}</strong><span>{worktree.path}</span></button>
+                        {worktree.path !== context.root && worktree.path.includes("-worktrees") ? <button type="button" onClick={() => void removeManagedWorktree(worktree.path)}>Remove</button> : null}
+                      </div>
+                    ))}
+                  </details>
+                ) : null}
+                {isolatedTaskWorktrees.length > 0 ? (
+                  <details className="zorai-workspace-isolated-reviews">
+                    <summary>Awaiting isolated review ({isolatedTaskWorktrees.length})</summary>
+                    {isolatedTaskWorktrees.map((worktree) => {
+                      const review = worktreeReviews[worktree.path];
+                      const lifecycle = context.isolatedWorktreeStates[worktree.path] ?? (review?.commits.length === 0 ? "integrated" : "awaiting_review");
+                      return (
+                        <div key={worktree.path}>
+                          <button type="button" onClick={() => switchThreadWorktree(worktree.path)}><strong>{worktree.branch}</strong><span>{worktree.path}</span></button>
+                          <em>{lifecycle.replace("_", " ")} · {review ? `${review.commits.length} commit(s) · ${review.files.length} file(s) · source ${review.source.clean ? "clean" : "dirty"} · target ${review.target.clean ? "clean" : "dirty"}` : "Loading review…"}</em>
+                          {review?.commits.map((commit) => <code key={commit.hash}>{commit.hash.slice(0, 8)} · {commit.subject}</code>)}
+                          {review?.canIntegrate && lifecycle === "awaiting_review" ? <button type="button" className="zorai-workspace-integrate-button" onClick={() => void integrateIsolatedWorktree(worktree.path)}>Integrate reviewed commits</button> : null}
+                          <span className="zorai-workspace-lifecycle-actions">
+                            <button type="button" onClick={() => setIsolatedWorktreeState(activeThreadId, worktree.path, "retained")}>Retain</button>
+                            <button type="button" onClick={() => setIsolatedWorktreeState(activeThreadId, worktree.path, "rejected")}>Reject</button>
+                            <button type="button" onClick={() => setIsolatedWorktreeState(activeThreadId, worktree.path, "awaiting_review")}>Review</button>
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </details>
+                ) : null}
+              </>
             ) : null}
-
+            {railTab === "testing" ? (
+              <>
+                {workspaceTests.length > 0 ? (
+                  <details className="zorai-workspace-tests">
+                    <summary>Tests ({workspaceTests.length})</summary>
+                    <div className="zorai-workspace-test-actions">
+                      <button type="button" disabled={testRun?.status === "running"} onClick={() => void runWorkspaceTest()}>Run all</button>
+                      {testRun?.status === "running" ? <button type="button" onClick={() => bridge?.workspaceTestsCancel?.(testRun.runId)}>Stop</button> : null}
+                      {testRun ? <span className={`status-${testRun.status}`}>{testRun.status}{testRun.evidence ? ` · ✓${testRun.evidence.passed} ✗${testRun.evidence.failed} ↷${testRun.evidence.skipped}` : ""}{testRun.durationMs ? ` · ${testRun.durationMs}ms` : ""}</span> : null}
+                      {testRun?.evidence?.failed ? <button type="button" disabled={testRun.status === "running"} onClick={() => {
+                        const failed = testRun.evidence?.results.find((result) => result.status === "failed");
+                        const known = workspaceTests.find((test) => test.name === failed?.name || failed?.name.endsWith(test.name));
+                        if (known) void runWorkspaceTest(known);
+                        else void runWorkspaceTest();
+                      }}>Rerun failed</button> : null}
+                    </div>
+                    {workspaceTests.slice(0, 500).map((test) => (
+                      <div key={test.id}>
+                        <button type="button" onClick={() => void openFile(test.path, { line: test.line, column: 1 })}><span>{test.framework}</span><strong>{test.name}</strong><code>{test.path}:{test.line}</code></button>
+                        <button type="button" disabled={testRun?.status === "running"} onClick={() => void runWorkspaceTest(test)}>Run</button>
+                      </div>
+                    ))}
+                    {testRun?.output ? <pre>{testRun.output}</pre> : null}
+                  </details>
+                ) : null}
+                {testProblems.length > 0 ? (
+                  <details className="zorai-workspace-problems">
+                    <summary>Test failures ({testProblems.length})</summary>
+                    {testProblems.map((result, index) => (
+                      <button type="button" key={`${result.name}:${index}`} onClick={() => result.location && void openFile(result.location.path, { line: result.location.line, column: result.location.column })}>
+                        <span className="severity-1">T</span><strong>{result.name}: {result.message ?? "Test failed"}</strong><code>{result.location?.path}:{result.location?.line}</code>
+                      </button>
+                    ))}
+                  </details>
+                ) : null}
+              </>
+            ) : null}
+            {railTab === "agent" ? (
+              <>
+                {operationGroups.length > 0 ? (
+                  <details className="zorai-workspace-operation-changes" open>
+                    <summary>Agent operations ({operationGroups.length})</summary>
+                    <AgentOperationList
+                      groups={operationGroups.slice(0, 30)}
+                      snapshots={operationSnapshots}
+                      root={context.root}
+                      now={Date.now()}
+                      onShowDiff={(operationId, entry) => setOperationDiff({ operationId, path: entry.path, tool: entry.source })}
+                      onRevert={(operationId) => void revertAgentOperation(operationId)}
+                    />
+                  </details>
+                ) : null}
+                {agentChanges.length > 0 ? (
+                  <details className="zorai-workspace-agent-changes" open>
+                    <summary>Agent changes ({agentChanges.length})</summary>
+                    {agentChanges.slice(0, 40).map((entry) => (
+                      <button type="button" key={`${entry.path}:${entry.updated_at}:${entry.source}`} onClick={() => entry.operation_id ? setOperationDiff({ operationId: entry.operation_id, path: entry.path, tool: entry.source }) : openAgentChange(entry.path)}>
+                        <strong>{entry.path}</strong>
+                        <span>{entry.change_kind ?? entry.kind ?? "changed"} · {entry.source}</span>
+                      </button>
+                    ))}
+                  </details>
+                ) : null}
+              </>
+            ) : null}
           </>
         ) : <div className="zorai-workspace-empty">Open a folder to bind it to this thread.</div>}
       </aside>
@@ -1450,6 +1521,16 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
 
   const editor = (
       <section className="zorai-workspace-editor-area">
+        {operationDiff ? (
+          <AgentOperationDiffView
+            target={operationDiff}
+            revertible={Boolean(operationSnapshots[operationDiff.operationId]?.revertible)}
+            revertReason={operationSnapshots[operationDiff.operationId]?.reason ?? null}
+            onRevert={() => void revertAgentOperation(operationDiff.operationId).then((reverted) => { if (reverted) setOperationDiff(null); })}
+            onOpenFile={(path) => { setOperationDiff(null); openAgentChange(path); }}
+            onClose={() => setOperationDiff(null)}
+          />
+        ) : null}
         <CodeTabs
           tabs={[
             ...(context?.openFiles ?? []).map((filePath) => ({
@@ -1484,31 +1565,37 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             </nav> */}
             <div className="zorai-workspace-actionbar">
               <span>{activeDocument.path}{lspStatus ? ` · LSP ${lspStatus.available ? lspStatus.command ?? "ready" : "unavailable"}` : ""}</span>
+              {codePreviewKind(activeDocument.path) && mode === "edit" ? (
+                <ViewModeToggle
+                  modes={CODE_PREVIEW_MODES}
+                  value={previewPaths[activeDocument.path] ? "preview" : "code"}
+                  onChange={(next) => setPreviewPaths((current) => ({ ...current, [activeDocument.path]: next === "preview" }))}
+                  label="Editor view"
+                />
+              ) : null}
               <div className="zorai-code-toolbar" role="toolbar" aria-label="Editor actions">
-                <div className="zorai-code-toolbar-group" role="group" aria-label="File actions">
+                <div className="zorai-code-toolbar-group" role="group" aria-label="Primary editor actions">
                   <CodeIconButton commandId="file.save" disabled={!activeDocument.dirty || saving} disabledReason={saving ? "Save in progress" : "No unsaved changes"} onClick={() => runCodeCommand("file.save")} />
-                  <CodeIconButton commandId="file.reload" onClick={() => runCodeCommand("file.reload")} />
-                  <CodeIconButton icon="edit" label="Show diff" onClick={() => void showDiff()} />
+                  <CodeIconButton icon="diff" label="Show diff against HEAD" onClick={() => void showDiff()} />
                   {activeDocument.externalContent !== undefined ? <CodeIconButton icon="external" label="Show external changes" onClick={() => setMode("external")} /> : null}
-                  <CodeIconButton commandId="file.openExternal" onClick={() => runCodeCommand("file.openExternal")} />
-                  <CodeIconButton commandId="file.reveal" onClick={() => runCodeCommand("file.reveal")} />
-                </div>
-                <div className="zorai-code-toolbar-group" role="group" aria-label="Navigation actions">
-                  <CodeIconButton commandId="file.quickOpen" onClick={() => runCodeCommand("file.quickOpen")} />
-                  <CodeIconButton commandId="search.file" onClick={() => runCodeCommand("search.file")} />
                   <CodeIconButton commandId="search.project" onClick={() => runCodeCommand("search.project")} />
-                  <CodeIconButton commandId="edit.formatDocument" onClick={() => runCodeCommand("edit.formatDocument")} />
                   <CodeIconButton commandId="view.commandPalette" onClick={() => runCodeCommand("view.commandPalette")} />
-                </div>
-                <div className="zorai-code-toolbar-group" role="group" aria-label="View actions">
-                  <CodeIconButton commandId="view.settings" onClick={() => runCodeCommand("view.settings")} />
-                  <CodeIconButton commandId="view.toggleWrap" onClick={() => runCodeCommand("view.toggleWrap")} />
-                  <CodeIconButton commandId="view.toggleMinimap" onClick={() => runCodeCommand("view.toggleMinimap")} />
-                </div>
-                <div className="zorai-code-toolbar-group zorai-code-toolbar-group--secondary" role="group" aria-label="File management actions">
-                  <CodeIconButton icon="pin" label={context?.attachedFiles.includes(activeDocument.path) ? "Detach from Agent context" : "Attach to Agent context"} onClick={() => toggleAttachedFile(activeThreadId, activeDocument.path)} />
-                  <CodeIconButton icon="edit" label="Rename file" onClick={() => void renameActiveFile()} />
-                  <CodeIconButton icon="close" label="Delete file" danger onClick={() => void deleteActiveFile()} />
+                  <CodeToolbarMenu
+                    items={[
+                      { key: "reload", commandId: "file.reload", onSelect: () => runCodeCommand("file.reload") },
+                      { key: "quick-open", commandId: "file.quickOpen", onSelect: () => runCodeCommand("file.quickOpen") },
+                      { key: "find", commandId: "search.file", onSelect: () => runCodeCommand("search.file") },
+                      { key: "format", commandId: "edit.formatDocument", onSelect: () => runCodeCommand("edit.formatDocument") },
+                      { key: "open-external", commandId: "file.openExternal", separatorBefore: true, onSelect: () => runCodeCommand("file.openExternal") },
+                      { key: "reveal", commandId: "file.reveal", onSelect: () => runCodeCommand("file.reveal") },
+                      { key: "attach", label: context?.attachedFiles.includes(activeDocument.path) ? "Detach from Agent context" : "Attach to Agent context", onSelect: () => toggleAttachedFile(activeThreadId, activeDocument.path) },
+                      { key: "wrap", commandId: "view.toggleWrap", separatorBefore: true, onSelect: () => runCodeCommand("view.toggleWrap") },
+                      { key: "minimap", commandId: "view.toggleMinimap", onSelect: () => runCodeCommand("view.toggleMinimap") },
+                      { key: "settings", commandId: "view.settings", onSelect: () => runCodeCommand("view.settings") },
+                      { key: "rename", label: "Rename file…", separatorBefore: true, onSelect: () => void renameActiveFile() },
+                      { key: "delete", label: "Delete file…", danger: true, onSelect: () => void deleteActiveFile() },
+                    ]}
+                  />
                 </div>
               </div>
             </div>
@@ -1527,6 +1614,8 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                 <Suspense fallback={<div className="zorai-workspace-diff-grid"><pre>{activeDocument.content}</pre><pre>{activeDocument.externalContent}</pre></div>}>
                   <WorkspaceDiffEditor original={activeDocument.content} modified={activeDocument.externalContent ?? ""} language={activeDocument.language} />
                 </Suspense>
+              ) : previewPaths[activeDocument.path] && codePreviewKind(activeDocument.path) ? (
+                <CodeDocumentPreview path={activeDocument.path} content={activeDocument.content} />
               ) : (
                 <Suspense fallback={<div className="zorai-workspace-editor-loading">Loading Monaco editor…</div>}>
                   <WorkspaceCodeEditor

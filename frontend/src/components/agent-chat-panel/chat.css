@@ -8,16 +8,16 @@
 
 .acp-root {
   /* Chat-scope palette overrides: tone the neon tokens down to editor neutrals */
-  --acp-accent: #4fb8ab;
-  --acp-link: #6cb6ff;
-  --acp-border: #2a2f3a;
-  --acp-border-strong: #3a4150;
-  --acp-bg: #16181d;
-  --acp-bg-raised: #1d2026;
-  --acp-diff-file-bg: rgba(47, 98, 140, 0.22);
-  --acp-diff-hunk-bg: rgba(120, 96, 30, 0.22);
-  --acp-diff-add-bg: rgba(38, 100, 55, 0.24);
-  --acp-diff-remove-bg: rgba(120, 44, 44, 0.24);
+  --acp-accent: var(--accent);
+  --acp-link: var(--info);
+  --acp-border: var(--border);
+  --acp-border-strong: var(--border-strong);
+  --acp-bg: var(--bg-primary);
+  --acp-bg-raised: var(--bg-elevated);
+  --acp-diff-file-bg: color-mix(in srgb, var(--info) 14%, transparent);
+  --acp-diff-hunk-bg: color-mix(in srgb, var(--warning) 14%, transparent);
+  --acp-diff-add-bg: color-mix(in srgb, var(--success) 16%, transparent);
+  --acp-diff-remove-bg: color-mix(in srgb, var(--danger) 14%, transparent);
   color: var(--text-primary);
 }
 
@@ -131,7 +131,7 @@
 .acp-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(3, 8, 18, 0.7);
+  background: color-mix(in srgb, var(--shade) 70%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -149,7 +149,7 @@
   padding: var(--space-4);
   display: grid;
   gap: var(--space-4);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 16px 48px color-mix(in srgb, var(--shade) 50%, transparent);
 }
 
 .acp-modal--wide {
@@ -265,14 +265,14 @@
 }
 
 .acp-btn--primary {
-  border-color: rgba(79, 184, 171, 0.45);
-  background: rgba(79, 184, 171, 0.14);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--acp-accent);
   font-weight: 700;
 }
 
 .acp-btn--primary:hover:not(:disabled) {
-  background: rgba(79, 184, 171, 0.24);
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
 .acp-btn--ghost {
@@ -292,9 +292,9 @@
 }
 
 .acp-btn--danger {
-  border-color: rgba(248, 113, 113, 0.45);
-  background: rgba(248, 113, 113, 0.12);
-  color: #fca5a5;
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
 }
 
 .acp-btn--mission {
@@ -323,8 +323,8 @@
 }
 
 .acp-pill--danger {
-  border-color: #ff7675;
-  color: #ff7675;
+  border-color: var(--danger);
+  color: var(--danger);
   border-radius: 2px;
   padding: 2px 8px;
   font-size: 11px;
@@ -453,7 +453,7 @@
   border: 1px solid var(--acp-border);
   border-radius: 2px;
   padding: 2px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--shade) 40%, transparent);
 }
 
 .acp-message-row--user .acp-message__actions {
@@ -471,7 +471,7 @@
   min-width: 0;
   border: 1px solid var(--border);
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.02);
+  background: color-mix(in srgb, var(--text-primary) 2%, transparent);
   padding: 8px;
 }
 
@@ -544,7 +544,7 @@
 
 .acp-action-btn:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
 }
 
 /* Small ghost toggle button (Expand/Collapse/Show… ) */
@@ -572,7 +572,7 @@
 .acp-pre {
   margin: 0;
   padding: 8px;
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--text-primary) 3%, transparent);
   border: 1px solid var(--border);
   border-radius: 2px;
   font-size: 11px;
@@ -608,7 +608,7 @@
 
 .acp-handoff__summary {
   padding: 8px;
-  background: rgba(2, 10, 18, 0.55);
+  background: color-mix(in srgb, var(--shade) 55%, transparent);
   border: 1px solid var(--border);
   font-size: 12px;
   line-height: 1.45;
@@ -797,7 +797,7 @@
 }
 
 .acp-tool-list__header:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
 }
 
 .acp-tool-mark {
@@ -993,11 +993,11 @@
 }
 
 .acp-tool-review--blocked {
-  color: #ffb4b4;
+  color: var(--danger);
 }
 
 .acp-tool-review--flagged {
-  color: #ffe1a8;
+  color: var(--warning);
 }
 
 .acp-tool-review__header {
@@ -1129,17 +1129,17 @@
 }
 
 .acp-diff__line--hunk {
-  color: #ffd37a;
+  color: var(--warning);
   background: var(--acp-diff-hunk-bg);
 }
 
 .acp-diff__line--add {
-  color: #b8f2c4;
+  color: var(--text-primary);
   background: var(--acp-diff-add-bg);
 }
 
 .acp-diff__line--remove {
-  color: #ffc1c1;
+  color: var(--danger);
   background: var(--acp-diff-remove-bg);
 }
 
@@ -1273,7 +1273,7 @@
 }
 
 .acp-composer--drop {
-  box-shadow: 0 0 0 2px rgba(94, 231, 223, 0.45) inset;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent) inset;
 }
 
 .acp-composer__input-row {
@@ -1395,9 +1395,9 @@
 }
 
 .acp-composer__btn--recording {
-  border-color: rgba(255, 99, 132, 0.55);
-  background: rgba(255, 99, 132, 0.12);
-  color: #ff9aa9;
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
 }
 
 .acp-composer__hidden-input {

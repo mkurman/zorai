@@ -158,6 +158,75 @@ impl AgentEngine {
         Ok(remaining)
     }
 
+    pub(crate) async fn deliver_queued_prompts_after_tool_results(
+        &self,
+        thread_id: &str,
+    ) -> Vec<String> {
+        let last_is_tool_result = self
+            .threads
+            .read()
+            .await
+            .get(thread_id)
+            .and_then(|thread| thread.messages.last())
+            .is_some_and(|message| message.role == MessageRole::Tool);
+        if !last_is_tool_result {
+            return Vec::new();
+        }
+        let mut delivered = Vec::new();
+        loop {
+            let prompt = match self.history.dequeue_next_prompt(thread_id).await {
+                Ok(Some(prompt)) => prompt,
+                Ok(None) => break,
+                Err(error) => {
+                    tracing::warn!(thread_id, %error, "failed to dequeue prompt for mid-turn delivery");
+                    break;
+                }
+            };
+            let blocks = match Self::parse_content_blocks_json(prompt.content_blocks_json.as_deref())
+            {
+                Ok(blocks) => blocks,
+                Err(error) => {
+                    tracing::warn!(thread_id, prompt_id = %prompt.id, %error, "queued prompt has invalid content blocks; delivering text only");
+                    Vec::new()
+                }
+            };
+            let blocks = crate::agent::thread_crud::store_user_images_in_inventory(
+                self.history.data_root(),
+                thread_id,
+                &now_millis().to_string(),
+                &blocks,
+            )
+            .await;
+            let message = AgentMessage::user_with_blocks(&prompt.content, blocks, now_millis());
+            let message_id = message.id.clone();
+            {
+                let mut threads = self.threads.write().await;
+                let Some(thread) = threads.get_mut(thread_id) else {
+                    break;
+                };
+                thread.messages.push(message);
+                thread.updated_at = now_millis();
+            }
+            if let Err(error) = self
+                .record_operator_message(thread_id, &prompt.content, false)
+                .await
+            {
+                tracing::warn!(thread_id, %error, "failed to record mid-turn queued prompt");
+            }
+            let _ = self.event_tx.send(AgentEvent::QueuedPromptDelivered {
+                thread_id: thread_id.to_string(),
+                message_id: message_id.clone(),
+                prompt,
+            });
+            delivered.push(message_id);
+        }
+        if !delivered.is_empty() {
+            self.persist_thread_by_id(thread_id).await;
+            let _ = self.broadcast_prompt_queue(thread_id).await;
+        }
+        delivered
+    }
+
     pub(crate) async fn dispatch_next_queued_prompt(&self, thread_id: &str) -> Result<()> {
         if self.is_thread_streaming(thread_id).await {
             return Ok(());
@@ -194,5 +263,106 @@ mod tests {
     #[test]
     fn queue_cap_matches_tui_bound() {
         assert_eq!(MAX_QUEUED_PROMPTS, 500);
+    }
+
+    async fn engine_with_last_message(
+        thread_id: &str,
+        last: crate::agent::AgentMessage,
+    ) -> std::sync::Arc<crate::agent::AgentEngine> {
+        use crate::agent::*;
+        let root = tempfile::tempdir().expect("tempdir should succeed");
+        let manager = crate::session_manager::SessionManager::new_test(root.path()).await;
+        let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+        engine.threads.write().await.insert(
+            thread_id.to_string(),
+            AgentThread {
+                id: thread_id.to_string(),
+                agent_name: None,
+                title: "Queue".to_string(),
+                messages: vec![AgentMessage::user("start the refactor", 1), last],
+                pinned: false,
+                upstream_thread_id: None,
+                upstream_transport: None,
+                upstream_provider: None,
+                upstream_model: None,
+                upstream_assistant_id: None,
+                created_at: 1,
+                updated_at: 1,
+                total_input_tokens: 0,
+                total_output_tokens: 0,
+            },
+        );
+        engine
+    }
+
+    #[tokio::test]
+    async fn queued_prompt_is_delivered_after_tool_result_without_waiting_for_turn_end() {
+        use crate::agent::*;
+        let thread_id = "thread-queue-mid-turn";
+        let mut tool_result = AgentMessage::user("file contents", 2);
+        tool_result.role = MessageRole::Tool;
+        tool_result.tool_call_id = Some("call-1".to_string());
+        let engine = engine_with_last_message(thread_id, tool_result).await;
+        engine
+            .enqueue_prompt(thread_id, "stop, use the other crate", None, None)
+            .await
+            .expect("enqueue should succeed");
+        let mut events = engine.subscribe();
+
+        let delivered = engine
+            .deliver_queued_prompts_after_tool_results(thread_id)
+            .await;
+
+        assert_eq!(delivered.len(), 1);
+        let threads = engine.threads.read().await;
+        let last = threads[thread_id].messages.last().expect("message");
+        assert_eq!(last.role, MessageRole::User);
+        assert_eq!(last.content, "stop, use the other crate");
+        assert_eq!(last.id, delivered[0]);
+        drop(threads);
+        assert!(
+            engine
+                .list_prompt_queue(Some(thread_id))
+                .await
+                .expect("list should succeed")
+                .is_empty(),
+            "a delivered prompt must not be sent again when the turn ends"
+        );
+        let mut saw_delivery_event = false;
+        while let Ok(event) = events.try_recv() {
+            if matches!(event, AgentEvent::QueuedPromptDelivered { ref message_id, .. } if *message_id == delivered[0]) {
+                saw_delivery_event = true;
+            }
+        }
+        assert!(saw_delivery_event, "the UI needs an event to show the delivered prompt mid-turn");
+    }
+
+    #[tokio::test]
+    async fn queued_prompt_waits_when_last_message_is_not_a_tool_result() {
+        use crate::agent::*;
+        let thread_id = "thread-queue-no-tool";
+        let engine =
+            engine_with_last_message(thread_id, AgentMessage::user("another user note", 2)).await;
+        engine
+            .enqueue_prompt(thread_id, "later", None, None)
+            .await
+            .expect("enqueue should succeed");
+
+        let delivered = engine
+            .deliver_queued_prompts_after_tool_results(thread_id)
+            .await;
+
+        assert!(
+            delivered.is_empty(),
+            "prompts are only injected right after tool results, where the model is about to be re-asked"
+        );
+        assert_eq!(
+            engine
+                .list_prompt_queue(Some(thread_id))
+                .await
+                .expect("list should succeed")
+                .len(),
+            1
+        );
     }
 }

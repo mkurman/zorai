@@ -34,7 +34,7 @@ export function ConciergeSection() {
             <SettingRow label="Enabled">
                 <button
                     onClick={() => update({ ...config, enabled: !config.enabled })}
-                    style={{ ...smallBtnStyle, color: config.enabled ? "#4ade80" : "var(--text-secondary)" }}
+                    style={{ ...smallBtnStyle, color: config.enabled ? "var(--success)" : "var(--text-secondary)" }}
                 >
                     {config.enabled ? "ON" : "OFF"}
                 </button>

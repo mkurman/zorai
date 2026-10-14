@@ -87,12 +87,12 @@ export function TimeTravelContent({
                                 style={{
                                     ...chipStyle,
                                     color: selected.status === "ready" ? "var(--success)" : "var(--warning)",
-                                    borderColor: selected.status === "ready" ? "rgba(74, 222, 128, 0.3)" : "rgba(251, 191, 36, 0.3)",
+                                    borderColor: selected.status === "ready" ? "color-mix(in srgb, var(--success) 30%, transparent)" : "color-mix(in srgb, var(--warning) 30%, transparent)",
                                 }}
                             >
                                 {selected.status}
                             </span>
-                            <span style={{ ...chipStyle, color: "var(--text-secondary)", borderColor: "rgba(255,255,255,0.08)" }}>
+                            <span style={{ ...chipStyle, color: "var(--text-secondary)", borderColor: "color-mix(in srgb, var(--text-primary) 8%, transparent)" }}>
                                 {selectedIndex + 1} / {snapshots.length}
                             </span>
                         </div>
@@ -103,7 +103,7 @@ export function TimeTravelContent({
                                 <span style={{ fontSize: "var(--text-xs)", color: "var(--warning)", alignSelf: "center" }}>
                                     Overwrite workspace?
                                 </span>
-                                <button onClick={handleRestore} style={{ ...actionBtnStyle, background: "rgba(239, 68, 68, 0.18)", borderColor: "rgba(239, 68, 68, 0.4)", color: "#ef4444" }}>
+                                <button onClick={handleRestore} style={{ ...actionBtnStyle, background: "color-mix(in srgb, var(--danger) 18%, transparent)", borderColor: "color-mix(in srgb, var(--danger) 40%, transparent)", color: "var(--danger)" }}>
                                     {isRestoring ? "Restoring..." : "Confirm"}
                                 </button>
                                 <button onClick={() => setConfirmRestore(false)} style={actionBtnStyle}>

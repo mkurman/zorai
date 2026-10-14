@@ -59,7 +59,7 @@ export function AboutTab() {
             <Section title="About">
                 <div style={{ fontSize: "var(--text-sm)", lineHeight: 1.6 }}>
                     <p style={{ fontWeight: 600, marginBottom: 8 }}>Zorai - Agent Orchestration Workspace</p>
-                    <p>Version 1.0.10</p>
+                    <p>Version 1.0.11</p>
                     <p style={{ marginTop: 8, color: "var(--text-secondary)" }}>
                         A thread-first agent orchestration workspace with durable goals, workspace boards,
                         approvals, tools, and daemon-backed runtime state.
@@ -77,8 +77,8 @@ export function AboutTab() {
                     </div>
 
                     <div style={{
-                        border: "1px solid rgba(255,255,255,0.08)",
-                        background: "rgba(255,255,255,0.02)",
+                        border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
+                        background: "color-mix(in srgb, var(--text-primary) 2%, transparent)",
                         padding: 10,
                         display: "grid",
                         gap: 6,
@@ -99,8 +99,8 @@ export function AboutTab() {
                     </div>
 
                     <div style={{
-                        border: "1px solid rgba(255,255,255,0.08)",
-                        background: "rgba(255,255,255,0.02)",
+                        border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
+                        background: "color-mix(in srgb, var(--text-primary) 2%, transparent)",
                         padding: 10,
                         display: "grid",
                         gap: 6,
@@ -127,8 +127,8 @@ export function AboutTab() {
                     </div>
 
                     <div style={{
-                        border: "1px solid rgba(255,255,255,0.08)",
-                        background: "rgba(255,255,255,0.02)",
+                        border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
+                        background: "color-mix(in srgb, var(--text-primary) 2%, transparent)",
                         padding: 10,
                         display: "grid",
                         gap: 6,

@@ -11,6 +11,7 @@ fn map_agent_wakeup_row(row: &db::Row) -> anyhow::Result<AgentWakeupRow> {
         created_at: row.get::<i64>(6)?.max(0) as u64,
         wakeup_kind: row.get(7)?,
         goal_run_id: row.get(8)?,
+        reason: row.get(9)?,
     })
 }
 
@@ -19,7 +20,7 @@ impl HistoryStore {
         let row = row.clone();
         self.conn_db
             .execute(
-                "INSERT OR REPLACE INTO agent_wakeups (id, thread_id, message, interval_ms, next_fire_at, repetitions_remaining, created_at, wakeup_kind, goal_run_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                "INSERT OR REPLACE INTO agent_wakeups (id, thread_id, message, interval_ms, next_fire_at, repetitions_remaining, created_at, wakeup_kind, goal_run_id, reason) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
                 db::db_params![
                     row.id,
                     row.thread_id,
@@ -30,6 +31,7 @@ impl HistoryStore {
                     row.created_at as i64,
                     row.wakeup_kind,
                     row.goal_run_id,
+                    row.reason,
                 ],
             )
             .await?;
@@ -60,7 +62,7 @@ impl HistoryStore {
         let rows = self
             .read_db
             .query(
-                "SELECT id, thread_id, message, interval_ms, next_fire_at, repetitions_remaining, created_at, wakeup_kind, goal_run_id FROM agent_wakeups ORDER BY next_fire_at ASC, id ASC",
+                "SELECT id, thread_id, message, interval_ms, next_fire_at, repetitions_remaining, created_at, wakeup_kind, goal_run_id, reason FROM agent_wakeups ORDER BY next_fire_at ASC, id ASC",
                 db::Params::None,
             )
             .await?;

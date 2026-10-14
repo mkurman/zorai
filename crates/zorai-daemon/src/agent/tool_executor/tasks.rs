@@ -1873,6 +1873,11 @@ pub(crate) async fn execute_schedule_wakeup(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .unwrap_or("Scheduled wakeup — continue with what you intended to check.");
+    let reason = args
+        .get("reason")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
 
     let wakeup = agent
         .schedule_wakeup_with_context(
@@ -1882,6 +1887,7 @@ pub(crate) async fn execute_schedule_wakeup(
             message,
             wakeup_kind,
             goal_run_id,
+            reason,
         )
         .await?;
 
@@ -1897,6 +1903,7 @@ pub(crate) async fn execute_schedule_wakeup(
         "repetitions": repetitions_value,
         "kind": wakeup.wakeup_kind,
         "goal_run_id": wakeup.goal_run_id,
+        "reason": wakeup.reason,
         "note": "Cancel with cancel_wakeup using this wakeup_id. Fires within ~30s of the scheduled time.",
     })
     .to_string())

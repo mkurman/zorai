@@ -85,7 +85,7 @@ export function SpawnedAgentNode({
           borderColor: isSelected ? "var(--accent)" : "var(--border)",
           borderRadius: compact ? "var(--radius-md)" : "var(--radius-lg)",
           padding: compact ? "var(--space-2)" : "var(--space-3)",
-          background: isSelected ? "rgba(94, 231, 223, 0.08)" : "var(--bg-secondary)",
+          background: isSelected ? "color-mix(in srgb, var(--accent) 8%, transparent)" : "var(--bg-secondary)",
           display: "grid",
           gap: compact ? 6 : "var(--space-2)",
         }}
@@ -124,7 +124,7 @@ export function SpawnedAgentNode({
                   padding: compact ? "1px 6px" : "2px 8px",
                   border: "1px solid var(--accent-soft)",
                   color: "var(--accent)",
-                  background: "rgba(94, 231, 223, 0.12)",
+                  background: "color-mix(in srgb, var(--accent) 12%, transparent)",
                 }}
               >
                 Current

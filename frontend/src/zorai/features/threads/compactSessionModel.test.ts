@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AgentTodoItem } from "@/lib/agentStore";
 import type { AgentRun } from "@/lib/agentRuns";
 import type { SpawnedAgentTree } from "@/lib/spawnedAgentTree";
+import type { WorkContextEntry } from "@/lib/agentWorkContext";
 import {
   compactSessionHasContent,
   countDiffStats,
@@ -9,6 +10,7 @@ import {
   gitStatusMatchesPath,
   isRelativeWorkspacePath,
   isUntrackedGitStatus,
+  pendingWorkContextEntries,
   rejectUsesOperationSnapshot,
   sameFilesystemPath,
   todoProgress,
@@ -84,5 +86,22 @@ describe("compact code-agent session bar", () => {
     expect(isRelativeWorkspacePath("frontend/src/a.ts")).toBe(true);
     expect(isRelativeWorkspacePath("/repo/frontend/src/a.ts")).toBe(false);
     expect(sameFilesystemPath("/repo/", "/repo")).toBe(true);
+  });
+});
+
+describe("pendingWorkContextEntries", () => {
+  const entry = (path: string): WorkContextEntry => ({ path, kind: "repo_change", source: "apply_patch", updatedAt: 1 } as WorkContextEntry);
+
+  it("only offers Keep/Reject for files that still have unstaged changes in the repo", () => {
+    const entries = [entry("/repo/src/a.ts"), entry("/repo/src/b.ts"), entry("/home/me/.zorai/threads/t/artifacts/spec.md")];
+    const statuses = { "/repo": [
+      { path: "src/a.ts", worktreeStatus: "M" },
+      { path: "src/b.ts", worktreeStatus: " " },
+    ] };
+    expect(pendingWorkContextEntries(entries, statuses, "/repo").map((item) => item.path)).toEqual(["/repo/src/a.ts"]);
+  });
+
+  it("has nothing to review once every change is staged", () => {
+    expect(pendingWorkContextEntries([entry("/repo/a.ts")], { "/repo": [{ path: "a.ts", worktreeStatus: "" }] }, "/repo")).toEqual([]);
   });
 });

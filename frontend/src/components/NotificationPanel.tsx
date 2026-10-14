@@ -115,7 +115,7 @@ export function NotificationPanel({ style, className }: NotificationPanelProps =
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(3,8,14,0.56)",
+        background: "color-mix(in srgb, var(--shade) 56%, transparent)",
         zIndex: 900,
         display: "flex",
         justifyContent: "flex-end",

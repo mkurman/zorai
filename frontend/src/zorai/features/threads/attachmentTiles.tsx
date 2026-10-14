@@ -86,7 +86,7 @@ function useAttachmentImageUrl(item: AttachmentTileModel): string | undefined {
       return;
     }
     let cancelled = false;
-    void getBridge()?.agentReadThreadInventoryImage?.(item.inventoryPath).then((dataUrl) => {
+    void getBridge()?.agentReadImageFile?.(item.inventoryPath).then((dataUrl) => {
       if (!cancelled && dataUrl) {
         setInventoryUrl(dataUrl);
       }

@@ -1,5 +1,5 @@
 import type { TerminalThemeColors } from "./themes";
-import { getEffectiveTheme } from "./themes";
+import { getEffectiveTheme, getThemeByName } from "./themes";
 
 export type AppShellTheme = Record<string, string>;
 
@@ -67,10 +67,11 @@ export function getAppShellTheme(
     customSelection
   );
 
+  const appShell = useCustomColors ? undefined : getThemeByName(themeName).appShell;
   if (appearance === "light") {
-    return buildLightAppShellTheme(colors);
+    return { ...buildLightAppShellTheme(colors), ...appShell };
   }
-  return buildDarkAppShellTheme(colors);
+  return { ...buildDarkAppShellTheme(colors), ...appShell };
 }
 
 function buildDarkAppShellTheme(colors: TerminalThemeColors): AppShellTheme {
@@ -185,6 +186,7 @@ function buildDarkAppShellTheme(colors: TerminalThemeColors): AppShellTheme {
 
     // Legacy compatibility
     "--shadow-color": withAlpha(colors.black, 0.45),
+    "--shade": "#000000",
   };
 }
 
@@ -209,7 +211,7 @@ function buildLightAppShellTheme(colors: TerminalThemeColors): AppShellTheme {
   // and lift toward white for depth so Color Style actually changes the shell.
   const bgPrimary = ensureLightSurface(colors.background);
   const ink = ensureDarkInk(colors.foreground);
-  const mutedInk = mix(ink, bgPrimary, 0.32);
+  const mutedInk = mix(ink, bgPrimary, 0.22);
   const readableMuted = relativeLuminance(mutedInk) > 0.55 ? "#4a5a72" : mutedInk;
   const bgVoid = mix(bgPrimary, "#ffffff", 0.28);
   const bgDeep = mix(bgPrimary, "#ffffff", 0.12);
@@ -310,6 +312,7 @@ function buildLightAppShellTheme(colors: TerminalThemeColors): AppShellTheme {
     "--panel-blur": "20px",
 
     "--shadow-color": withAlpha(ink, 0.18),
+    "--shade": ink,
   };
 }
 

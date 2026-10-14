@@ -86,10 +86,10 @@ export function OpenRouterProviderRoutingControls<T extends OpenRouterRoutingCon
     const providerButtonStyle = (active: boolean, tone: "preferred" | "excluded") => ({
         ...smallBtnStyle,
         borderColor: active
-            ? tone === "preferred" ? "var(--accent)" : "var(--danger, #ef4444)"
+            ? tone === "preferred" ? "var(--accent)" : "var(--danger, var(--danger))"
             : "var(--border)",
         color: active
-            ? tone === "preferred" ? "var(--accent)" : "var(--danger, #ef4444)"
+            ? tone === "preferred" ? "var(--accent)" : "var(--danger, var(--danger))"
             : "var(--text-secondary)",
         minWidth: 78,
     });

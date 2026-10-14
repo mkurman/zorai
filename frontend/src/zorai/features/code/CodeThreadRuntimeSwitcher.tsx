@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ModelSelector } from "@/components/settings-panel/shared";
-import { useAgentStore, type AgentProviderId, type AgentThread } from "@/lib/agentStore";
+import { useAgentStore, type AgentMessage, type AgentProviderId, type AgentThread } from "@/lib/agentStore";
 import { getBridge } from "@/lib/bridge";
 import { pushToast } from "@/lib/toastStore";
 import {
@@ -16,11 +16,13 @@ import { BUILTIN_WORKSPACE_PERSONAS } from "../workspaces/workspaceActorPicker";
 
 type Props = { thread: AgentThread | null; variant?: "toolbar" | "composer" };
 
+const NO_MESSAGES: AgentMessage[] = [];
+
 export function CodeThreadRuntimeSwitcher({ thread, variant = "toolbar" }: Props) {
   const agentSettings = useAgentStore((state) => state.agentSettings);
   const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
   const subAgents = useAgentStore((state) => state.subAgents);
-  const threadMessages = useAgentStore((state) => thread ? state.messages[thread.id] ?? [] : []);
+  const threadMessages = useAgentStore((state) => thread ? state.messages[thread.id] ?? NO_MESSAGES : NO_MESSAGES);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
@@ -32,6 +34,17 @@ export function CodeThreadRuntimeSwitcher({ thread, variant = "toolbar" }: Props
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties | undefined>(undefined);
+  const threadId = thread?.id ?? null;
+
+  useEffect(() => {
+    setOpen(false);
+    setSelectedAgentId(null);
+    setSelectedProvider(null);
+    setSelectedModel(null);
+    setSelectedContextWindow(null);
+    setModelStep(false);
+    setPickerQuery("");
+  }, [threadId]);
 
   const threadProviderIdsList = useMemo(() => threadProviderIds(), [agentSettings]);
 

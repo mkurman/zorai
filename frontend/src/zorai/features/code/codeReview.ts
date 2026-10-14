@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { isRunTerminal, type AgentRun } from "@/lib/agentRuns";
 
 export type CodeReviewFinding = {
   id: string;
@@ -14,6 +15,7 @@ export type CodeReviewState = {
   raw: string;
   error: string | null;
   completedAt: number | null;
+  threadId: string | null;
 };
 
 type CodeReviewByRoot = Record<string, CodeReviewState>;
@@ -22,6 +24,7 @@ type CodeReviewByRoot = Record<string, CodeReviewState>;
 type CodeReviewStoreState = {
   byRoot: CodeReviewByRoot;
   startReview: (root: string) => void;
+  setReviewThread: (root: string, threadId: string) => void;
   finishReview: (root: string, findings: CodeReviewFinding[], raw: string) => void;
   failReview: (root: string, error: string) => void;
   skipFindings: (root: string) => void;
@@ -33,6 +36,7 @@ const INITIAL_REVIEW: CodeReviewState = {
   raw: "",
   error: null,
   completedAt: null,
+  threadId: null,
 };
 
 export const useCodeReviewStore = create<CodeReviewStoreState>((set) => ({
@@ -40,11 +44,14 @@ export const useCodeReviewStore = create<CodeReviewStoreState>((set) => ({
   startReview: (root) => set((state) => ({
     byRoot: { ...state.byRoot, [root]: { ...INITIAL_REVIEW, status: "running" } },
   })),
+  setReviewThread: (root, threadId) => set((state) => ({
+    byRoot: { ...state.byRoot, [root]: { ...(state.byRoot[root] ?? INITIAL_REVIEW), threadId } },
+  })),
   finishReview: (root, findings, raw) => set((state) => ({
-    byRoot: { ...state.byRoot, [root]: { status: "done", findings, raw, error: null, completedAt: Date.now() } },
+    byRoot: { ...state.byRoot, [root]: { status: "done", findings, raw, error: null, completedAt: Date.now(), threadId: state.byRoot[root]?.threadId ?? null } },
   })),
   failReview: (root, error) => set((state) => ({
-    byRoot: { ...state.byRoot, [root]: { ...INITIAL_REVIEW, status: "error", error } },
+    byRoot: { ...state.byRoot, [root]: { ...INITIAL_REVIEW, status: "error", error, threadId: state.byRoot[root]?.threadId ?? null } },
   })),
   skipFindings: (root) => set((state) => ({
     byRoot: { ...state.byRoot, [root]: { ...INITIAL_REVIEW, status: "idle", completedAt: Date.now() } },
@@ -102,29 +109,17 @@ export function formatFindingsForFixAll(findings: CodeReviewFinding[]): string {
 export function buildReviewPrompt(input: {
   root: string;
   branch: string | null;
-  commits: Array<{ shortHash: string; subject: string; body?: string; files?: Array<{ status: string; path: string }> }>;
-  diffs: Array<{ shortHash: string; diff: string }>;
+  commits: Array<{ shortHash: string; subject: string }>;
 }): string {
-  const commitSection = input.commits.map((commit) => {
-    const files = commit.files?.length
-      ? commit.files.map((file) => `  - ${file.status} ${file.path}`).join("\n")
-      : "";
-    return `- ${commit.shortHash} ${commit.subject}${files ? `\n${files}` : ""}`;
-  }).join("\n");
-  const diffSection = input.diffs.map(({ shortHash, diff }) => `--- diff ${shortHash} ---\n${diff}`).join("\n\n");
   return [
-    "You are performing a code review (Weles code-review task).",
-    `Workspace root: ${input.root}`,
-    `Branch: ${input.branch ?? "(detached)"}`,
-    `Commits under review (${input.commits.length}, oldest first):`,
-    commitSection,
+    `Review the last ${input.commits.length} commit${input.commits.length === 1 ? "" : "s"} on branch ${input.branch ?? "(detached)"} in ${input.root}:`,
+    ...input.commits.map((commit) => `- ${commit.shortHash} ${commit.subject}`),
     "",
-    "Full diffs:",
-    diffSection,
-    "",
+    "Inspect them yourself with git (for example `git show <hash>`).",
     "Find concrete bugs, regressions, security issues, and clearly-wrong logic in these changes.",
     "Do NOT report style nits, missing tests alone, or hypothetical concerns.",
-    "Respond with one finding per block in EXACTLY this format (no other prose):",
+    "Finish by calling report_subagent_outcome with status done; its summary must contain the complete findings below, verbatim. The Code tab parses only that summary.",
+    "Report one finding per block in EXACTLY this format (no other prose):",
     "",
     "BUG 1: <short title>",
     "<optional detail lines: explanation, file:line references, suggested fix>",
@@ -132,8 +127,55 @@ export function buildReviewPrompt(input: {
     "BUG 2: <short title>",
     "<detail>",
     "",
-    "If you find no issues, respond with exactly: NO_ISSUES_FOUND",
+    "If you find no issues, report exactly: NO_ISSUES_FOUND",
   ].join("\n");
 }
 
 export const NO_ISSUES_MARKER = "NO_ISSUES_FOUND";
+
+export function resolveReviewReport(sources: Array<string | null | undefined>): { findings: CodeReviewFinding[]; raw: string } | null {
+  for (const source of sources) {
+    const raw = source ?? "";
+    if (raw.includes(NO_ISSUES_MARKER)) return { findings: [], raw };
+    const findings = parseReviewFindings(raw);
+    if (findings.length > 0) return { findings, raw };
+  }
+  return null;
+}
+
+export type CodeReviewer = { label: string; spawnTitle: string | null };
+
+export function resolveCodeReviewer(
+  agentId: string | null | undefined,
+  subAgents: ReadonlyArray<{ id: string; name: string; provider: string; model: string; enabled: boolean }>,
+): CodeReviewer {
+  const wanted = agentId?.trim().toLowerCase();
+  const subAgent = wanted ? subAgents.find((candidate) => candidate.enabled && candidate.id.toLowerCase() === wanted) : undefined;
+  if (!subAgent) return { label: "this thread's agent", spawnTitle: null };
+  return { label: subAgent.name || subAgent.id, spawnTitle: subAgent.name || subAgent.id };
+}
+
+export function extractSpawnedSubagentId(content: string): string | null {
+  return /Spawned subagent (\S+) with runtime/.exec(content)?.[1] ?? null;
+}
+
+export async function waitForSubagentRun(
+  fetchRuns: () => Promise<AgentRun[]>,
+  subagentId: string,
+  options: { onThread?: (threadId: string) => void; intervalMs?: number; timeoutMs?: number; sleep?: (ms: number) => Promise<void> } = {},
+): Promise<AgentRun> {
+  const intervalMs = options.intervalMs ?? 3000;
+  const timeoutMs = options.timeoutMs ?? 45 * 60_000;
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms)));
+  let reportedThread: string | null = null;
+  for (let waited = 0; ; waited += intervalMs) {
+    const run = (await fetchRuns()).find((candidate) => candidate.id === subagentId || candidate.task_id === subagentId);
+    if (run?.thread_id && run.thread_id !== reportedThread) {
+      reportedThread = run.thread_id;
+      options.onThread?.(run.thread_id);
+    }
+    if (run && isRunTerminal(run)) return run;
+    if (waited >= timeoutMs) throw new Error("The review agent did not finish in time; open its thread to check progress.");
+    await sleep(intervalMs);
+  }
+}

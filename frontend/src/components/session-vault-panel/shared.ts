@@ -111,8 +111,8 @@ export function formatBytes(bytes: number): string {
 }
 
 export const hdrBtn: CSSProperties = {
-    background: "rgba(255,255,255,0.04)",
-    border: "1px solid rgba(255,255,255,0.08)",
+    background: "color-mix(in srgb, var(--text-primary) 4%, transparent)",
+    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
     color: "var(--text-secondary)",
     cursor: "pointer",
     fontSize: 13,
@@ -123,8 +123,8 @@ export const hdrBtn: CSSProperties = {
 export const filterInputStyle: CSSProperties = {
     width: "100%",
     padding: "10px 12px",
-    background: "rgba(18, 33, 47, 0.8)",
-    border: "1px solid rgba(255,255,255,0.08)",
+    background: "color-mix(in srgb, var(--bg-surface) 80%, transparent)",
+    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
     color: "var(--text-primary)",
     fontSize: 13,
     fontFamily: "inherit",
@@ -133,8 +133,8 @@ export const filterInputStyle: CSSProperties = {
 };
 
 export const modeBtnStyle: CSSProperties = {
-    background: "rgba(255,255,255,0.04)",
-    border: "1px solid rgba(255,255,255,0.08)",
+    background: "color-mix(in srgb, var(--text-primary) 4%, transparent)",
+    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
     color: "var(--text-secondary)",
     borderRadius: 0,
     padding: "7px 12px",
@@ -144,7 +144,7 @@ export const modeBtnStyle: CSSProperties = {
 
 export const activeModeBtnStyle: CSSProperties = {
     color: "var(--text-primary)",
-    borderColor: "rgba(137, 180, 250, 0.36)",
+    borderColor: "color-mix(in srgb, var(--info) 36%, transparent)",
     background: "var(--bg-secondary)",
 };
 
@@ -156,7 +156,7 @@ export const timelineCardStyle: CSSProperties = {
     gap: 6,
     textAlign: "left",
     borderRadius: 0,
-    border: "1px solid rgba(255,255,255,0.08)",
+    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
     background: "var(--bg-secondary)",
     color: "var(--text-primary)",
     flexShrink: 0,
@@ -182,8 +182,8 @@ export const timelineBodyStyle: CSSProperties = {
 };
 
 export const miniActionBtnStyle: CSSProperties = {
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(255,255,255,0.08)",
+    background: "color-mix(in srgb, var(--text-primary) 5%, transparent)",
+    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
     color: "var(--text-primary)",
     borderRadius: 0,
     padding: "6px 9px",
@@ -196,8 +196,8 @@ export const timelineRowStyle: CSSProperties = {
     gap: 12,
     padding: 14,
     borderRadius: 0,
-    border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(255,255,255,0.03)",
+    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
+    background: "color-mix(in srgb, var(--text-primary) 3%, transparent)",
     alignItems: "stretch",
 };
 

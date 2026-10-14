@@ -27,6 +27,7 @@ impl DaemonClient {
             | DaemonMessage::AgentWorkContextDetail { .. }
             | DaemonMessage::GitDiff { .. }
             | DaemonMessage::FilePreview { .. }
+            | DaemonMessage::DataQueryResult { .. }
             | DaemonMessage::AgentConfigResponse { .. }
             | DaemonMessage::AgentExternalRuntimeMigrationResult { .. }
             | DaemonMessage::AgentModelsResponse { .. }

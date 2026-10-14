@@ -38,7 +38,7 @@ export function SessionVaultFilters({
     close: () => void;
 }) {
     return (
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) repeat(5, minmax(0, 1fr))", gap: 10, padding: 14, borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) repeat(5, minmax(0, 1fr))", gap: 10, padding: 14, borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)", background: "color-mix(in srgb, var(--text-primary) 2%, transparent)" }}>
             <input
                 type="text"
                 value={query}

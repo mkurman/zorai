@@ -92,7 +92,7 @@ export function CommandLogPanel({ style, className }: CommandLogPanelProps = {})
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(3,8,14,0.72)",
+        background: "color-mix(in srgb, var(--shade) 72%, transparent)",
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "center",

@@ -270,3 +270,107 @@ async fn openai_context_window_stream_error_forces_compaction_and_retries_withou
         "raw provider context-window error must not be persisted as a user-visible reply"
     );
 }
+
+#[tokio::test]
+async fn continuation_prompt_is_sent_once_not_after_every_tool_round() {
+    let root = tempdir().expect("tempdir");
+    let recorded = Arc::new(StdMutex::new(Vec::<String>::new()));
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+    let addr = listener.local_addr().expect("addr");
+    let next = Arc::new(AtomicUsize::new(0));
+    {
+        let recorded = recorded.clone();
+        tokio::spawn(async move {
+            while let Ok((mut socket, _)) = listener.accept().await {
+                let recorded = recorded.clone();
+                let next = next.clone();
+                tokio::spawn(async move {
+                    let request = read_http_request(&mut socket, "continuation").await;
+                    recorded.lock().unwrap().push(request_body(&request));
+                    let chunk = if next.fetch_add(1, Ordering::SeqCst) == 0 {
+                        serde_json::json!({"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_dt","function":{"name":"get_current_datetime","arguments":"{}"}}]}}]})
+                    } else {
+                        serde_json::json!({"choices":[{"delta":{"content":"Handled."},"finish_reason":"stop"}]})
+                    };
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\nconnection: close\r\n\r\ndata: {chunk}\n\ndata: [DONE]\n\n"
+                    );
+                    socket.write_all(response.as_bytes()).await.unwrap();
+                });
+            }
+        });
+    }
+
+    let manager = SessionManager::new_test(root.path()).await;
+    let mut config = AgentConfig::default();
+    config.provider = zorai_shared::providers::PROVIDER_ID_OPENAI.to_string();
+    config.base_url = format!("http://{addr}/v1");
+    config.model = "gpt-4o-mini".to_string();
+    config.api_key = "test-key".to_string();
+    config.api_transport = ApiTransport::ChatCompletions;
+    config.auto_retry = false;
+    config.max_retries = 0;
+    let engine = AgentEngine::new_test(manager, config, root.path()).await;
+    let thread_id = "thread-continuation-once";
+    let now = now_millis();
+    engine.threads.write().await.insert(
+        thread_id.to_string(),
+        AgentThread {
+            id: thread_id.to_string(),
+            agent_name: None,
+            title: "Continuation".to_string(),
+            messages: vec![
+                AgentMessage::user("audit the cases", now),
+                {
+                    let mut message = AgentMessage::user("Delegated to researcher.", now + 1);
+                    message.role = MessageRole::Assistant;
+                    message
+                },
+            ],
+            pinned: false,
+            upstream_thread_id: None,
+            upstream_transport: None,
+            upstream_provider: None,
+            upstream_model: None,
+            upstream_assistant_id: None,
+            created_at: now,
+            updated_at: now,
+            total_input_tokens: 0,
+            total_output_tokens: 0,
+        },
+    );
+
+    let notice = "CHILD-RESEARCHER-BUDGET-NOTICE";
+    engine
+        .send_message_inner_with_options(
+            Some(thread_id),
+            notice,
+            None,
+            None,
+            None,
+            None,
+            Some(notice),
+            None,
+            None,
+            false,
+            true,
+            false,
+            false,
+            None,
+        )
+        .await
+        .expect("continuation turn should complete");
+
+    let bodies = recorded.lock().unwrap().clone();
+    assert!(bodies.len() >= 2, "expected a tool round and a follow-up request: {bodies:?}");
+    for (index, body) in bodies.iter().enumerate() {
+        assert_eq!(
+            body.matches(notice).count(),
+            1,
+            "request {index} must carry the continuation prompt exactly once; appending it after every tool round makes the agent think the notice was redelivered: {body}"
+        );
+    }
+    let follow_up: serde_json::Value = serde_json::from_str(&bodies[1]).expect("json body");
+    let last = follow_up["messages"].as_array().and_then(|m| m.last()).expect("messages");
+    assert_eq!(last["role"], "tool", "the follow-up must end with the tool result, not a repeated notice");
+}

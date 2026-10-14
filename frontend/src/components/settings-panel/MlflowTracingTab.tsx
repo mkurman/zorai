@@ -74,7 +74,7 @@ export function MlflowTracingTab({
           <TextInput value={config.tracking_uri} disabled={overridden("tracking_uri")}
             onChange={(tracking_uri) => updateConfig({ tracking_uri })} />
         </SettingRow>
-        {nonLoopbackHttp ? <div style={{ color: "var(--warning, #f9e2af)", fontSize: "var(--text-sm)" }}>Plain HTTP outside loopback can expose traced content. Prefer HTTPS.</div> : null}
+        {nonLoopbackHttp ? <div style={{ color: "var(--warning, var(--warning))", fontSize: "var(--text-sm)" }}>Plain HTTP outside loopback can expose traced content. Prefer HTTPS.</div> : null}
         <SettingRow label={`Experiment${overridden("experiment_name") ? " (ENV)" : ""}`}>
           <TextInput value={config.experiment_name} disabled={overridden("experiment_name")}
             onChange={(experiment_name) => updateConfig({ experiment_name })} />
@@ -113,7 +113,7 @@ export function MlflowTracingTab({
           <button disabled={busy !== null} onClick={() => void runAction("trace")}>Send test trace</button>
           {status.experiment_id ? <button onClick={() => window.open(`${config.tracking_uri}/#/experiments/${status.experiment_id}`, "_blank", "noopener,noreferrer")}>Open experiment</button> : null}
         </div>
-        {result ? <div style={{ fontSize: "var(--text-sm)", color: result.ok ? "var(--success, #a6e3a1)" : "var(--error, #f38ba8)", marginBottom: 8 }}>
+        {result ? <div style={{ fontSize: "var(--text-sm)", color: result.ok ? "var(--success, var(--success))" : "var(--error, var(--danger))", marginBottom: 8 }}>
           {result.ok ? `Connected to MLflow ${result.connection?.server_version ?? ""}` : result.error}
         </div> : null}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(120px, 1fr))", gap: 8, fontSize: "var(--text-sm)" }}>
@@ -124,7 +124,7 @@ export function MlflowTracingTab({
           <Metric label="Exported" value={String(status.traces_exported)} />
           <Metric label="Dropped" value={String(status.traces_dropped)} />
         </div>
-        {status.last_error ? <div style={{ marginTop: 8, color: "var(--error, #f38ba8)", fontSize: "var(--text-sm)" }}>{status.last_error}</div> : null}
+        {status.last_error ? <div style={{ marginTop: 8, color: "var(--error, var(--danger))", fontSize: "var(--text-sm)" }}>{status.last_error}</div> : null}
       </Section>
 
       <Section title="Encrypted custom headers">

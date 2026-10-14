@@ -94,7 +94,7 @@ export function ColorInput({ value, onChange, placeholder }: {
 }) {
     return (
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <input type="color" value={value || placeholder || "#000000"}
+            <input type="color" value={value || placeholder || "var(--shade)"}
                 onChange={(event) => onChange(event.target.value)}
                 style={{
                     width: 28, height: 22, padding: 0, border: "1px solid var(--border)",
@@ -172,8 +172,8 @@ export function PasswordInput({ value, onChange, placeholder }: {
                 style={{ ...inputStyle, flex: 1 }} />
             <button type="button" onClick={() => setVisible(!visible)}
                 style={{
-                    background: "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.08)",
+                    background: "color-mix(in srgb, var(--text-primary) 4%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
                     color: "var(--text-muted)",
                     cursor: "pointer",
                     fontSize: "var(--text-sm)",
@@ -548,7 +548,7 @@ export function ModelSelector({ providerId, value, customName, onChange, disable
                         <div style={{
                             padding: "6px 10px",
                             fontSize: "var(--text-sm)",
-                            color: "var(--color-red, #f44)",
+                            color: "var(--color-red, var(--danger))",
                             borderBottom: "1px solid var(--border)",
                         }}>
                             {fetchError}

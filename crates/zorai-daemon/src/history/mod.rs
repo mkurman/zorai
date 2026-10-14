@@ -909,6 +909,7 @@ pub struct AgentWakeupRow {
     pub repetitions_remaining: Option<u64>,
     pub wakeup_kind: String,
     pub goal_run_id: Option<String>,
+    pub reason: Option<String>,
     pub created_at: u64,
 }
 

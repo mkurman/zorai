@@ -254,7 +254,7 @@ export function formatPercent(value: number): string {
   return `${Math.round(percent)}%`;
 }
 
-export const CHART_COLORS = ["var(--zorai-accent)", "var(--zorai-accent-secondary)", "#64b5f6", "#4ade80", "#fbbf24", "#f472b6", "#22d3ee", "#a3e635"];
+export const CHART_COLORS = ["var(--zorai-accent)", "var(--zorai-accent-secondary)", "var(--info)", "var(--success)", "var(--warning)", "var(--reasoning)", "var(--accent)", "var(--success)"];
 
 function sortByTotalTokens(a: UsageRow, b: UsageRow): number {
   return b.totalTokens - a.totalTokens;

@@ -321,4 +321,6 @@ pub enum ClientMessage {
     AgentListGatewayChats,
     AgentLinkThreadToGatewayChat { thread_id: String, channel_key: Option<String> },
     AgentRenameThread { thread_id: String, title: String },
+    DataQuery { request_json: String },
+    AgentGetFileOperationBefore { operation_id: String, path: String },
 }

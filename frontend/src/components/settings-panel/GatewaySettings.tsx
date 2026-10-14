@@ -193,7 +193,7 @@ export function GatewayConfigEditor() {
         {dirty ? (
           <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
             <button onClick={saveConfig} disabled={saving} style={{
-              ...smallBtnStyle, color: "var(--success)", borderColor: "rgba(166, 227, 161, 0.2)",
+              ...smallBtnStyle, color: "var(--success)", borderColor: "color-mix(in srgb, var(--success) 20%, transparent)",
             }}>
               {saving ? "Saving..." : "Save to Daemon"}
             </button>

@@ -166,6 +166,7 @@ pub(crate) fn classify_http_failure_with_retry_after(
         || lower.contains("temporarily unavailable")
         || lower.contains("overloaded")
         || lower.contains("try again later")
+        || lower.contains("while retrying upstream")
     {
         UpstreamFailureClass::TemporaryUpstream
     } else {

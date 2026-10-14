@@ -1512,6 +1512,17 @@ impl<'a> SendMessageRunner<'a> {
         let _ = engine.event_tx.send(AgentEvent::ThreadReloadRequired {
             thread_id: tid.clone(),
         });
+        let reused_prompt_preceding_message_id = if reuse_existing_user_message {
+            engine
+                .threads
+                .read()
+                .await
+                .get(&tid)
+                .and_then(|thread| thread.messages.last())
+                .map(|message| message.id.clone())
+        } else {
+            None
+        };
         Ok(Self {
             engine,
             task_id,
@@ -1566,6 +1577,8 @@ impl<'a> SendMessageRunner<'a> {
             consecutive_same_tool_calls: 0,
             last_pre_compaction_flush_signature: None,
             recorded_compaction_provenance: false,
+            delivered_queued_message_ids: Vec::new(),
+            reused_prompt_preceding_message_id,
             trace_collector: crate::agent::learning::traces::TraceCollector::new(
                 &task_type_for_trace,
                 now_millis(),

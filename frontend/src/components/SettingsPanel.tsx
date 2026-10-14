@@ -211,7 +211,7 @@ export function SettingsPanel({ style, className }: SettingsPanelProps = {}) {
         display: "flex",
         flexDirection: "column",
         padding: "20px",
-        background: "rgba(0,0,0,0.8)",
+        background: "color-mix(in srgb, var(--shade) 80%, transparent)",
         border: "1px solid var(--border)",
         borderRadius: isFullscreen ? 0 : "var(--radius-xl)",
         overflow: "hidden",
@@ -231,7 +231,7 @@ export function SettingsPanel({ style, className }: SettingsPanelProps = {}) {
       >
         <div style={{
           display: "grid", gap: 14,
-          padding: "18px 22px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)",
+          padding: "18px 22px 16px", borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
         }}>
           <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", gap: 16 }}>
             <div style={{ display: "grid", gap: 6 }}>
@@ -265,8 +265,8 @@ export function SettingsPanel({ style, className }: SettingsPanelProps = {}) {
               value={currentTier}
               onChange={(e) => void handleTierOverride(e.target.value)}
               style={{
-                background: "rgba(18, 33, 47, 0.8)",
-                border: "1px solid rgba(255,255,255,0.12)",
+                background: "color-mix(in srgb, var(--bg-surface) 80%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--text-primary) 12%, transparent)",
                 color: "var(--text-primary)",
                 padding: "4px 8px",
                 fontSize: "var(--text-sm)",
@@ -287,12 +287,12 @@ export function SettingsPanel({ style, className }: SettingsPanelProps = {}) {
         </div>
 
         <div style={{
-          display: "flex", borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "0 16px",
+          display: "flex", borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)", padding: "0 16px",
           gap: 0, overflow: "auto",
         }}>
           {tabs.map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{
-              background: tab === t.id ? "rgba(97, 197, 255, 0.1)" : "none", border: "none", borderBottom: tab === t.id ? "2px solid var(--accent)" : "2px solid transparent",
+              background: tab === t.id ? "color-mix(in srgb, var(--info) 10%, transparent)" : "none", border: "none", borderBottom: tab === t.id ? "2px solid var(--accent)" : "2px solid transparent",
               color: tab === t.id ? "var(--text-primary)" : "var(--text-secondary)",
               padding: "12px 14px", fontSize: "var(--text-sm)", cursor: "pointer", fontWeight: tab === t.id ? 700 : 500,
               fontFamily: "inherit", whiteSpace: "nowrap",
@@ -365,7 +365,7 @@ export function SettingsPanel({ style, className }: SettingsPanelProps = {}) {
 
 function SettingsMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ borderRadius: 0, padding: "10px 12px", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(18, 33, 47, 0.8)", display: "grid", gap: 4 }}>
+    <div style={{ borderRadius: 0, padding: "10px 12px", border: "1px solid color-mix(in srgb, var(--text-primary) 6%, transparent)", background: "color-mix(in srgb, var(--bg-surface) 80%, transparent)", display: "grid", gap: 4 }}>
       <span className="zorai-panel-title">{label}</span>
       <span style={{ fontSize: "var(--text-base)", fontWeight: 700 }}>{value}</span>
     </div>
