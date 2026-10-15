@@ -17,6 +17,10 @@ impl ConciergeEngine {
                 "HEARTBEAT SYNTHESIS".to_string(),
                 "Heartbeat check:".to_string(),
             ],
+            hidden_message_substrings: vec![
+                "HEARTBEAT SYNTHESIS".to_string(),
+                "Heartbeat check:".to_string(),
+            ],
             min_message_count: Some(1),
             limit: Some(1),
             ..crate::history::AgentThreadListQuery::default()

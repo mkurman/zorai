@@ -105,6 +105,9 @@ impl TuiModel {
             "app: apply_config_json done"
         );
         self.reconcile_pending_svarog_reasoning_effort_after_raw_config();
+        if let Some(concierge) = raw.get("concierge").filter(|value| value.is_object()) {
+            self.handle_concierge_config_event(concierge.clone());
+        }
         self.chat
             .set_history_page_size(self.config.tui_chat_history_page_size as usize);
         self.invalidate_active_header_runtime_profile_if_profile_changed(&before_profile);

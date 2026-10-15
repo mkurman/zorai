@@ -230,7 +230,7 @@ assert(
 
 assert(
   DEFAULT_AGENT_SETTINGS.xai.base_url === "https://api.x.ai/v1"
-    && DEFAULT_AGENT_SETTINGS.xai.model === "grok-4.6"
+    && DEFAULT_AGENT_SETTINGS.xai.model === "grok-4.7"
     && DEFAULT_AGENT_SETTINGS.xai.api_transport === "responses",
   "Default xAI settings should use the xAI API defaults",
 );
@@ -294,7 +294,7 @@ test("audio provider changes normalize stale STT and TTS models for xAI", () => 
 test("xAI settings normalize and serialize in collected Vitest coverage", () => {
   expect(DEFAULT_AGENT_SETTINGS.xai).toMatchObject({
     base_url: "https://api.x.ai/v1",
-    model: "grok-4.6",
+    model: "grok-4.7",
     api_transport: "responses",
   });
 

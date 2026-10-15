@@ -1335,7 +1335,7 @@ impl AgentEngine {
                                 );
                             }
                         }
-                        if updated.source == "handoff" {
+                        if matches!(updated.source.as_str(), "handoff" | "subagent") {
                             if let Err(error) =
                                 self.record_handoff_task_outcome(&updated, "success").await
                             {
@@ -1362,7 +1362,7 @@ impl AgentEngine {
                             .await;
                         self.settle_task_skill_consultations(&updated, "failure")
                             .await;
-                        if updated.source == "handoff" {
+                        if matches!(updated.source.as_str(), "handoff" | "subagent") {
                             if let Err(error) =
                                 self.record_handoff_task_outcome(&updated, "failure").await
                             {
@@ -1387,7 +1387,7 @@ impl AgentEngine {
                     TaskStatus::Cancelled | TaskStatus::Failed => {
                         self.settle_task_skill_consultations(&updated, "failure")
                             .await;
-                        if updated.source == "handoff" {
+                        if matches!(updated.source.as_str(), "handoff" | "subagent") {
                             if let Err(error) =
                                 self.record_handoff_task_outcome(&updated, "failure").await
                             {
@@ -1529,7 +1529,7 @@ impl AgentEngine {
                 if updated.status == TaskStatus::Failed {
                     self.settle_task_skill_consultations(&updated, "failure")
                         .await;
-                    if updated.source == "handoff" {
+                    if matches!(updated.source.as_str(), "handoff" | "subagent") {
                         if let Err(error) =
                             self.record_handoff_task_outcome(&updated, "failure").await
                         {

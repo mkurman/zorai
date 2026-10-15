@@ -90,6 +90,12 @@ pub(super) async fn wake_parent_for_ask(
             },
         )
         .await;
+    if agent
+        .thread_is_idle_for_subagent_wakeup(&parent_thread_id)
+        .await
+    {
+        agent.clear_operator_stream_stop(&parent_thread_id).await;
+    }
     agent.schedule_continuation_flush(&parent_thread_id);
 }
 

@@ -109,6 +109,27 @@ fn local_landing_yields_to_concierge_loading() {
 }
 
 #[test]
+fn header_shows_rarog_runtime_while_concierge_welcome_is_loading() {
+    let mut model = build_model();
+    model.connected = true;
+    model.agent_config_loaded = true;
+    model.config.provider = "openai".to_string();
+    model.config.model = "gpt-6.1-sol".to_string();
+    model.concierge.provider = Some("max-coding-plan".to_string());
+    model.concierge.model = Some("MiniMax-M3.1-Flash-Preview".to_string());
+    model.concierge.reasoning_effort = Some("low".to_string());
+    model.concierge.loading = true;
+
+    let profile = model.current_header_agent_profile();
+    assert_eq!(
+        profile.provider, "max-coding-plan",
+        "Rarog writes the welcome, so the header must not show Svarog's runtime while it loads"
+    );
+    assert_eq!(profile.model, "MiniMax-M3.1-Flash-Preview");
+    assert_eq!(profile.reasoning_effort.as_deref(), Some("low"));
+}
+
+#[test]
 fn thread_loading_placeholder_shows_for_selected_empty_thread() {
     let mut model = build_model();
     model.chat.reduce(chat::ChatAction::ThreadCreated {

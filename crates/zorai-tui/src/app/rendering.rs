@@ -1011,6 +1011,9 @@ impl TuiModel {
         if let Some(profile) = self.goal_run_header_profile() {
             return profile;
         }
+        if self.should_show_concierge_hero_loading() {
+            return self.rarog_profile();
+        }
 
         let fallback = self.current_conversation_agent_profile();
         if let Some(runtime) = self.chat.active_thread_runtime_metadata() {

@@ -631,3 +631,70 @@ async fn context_summary_excludes_participant_playground_threads() {
     assert_eq!(context.recent_threads.len(), 1);
     assert_eq!(context.recent_threads[0].id, "thread-real");
 }
+
+#[tokio::test]
+async fn recent_persisted_threads_skip_heartbeats_whose_title_was_rewritten() {
+    let config = Arc::new(RwLock::new(AgentConfig::default()));
+    let (event_tx, _) = broadcast::channel(8);
+    let circuit_breakers = Arc::new(CircuitBreakerRegistry::from_provider_keys(
+        std::iter::empty(),
+    ));
+    let engine = ConciergeEngine::new(config, event_tx, reqwest::Client::new(), circuit_breakers);
+    let root = tempdir().unwrap();
+    let manager = SessionManager::new_test(root.path()).await;
+    let history = manager.history();
+    for (id, title, updated_at, content) in [
+        ("thread-real", "Actual work", 1_000, "fix concierge context"),
+        (
+            "thread-heartbeat",
+            "Scheduled Heartbeat and Stale Todo Review",
+            2_000,
+            "HEARTBEAT SYNTHESIS\nYou are performing a scheduled heartbeat check for the operator.",
+        ),
+    ] {
+        history
+            .create_thread(&zorai_protocol::AgentDbThread {
+                id: id.to_string(),
+                workspace_id: None,
+                surface_id: None,
+                pane_id: None,
+                agent_name: None,
+                title: title.to_string(),
+                created_at: updated_at,
+                updated_at,
+                message_count: 1,
+                total_tokens: 0,
+                last_preview: String::new(),
+                metadata_json: None,
+            })
+            .await
+            .unwrap();
+        history
+            .add_message(&zorai_protocol::AgentDbMessage {
+                id: format!("{id}-msg"),
+                thread_id: id.to_string(),
+                created_at: updated_at,
+                role: "user".to_string(),
+                content: content.to_string(),
+                provider: None,
+                model: None,
+                input_tokens: None,
+                output_tokens: None,
+                total_tokens: None,
+                cost_usd: None,
+                reasoning: None,
+                tool_calls_json: None,
+                metadata_json: None,
+            })
+            .await
+            .unwrap();
+    }
+
+    let recent = engine.recent_persisted_history_threads(&manager).await;
+
+    assert_eq!(
+        recent.iter().map(|thread| thread.id.as_str()).collect::<Vec<_>>(),
+        vec!["thread-real"],
+        "heartbeat threads get LLM-written titles, so Rarog must recognise them by their prompt and never offer them as the session to continue"
+    );
+}
