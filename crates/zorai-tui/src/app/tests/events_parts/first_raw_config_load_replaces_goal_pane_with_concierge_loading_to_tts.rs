@@ -714,3 +714,31 @@ fn tts_request_surfaces_pending_footer_activity_until_audio_starts() {
         "pending TTS activity should clear once audio is ready to play"
     );
 }
+
+#[test]
+fn first_raw_config_load_shows_rarog_runtime_before_concierge_config_reply() {
+    let (mut model, _daemon_rx) = make_model_with_daemon_rx();
+    model.connected = true;
+    model.agent_config_loaded = false;
+
+    model.handle_agent_config_raw_event(serde_json::json!({
+        "provider": PROVIDER_ID_OPENAI,
+        "base_url": "https://api.openai.com/v1",
+        "model": "gpt-5.4",
+        "concierge": {
+            "enabled": true,
+            "provider": "max-coding-plan",
+            "model": "MiniMax-M3.1-Flash-Preview",
+            "reasoning_effort": "low",
+        },
+    }));
+
+    assert!(model.should_show_concierge_hero_loading());
+    let profile = model.current_header_agent_profile();
+    assert_eq!(
+        profile.provider, "max-coding-plan",
+        "the welcome loads before GetConciergeConfig answers, so the header must already show Rarog, not Svarog"
+    );
+    assert_eq!(profile.model, "MiniMax-M3.1-Flash-Preview");
+    assert_eq!(profile.reasoning_effort.as_deref(), Some("low"));
+}

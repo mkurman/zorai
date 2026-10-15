@@ -215,6 +215,34 @@ async fn ask_parent_enqueues_a_parent_wakeup_so_the_parent_can_answer() {
 }
 
 #[tokio::test]
+async fn ask_parent_wakes_an_idle_parent_even_after_an_earlier_operator_stop() {
+    let (_root, engine) = setup().await;
+    let child = spawn_child(&engine).await;
+    engine.stop_stream("thread-parent").await;
+
+    execute_ask_parent(
+        &ask_args("Should I use plan A or plan B?"),
+        &engine,
+        "thread-child",
+        Some(&child.id),
+    )
+    .await
+    .expect("ask_parent succeeds");
+
+    assert!(
+        !engine.operator_stream_stop_requested("thread-parent").await,
+        "a stale operator stop would make the flush drop the wakeup and leave the child blocked"
+    );
+    assert_eq!(
+        engine
+            .deferred_visible_thread_continuations_for("thread-parent")
+            .await
+            .len(),
+        1
+    );
+}
+
+#[tokio::test]
 async fn answer_child_targets_one_open_ask_and_keeps_the_child_blocked_until_all_are_resolved() {
     let (_root, engine) = setup().await;
     let child = spawn_child(&engine).await;

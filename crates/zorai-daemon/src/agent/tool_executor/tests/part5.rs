@@ -1976,6 +1976,47 @@ async fn route_to_specialist_surfaces_routing_rationale_in_dispatch_result() {
 }
 
 #[tokio::test]
+async fn route_to_specialist_dispatches_a_spawned_subagent_that_can_report_back() {
+    let root = tempdir().expect("tempdir");
+    let manager = SessionManager::new_test(root.path()).await;
+    let mut config = AgentConfig::default();
+    config.routing.enabled = true;
+    let engine = AgentEngine::new_test(manager, config, root.path()).await;
+
+    let response = execute_route_to_specialist(
+        &serde_json::json!({
+            "task_description": "Review the clinical case definitions.",
+            "capability_tags": ["research"],
+        }),
+        &engine,
+        "thread-operator",
+        None,
+    )
+    .await
+    .expect("route_to_specialist should succeed");
+    let payload: serde_json::Value = serde_json::from_str(&response).expect("json payload");
+    let task_id = payload["task_id"].as_str().expect("dispatched task id");
+
+    let task = crate::agent::tool_executor::memory_tools::task_by_id_for_tool_scope(
+        &engine, task_id,
+    )
+    .await
+    .expect("dispatched task exists");
+    assert!(
+        task.is_spawned_subagent(),
+        "the specialist runs in its own thread and must be able to call report_subagent_outcome"
+    );
+    assert_eq!(task.parent_thread_id.as_deref(), Some("thread-operator"));
+    assert!(task
+        .completion_contract
+        .as_ref()
+        .is_some_and(|contract| contract.required_deliverables.iter().any(|requirement| {
+            requirement.description
+                == crate::agent::types::SUBAGENT_REPORT_REQUIREMENT_DESCRIPTION
+        })));
+}
+
+#[tokio::test]
 async fn send_slack_message_emits_gateway_ipc_request() {
     let root = tempdir().expect("tempdir");
     let manager = SessionManager::new_test(root.path()).await;
