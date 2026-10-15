@@ -1,6 +1,0 @@
-[target.aarch64-unknown-linux-gnu]
-pre-build = [
-    "apt-get update",
-    "apt-get install --assume-yes ca-certificates curl unzip",
-    "PROTOC_VERSION=26.1 && curl -fsSL -o /tmp/protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip && unzip -q /tmp/protoc.zip -d /usr/local && chmod +x /usr/local/bin/protoc",
-]

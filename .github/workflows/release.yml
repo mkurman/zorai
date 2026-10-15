@@ -126,7 +126,7 @@ jobs:
   # Linux arm64 — Rust cross-compile + Electron packaging
   # ================================================================
   build-linux-arm64:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -143,11 +143,11 @@ jobs:
           version: "26.x"
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install cross
-        run: cargo install cross --locked --version 0.2.5
+      - name: Install Linux build dependencies
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
 
       - name: Rust build
-        run: cross build --release --target aarch64-unknown-linux-gnu
+        run: cargo build --release --target aarch64-unknown-linux-gnu
 
       - name: Collect Linux arm64 binaries
         run: |
