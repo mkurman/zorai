@@ -1,3 +1,5 @@
+import { useId, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { formatRunStatus, runStatusColor, type AgentRun } from "@/lib/agentRuns";
 import type { SpawnedAgentTree, SpawnedAgentTreeNode } from "@/lib/spawnedAgentTree";
 
@@ -71,6 +73,53 @@ function spawnedRuntimeLabel(run: AgentRun): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
+export function spawnedRunHeading(title: string): { label: string; detail: string | null } {
+  const match = /^\[([^\]]+)\]\s*([\s\S]*)$/.exec(title.trim());
+  if (!match) return { label: title, detail: null };
+  return { label: match[1].trim(), detail: match[2].trim() || null };
+}
+
+function SpawnedRunInfo({ label, detail }: { label: string; detail: string }) {
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const [popoverStyle, setPopoverStyle] = useState<CSSProperties | null>(null);
+  const popoverId = useId();
+
+  const show = () => {
+    const button = buttonRef.current;
+    if (!button) return;
+    const rect = button.getBoundingClientRect();
+    const width = Math.min(320, window.innerWidth - 16);
+    const left = Math.min(window.innerWidth - width - 8, Math.max(8, rect.right - width));
+    const above = rect.bottom > window.innerHeight * 0.6;
+    setPopoverStyle(above
+      ? { left, width, top: rect.top - 6, transform: "translateY(-100%)" }
+      : { left, width, top: rect.bottom + 6 });
+  };
+  const hide = () => setPopoverStyle(null);
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        className="zorai-spawned-card__info"
+        aria-label={`About ${label}`}
+        aria-describedby={popoverStyle ? popoverId : undefined}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onFocus={show}
+        onBlur={hide}
+      >
+        i
+      </button>
+      {popoverStyle ? createPortal(
+        <div id={popoverId} role="tooltip" className="zorai-spawned-card__popover" style={popoverStyle}>{detail}</div>,
+        document.body,
+      ) : null}
+    </>
+  );
+}
+
 function SpawnedContextNode({
   node,
   depth,
@@ -90,6 +139,7 @@ function SpawnedContextNode({
   const canOpen = canOpenSpawnedThread(run);
   const selected = Boolean(run.thread_id && run.thread_id === selectedDaemonThreadId);
   const runtimeLabel = spawnedRuntimeLabel(run);
+  const heading = spawnedRunHeading(run.title);
 
   const children = node.children.map((child) => (
     <SpawnedContextNode
@@ -115,7 +165,7 @@ function SpawnedContextNode({
           onClick={canOpen ? () => void openSpawnedThread(run) : undefined}
         >
           <span className="zorai-spawned-row__dot" style={{ background: runStatusColor(run.status) }} aria-hidden="true" />
-          <span className="zorai-spawned-row__title">{run.title}</span>
+          <span className="zorai-spawned-row__title">{heading.label}</span>
           {run.model ? <span className="zorai-spawned-row__model">{run.model}</span> : null}
           <span className="zorai-spawned-row__status" style={{ color: runStatusColor(run.status) }}>{formatRunStatus(run)}</span>
         </button>
@@ -128,7 +178,12 @@ function SpawnedContextNode({
     <div className="zorai-spawned-node" style={{ marginLeft: depth > 0 ? 10 : 0 }}>
       <article className={selected ? "zorai-spawned-card zorai-spawned-card--active" : "zorai-spawned-card"}>
         <div>
-          <strong>{run.title}</strong>
+          <div className="zorai-spawned-card__heading">
+            <strong>{heading.label}</strong>
+            {heading.detail ? (
+              <SpawnedRunInfo label={heading.label} detail={heading.detail} />
+            ) : null}
+          </div>
           {runtimeLabel ? <span className="zorai-spawned-card__runtime-label">{runtimeLabel}</span> : null}
           <span className="zorai-spawned-card__session-id">{run.session_id}</span>
         </div>

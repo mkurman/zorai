@@ -10,7 +10,7 @@ import {
   type GoalRun,
 } from "../../lib/goalRuns";
 import {
-  fetchAgentTasks,
+  fetchAgentTasksFiltered,
   isTaskActive,
   type AgentQueueTask,
 } from "../../lib/agentTaskQueue";
@@ -33,6 +33,8 @@ import type {
   TasksViewProps,
   ThreadTarget,
 } from "./tasks-view/types";
+
+const TASKS_VIEW_RECENT_LIMIT = 500;
 
 export function collectSelectedTaskSubagents(
   selectedTask: AgentQueueTask | null,
@@ -113,7 +115,7 @@ export function TasksView({ onOpenThreadView }: TasksViewProps) {
   );
 
   const refreshTasks = useCallback(async () => {
-    const result = await fetchAgentTasks();
+    const result = await fetchAgentTasksFiltered({ limit: TASKS_VIEW_RECENT_LIMIT });
     setTasks(result);
     setSelectedTaskId((current) => current ?? result[0]?.id ?? null);
   }, []);

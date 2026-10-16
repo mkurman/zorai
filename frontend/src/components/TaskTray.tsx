@@ -1,7 +1,7 @@
 import { useEffect, useRef, useMemo, useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
 import { getBridge } from "@/lib/bridge";
 import {
-    fetchAgentTasks,
+    fetchAgentTasksFiltered,
     formatTaskStatus,
     formatTaskTimestamp,
     isTaskActive,
@@ -10,6 +10,7 @@ import {
 } from "../lib/agentTaskQueue";
 
 const pulseAnimation = "task-tray-pulse 1.2s ease-in-out infinite";
+const TRAY_RECENT_TASK_LIMIT = 200;
 
 function taskWithoutLogs(task: AgentQueueTask): AgentQueueTask {
     if (!task.logs?.length) return task;
@@ -46,7 +47,7 @@ export function TaskTrayButton() {
             const wait = tasksRef.current.some(isTaskActive) ? 4_000 : 30_000;
             if (lastFetch !== 0 && now - lastFetch < wait) return;
             lastFetch = now;
-            const next = await fetchAgentTasks();
+            const next = await fetchAgentTasksFiltered(open ? { limit: TRAY_RECENT_TASK_LIMIT } : { activeOnly: true });
             if (!mounted) return;
             setTasks((current) => sameTaskSnapshot(current, next) ? current : next.map(taskWithoutLogs));
             setSelectedTaskId((current) => current ?? next[0]?.id ?? null);
@@ -55,7 +56,7 @@ export function TaskTrayButton() {
         void refresh();
         const interval = window.setInterval(() => void refresh(), 4_000);
         return () => { mounted = false; window.clearInterval(interval); };
-    }, []);
+    }, [open]);
 
     useEffect(() => {
         if (!open) return;
@@ -128,7 +129,7 @@ export function TaskTrayButton() {
                         flexShrink: 0,
                     }} />
                 )}
-                Tasks{tasks.length > 0 ? ` (${activeTasks.length}/${tasks.length})` : ""}
+                Tasks{activeTasks.length > 0 ? ` (${activeTasks.length})` : ""}
             </button>
 
             {open && (
@@ -163,7 +164,7 @@ export function TaskTrayButton() {
                             </div>
                             <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
                                 {activeTasks.length > 0 ? `${activeTasks.length} active` : "No active tasks"}
-                                {tasks.length > 0 ? ` · ${tasks.length} total` : ""}
+                                {tasks.length > 0 ? ` · ${tasks.length} recent` : ""}
                             </div>
                         </div>
                         <button
@@ -318,7 +319,7 @@ async function refreshTaskSelection(
     setSelectedTaskId: Dispatch<SetStateAction<string | null>>,
     preferredTaskId: string,
 ) {
-    const next = await fetchAgentTasks();
+    const next = await fetchAgentTasksFiltered({ limit: TRAY_RECENT_TASK_LIMIT });
     setTasks(next);
     setSelectedTaskId(next.find((task) => task.id === preferredTaskId)?.id ?? next[0]?.id ?? null);
 }

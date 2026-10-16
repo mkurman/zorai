@@ -115,6 +115,45 @@ pub const MULTIMODAL: &[Modality] = &[
     Modality::Audio,
 ];
 
+pub const MUSE_MODELS: &[ModelDefinition] = &[
+    ModelDefinition {
+        id: "muse-spark-1.3",
+        name: "Muse Spark 1.3",
+        context_window: 1_048_576,
+        modalities: MULTIMODAL,
+    },
+    ModelDefinition {
+        id: "muse-wonder-1.0",
+        name: "Muse Wonder 1.0",
+        context_window: 1_048_576,
+        modalities: MULTIMODAL,
+    },
+    ModelDefinition {
+        id: "muse-spark-1.3-contributor",
+        name: "Muse Spark 1.3 Contributor",
+        context_window: 1_048_576,
+        modalities: MULTIMODAL,
+    },
+    ModelDefinition {
+        id: "muse-spark-1.2",
+        name: "Muse Spark 1.2",
+        context_window: 1_048_576,
+        modalities: MULTIMODAL,
+    },
+    ModelDefinition {
+        id: "muse-spark-1.2-contributor",
+        name: "Muse Spark 1.2 Contributor",
+        context_window: 1_048_576,
+        modalities: MULTIMODAL,
+    },
+    ModelDefinition {
+        id: "muse-spark-1.1",
+        name: "Muse Spark 1.1",
+        context_window: 1_048_576,
+        modalities: MULTIMODAL,
+    },
+];
+
 pub const XAI_MODELS: &[ModelDefinition] = &[
     ModelDefinition {
         id: "grok-4.7",

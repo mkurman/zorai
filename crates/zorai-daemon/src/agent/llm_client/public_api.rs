@@ -912,7 +912,7 @@ pub(crate) fn build_chat_completion_messages_with_options(
                     serde_json::Value::String(tool_call_id.clone()),
                 );
             }
-            if let Some(name) = &message.name {
+            if let Some(name) = message.name.as_ref().filter(|_| message.role != "tool") {
                 obj.insert("name".to_string(), serde_json::Value::String(name.clone()));
             }
             if let Some(tool_calls) = &message.tool_calls {

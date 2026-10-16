@@ -35,7 +35,13 @@ impl TuiModel {
             | MainPaneView::WorkContext
             | MainPaneView::FilePreview(_) => {
                 if let Some(thread_id) = self.mission_control_return_to_thread_id() {
-                    self.set_mission_control_return_to_thread_id(None);
+                    self.set_mission_control_return_to_thread_id(
+                        self.chat
+                            .thread_history_stack()
+                            .last()
+                            .filter(|parent| **parent != thread_id)
+                            .cloned(),
+                    );
                     if matches!(self.main_pane_view, MainPaneView::FilePreview(_))
                         && self.chat.active_thread_id() == Some(thread_id.as_str())
                     {

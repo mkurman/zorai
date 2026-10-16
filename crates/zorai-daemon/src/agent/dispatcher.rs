@@ -82,16 +82,7 @@ fn recoverable_goal_pause_reason(message: &str) -> Option<RecoverableGoalPauseRe
 }
 
 fn mentions_provider_credit_problem(lower: &str) -> bool {
-    (lower.contains("openrouter")
-        && (lower.contains("credit")
-            || lower.contains("credits")
-            || lower.contains("billing")
-            || lower.contains("payment")))
-        || lower.contains("insufficient credits")
-        || lower.contains("insufficient credit")
-        || lower.contains("quota exceeded")
-        || lower.contains("payment required")
-        || lower.contains("billing hard limit")
+    crate::agent::llm_client::is_exhausted_provider_usage_limit(lower)
 }
 
 fn terminal_task_notification_excerpt(value: Option<&str>) -> Option<String> {
@@ -550,11 +541,23 @@ impl AgentEngine {
             if pending {
                 if let Some(thread_id) = child.parent_thread_id.as_deref() {
                     if self.operator_stream_stop_requested(thread_id).await {
-                        self.mark_child_result_integrated(
-                            &child.id,
-                            child.parent_task_id.as_deref(),
-                        )
-                        .await;
+                        continue;
+                    }
+                    let awaiting_parent_stream = child
+                        .completion_contract
+                        .as_ref()
+                        .and_then(|contract| contract.child_result.as_ref())
+                        .is_some_and(|result| {
+                            result.parent_notification
+                                == crate::agent::types::ParentNotificationState::Delivered
+                        })
+                        && self
+                            .subagent_completion_continuations_issued
+                            .lock()
+                            .await
+                            .contains(&child.id)
+                        && !self.thread_is_idle_for_subagent_wakeup(thread_id).await;
+                    if awaiting_parent_stream {
                         continue;
                     }
                 }
@@ -1707,7 +1710,7 @@ impl AgentEngine {
         }
     }
 
-    async fn record_subagent_outcome_on_parent(
+    pub(in crate::agent) async fn record_subagent_outcome_on_parent(
         &self,
         child_task: &AgentTask,
         level: TaskLogLevel,
@@ -1847,7 +1850,7 @@ impl AgentEngine {
                     .unwrap_or("(no job summary recorded)");
                 Some((
                     format!(
-                        "Child `{child_slug}` {outcome}.\n\nStatus: {}\nSummary:\n{result_text}\n\nError:\n{error_text}\n\nDecide whether to retry, call `extend_subagent_budget` with child_task_id `{child_slug}` if this was a zorai budget issue, or report the failure back to the operator.",
+                        "Child `{child_slug}` {outcome}.\n\nStatus: {}\nSummary:\n{result_text}\n\nError:\n{error_text}\n\nDecide whether to retry with `retry_subagent` (child_task_id `{child_slug}`), call `extend_subagent_budget` with child_task_id `{child_slug}` if this was a zorai budget issue, or report the failure back to the operator.",
                         if child_task.status == TaskStatus::Cancelled {
                             "cancelled"
                         } else {
@@ -1900,6 +1903,13 @@ impl AgentEngine {
                                 .llm_user_content
                                 .contains(&format!("Child `{child_slug}`"))
                     });
+                if !still_queued && self.operator_stream_stop_requested(&parent_thread_id).await {
+                    self.subagent_completion_continuations_issued
+                        .lock()
+                        .await
+                        .remove(&child_task.id);
+                    return;
+                }
                 let delivered = !still_queued
                     || matches!(
                         self.resume_idle_parent_after_subagent_completion(
@@ -1929,9 +1939,7 @@ impl AgentEngine {
                     .get(&parent_thread_id)
                     .is_some_and(|thread| {
                         thread.messages.iter().any(|message| {
-                            message.role == MessageRole::System
-                                && (message.content.contains(child_task_id)
-                                    || message.content.contains(&format!("Child `{child_slug}`")))
+                            message.role == MessageRole::System && message.content == parent_message
                         })
                     })
             } else {
@@ -3264,6 +3272,26 @@ mod tests {
     }
 
     #[test]
+    fn xai_out_of_credits_pauses_goals_for_credits_not_api_keys() {
+        let message = format!(
+            "xai rejected the request because authentication or provider configuration is invalid{}{}",
+            crate::agent::llm_client::UPSTREAM_DIAGNOSTICS_MARKER,
+            serde_json::json!({
+                "class": "auth_configuration",
+                "summary": "xai rejected the request because authentication or provider configuration is invalid",
+                "diagnostics": {
+                    "body": "{\"code\":\"personal-team-blocked:spending-limit\",\"error\":\"You have run out of credits or need a Grok subscription.\"}"
+                }
+            })
+        );
+        assert_eq!(
+            recoverable_goal_pause_reason(&message),
+            Some(RecoverableGoalPauseReason::ProviderCredits),
+            "telling the operator to fix an API key when they need to top up credits sends them the wrong way"
+        );
+    }
+
+    #[test]
     fn auth_configuration_is_a_recoverable_goal_pause() {
         let message = format!(
             "invalid API key{}{}",
@@ -3574,6 +3602,161 @@ mod tests {
         assert!(
             acknowledged.is_some(),
             "a delivered child result must be acknowledged so later dispatcher ticks stop replaying it"
+        );
+    }
+
+    #[tokio::test]
+    async fn child_result_dropped_by_operator_stop_is_redelivered_after_the_parent_resumes() {
+        let root = tempdir().expect("tempdir");
+        let manager = SessionManager::new_test(root.path()).await;
+        let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+        let parent_thread_id = "thread-child-dropped-by-operator-stop";
+        insert_parent_thread(&engine, parent_thread_id, "Integrate the child once").await;
+        engine.begin_stream_cancellation(parent_thread_id).await;
+
+        let mut child = engine
+            .enqueue_task(
+                "Stopped parent child".to_string(),
+                "Report while the parent streams".to_string(),
+                "normal",
+                None,
+                None,
+                Vec::new(),
+                None,
+                "subagent",
+                None,
+                None,
+                Some(parent_thread_id.to_string()),
+                Some("daemon".to_string()),
+            )
+            .await;
+        child.status = TaskStatus::Completed;
+        child.result = Some("child result".to_string());
+        child.parent_thread_id = Some(parent_thread_id.to_string());
+        let child_id = child.id.clone();
+
+        engine
+            .record_subagent_outcome_on_parent(&child, TaskLogLevel::Info, "subagent completed", None)
+            .await;
+        engine.stop_stream(parent_thread_id).await;
+        engine
+            .clear_deferred_visible_thread_continuations(parent_thread_id)
+            .await;
+        engine
+            .record_subagent_outcome_on_parent(&child, TaskLogLevel::Info, "subagent completed", None)
+            .await;
+
+        let acknowledged = engine
+            .task_by_id_for_dispatcher(&child_id)
+            .await
+            .and_then(|task| task.completion_contract)
+            .and_then(|contract| contract.child_result)
+            .and_then(|result| result.integration_acknowledged_at);
+        assert!(
+            acknowledged.is_none(),
+            "a result the stop discarded was never seen by the parent and must not be marked integrated"
+        );
+
+        engine.clear_operator_stream_stop(parent_thread_id).await;
+        engine.begin_stream_cancellation(parent_thread_id).await;
+        engine
+            .record_subagent_outcome_on_parent(&child, TaskLogLevel::Info, "subagent completed", None)
+            .await;
+        assert_eq!(
+            engine
+                .deferred_visible_thread_continuations_for(parent_thread_id)
+                .await
+                .len(),
+            1,
+            "once the parent resumes, the child result must be queued for it again"
+        );
+    }
+
+    #[tokio::test]
+    async fn replay_leaves_a_busy_parent_alone_once_the_child_result_is_handed_over() {
+        let root = tempdir().expect("tempdir");
+        let manager = SessionManager::new_test(root.path()).await;
+        let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+        let parent_thread_id = "thread-busy-parent-replay";
+        insert_parent_thread(&engine, parent_thread_id, "Coordinate the child").await;
+        let mut parent = engine
+            .enqueue_task(
+                "Parent".to_string(),
+                "Coordinate".to_string(),
+                "normal",
+                None,
+                None,
+                Vec::new(),
+                None,
+                "user",
+                None,
+                None,
+                None,
+                None,
+            )
+            .await;
+        parent.thread_id = Some(parent_thread_id.to_string());
+        {
+            let mut tasks = engine.tasks.lock().await;
+            if let Some(live) = tasks.iter_mut().find(|task| task.id == parent.id) {
+                *live = parent.clone();
+            }
+        }
+        let mut child = engine
+            .enqueue_task(
+                "Busy parent child".to_string(),
+                "Fail while the parent streams".to_string(),
+                "normal",
+                None,
+                None,
+                Vec::new(),
+                None,
+                "subagent",
+                None,
+                Some(parent.id.clone()),
+                Some(parent_thread_id.to_string()),
+                Some("daemon".to_string()),
+            )
+            .await;
+        child.status = TaskStatus::Failed;
+        child.completed_at = Some(child.created_at + 1);
+        child.last_error = Some("provider error".to_string());
+        engine.history.upsert_agent_task(&child).await.expect("persist child");
+        {
+            let mut tasks = engine.tasks.lock().await;
+            if let Some(live) = tasks.iter_mut().find(|task| task.id == child.id) {
+                *live = child.clone();
+            }
+        }
+        engine.begin_stream_cancellation(parent_thread_id).await;
+        engine
+            .record_subagent_outcome_on_parent(&child, TaskLogLevel::Error, "subagent failed", None)
+            .await;
+        let handed_over = engine
+            .task_by_id_for_dispatcher(&child.id)
+            .await
+            .and_then(|task| task.completion_contract)
+            .and_then(|contract| contract.child_result)
+            .is_some_and(|result| {
+                result.parent_notification == crate::agent::types::ParentNotificationState::Delivered
+            });
+        assert!(handed_over, "precondition: the result was queued for the busy parent");
+        let parent_log_count = |tasks: &std::collections::VecDeque<AgentTask>| {
+            tasks
+                .iter()
+                .find(|task| task.id == parent.id)
+                .map(|task| task.logs.len())
+                .unwrap_or_default()
+        };
+        let before = parent_log_count(&*engine.tasks.lock().await);
+
+        engine.replay_pending_child_parent_notifications().await;
+        engine.replay_pending_child_parent_notifications().await;
+
+        assert_eq!(
+            parent_log_count(&*engine.tasks.lock().await),
+            before,
+            "replaying a handed-over result every tick while the parent streams rewrites tasks constantly and locks the database"
         );
     }
 

@@ -399,6 +399,28 @@ fn exhausted_usage_limit_is_not_retried_as_a_rate_limit() {
     assert_eq!(analysis.failure_class, "non_retryable");
 }
 
+#[test]
+fn xai_spending_limit_parks_for_operator_retry_instead_of_failing_the_turn() {
+    let message = r#"xai rejected the request because authentication or provider configuration is invalid: {"code":"personal-team-blocked:spending-limit","error":"You have run out of credits or need a Grok subscription."}"#;
+
+    assert!(
+        is_exhausted_provider_usage_limit(message),
+        "out-of-credits must park with a retry prompt so the operator can top up and continue"
+    );
+}
+
+#[test]
+fn gemini_per_minute_quota_is_a_rate_limit_not_an_exhausted_account() {
+    let gemini = "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 10. Please retry in 37.5s.";
+    assert!(
+        !is_exhausted_provider_usage_limit(gemini),
+        "a per-minute 429 must retry after seconds, not park the thread for an hour or fail subagents"
+    );
+
+    let openai = r#"{"error":{"message":"You exceeded your current quota, please check your plan and billing details.","type":"insufficient_quota","code":"insufficient_quota"}}"#;
+    assert!(is_exhausted_provider_usage_limit(openai));
+}
+
 #[tokio::test]
 async fn minimax_anthropic_retry_recovers_after_malformed_http_response() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};

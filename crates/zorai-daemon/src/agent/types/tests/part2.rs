@@ -5,8 +5,8 @@ use zorai_shared::providers::{
     PROVIDER_ID_ANTHROPIC, PROVIDER_ID_ARCEE, PROVIDER_ID_CHUTES, PROVIDER_ID_CLAUDE_CODE_CLI,
     PROVIDER_ID_DEEPSEEK, PROVIDER_ID_ELEVENLABS, PROVIDER_ID_GITHUB_COPILOT,
     PROVIDER_ID_HERMES_AGENT_API, PROVIDER_ID_MINIMAX, PROVIDER_ID_MINIMAX_CODING_PLAN,
-    PROVIDER_ID_NVIDIA, PROVIDER_ID_OLLAMA, PROVIDER_ID_OPENAI, PROVIDER_ID_OPENROUTER,
-    PROVIDER_ID_POOLSIDE, PROVIDER_ID_XAI,
+    PROVIDER_ID_MUSE, PROVIDER_ID_NVIDIA, PROVIDER_ID_OLLAMA, PROVIDER_ID_OPENAI,
+    PROVIDER_ID_OPENROUTER, PROVIDER_ID_POOLSIDE, PROVIDER_ID_XAI,
 };
 
 #[test]
@@ -903,6 +903,34 @@ fn xai_provider_exposes_fetchable_responses_defaults() {
     assert_eq!(provider.models[6].context_window, 256_000);
     assert_eq!(
         get_provider_api_type(PROVIDER_ID_XAI, "grok-4.3", "https://api.x.ai/v1"),
+        ApiType::OpenAI
+    );
+}
+
+#[test]
+fn muse_provider_exposes_fetchable_responses_defaults() {
+    let provider = get_provider_definition(PROVIDER_ID_MUSE).expect("muse provider");
+    assert_eq!(provider.name, "Muse");
+    assert_eq!(provider.default_base_url, "https://api.meta.ai/v1");
+    assert_eq!(provider.default_model, "muse-spark-1.3");
+    assert_eq!(provider.api_type, ApiType::OpenAI);
+    assert_eq!(provider.auth_method, AuthMethod::Bearer);
+    assert!(provider.supports_model_fetch);
+    assert_eq!(provider.default_transport, ApiTransport::Responses);
+    assert!(provider
+        .supported_transports
+        .contains(&ApiTransport::Responses));
+    assert!(provider
+        .supported_transports
+        .contains(&ApiTransport::ChatCompletions));
+    assert!(provider.supports_response_continuity);
+    assert_eq!(provider.models.len(), 6);
+    assert_eq!(provider.models[0].id, "muse-spark-1.3");
+    assert_eq!(provider.models[0].context_window, 1_048_576);
+    assert_eq!(provider.models[1].id, "muse-wonder-1.0");
+    assert_eq!(provider.models[5].id, "muse-spark-1.1");
+    assert_eq!(
+        get_provider_api_type(PROVIDER_ID_MUSE, "muse-spark-1.3", "https://api.meta.ai/v1"),
         ApiType::OpenAI
     );
 }

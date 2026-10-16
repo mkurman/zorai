@@ -204,6 +204,21 @@ where
         AgentBridgeCommand::ListTasks => {
             framed.send(ClientMessage::AgentListTasks).await?;
         }
+        AgentBridgeCommand::ListTasksFiltered {
+            related_thread_ids,
+            goal_run_id,
+            active_only,
+            limit,
+        } => {
+            framed
+                .send(ClientMessage::AgentListTasksFiltered {
+                    related_thread_ids,
+                    goal_run_id,
+                    active_only,
+                    limit,
+                })
+                .await?;
+        }
         AgentBridgeCommand::ListRuns { parent_thread_id } => {
             let message = match parent_thread_id {
                 Some(parent_thread_id) if !parent_thread_id.trim().is_empty() => {

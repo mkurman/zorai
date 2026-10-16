@@ -524,3 +524,44 @@ fn help_viewer_down_scrolls_help_body() {
     assert!(!quit);
     assert_eq!(model.help_modal_scroll, 1);
 }
+
+#[test]
+fn settings_modal_auth_search_filters_providers_and_acts_on_the_filtered_row() {
+    let (mut model, _daemon_rx) = make_model();
+    model.width = 100;
+    model.height = 30;
+    model.auth.loaded = true;
+    model.auth.entries = [("anthropic", "Anthropic"), ("openai", "OpenAI"), ("openrouter", "OpenRouter")]
+        .into_iter()
+        .map(|(id, name)| crate::state::auth::ProviderAuthEntry {
+            provider_id: id.to_string(),
+            provider_name: name.to_string(),
+            authenticated: false,
+            auth_source: "api_key".to_string(),
+            model: String::new(),
+        })
+        .collect();
+    model
+        .settings
+        .reduce(SettingsAction::SwitchTab(SettingsTab::Auth));
+    model
+        .modal
+        .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
+
+    for code in [KeyCode::Char('/')]
+        .into_iter()
+        .chain("router".chars().map(KeyCode::Char))
+        .chain([KeyCode::Enter, KeyCode::Enter, KeyCode::Enter])
+    {
+        assert!(!model.handle_key_modal(code, KeyModifiers::NONE, modal::ModalKind::Settings));
+    }
+
+    let screen = render_screen(&mut model).join("\n");
+    assert!(screen.contains("Search: router"));
+    assert!(!screen.contains("Anthropic"), "non-matching providers must be hidden");
+    assert_eq!(
+        model.auth.login_target.as_deref(),
+        Some("openrouter"),
+        "the selection indexes the filtered list, so the action must target the visible provider, not the first unfiltered one"
+    );
+}

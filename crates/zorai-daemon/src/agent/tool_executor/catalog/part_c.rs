@@ -356,7 +356,7 @@ pub(crate) fn add_available_tools_part_c(
         "type": "object",
         "properties": {
             "title": { "type": "string", "description": "Short subagent title" },
-            "description": { "type": "string", "description": "Detailed instructions for the child task" },
+            "description": { "type": "string", "description": "Detailed instructions for the child task. Read verbatim; use plain, normally spaced prose." },
             "runtime": { "type": "string", "enum": ["daemon", "hermes", "openclaw"], "description": "Child runtime (default: daemon)" },
             "provider": { "type": "string", "description": "Optional authenticated provider override" },
             "model": { "type": "string", "description": "Optional model override; requires `provider`" },
@@ -429,7 +429,7 @@ pub(crate) fn add_available_tools_part_c(
     tools.push(tool_def(tool_names::ROUTE_TO_SPECIALIST, "Route a task to a specialist subagent matched by capability tags, with a structured context handoff.", serde_json::json!({
         "type": "object",
         "properties": {
-            "task_description": { "type": "string", "description": "Work to hand off to a specialist" },
+            "task_description": { "type": "string", "description": "Work to hand off to a specialist. Read verbatim; use plain, normally spaced prose." },
             "capability_tags": { "type": "array", "items": { "type": "string" }, "description": "Capability tags for matching, e.g. [\"rust\", \"backend\"]" },
             "acceptance_criteria": { "type": "string", "description": "Output checks, e.g. \"min_length:100\" (default: \"non_empty\")" }
         },

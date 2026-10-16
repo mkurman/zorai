@@ -482,7 +482,7 @@ pub(crate) fn auth_hit_test(
 ) -> Option<SettingsHitTarget> {
     let row = mouse.y.saturating_sub(content_area.y) as usize + scroll;
     let mut current_row = 4usize;
-    for (entry_index, entry) in auth.entries.iter().enumerate() {
+    for (entry_index, entry) in auth.visible_entries().into_iter().enumerate() {
         if row == current_row {
             let (primary_start, primary_end, test_start) =
                 auth_row_action_offsets(content_area, entry);

@@ -1696,6 +1696,7 @@ async fn dispatch_tool_execution(
         tool_names::ASK_PARENT => execute_ask_parent(args, agent, thread_id, task_id).await,
         tool_names::ANSWER_CHILD => execute_answer_child(args, agent, thread_id, task_id).await,
         tool_names::NOTE_TO_CHILD => execute_note_to_child(args, agent, thread_id, task_id).await,
+        tool_names::RETRY_SUBAGENT => execute_retry_subagent(args, agent, thread_id, task_id).await,
         tool_names::ROUTE_TO_SPECIALIST => {
             execute_route_to_specialist(args, agent, thread_id, task_id).await
         }

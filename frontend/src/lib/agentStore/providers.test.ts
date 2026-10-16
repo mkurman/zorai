@@ -120,6 +120,32 @@ describe("frontend xAI provider catalog", () => {
   });
 });
 
+describe("frontend Muse provider catalog", () => {
+  it("registers Muse with Model API defaults and responses transport", () => {
+    const muse = getProviderDefinition("muse");
+
+    expect(muse).toBeDefined();
+    expect(muse?.defaultBaseUrl).toBe("https://api.meta.ai/v1");
+    expect(muse?.defaultModel).toBe("muse-spark-1.3");
+    expect(muse?.models.map((model) => model.id)).toEqual([
+      "muse-spark-1.3",
+      "muse-wonder-1.0",
+      "muse-spark-1.3-contributor",
+      "muse-spark-1.2",
+      "muse-spark-1.2-contributor",
+      "muse-spark-1.1",
+    ]);
+    expect(muse?.supportsModelFetch).toBe(true);
+    expect(muse?.defaultTransport).toBe("responses");
+    expect(muse?.supportsResponseContinuity).toBe(true);
+  });
+
+  it("recognizes Muse as a valid provider id", () => {
+    expect(normalizeAgentProviderId("muse")).toBe("muse");
+    expect(getDefaultModelForProvider("muse")).toBe("muse-spark-1.3");
+  });
+});
+
 describe("frontend MiniMax provider catalog", () => {
   it("registers current MiniMax models with remote fetch support", () => {
     for (const providerId of ["minimax", "minimax-coding-plan"] as const) {

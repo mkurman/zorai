@@ -81,6 +81,7 @@ export function AgentTab({
         { id: "anthropic", label: "Anthropic" },
         { id: "openai", label: "OpenAI / ChatGPT" },
         { id: "xai", label: "xAI" },
+        { id: "muse", label: "Muse" },
         { id: "azure-openai", label: "Azure OpenAI" },
         { id: "github-copilot", label: "GitHub Copilot" },
         { id: "qwen", label: "Qwen" },

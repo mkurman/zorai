@@ -315,19 +315,19 @@ impl<'a> SendMessageRunner<'a> {
                 message: "Tool execution limit reached".into(),
             });
         }
+        if self.retry_status_visible && (self.was_cancelled || self.fresh_runner_retry.is_none()) {
+            let _ = self.engine.event_tx.send(AgentEvent::RetryStatus {
+                thread_id: self.tid.clone(),
+                phase: "cleared".to_string(),
+                attempt: 0,
+                max_retries: 0,
+                delay_ms: 0,
+                failure_class: String::new(),
+                message: String::new(),
+            });
+            self.retry_status_visible = false;
+        }
         if self.was_cancelled {
-            if self.retry_status_visible {
-                let _ = self.engine.event_tx.send(AgentEvent::RetryStatus {
-                    thread_id: self.tid.clone(),
-                    phase: "cleared".to_string(),
-                    attempt: 0,
-                    max_retries: 0,
-                    delay_ms: 0,
-                    failure_class: String::new(),
-                    message: String::new(),
-                });
-                self.retry_status_visible = false;
-            }
             if !self.turn_done_emitted {
                 let _ = self.engine.event_tx.send(AgentEvent::TurnInterrupted {
                     thread_id: self.tid.clone(),

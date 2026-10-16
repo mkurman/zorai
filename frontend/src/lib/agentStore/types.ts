@@ -82,6 +82,7 @@ export type BuiltinAgentProviderId =
   | "anthropic"
   | "openai"
   | "xai"
+  | "muse"
   | "elevenlabs"
   | "azure-openai"
   | "github-copilot"
@@ -122,6 +123,7 @@ export const AGENT_PROVIDER_IDS: BuiltinAgentProviderId[] = [
   "anthropic",
   "openai",
   "xai",
+  "muse",
   "elevenlabs",
   "azure-openai",
   "github-copilot",

@@ -288,10 +288,103 @@ async fn extend_subagent_budget_raises_child_ceiling_and_unlocks_budget_exceeded
         .await
         .expect("child exists");
     assert_eq!(stored.context_budget_tokens, Some(1_512));
-    assert_eq!(stored.status, TaskStatus::InProgress);
+    assert_eq!(
+        stored.status,
+        TaskStatus::Queued,
+        "a resumed child goes back through the dispatcher so its outcome is tracked and the parent's tool call is not blocked"
+    );
     assert!(stored.error.is_none());
     assert!(
         !engine.operator_stream_stop_requested("thread-child").await,
         "waking the idle child must not leave an operator-stop flag that drops its resume continuation"
+    );
+}
+
+#[tokio::test]
+async fn usable_report_from_a_failed_child_completes_it_and_tells_the_parent_again() {
+    let (_root, engine) = setup().await;
+    let mut child = engine
+        .enqueue_task(
+            "Child".into(),
+            "work".into(),
+            "normal",
+            None,
+            None,
+            Vec::new(),
+            None,
+            "subagent",
+            None,
+            None,
+            Some("thread-parent-of-failed".into()),
+            None,
+        )
+        .await;
+    child.thread_id = Some("thread-failed-child".into());
+    child.status = TaskStatus::Failed;
+    child.completed_at = Some(now_millis());
+    child.last_error = Some("xai spending-limit".into());
+    persist_task_update(&engine, &child, None).await.unwrap();
+    let mut old_notice = crate::agent::types::AgentMessage::user(
+        format!("Child `{}` failed.\n\nStatus: error", child.id),
+        1,
+    );
+    old_notice.role = crate::agent::types::MessageRole::System;
+    engine.threads.write().await.insert(
+        "thread-parent-of-failed".to_string(),
+        crate::agent::types::AgentThread {
+            id: "thread-parent-of-failed".to_string(),
+            agent_name: None,
+            title: "Parent".to_string(),
+            messages: vec![
+                crate::agent::types::AgentMessage::user("coordinate", 1),
+                old_notice,
+            ],
+            pinned: false,
+            upstream_thread_id: None,
+            upstream_transport: None,
+            upstream_provider: None,
+            upstream_model: None,
+            upstream_assistant_id: None,
+            total_input_tokens: 0,
+            total_output_tokens: 0,
+            created_at: 1,
+            updated_at: 1,
+        },
+    );
+
+    execute_report_subagent_outcome(
+        &serde_json::json!({"status": "done", "summary": "evidence audit written"}),
+        &engine,
+        "thread-failed-child",
+        Some(&child.id),
+    )
+    .await
+    .expect("report succeeds");
+
+    let stored = task_by_id_for_tool_scope(&engine, &child.id).await.unwrap();
+    assert_eq!(
+        stored.status,
+        TaskStatus::Completed,
+        "a usable result must not stay filed under a failed task, or the parent is told to retry and wipe it"
+    );
+    let parent_notices = engine
+        .threads
+        .read()
+        .await
+        .get("thread-parent-of-failed")
+        .map(|thread| {
+            thread
+                .messages
+                .iter()
+                .filter(|message| message.role == crate::agent::types::MessageRole::System)
+                .map(|message| message.content.clone())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    assert!(
+        parent_notices
+            .iter()
+            .any(|notice| notice.contains("finished") && notice.contains("evidence audit written")),
+        "the parent's visible history must show the new outcome, not only the old failure: {parent_notices:?}"
     );
 }

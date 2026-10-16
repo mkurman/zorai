@@ -353,6 +353,7 @@ pub(crate) fn classify_tool_call(
         zorai_protocol::tool_names::ASK_PARENT
             | zorai_protocol::tool_names::ANSWER_CHILD
             | zorai_protocol::tool_names::NOTE_TO_CHILD
+            | zorai_protocol::tool_names::RETRY_SUBAGENT
     ) {
         // Task-scoped parent-child messaging only writes consolidation state
         // and task logs inside an already-validated lineage.

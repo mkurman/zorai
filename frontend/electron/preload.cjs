@@ -334,6 +334,7 @@ const bridgeApi = {
     agentAddTask: (payload) => ipcRenderer.invoke('agent-add-task', payload),
     agentCancelTask: (taskId) => ipcRenderer.invoke('agent-cancel-task', taskId),
     agentListTasks: () => ipcRenderer.invoke('agent-list-tasks'),
+    agentListTasksFiltered: (filter) => ipcRenderer.invoke('agent-list-tasks-filtered', filter),
     agentListRuns: (parentThreadId) => ipcRenderer.invoke('agent-list-runs', parentThreadId),
     agentGetRun: (runId) => ipcRenderer.invoke('agent-get-run', runId),
     agentListTodos: () => ipcRenderer.invoke('agent-list-todos'),

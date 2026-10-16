@@ -79,20 +79,24 @@ pub(crate) async fn run_openai_chat_completions(
         build_openai_chat_completions_body(provider, config, system_prompt, messages, tools)?;
     apply_openrouter_session_id(provider, opencode_session_id, &mut body);
 
-    let req = apply_openrouter_session_header(
-        apply_opencode_go_headers(
-            apply_dashscope_coding_plan_sdk_headers(
-                build_openai_auth_request(
-                    client,
-                    &url,
+    let req = apply_xai_conv_id_header(
+        apply_openrouter_session_header(
+            apply_opencode_go_headers(
+                apply_dashscope_coding_plan_sdk_headers(
+                    build_openai_auth_request(
+                        client,
+                        &url,
+                        provider,
+                        config,
+                        copilot_initiator,
+                        force_connection_close,
+                    ),
                     provider,
-                    config,
-                    copilot_initiator,
-                    force_connection_close,
+                    &config.base_url,
+                    ApiType::OpenAI,
                 ),
                 provider,
-                &config.base_url,
-                ApiType::OpenAI,
+                opencode_session_id,
             ),
             provider,
             opencode_session_id,
@@ -206,6 +210,39 @@ pub(crate) fn apply_openrouter_session_header(
         return req;
     };
     req.header("x-session-id", session_id)
+}
+
+pub(crate) fn apply_xai_prompt_cache_key(
+    provider: &str,
+    session_id: Option<&str>,
+    body: &mut serde_json::Value,
+) {
+    if provider != zorai_shared::providers::PROVIDER_ID_XAI {
+        return;
+    }
+    let Some(session_id) = normalized_openrouter_session_id(session_id) else {
+        return;
+    };
+    if let Some(object) = body.as_object_mut() {
+        object.insert(
+            "prompt_cache_key".to_string(),
+            serde_json::Value::String(session_id),
+        );
+    }
+}
+
+pub(crate) fn apply_xai_conv_id_header(
+    req: reqwest::RequestBuilder,
+    provider: &str,
+    session_id: Option<&str>,
+) -> reqwest::RequestBuilder {
+    if provider != zorai_shared::providers::PROVIDER_ID_XAI {
+        return req;
+    }
+    let Some(session_id) = normalized_openrouter_session_id(session_id) else {
+        return req;
+    };
+    req.header("x-grok-conv-id", session_id)
 }
 
 pub(crate) fn build_openai_chat_completions_body(
@@ -747,6 +784,7 @@ pub(crate) async fn run_openai_responses(
         codex_auth.is_some(),
     );
     apply_openrouter_session_id(provider, opencode_session_id, &mut body);
+    apply_xai_prompt_cache_key(provider, opencode_session_id, &mut body);
 
     let req = if let Some(codex_auth) = codex_auth {
         let req = maybe_force_connection_close(

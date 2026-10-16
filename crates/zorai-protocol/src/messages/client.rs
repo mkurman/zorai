@@ -323,4 +323,14 @@ pub enum ClientMessage {
     AgentRenameThread { thread_id: String, title: String },
     DataQuery { request_json: String },
     AgentGetFileOperationBefore { operation_id: String, path: String },
+    AgentListTasksFiltered {
+        #[serde(default)]
+        related_thread_ids: Vec<String>,
+        #[serde(default)]
+        goal_run_id: Option<String>,
+        #[serde(default)]
+        active_only: bool,
+        #[serde(default)]
+        limit: Option<usize>,
+    },
 }

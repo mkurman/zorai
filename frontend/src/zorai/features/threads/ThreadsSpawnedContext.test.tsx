@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { AgentRun } from "@/lib/agentRuns";
 import type { SpawnedAgentTree } from "@/lib/spawnedAgentTree";
-import { SpawnedContext } from "./ThreadsSpawnedContext";
+import { SpawnedContext, spawnedRunHeading } from "./ThreadsSpawnedContext";
 
 describe("SpawnedContext", () => {
   it("keeps parent navigation visible when an opened child has no spawned agents", () => {
@@ -66,5 +66,18 @@ describe("SpawnedContext", () => {
     const runtimeAt = html.indexOf("github-copilot · gpt-5.5 · effort: high");
     expect(sessionAt).toBeGreaterThan(-1);
     expect(runtimeAt).toBeGreaterThan(sessionAt);
+  });
+});
+
+describe("spawnedRunHeading", () => {
+  it("shows the specialist role as the heading and keeps the task summary for the info popup", () => {
+    expect(spawnedRunHeading("[medical-research] Execute clinical SOURCE evaluation")).toEqual({
+      label: "medical-research",
+      detail: "Execute clinical SOURCE evaluation",
+    });
+  });
+
+  it("leaves titles without a role prefix untouched and offers no popup", () => {
+    expect(spawnedRunHeading("subagent-1785364889627")).toEqual({ label: "subagent-1785364889627", detail: null });
   });
 });

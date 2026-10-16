@@ -501,6 +501,14 @@ impl AgentEngine {
         }
     }
 
+    pub(crate) async fn release_idle_stream_for_wakeup(&self, thread_id: &str) {
+        let operator_stopped = self.operator_stream_stop_requested(thread_id).await;
+        let _ = self.stop_stream(thread_id).await;
+        if !operator_stopped {
+            self.clear_operator_stream_stop(thread_id).await;
+        }
+    }
+
     pub(crate) async fn clear_operator_stream_stop(&self, thread_id: &str) {
         self.operator_stopped_streams.lock().await.remove(thread_id);
     }
@@ -546,6 +554,26 @@ impl AgentEngine {
             });
             retry_now.notify_one();
             return true;
+        }
+
+        if let Some(child) =
+            crate::agent::tool_executor::find_spawned_task_by_thread(self, thread_id)
+                .await
+                .filter(|task| task.status == TaskStatus::Failed)
+        {
+            return match crate::agent::tool_executor::requeue_failed_spawned_subagent(
+                self,
+                &child,
+                "operator requested retry of failed subagent",
+            )
+            .await
+            {
+                Ok(_) => true,
+                Err(error) => {
+                    tracing::warn!(thread_id = %thread_id, task_id = %child.id, %error, "retry-now failed to requeue subagent");
+                    false
+                }
+            };
         }
 
         let last_user_content = match self.history.latest_user_message_content(thread_id).await {

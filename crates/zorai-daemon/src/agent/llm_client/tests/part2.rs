@@ -10,7 +10,7 @@ use std::sync::Mutex;
 use tempfile::tempdir;
 use zorai_shared::providers::{
     PROVIDER_ID_GITHUB_COPILOT, PROVIDER_ID_KIMI_CODING_PLAN, PROVIDER_ID_OPENAI,
-    PROVIDER_ID_OPENCODE_GO, PROVIDER_ID_OPENROUTER,
+    PROVIDER_ID_OPENCODE_GO, PROVIDER_ID_OPENROUTER, PROVIDER_ID_XAI,
 };
 
 #[test]
@@ -154,6 +154,44 @@ fn messages_to_api_format_normalizes_invalid_tool_call_arguments() {
     assert_eq!(
         parsed["_invalid_tool_arguments"],
         r#"{"items":[{"content":"Read spec","status":"in_progress"}]"#
+    );
+}
+
+#[test]
+fn chat_completion_tool_results_omit_name_for_strict_openai_compatible_endpoints() {
+    let messages = vec![
+        ApiMessage {
+            role: "assistant".to_string(),
+            content: ApiContent::Text(String::new()),
+            reasoning: None,
+            tool_call_id: None,
+            name: None,
+            tool_calls: Some(vec![ApiToolCall {
+                id: "call_1".to_string(),
+                call_type: "function".to_string(),
+                function: ApiToolCallFunction {
+                    name: "list_sessions".to_string(),
+                    arguments: "{}".to_string(),
+                },
+            }]),
+        },
+        ApiMessage {
+            role: "tool".to_string(),
+            content: ApiContent::Text("[]".to_string()),
+            reasoning: None,
+            tool_call_id: Some("call_1".to_string()),
+            name: Some("list_sessions".to_string()),
+            tool_calls: None,
+        },
+    ];
+
+    let serialized = build_chat_completion_messages("system prompt", &messages).expect("serialize");
+
+    assert_eq!(serialized[2]["role"], "tool");
+    assert_eq!(serialized[2]["tool_call_id"], "call_1");
+    assert!(
+        serialized[2].get("name").is_none(),
+        "opencode-go rejects `name` on tool messages as an unsupported parameter"
     );
 }
 
@@ -500,14 +538,9 @@ fn openrouter_chat_request_pins_prompt_cache_to_the_thread_session() {
         name: None,
         tool_calls: None,
     };
-    let mut body = build_openai_chat_completions_body(
-        PROVIDER_ID_OPENROUTER,
-        &config,
-        "sys",
-        &[user],
-        &[],
-    )
-    .expect("body should build");
+    let mut body =
+        build_openai_chat_completions_body(PROVIDER_ID_OPENROUTER, &config, "sys", &[user], &[])
+            .expect("body should build");
     apply_openrouter_session_id(PROVIDER_ID_OPENROUTER, Some("thread-1"), &mut body);
     assert_eq!(
         body["session_id"].as_str(),
@@ -545,6 +578,50 @@ fn openrouter_chat_request_pins_prompt_cache_to_the_thread_session() {
             .and_then(|value| value.to_str().ok()),
         Some("thread-1")
     );
+}
+
+#[test]
+fn xai_requests_pin_prompt_cache_to_the_thread_session() {
+    let mut body = serde_json::json!({ "model": "grok-4.7" });
+    apply_xai_prompt_cache_key(PROVIDER_ID_XAI, Some("thread-1"), &mut body);
+    assert_eq!(
+        body["prompt_cache_key"].as_str(),
+        Some("thread-1"),
+        "xAI Responses sticky routing uses prompt_cache_key so later turns stay on one server"
+    );
+
+    let mut other = serde_json::json!({});
+    apply_xai_prompt_cache_key(PROVIDER_ID_OPENAI, Some("thread-1"), &mut other);
+    assert!(other.get("prompt_cache_key").is_none());
+
+    let mut rejected = serde_json::json!({});
+    apply_xai_prompt_cache_key(PROVIDER_ID_XAI, Some("  "), &mut rejected);
+    assert!(rejected.get("prompt_cache_key").is_none());
+
+    let client = reqwest::Client::new();
+    let request = apply_xai_conv_id_header(
+        client.post("https://api.x.ai/v1/chat/completions"),
+        PROVIDER_ID_XAI,
+        Some("thread-1"),
+    )
+    .build()
+    .expect("request should build");
+    assert_eq!(
+        request
+            .headers()
+            .get("x-grok-conv-id")
+            .and_then(|value| value.to_str().ok()),
+        Some("thread-1")
+    );
+
+    let untouched = apply_xai_conv_id_header(
+        client.post("https://api.openai.com/v1/chat/completions"),
+        PROVIDER_ID_OPENAI,
+        Some("thread-1"),
+    )
+    .build()
+    .expect("request should build");
+    assert!(untouched.headers().get("x-grok-conv-id").is_none());
 }
 
 #[test]

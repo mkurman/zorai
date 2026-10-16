@@ -136,13 +136,10 @@ pub(crate) fn availability_signal_from_observed_failure(
 ) -> Option<ProviderAvailabilitySignal> {
     let structured = crate::agent::llm_client::parse_structured_upstream_failure(message)?;
     let lower = format!("{}\n{}", structured.summary, structured.diagnostics).to_ascii_lowercase();
-    if lower.contains("insufficient balance") || lower.contains("insufficient credit") {
+    if crate::agent::llm_client::mentions_provider_credit_exhaustion(&lower) {
         return Some(ProviderAvailabilitySignal::BalanceExhausted);
     }
-    if lower.contains("quota exceeded")
-        || lower.contains("billing hard limit")
-        || lower.contains("payment required")
-    {
+    if crate::agent::llm_client::mentions_provider_quota_exhaustion(&lower) {
         return Some(ProviderAvailabilitySignal::QuotaExhausted);
     }
     if lower.contains("expired")

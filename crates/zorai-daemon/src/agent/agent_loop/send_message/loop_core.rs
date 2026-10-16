@@ -675,18 +675,19 @@ impl<'a> SendMessageRunner<'a> {
                                     .get("retry_after_ms")
                                     .and_then(|value| value.as_u64())
                             });
-                            if !self
-                                .engine
-                                .provider_circuit_is_closed(&self.config.provider)
-                                .await
+                            let usage_limit_exhausted =
+                                crate::agent::llm_client::is_exhausted_provider_usage_limit(&message);
+                            if !usage_limit_exhausted
+                                && !self
+                                    .engine
+                                    .provider_circuit_is_closed(&self.config.provider)
+                                    .await
                             {
                                 self.engine
                                     .record_llm_outcome(&self.config.provider, false)
                                     .await;
                                 return Err(self.fail_for_open_circuit().await);
                             }
-                            let usage_limit_exhausted =
-                                crate::agent::llm_client::is_exhausted_provider_usage_limit(&message);
                             if usage_limit_exhausted
                                 && !self.engine.operator_stream_stop_requested(&self.tid).await
                             {
@@ -718,6 +719,15 @@ impl<'a> SendMessageRunner<'a> {
                                 tokio::select! {
                                     biased;
                                     _ = self.stream_cancel_token.cancelled() => {
+                                        if !self.engine.operator_stream_stop_requested(&self.tid).await
+                                            && !self
+                                                .engine
+                                                .provider_circuit_is_closed(&self.config.provider)
+                                                .await
+                                        {
+                                            self.clear_retry_status_on_progress();
+                                            return Err(self.fail_for_open_circuit().await);
+                                        }
                                         self.was_cancelled = true;
                                         break;
                                     }
@@ -809,6 +819,14 @@ impl<'a> SendMessageRunner<'a> {
                                                 self.was_cancelled = true;
                                                 return Err(anyhow::anyhow!("fresh-runner retry cancelled"));
                                             }
+                                            _ = self.stream_retry_now.notified() => {
+                                                return Err(
+                                                    FreshRunnerRetrySignal {
+                                                        scheduled_retry_cycles: attempt,
+                                                    }
+                                                    .into(),
+                                                );
+                                            }
                                             _ = tokio::time::sleep(std::time::Duration::from_millis(delay_ms)) => {
                                                 return Err(
                                                     FreshRunnerRetrySignal {
@@ -856,6 +874,14 @@ impl<'a> SendMessageRunner<'a> {
                                             _ = self.stream_cancel_token.cancelled() => {
                                                 self.was_cancelled = true;
                                                 return Err(anyhow::anyhow!("fresh-runner retry cancelled"));
+                                            }
+                                            _ = self.stream_retry_now.notified() => {
+                                                return Err(
+                                                    FreshRunnerRetrySignal {
+                                                        scheduled_retry_cycles: attempt,
+                                                    }
+                                                    .into(),
+                                                );
                                             }
                                             _ = tokio::time::sleep(std::time::Duration::from_millis(delay_ms)) => {
                                                 return Err(
@@ -909,6 +935,15 @@ impl<'a> SendMessageRunner<'a> {
                                 tokio::select! {
                                     biased;
                                     _ = self.stream_cancel_token.cancelled() => {
+                                        if !self.engine.operator_stream_stop_requested(&self.tid).await
+                                            && !self
+                                                .engine
+                                                .provider_circuit_is_closed(&self.config.provider)
+                                                .await
+                                        {
+                                            self.clear_retry_status_on_progress();
+                                            return Err(self.fail_for_open_circuit().await);
+                                        }
                                         self.was_cancelled = true;
                                         break;
                                     }
@@ -1128,8 +1163,18 @@ impl<'a> SendMessageRunner<'a> {
         self.retry_status_visible = true;
         tokio::select! {
             _ = self.stream_cancel_token.cancelled() => {
+                if !self.engine.operator_stream_stop_requested(&self.tid).await
+                    && !self.engine.provider_circuit_is_closed(&self.config.provider).await
+                {
+                    self.clear_retry_status_on_progress();
+                    return Err(self.fail_for_open_circuit().await);
+                }
                 self.was_cancelled = true;
                 Ok(false)
+            }
+            _ = self.stream_retry_now.notified() => {
+                self.clear_retry_status_on_progress();
+                Ok(true)
             }
             _ = tokio::time::sleep(std::time::Duration::from_millis(delay_ms)) => {
                 if promote_to_fresh_runner {
@@ -1148,6 +1193,7 @@ impl<'a> SendMessageRunner<'a> {
                     }
                     .into());
                 }
+                self.clear_retry_status_on_progress();
                 Ok(true)
             },
         }

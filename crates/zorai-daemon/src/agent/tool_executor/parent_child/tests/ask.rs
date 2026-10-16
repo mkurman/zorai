@@ -484,3 +484,53 @@ async fn answer_child_accepts_short_handles_and_disambiguates_duplicate_titles()
         Some("answer the second researcher")
     );
 }
+
+async fn queue_wakeup(engine: &AgentEngine, thread_id: &str) {
+    engine
+        .enqueue_visible_thread_continuation(
+            thread_id,
+            crate::agent::types::DeferredVisibleThreadContinuation {
+                agent_id: crate::agent::agent_identity::MAIN_AGENT_ID.to_string(),
+                task_id: None,
+                preferred_session_hint: None,
+                llm_user_content: "Child finished; integrate the result.".to_string(),
+                queued_at_ms: 0,
+                force_compaction: false,
+                rerun_participant_observers_after_turn: false,
+                internal_delegate_sender: None,
+                internal_delegate_message: None,
+            },
+        )
+        .await;
+}
+
+#[tokio::test]
+async fn idle_wakeup_supervisor_does_not_invent_an_operator_stop_that_drops_its_own_queue() {
+    let (_root, engine) = setup().await;
+    queue_wakeup(&engine, "thread-idle-parent").await;
+
+    let _ = engine.supervise_idle_deferred_thread_continuations().await;
+
+    assert!(
+        !engine.operator_stream_stop_requested("thread-idle-parent").await,
+        "the supervisor's own cleanup must not look like an operator stop, or the flush deletes the queued wakeup"
+    );
+}
+
+#[tokio::test]
+async fn idle_wakeup_supervisor_keeps_a_real_operator_stop() {
+    let (_root, engine) = setup().await;
+    engine.stop_stream("thread-stopped-parent").await;
+    queue_wakeup(&engine, "thread-stopped-parent").await;
+
+    let _ = engine.supervise_idle_deferred_thread_continuations().await;
+
+    assert!(
+        engine.operator_stream_stop_requested("thread-stopped-parent").await,
+        "an operator stop must keep suppressing automatic continuations"
+    );
+    assert!(engine
+        .deferred_visible_thread_continuations_for("thread-stopped-parent")
+        .await
+        .is_empty());
+}

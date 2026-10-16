@@ -5,8 +5,8 @@ use super::handles::next_ask_slug;
 use super::wakeup::{wake_child_thread, wake_parent_for_ask};
 use super::{
     ask_state_prefix, caller_is_parent, list_ask_records, notes_cursor_after_eviction,
-    persist_ask_record, persist_task_update, remaining_open_count, resolve_caller_task,
-    resolve_child_reference, select_open_ask, unblock_child_task, AskParentRecord,
+    persist_ask_record, persist_task_update, remaining_open_count, requeue_failed_spawned_subagent,
+    resolve_caller_task, resolve_child_reference, select_open_ask, unblock_child_task, AskParentRecord,
     AWAITING_PARENT_BLOCKED_PREFIX, DEFAULT_TIMEOUT_MINUTES, LOG_PHASE, MAX_NOTES_PER_CHILD,
     MAX_NOTE_CHARS, MAX_OPEN_ASKS_PER_CHILD, NOTES_CURSOR_STATE_PREFIX, NOTES_STATE_PREFIX,
 };
@@ -291,6 +291,36 @@ pub(crate) async fn execute_note_to_child(
         "stored_notes": notes.len(),
         "oldest_evicted": evicted,
         "status_changed": false,
+    })
+    .to_string())
+}
+
+pub(crate) async fn execute_retry_subagent(
+    args: &serde_json::Value,
+    agent: &AgentEngine,
+    thread_id: &str,
+    task_id: Option<&str>,
+) -> Result<String> {
+    let child_task_id = required_string_arg(args, "child_task_id")?;
+    let child = resolve_child_reference(agent, &child_task_id, thread_id, task_id).await?;
+    let caller_task = resolve_caller_task(agent, thread_id, task_id).await;
+    if !caller_is_parent(&child, caller_task.as_ref(), thread_id) {
+        anyhow::bail!(
+            "only the child's parent (parent task {} or parent thread {}) may retry task {}",
+            child.parent_task_id.as_deref().unwrap_or("(none)"),
+            child.parent_thread_id.as_deref().unwrap_or("(none)"),
+            child.id
+        );
+    }
+    let updated =
+        requeue_failed_spawned_subagent(agent, &child, "parent requested retry of failed subagent")
+            .await?;
+
+    Ok(serde_json::json!({
+        "ok": true,
+        "task_id": updated.id,
+        "thread_id": updated.thread_id,
+        "status": "queued",
     })
     .to_string())
 }

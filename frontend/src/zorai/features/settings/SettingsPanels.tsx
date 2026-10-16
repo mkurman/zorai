@@ -65,7 +65,7 @@ export const conciergeReasoningEffortOptions: Array<{ value: AgentSettings["reas
   { value: "xhigh", label: "xhigh" },
   { value: "max", label: "max" },
 ];
-const APP_VERSION = "1.0.13";
+const APP_VERSION = "1.0.14";
 const APP_AUTHOR = "Mariusz Kurman";
 const APP_GITHUB = "mkurman/zorai";
 const APP_HOMEPAGE = "zorai.app";
@@ -93,6 +93,12 @@ export function normalizeConciergeReasoningEffortForUi(value: string | null | un
 
 export function serializeConciergeReasoningEffortFromUi(value: AgentSettings["reasoning_effort"]): string | undefined {
   return value === "none" ? undefined : value;
+}
+
+export function filterProviderAuthStates<T extends { provider_id: string; provider_name: string }>(states: T[], query: string): T[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return states;
+  return states.filter((state) => state.provider_name.toLowerCase().includes(needle) || state.provider_id.toLowerCase().includes(needle));
 }
 
 export function SettingsTabPanel({ activeTab }: { activeTab: ZoraiSettingsTabId }) {
@@ -295,6 +301,8 @@ function AuthPanel() {
   const [loginTarget, setLoginTarget] = useState<string | null>(null);
   const [loginKey, setLoginKey] = useState("");
   const [validationResult, setValidationResult] = useState<ProviderValidationStatusMap>({});
+  const [query, setQuery] = useState("");
+  const visibleAuthStates = useMemo(() => filterProviderAuthStates(authStates, query), [authStates, query]);
 
   useEffect(() => {
     void refreshAuth();
@@ -320,7 +328,9 @@ function AuthPanel() {
     <SettingsGrid extraClassName="zorai-settings-grid--full">
       <Panel section="Auth" title="Authentication" extraClassName="zorai-settings-auth">
         <RefreshButton label="Refresh auth status" onClick={() => void refreshAuth()} />
-        {authStates.length === 0 ? <p className="zorai-empty-state">No provider auth status has been reported by the daemon yet.</p> : authStates.map((state) => {
+        {authStates.length > 0 ? <input className="zorai-input" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search providers" aria-label="Search providers" /> : null}
+        {authStates.length > 0 && visibleAuthStates.length === 0 ? <p className="zorai-empty-state">No providers match "{query.trim()}".</p> : null}
+        {authStates.length === 0 ? <p className="zorai-empty-state">No provider auth status has been reported by the daemon yet.</p> : visibleAuthStates.map((state) => {
           const providerValidation = validationResult[state.provider_id];
           const isTestingProvider = providerValidation?.state === "testing";
 

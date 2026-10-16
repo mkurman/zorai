@@ -137,3 +137,28 @@ async fn provider_auth_states_use_codex_cli_auth_when_storage_is_empty() {
     assert!(openai.authenticated);
     assert!(read_stored_openai_codex_auth().is_none());
 }
+
+#[tokio::test]
+async fn provider_auth_states_are_listed_by_name_with_custom_last() {
+    let _lock = crate::agent::provider_auth_store::provider_auth_test_env_lock();
+    let _guard = EnvGuard::new(&["ZORAI_PROVIDER_AUTH_DB_PATH", "ZORAI_CODEX_CLI_AUTH_PATH"]);
+    let root = tempdir().unwrap();
+    set_test_auth_env(root.path(), &root.path().join("missing-codex-auth.json"));
+    let manager = SessionManager::new_test(root.path()).await;
+    let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+
+    let states = engine.get_provider_auth_states().await;
+
+    assert_eq!(
+        states.last().map(|state| state.provider_id.as_str()),
+        Some(zorai_shared::providers::PROVIDER_ID_CUSTOM),
+        "Custom is the catch-all entry, so it belongs after every named provider"
+    );
+    let names = states[..states.len() - 1]
+        .iter()
+        .map(|state| state.provider_name.to_lowercase())
+        .collect::<Vec<_>>();
+    let mut sorted = names.clone();
+    sorted.sort();
+    assert_eq!(names, sorted, "operators scan the auth list by provider name");
+}

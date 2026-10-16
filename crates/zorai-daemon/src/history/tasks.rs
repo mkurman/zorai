@@ -942,6 +942,33 @@ impl HistoryStore {
         .await
     }
 
+    pub(crate) async fn list_agent_tasks_related_to_threads_without_logs(
+        &self,
+        thread_ids: &[String],
+        query: &AgentTaskListQuery,
+    ) -> Result<Vec<AgentTask>> {
+        let placeholders = std::iter::repeat("?")
+            .take(thread_ids.len())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let values = thread_ids
+            .iter()
+            .chain(thread_ids.iter())
+            .cloned()
+            .map(db::Value::Text)
+            .collect();
+        load_agent_tasks_from_query_with_logs(
+            &*self.interactive_read_db,
+            query,
+            format!(
+                "{AGENT_TASK_SELECT_SQL} AND (thread_id IN ({placeholders}) OR parent_thread_id IN ({placeholders}))"
+            ),
+            values,
+            false,
+        )
+        .await
+    }
+
     /// Batched fetch of all tasks belonging to a set of goal_run_ids in a
     /// single SQL round-trip. Replaces the per-goal-run N+1 that
     /// `project_goal_run` was doing in `list_goal_runs_paginated_capped_for_ipc`

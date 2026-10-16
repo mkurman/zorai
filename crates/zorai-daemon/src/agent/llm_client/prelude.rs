@@ -100,16 +100,41 @@ impl fmt::Display for UpstreamFailureError {
 impl std::error::Error for UpstreamFailureError {}
 
 pub(crate) fn is_exhausted_provider_usage_limit(text: &str) -> bool {
+    mentions_provider_credit_exhaustion(text) || mentions_provider_quota_exhaustion(text)
+}
+
+pub(crate) fn mentions_provider_credit_exhaustion(text: &str) -> bool {
     let lower = text.to_ascii_lowercase();
-    lower.contains("usage limit has been reached")
-        || lower.contains("usage limit reached")
-        || lower.contains("insufficient_quota")
-        || lower.contains("insufficient quota")
-        || lower.contains("quota exceeded")
-        || lower.contains("quota exhausted")
+    lower.contains("insufficient credit")
+        || lower.contains("insufficient balance")
+        || lower.contains("run out of credits")
+        || lower.contains("out of credits")
+        || lower.contains("spending-limit")
+        || lower.contains("spending limit")
         || lower.contains("billing hard limit")
-        || lower.contains("exceeded your current quota")
-        || lower.contains("weekly/monthly limit exhausted")
+        || lower.contains("payment required")
+        || (lower.contains("openrouter")
+            && (lower.contains("credit") || lower.contains("billing") || lower.contains("payment")))
+}
+
+pub(crate) fn mentions_provider_quota_exhaustion(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    let short_term_rate_limit = lower.contains("retry in")
+        || lower.contains("retrydelay")
+        || lower.contains("retry_delay")
+        || lower.contains("per minute")
+        || lower.contains("per_minute")
+        || lower.contains("perminute")
+        || lower.contains("rate-limits");
+    !short_term_rate_limit
+        && (lower.contains("usage limit has been reached")
+            || lower.contains("usage limit reached")
+            || lower.contains("insufficient_quota")
+            || lower.contains("insufficient quota")
+            || lower.contains("quota exceeded")
+            || lower.contains("quota exhausted")
+            || lower.contains("exceeded your current quota")
+            || lower.contains("weekly/monthly limit exhausted"))
 }
 
 pub(crate) fn parse_structured_upstream_failure(

@@ -651,4 +651,11 @@ pub(crate) fn add_available_tools_part_d(
         },
         "required": ["child_task_id", "note"]
     })));
+    tools.push(tool_def(tool_names::RETRY_SUBAGENT, "Parent only. Requeue a failed spawned child on its existing thread, keeping its history.", serde_json::json!({
+        "type": "object",
+        "properties": {
+            "child_task_id": { "type": "string", "description": "Child handle such as `researcher` (preferred) or the full task id" }
+        },
+        "required": ["child_task_id"]
+    })));
 }

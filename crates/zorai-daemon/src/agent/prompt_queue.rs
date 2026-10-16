@@ -134,7 +134,7 @@ impl AgentEngine {
             anyhow::bail!("queued prompt {prompt_id} was not found");
         };
         let remaining = self.broadcast_prompt_queue(thread_id).await?;
-        let _ = self.begin_stream_cancellation(thread_id).await;
+        let (placeholder_generation, _, _) = self.begin_stream_cancellation(thread_id).await;
         let engine = Arc::clone(self);
         let thread_id = thread_id.to_string();
         tokio::spawn(async move {
@@ -153,6 +153,9 @@ impl AgentEngine {
                     %error,
                     "failed to send queued prompt now"
                 );
+                engine
+                    .finish_stream_cancellation(&thread_id, placeholder_generation)
+                    .await;
             }
         });
         Ok(remaining)

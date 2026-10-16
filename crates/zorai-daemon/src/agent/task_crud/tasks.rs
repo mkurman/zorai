@@ -1295,6 +1295,75 @@ impl AgentEngine {
             .collect()
     }
 
+    pub(crate) async fn list_tasks_filtered_capped_for_ipc(
+        &self,
+        related_thread_ids: &[String],
+        goal_run_id: Option<String>,
+        active_only: bool,
+        limit: Option<usize>,
+    ) -> (Vec<AgentTask>, bool) {
+        self.refresh_task_queue_state_for_filtered_list().await;
+        let related: Vec<String> = related_thread_ids
+            .iter()
+            .map(|thread_id| thread_id.trim())
+            .filter(|thread_id| !thread_id.is_empty())
+            .map(ToOwned::to_owned)
+            .collect();
+        let query = crate::history::AgentTaskListQuery {
+            goal_run_id: goal_run_id.filter(|value| !value.trim().is_empty()),
+            exclude_terminal_statuses: active_only,
+            order_by_recent_activity_desc: true,
+            limit,
+            ..Default::default()
+        };
+        let is_related = |task: &AgentTask| {
+            related.is_empty()
+                || [task.thread_id.as_deref(), task.parent_thread_id.as_deref()]
+                    .into_iter()
+                    .flatten()
+                    .any(|thread_id| related.iter().any(|related| related == thread_id))
+        };
+        let persisted = if related.is_empty() {
+            self.history
+                .list_agent_tasks_filtered_without_logs(&query)
+                .await
+        } else {
+            self.history
+                .list_agent_tasks_related_to_threads_without_logs(&related, &query)
+                .await
+        };
+        let mut tasks = match persisted {
+            Ok(mut tasks) => {
+                for task in &mut tasks {
+                    crate::agent::persistence::sanitize_task_for_external_view(task);
+                }
+                let known_ids: std::collections::HashSet<String> =
+                    tasks.iter().map(|task| task.id.clone()).collect();
+                tasks.extend(
+                    filter_task_snapshot_for_query(self.snapshot_tasks().await, &query)
+                        .into_iter()
+                        .filter(|task| !known_ids.contains(&task.id) && is_related(task)),
+                );
+                tasks
+            }
+            Err(error) => {
+                tracing::warn!("failed to list filtered persisted tasks for ipc: {error}");
+                filter_task_snapshot_for_query(self.snapshot_tasks().await, &query)
+                    .into_iter()
+                    .filter(|task| is_related(task))
+                    .collect()
+            }
+        };
+        tasks.sort_by_key(|task| std::cmp::Reverse(task_recent_activity_at(task)));
+        if let Some(limit) = limit {
+            tasks.truncate(limit.max(1));
+        }
+        for task in &mut tasks {
+            task.logs.clear();
+        }
+        super::cap_task_list_for_ipc(tasks)
+    }
+
     pub(crate) async fn list_parent_thread_subagent_tasks(
         &self,
         parent_thread_id: &str,

@@ -40,7 +40,7 @@ fn direct_message_entrypoints_box_large_send_message_futures() {
         "send_message_inner should box the oversized internal send-loop future"
     );
     assert!(
-        send_message_production.contains("let outcome = Box::pin(runner.run()).await?;"),
+        send_message_production.contains("let outcome = match Box::pin(runner.run()).await {"),
         "run_internal_send_loop should box the oversized SendMessageRunner future"
     );
     assert!(

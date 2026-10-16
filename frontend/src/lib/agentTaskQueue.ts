@@ -62,14 +62,21 @@ export interface AgentQueueTask {
     logs?: AgentTaskLogEntry[];
 }
 
-export async function fetchAgentTasks(): Promise<AgentQueueTask[]> {
+export type AgentTaskFilter = {
+    relatedThreadIds?: string[];
+    goalRunId?: string | null;
+    activeOnly?: boolean;
+    limit?: number;
+};
+
+export async function fetchAgentTasksFiltered(filter: AgentTaskFilter): Promise<AgentQueueTask[]> {
     const zorai = getBridge();
-    if (!zorai?.agentListTasks) {
+    if (!zorai?.agentListTasksFiltered) {
         return [];
     }
 
     try {
-        const result = await zorai.agentListTasks();
+        const result = await zorai.agentListTasksFiltered(filter);
         return Array.isArray(result) ? (result as AgentQueueTask[]) : [];
     } catch {
         return [];

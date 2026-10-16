@@ -7,12 +7,14 @@ use tempfile::tempdir;
 pub(super) use super::super::{now_millis, task_by_id_for_tool_scope, AgentEngine, AgentTask};
 pub(super) use super::{
     ask_timeout_action, execute_answer_child, execute_ask_parent, execute_note_to_child,
+    execute_retry_subagent,
     task_is_awaiting_parent, AskParentRecord, AskTimeoutAction, AWAITING_PARENT_BLOCKED_PREFIX,
 };
 pub(super) use crate::agent::types::TaskStatus;
 
 mod ask;
 mod notes;
+mod retry;
 mod timeout;
 mod unit;
 

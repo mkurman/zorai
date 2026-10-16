@@ -18,10 +18,22 @@ pub(crate) fn render_auth_tab<'a>(
         "  Authentication",
         theme.fg_active,
     )));
-    lines.push(Line::from(Span::styled(
-        "  Provider authentication status",
-        theme.fg_dim,
-    )));
+    if auth.searching || !auth.query.is_empty() {
+        let query = if auth.searching {
+            render_edit_buffer_with_cursor(&auth.query, auth.query.chars().count())
+        } else {
+            auth.query.clone()
+        };
+        lines.push(Line::from(vec![
+            Span::styled("  Search: ", theme.fg_dim),
+            Span::styled(query, theme.accent_primary),
+        ]));
+    } else {
+        lines.push(Line::from(Span::styled(
+            "  Provider authentication status",
+            theme.fg_dim,
+        )));
+    }
     lines.push(Line::raw(""));
 
     if let Some(provider_id) = auth.login_target.as_deref() {
@@ -67,7 +79,14 @@ pub(crate) fn render_auth_tab<'a>(
         return lines;
     }
 
-    for (i, entry) in auth.entries.iter().enumerate() {
+    let visible = auth.visible_entries();
+    if visible.is_empty() {
+        lines.push(Line::from(Span::styled(
+            format!("  No providers match \"{}\". Press Esc to clear.", auth.query),
+            theme.fg_dim,
+        )));
+    }
+    for (i, entry) in visible.into_iter().enumerate() {
         let is_selected = auth.selected == i;
         let marker = if is_selected { "> " } else { "  " };
         let openai_has_chatgpt_auth = entry.provider_id
@@ -165,7 +184,9 @@ pub(crate) fn render_auth_tab<'a>(
         Span::styled("←→", theme.fg_active),
         Span::styled(" action  ", theme.fg_dim),
         Span::styled("Enter", theme.fg_active),
-        Span::styled(" run", theme.fg_dim),
+        Span::styled(" run  ", theme.fg_dim),
+        Span::styled("/", theme.fg_active),
+        Span::styled(" search", theme.fg_dim),
     ]));
 
     lines

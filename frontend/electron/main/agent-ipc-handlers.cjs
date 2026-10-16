@@ -298,6 +298,7 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
     // daemon; the old 5s default made every slow poll return [] and the
     // tray/views flicker empty.
     ipcMain.handle('agent-list-tasks', async () => { try { return await sendAgentQuery({ type: 'list-tasks' }, 'task-list', 30000); } catch { return []; } });
+    ipcMain.handle('agent-list-tasks-filtered', async (_event, filter) => { try { return await sendAgentQuery({ type: 'list-tasks-filtered', related_thread_ids: Array.isArray(filter?.relatedThreadIds) ? filter.relatedThreadIds.filter((id) => typeof id === 'string' && id.trim()) : [], goal_run_id: typeof filter?.goalRunId === 'string' && filter.goalRunId.trim() ? filter.goalRunId.trim() : null, active_only: filter?.activeOnly === true, limit: Number.isInteger(filter?.limit) && filter.limit > 0 ? filter.limit : null }, 'task-list', 30000); } catch { return []; } });
     ipcMain.handle('agent-list-runs', async (_event, parentThreadId) => { try { return await sendAgentQuery({ type: 'list-runs', parent_thread_id: typeof parentThreadId === 'string' && parentThreadId.trim() ? parentThreadId.trim() : null }, 'run-list'); } catch { return []; } });
     ipcMain.handle('agent-get-run', async (_event, runId) => { try { return await sendAgentQuery({ type: 'get-run', run_id: runId }, 'run-detail'); } catch { return null; } });
     ipcMain.handle('agent-list-todos', async () => { try { return await sendAgentQuery({ type: 'list-todos' }, 'todo-list'); } catch { return {}; } });
