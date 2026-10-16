@@ -114,7 +114,13 @@ impl TuiModel {
 
     pub(crate) fn return_from_mission_control_navigation(&mut self) -> bool {
         if let Some(thread_id) = self.mission_control_return_to_thread_id() {
-            self.set_mission_control_return_to_thread_id(None);
+            self.set_mission_control_return_to_thread_id(
+                self.chat
+                    .thread_history_stack()
+                    .last()
+                    .filter(|parent| **parent != thread_id)
+                    .cloned(),
+            );
             self.cleanup_concierge_on_navigate();
             self.clear_chat_drag_selection();
             self.clear_work_context_drag_selection();

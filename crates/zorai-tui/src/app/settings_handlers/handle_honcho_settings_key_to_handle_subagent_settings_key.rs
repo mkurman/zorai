@@ -97,14 +97,48 @@ impl TuiModel {
                 }
                 _ => true,
             }
+        } else if self.auth.searching {
+            match code {
+                KeyCode::Esc => {
+                    self.auth
+                        .reduce(crate::state::auth::AuthAction::ClearSearch);
+                    true
+                }
+                KeyCode::Enter | KeyCode::Down => {
+                    self.auth.searching = false;
+                    true
+                }
+                KeyCode::Backspace => {
+                    self.auth
+                        .reduce(crate::state::auth::AuthAction::SearchBackspace);
+                    true
+                }
+                KeyCode::Char(c) => {
+                    self.auth
+                        .reduce(crate::state::auth::AuthAction::SearchChar(c));
+                    true
+                }
+                KeyCode::Tab | KeyCode::BackTab => false,
+                _ => true,
+            }
         } else {
             match code {
+                KeyCode::Char('/') => {
+                    self.auth.searching = true;
+                    self.auth.actions_focused = false;
+                    true
+                }
+                KeyCode::Esc if !self.auth.query.is_empty() => {
+                    self.auth
+                        .reduce(crate::state::auth::AuthAction::ClearSearch);
+                    true
+                }
                 KeyCode::Up => {
                     self.auth.selected = self.auth.selected.saturating_sub(1);
                     true
                 }
                 KeyCode::Down => {
-                    if self.auth.selected + 1 < self.auth.entries.len() {
+                    if self.auth.selected + 1 < self.auth.visible_entries().len() {
                         self.auth.selected += 1;
                     }
                     true

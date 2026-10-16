@@ -15,7 +15,7 @@ import {
   threadHasOlderHistory,
 } from "@/components/agent-chat-panel/runtime/threadHistoryScroll";
 import { useAgentStore, type AgentMessage, type AgentThread } from "@/lib/agentStore";
-import { fetchAgentTasks, type AgentQueueTask } from "@/lib/agentTaskQueue";
+import { fetchAgentTasksFiltered, type AgentQueueTask } from "@/lib/agentTaskQueue";
 import { ThreadFilePreviewOverlay } from "./ThreadFilePreviewOverlay";
 import { ThreadComposer } from "./ThreadComposer";
 import { ThreadCompactSessionBar } from "./ThreadCompactSessionBar";
@@ -116,11 +116,8 @@ export function ThreadsView({
   }, [runtime.messages, runtime.sendMessage]);
   const retryLastMessage = useCallback(() => {
     if (!latestUserMessage) return;
-    runtime.sendMessage({
-      text: latestUserMessage.content,
-      localContentBlocks: latestUserMessage.contentBlocks,
-    });
-  }, [latestUserMessage, runtime.sendMessage]);
+    runtime.retryStreamNow(runtime.activeThreadId);
+  }, [latestUserMessage, runtime.retryStreamNow, runtime.activeThreadId]);
   const speech = useThreadSpeech(runtime.messages);
   const retryStatus = useThreadRetryStatus(
     runtime.activeThread?.daemonThreadId,
@@ -161,12 +158,12 @@ export function ThreadsView({
   const activeReadMessages = runtime.messages;
 
   useEffect(() => {
-    if (!activeReadThreadId) {
+    if (!activeReadThreadId || !activeReadDaemonThreadId) {
       setReadTasks([]);
       return;
     }
     let active = true;
-    void fetchAgentTasks().then((tasks) => {
+    void fetchAgentTasksFiltered({ relatedThreadIds: [activeReadDaemonThreadId], limit: 50 }).then((tasks) => {
       if (active) setReadTasks(tasks);
     });
     return () => { active = false; };

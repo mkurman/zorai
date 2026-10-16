@@ -1,7 +1,7 @@
 use super::*;
 use crate::agent::task_scheduler::make_task_log_entry;
 use crate::agent::types::{
-    AgentTask, ChildReportState, ChildResultContract, DeferredVisibleThreadContinuation,
+    AgentTask, ChildReportState, ChildResultContract,
     ParentNotificationState, TaskLogLevel, TaskStatus,
 };
 use crate::history::AgentTaskListQuery;
@@ -85,7 +85,34 @@ pub(crate) async fn execute_report_subagent_outcome(
         &format!("subagent reported {status}"),
         Some(summary.clone()),
     ));
+    let completes_terminal_child = status == "done"
+        && report_state == ChildReportState::Usable
+        && open_ask_ids.is_empty()
+        && matches!(task.status, TaskStatus::Failed | TaskStatus::Cancelled);
+    if completes_terminal_child {
+        task.status = TaskStatus::Completed;
+        task.completed_at = Some(now_millis());
+        task.error = None;
+        task.last_error = None;
+        task.blocked_reason = None;
+        task.next_retry_at = None;
+    }
     persist_task_update(agent, &task, Some(format!("Subagent reported {status}"))).await?;
+    if completes_terminal_child {
+        agent
+            .subagent_completion_continuations_issued
+            .lock()
+            .await
+            .remove(&task.id);
+        agent
+            .record_subagent_outcome_on_parent(
+                &task,
+                TaskLogLevel::Info,
+                "subagent completed",
+                task.result.clone(),
+            )
+            .await;
+    }
 
     Ok(serde_json::json!({
         "ok": true,
@@ -166,7 +193,7 @@ pub(crate) async fn execute_extend_subagent_budget(
 
     let resumed = child.status == TaskStatus::BudgetExceeded;
     if resumed {
-        child.status = TaskStatus::InProgress;
+        child.status = TaskStatus::Queued;
         child.progress = child.progress.min(90);
         child.completed_at = None;
         child.error = None;
@@ -184,6 +211,12 @@ pub(crate) async fn execute_extend_subagent_budget(
         ),
         Some(reason.clone()),
     ));
+    if resumed {
+        let mut tasks = agent.tasks.lock().await;
+        if !tasks.iter().any(|task| task.id == child.id) {
+            tasks.push_back(child.clone());
+        }
+    }
     persist_task_update(
         agent,
         &child,
@@ -396,7 +429,7 @@ async fn authorize_budget_extension(
     );
 }
 
-async fn find_spawned_task_by_thread(agent: &AgentEngine, thread_id: &str) -> Option<AgentTask> {
+pub(crate) async fn find_spawned_task_by_thread(agent: &AgentEngine, thread_id: &str) -> Option<AgentTask> {
     let mut tasks = agent
         .list_tasks_filtered(&AgentTaskListQuery {
             id: None,
@@ -443,51 +476,24 @@ async fn wake_spawned_thread_after_budget_extension(
         "Execution budget extended by {additional_tokens} visible output tokens.\n\nReason: {reason}\nNew ceiling: {} tokens.\nContinue the assigned work from the last completed point. Reporting back still does not count against this budget.",
         child.context_budget_tokens.unwrap_or(0)
     );
-    let _ = agent
-        .append_system_thread_message(child_thread_id, message.clone())
-        .await;
-    let agent_id = agent
-        .agent_scope_id_for_turn(Some(child_thread_id), Some(child.id.as_str()))
-        .await;
-    agent
-        .enqueue_visible_thread_continuation(
-            child_thread_id,
-            DeferredVisibleThreadContinuation {
-                agent_id,
-                task_id: Some(child.id.clone()),
-                preferred_session_hint: None,
-                llm_user_content: format!(
-                    "Your execution budget was extended. Continue the assigned work.\n\n{message}"
-                ),
-                queued_at_ms: 0,
-                force_compaction: false,
-                rerun_participant_observers_after_turn: false,
-                internal_delegate_sender: None,
-                internal_delegate_message: None,
-            },
-        )
-        .await;
-    let idle = {
-        let streams = agent.stream_cancellations.lock().await;
-        match streams.get(child_thread_id) {
-            None => true,
-            Some(entry) => entry.token.is_cancelled(),
-        }
-    };
-    if idle {
-        let _ = agent.stop_stream(child_thread_id).await;
-        agent.clear_operator_stream_stop(child_thread_id).await;
-    }
-    if let Err(error) = agent
-        .flush_deferred_visible_thread_continuations(child_thread_id)
+    if !agent
+        .append_system_thread_message(child_thread_id, message)
         .await
     {
         tracing::warn!(
             thread_id = %child_thread_id,
             task_id = %child.id,
-            %error,
-            "failed to flush child continuation after budget extension"
+            "failed to record budget extension notice on the child thread"
         );
+    }
+    let stale_stream = agent
+        .stream_cancellations
+        .lock()
+        .await
+        .get(child_thread_id)
+        .is_some_and(|entry| entry.token.is_cancelled());
+    if stale_stream {
+        agent.release_idle_stream_for_wakeup(child_thread_id).await;
     }
 }
 

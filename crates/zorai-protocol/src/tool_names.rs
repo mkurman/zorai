@@ -152,6 +152,7 @@ pub const RESET_OPERATOR_MODEL: &str = "reset_operator_model";
 pub const RESTORE_GENERATED_TOOL: &str = "restore_generated_tool";
 pub const RESTORE_SNAPSHOT: &str = "restore_snapshot";
 pub const RESUME_ROUTINE: &str = "resume_routine";
+pub const RETRY_SUBAGENT: &str = "retry_subagent";
 pub const ROUTE_TO_SPECIALIST: &str = "route_to_specialist";
 pub const RUN_BASH: &str = "run_bash";
 pub const RUN_DEBATE: &str = "run_debate";
@@ -413,6 +414,7 @@ pub const AGENT_TOOLS: &[&str] = &[
     LIST_SUBAGENTS,
     REPORT_SUBAGENT_OUTCOME,
     EXTEND_SUBAGENT_BUDGET,
+    RETRY_SUBAGENT,
     MESSAGE_AGENT,
     HANDOFF_THREAD_AGENT,
     ROUTE_TO_SPECIALIST,

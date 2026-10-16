@@ -137,6 +137,17 @@ pub const PROVIDERS: &[ProviderDef] = &[
         native_base_url: None,
     },
     ProviderDef {
+        id: PROVIDER_ID_MUSE,
+        name: "Muse",
+        default_base_url: "https://api.meta.ai/v1",
+        default_model: "muse-spark-1.3",
+        supported_transports: RESPONSES_AND_CHAT_TRANSPORTS,
+        default_transport: "responses",
+        supported_auth_sources: API_KEY_ONLY_AUTH_SOURCES,
+        default_auth_source: "api_key",
+        native_base_url: None,
+    },
+    ProviderDef {
         id: PROVIDER_ID_ELEVENLABS,
         name: "ElevenLabs",
         default_base_url: "https://api.elevenlabs.io",

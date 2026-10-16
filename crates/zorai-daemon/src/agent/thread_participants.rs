@@ -169,7 +169,7 @@ pub(crate) fn spawn_continuation_flush_worker(
             let engine = Arc::clone(&engine);
             tokio::spawn(async move {
                 if engine.thread_is_idle_for_subagent_wakeup(&thread_id).await {
-                    let _ = engine.stop_stream(&thread_id).await;
+                    engine.release_idle_stream_for_wakeup(&thread_id).await;
                 }
                 if let Err(error) = engine
                     .flush_deferred_visible_thread_continuations(&thread_id)
@@ -971,7 +971,7 @@ impl AgentEngine {
                 thread_id = %thread_id,
                 "flushing deferred continuation on idle thread"
             );
-            let _ = self.stop_stream(&thread_id).await;
+            self.release_idle_stream_for_wakeup(&thread_id).await;
             if let Err(error) = self
                 .flush_deferred_visible_thread_continuations(&thread_id)
                 .await

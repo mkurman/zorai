@@ -1005,13 +1005,22 @@ impl<'a> SendMessageRunner<'a> {
             task_id.is_some(),
             stored_user_content,
         ) {
-            engine
+            match engine
                 .build_skill_preflight_context(
                     &tid,
                     stored_user_content,
                     preferred_session_id.clone(),
                 )
-                .await?
+                .await
+            {
+                Ok(context) => context,
+                Err(error) => {
+                    engine
+                        .finish_stream_cancellation(&tid, stream_generation)
+                        .await;
+                    return Err(error);
+                }
+            }
         } else {
             None
         };
@@ -1141,11 +1150,15 @@ impl<'a> SendMessageRunner<'a> {
         let workspace_task_context = current_task_snapshot
             .as_ref()
             .is_some_and(is_workspace_agent_task)
-            || engine
-                .history
-                .get_workspace_task_by_thread_id(&tid)
-                .await?
-                .is_some();
+            || match engine.history.get_workspace_task_by_thread_id(&tid).await {
+                Ok(task) => task.is_some(),
+                Err(error) => {
+                    engine
+                        .finish_stream_cancellation(&tid, stream_generation)
+                        .await;
+                    return Err(error);
+                }
+            };
         if workspace_task_context {
             if let Some(filter) = task_tool_filter.as_mut() {
                 allow_workspace_task_tools(filter);

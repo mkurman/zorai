@@ -464,25 +464,12 @@ impl<'a> SendMessageRunner<'a> {
         let message = error.to_string();
         let provider_quota = crate::agent::llm_client::parse_structured_upstream_failure(&message)
             .is_some_and(|failure| {
-                let combined = format!(
+                crate::agent::llm_client::is_exhausted_provider_usage_limit(&format!(
                     "{}\n{}",
-                    failure.summary.to_ascii_lowercase(),
-                    failure.diagnostics.to_string().to_ascii_lowercase()
-                );
-                combined.contains("quota")
-                    || combined.contains("insufficient credit")
-                    || combined.contains("insufficient credits")
-                    || combined.contains("billing hard limit")
-                    || combined.contains("payment required")
+                    failure.summary, failure.diagnostics
+                ))
             })
-            || {
-                let lower = message.to_ascii_lowercase();
-                lower.contains("quota exceeded")
-                    || lower.contains("insufficient credit")
-                    || lower.contains("insufficient credits")
-                    || lower.contains("billing hard limit")
-                    || lower.contains("payment required")
-            };
+            || crate::agent::llm_client::is_exhausted_provider_usage_limit(&message);
         if self.report_back_phase.is_none() && !provider_quota {
             return false;
         }

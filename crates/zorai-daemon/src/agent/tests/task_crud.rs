@@ -1208,6 +1208,80 @@ async fn list_runs_for_parent_thread_excludes_unrelated_history_and_keeps_termin
 }
 
 #[tokio::test]
+async fn filtered_ipc_task_list_returns_only_tasks_linked_to_the_requested_threads() {
+    let root = tempdir().expect("temp dir");
+    let manager = SessionManager::new_test(root.path()).await;
+    let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+    let enqueue = |title: &str, parent_thread_id: &str| {
+        engine.enqueue_task(
+            title.to_string(),
+            "work".to_string(),
+            "normal",
+            None,
+            None,
+            Vec::new(),
+            None,
+            "subagent",
+            None,
+            None,
+            Some(parent_thread_id.to_string()),
+            Some("daemon".to_string()),
+        )
+    };
+    let child = enqueue("Spawned from thread-a", "thread-a").await;
+    let own = enqueue("Runs inside thread-a", "thread-root").await;
+    let unrelated = enqueue("Elsewhere", "thread-b").await;
+    {
+        let mut tasks = engine.tasks.lock().await;
+        for task in tasks.iter_mut() {
+            if task.id == child.id {
+                task.status = TaskStatus::Cancelled;
+                task.completed_at = Some(task.created_at + 1);
+            }
+            if task.id == own.id {
+                task.thread_id = Some("thread-a".to_string());
+            }
+        }
+    }
+    let snapshot = engine.tasks.lock().await.clone();
+    for task in &snapshot {
+        engine
+            .history
+            .upsert_agent_task(task)
+            .await
+            .expect("persist task");
+    }
+    engine.tasks.lock().await.clear();
+
+    let (related, _) = engine
+        .list_tasks_filtered_capped_for_ipc(&["thread-a".to_string()], None, false, None)
+        .await;
+    let mut related_ids: Vec<_> = related.iter().map(|task| task.id.clone()).collect();
+    related_ids.sort();
+    let mut expected = vec![child.id.clone(), own.id.clone()];
+    expected.sort();
+    assert_eq!(
+        related_ids, expected,
+        "a thread view needs its own task and its spawned children, never the whole history"
+    );
+    assert!(related.iter().all(|task| task.logs.is_empty()));
+
+    let (active, _) = engine
+        .list_tasks_filtered_capped_for_ipc(&[], None, true, None)
+        .await;
+    assert!(active.iter().any(|task| task.id == unrelated.id));
+    assert!(
+        !active.iter().any(|task| task.id == child.id),
+        "the closed task tray only needs active tasks"
+    );
+
+    let (limited, _) = engine
+        .list_tasks_filtered_capped_for_ipc(&[], None, false, Some(1))
+        .await;
+    assert_eq!(limited.len(), 1);
+}
+
+#[tokio::test]
 async fn list_tasks_reads_persisted_tasks_after_live_queue_clear() {
     let root = tempdir().expect("temp dir");
     let manager = SessionManager::new_test(root.path()).await;
@@ -3778,4 +3852,55 @@ async fn update_role_rejected_after_terminal_status() {
         .control_goal_run(goal_run_id, "update-role", Some(1), Some(&payload))
         .await;
     assert!(!changed, "terminal goal should not accept role edits");
+}
+
+#[tokio::test]
+async fn failed_send_queued_prompt_now_does_not_leave_the_thread_marked_busy() {
+    let root = tempdir().expect("temp dir");
+    let manager = SessionManager::new_test(root.path()).await;
+    let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+    let thread_id = "thread-locked-by-budget";
+    let mut task = engine
+        .enqueue_task(
+            "Budget exhausted".to_string(),
+            "work".to_string(),
+            "normal",
+            None,
+            None,
+            Vec::new(),
+            None,
+            "user",
+            None,
+            None,
+            None,
+            None,
+        )
+        .await;
+    task.thread_id = Some(thread_id.to_string());
+    task.status = TaskStatus::BudgetExceeded;
+    engine
+        .history
+        .upsert_agent_task(&task)
+        .await
+        .expect("persist budget-exceeded task");
+    engine
+        .enqueue_prompt(thread_id, "follow up", None, Some("prompt-1"))
+        .await
+        .expect("enqueue prompt");
+
+    engine
+        .send_queued_prompt_now(thread_id, "prompt-1")
+        .await
+        .expect("send now accepted");
+
+    let released = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while engine.is_thread_streaming(thread_id).await {
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+    })
+    .await;
+    assert!(
+        released.is_ok(),
+        "a send that fails before streaming must release its placeholder, or the thread stays busy and its queue never drains"
+    );
 }

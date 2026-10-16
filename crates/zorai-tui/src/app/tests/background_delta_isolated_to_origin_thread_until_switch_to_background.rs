@@ -1012,3 +1012,41 @@ fn background_participant_suggestion_keeps_selected_thread_activity_and_origin_t
         Some("Weles")
     );
 }
+
+#[test]
+fn spawned_thread_keeps_back_to_parent_link_after_closing_a_preview() {
+    let mut model = build_model();
+    model.connected = true;
+    model.agent_config_loaded = true;
+    for (thread_id, title) in [("thread-root", "Root Thread"), ("thread-child", "Child Thread")] {
+        model.chat.reduce(chat::ChatAction::ThreadCreated {
+            thread_id: thread_id.to_string(),
+            title: title.to_string(),
+        });
+    }
+    model
+        .chat
+        .reduce(chat::ChatAction::SelectThread("thread-root".to_string()));
+    assert!(model
+        .chat
+        .open_spawned_thread("thread-root", "thread-child"));
+    model.set_mission_control_return_targets(None, Some("thread-root".to_string()));
+    model.main_pane_view = MainPaneView::Conversation;
+
+    model.open_work_context_for_thread(
+        "thread-child".to_string(),
+        None,
+        Some("thread-child".to_string()),
+        None,
+        "Todo details".to_string(),
+    );
+    assert!(model.dismiss_active_main_pane(FocusArea::Chat));
+
+    assert!(matches!(model.main_pane_view, MainPaneView::Conversation));
+    assert_eq!(model.chat.active_thread_id(), Some("thread-child"));
+    assert_eq!(
+        model.mission_control_return_to_thread_id().as_deref(),
+        Some("thread-root"),
+        "returning from a preview must keep the child's way back to its parent"
+    );
+}

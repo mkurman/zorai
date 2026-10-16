@@ -443,3 +443,277 @@ async fn repeated_waiting_timeouts_escalate_to_fresh_runner() {
     assert_eq!(outcome.thread_id, thread_id);
     assert_eq!(request_counter.load(Ordering::SeqCst), 5);
 }
+
+#[tokio::test]
+async fn timeout_retry_clears_the_countdown_once_the_retry_request_is_in_flight() {
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind silent provider");
+    let addr = listener.local_addr().expect("silent provider addr");
+    tokio::spawn(async move {
+        loop {
+            let Ok((mut socket, _)) = listener.accept().await else {
+                break;
+            };
+            tokio::spawn(async move {
+                let _request = read_http_request(&mut socket, "silent provider request").await;
+                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            });
+        }
+    });
+
+    let root = tempdir().unwrap();
+    let manager = SessionManager::new_test(root.path()).await;
+    let mut config = AgentConfig::default();
+    config.provider = PROVIDER_ID_CUSTOM.to_string();
+    config.base_url = format!("http://{addr}/v1");
+    config.model = "gpt-4.1".to_string();
+    config.api_key = "test-key".to_string();
+    config.auth_source = AuthSource::ApiKey;
+    config.api_transport = ApiTransport::ChatCompletions;
+    config.auto_retry = true;
+    config.max_retries = 0;
+
+    let engine = AgentEngine::new_test(manager, config, root.path()).await;
+    let mut events = engine.subscribe();
+    let thread_id = "thread-timeout-retry-countdown";
+    let send_task = tokio::spawn({
+        let engine = engine.clone();
+        async move {
+            engine
+                .send_message_inner(
+                    Some(thread_id),
+                    "hello",
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some(std::time::Duration::from_millis(20)),
+                    None,
+                    true,
+                )
+                .await
+        }
+    });
+
+    let mut phases = Vec::new();
+    tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        while phases.iter().filter(|(_, attempt)| *attempt == 2).count() == 0 {
+            if let Ok(AgentEvent::RetryStatus {
+                thread_id: event_thread_id,
+                phase,
+                attempt,
+                ..
+            }) = events.recv().await
+            {
+                if event_thread_id == thread_id {
+                    phases.push((phase, attempt));
+                }
+            }
+        }
+    })
+    .await
+    .expect("the silent provider should time out twice");
+    send_task.abort();
+
+    let first_retry = phases
+        .iter()
+        .position(|(phase, attempt)| phase == "retrying" && *attempt == 1)
+        .expect("first timeout schedules a retry");
+    let second_retry = phases
+        .iter()
+        .position(|(_, attempt)| *attempt == 2)
+        .expect("second timeout schedules another retry");
+    assert!(
+        phases[first_retry + 1..second_retry]
+            .iter()
+            .any(|(phase, _)| phase == "cleared"),
+        "the 'retry in Ns' countdown must clear when the retry starts, or it stays stale for the whole next attempt: {phases:?}"
+    );
+}
+
+#[tokio::test]
+async fn stream_timeout_that_trips_the_circuit_breaker_fails_loudly_instead_of_a_silent_interrupt() {
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind silent provider");
+    let addr = listener.local_addr().expect("silent provider addr");
+    tokio::spawn(async move {
+        loop {
+            let Ok((mut socket, _)) = listener.accept().await else {
+                break;
+            };
+            tokio::spawn(async move {
+                let _request = read_http_request(&mut socket, "silent provider request").await;
+                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            });
+        }
+    });
+
+    let root = tempdir().unwrap();
+    let manager = SessionManager::new_test(root.path()).await;
+    let mut config = AgentConfig::default();
+    config.provider = PROVIDER_ID_CUSTOM.to_string();
+    config.base_url = format!("http://{addr}/v1");
+    config.model = "gpt-4.1".to_string();
+    config.api_key = "test-key".to_string();
+    config.auth_source = AuthSource::ApiKey;
+    config.api_transport = ApiTransport::ChatCompletions;
+    config.auto_retry = true;
+    config.max_retries = 0;
+
+    let engine = AgentEngine::new_test(manager, config, root.path()).await;
+    for _ in 0..4 {
+        engine.record_llm_outcome(PROVIDER_ID_CUSTOM, false).await;
+    }
+    let mut events = engine.subscribe();
+    let thread_id = "thread-timeout-trips-breaker";
+    let send_task = tokio::spawn({
+        let engine = engine.clone();
+        async move {
+            engine
+                .send_message_inner(
+                    Some(thread_id),
+                    "hello",
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some(std::time::Duration::from_millis(20)),
+                    None,
+                    true,
+                )
+                .await
+        }
+    });
+
+    let outcome = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        loop {
+            match events.recv().await {
+                Ok(AgentEvent::Error {
+                    thread_id: event_thread_id,
+                    message,
+                }) if event_thread_id == thread_id => break Ok(message),
+                Ok(AgentEvent::TurnInterrupted {
+                    thread_id: event_thread_id,
+                }) if event_thread_id == thread_id => break Err(()),
+                _ => {}
+            }
+        }
+    })
+    .await
+    .expect("the turn must end once the breaker trips");
+    send_task.abort();
+
+    let message = outcome.expect(
+        "a provider outage must be reported to the operator, not shown as if they pressed stop",
+    );
+    assert!(message.contains("circuit breaker"), "{message}");
+}
+
+#[tokio::test]
+async fn usage_limit_waits_do_not_use_up_the_tool_loop_budget() {
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind usage-limit provider");
+    let addr = listener.local_addr().expect("usage-limit provider addr");
+    let request_counter = Arc::new(AtomicUsize::new(0));
+    tokio::spawn({
+        let request_counter = request_counter.clone();
+        async move {
+            loop {
+                let Ok((mut socket, _)) = listener.accept().await else {
+                    break;
+                };
+                let attempt = request_counter.fetch_add(1, Ordering::SeqCst);
+                tokio::spawn(async move {
+                    let _request = read_http_request(&mut socket, "usage-limit request").await;
+                    let response = if attempt < 3 {
+                        let body = r#"{"error":{"type":"usage_limit_reached","message":"The usage limit has been reached"}}"#;
+                        format!(
+                            "HTTP/1.1 429 Too Many Requests\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                            body.len()
+                        )
+                    } else {
+                        concat!(
+                            "HTTP/1.1 200 OK\r\n",
+                            "content-type: text/event-stream\r\n",
+                            "cache-control: no-cache\r\n",
+                            "connection: close\r\n",
+                            "\r\n",
+                            "data: {\"choices\":[{\"delta\":{\"content\":\"Back after the reset\"}}]}\n\n",
+                            "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":3}}\n\n",
+                            "data: [DONE]\n\n"
+                        )
+                        .to_string()
+                    };
+                    let _ = socket.write_all(response.as_bytes()).await;
+                });
+            }
+        }
+    });
+
+    let root = tempdir().unwrap();
+    let manager = SessionManager::new_test(root.path()).await;
+    let mut config = AgentConfig::default();
+    config.provider = PROVIDER_ID_CUSTOM.to_string();
+    config.base_url = format!("http://{addr}/v1");
+    config.model = "gpt-4.1".to_string();
+    config.api_key = "test-key".to_string();
+    config.auth_source = AuthSource::ApiKey;
+    config.api_transport = ApiTransport::ChatCompletions;
+    config.auto_retry = true;
+    config.max_retries = 0;
+    config.max_tool_loops = 2;
+
+    let engine = AgentEngine::new_test(manager, config, root.path()).await;
+    let mut events = engine.subscribe();
+    let thread_id = "thread-usage-limit-loop-budget";
+    let send_task = tokio::spawn({
+        let engine = engine.clone();
+        async move {
+            engine
+                .send_message_inner(
+                    Some(thread_id),
+                    "hello",
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    true,
+                )
+                .await
+        }
+    });
+
+    let ended = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        loop {
+            match events.recv().await {
+                Ok(AgentEvent::Done {
+                    thread_id: event_thread_id,
+                    ..
+                }) if event_thread_id == thread_id => break Ok(()),
+                Ok(AgentEvent::Error {
+                    thread_id: event_thread_id,
+                    message,
+                }) if event_thread_id == thread_id => break Err(message),
+                _ => {}
+            }
+        }
+    })
+    .await
+    .expect("the turn should end");
+    send_task.abort();
+
+    assert_eq!(
+        ended,
+        Ok(()),
+        "waiting out a usage limit is not a tool round and must not end the turn with a loop-limit error"
+    );
+    assert_eq!(request_counter.load(Ordering::SeqCst), 4);
+}

@@ -55,6 +55,7 @@ pub const PROVIDER_ID_TOGETHER: &str = "together";
 pub const PROVIDER_ID_XIAOMI_MIMO: &str = "xiaomi-mimo";
 pub const PROVIDER_ID_XIAOMI_MIMO_TOKEN_PLAN: &str = "xiaomi-mimo-token-plan";
 pub const PROVIDER_ID_XAI: &str = "xai";
+pub const PROVIDER_ID_MUSE: &str = "muse";
 pub const PROVIDER_ID_Z_AI: &str = "z.ai";
 pub const PROVIDER_ID_Z_AI_CODING_PLAN: &str = "z.ai-coding-plan";
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { RefreshButton } from "@/zorai/shell/RefreshButton";
-import { fetchAgentTasks, type AgentQueueTask } from "@/lib/agentTaskQueue";
+import { fetchAgentTasksFiltered, type AgentQueueTask } from "@/lib/agentTaskQueue";
 import { fetchThreadWorkContext } from "@/lib/agentWorkContext";
 import { getDataDir, listPersistedDir } from "@/lib/persistence";
 import { useThreadFilePreview } from "../threads/ThreadFilePreviewContext";
@@ -114,7 +114,7 @@ export function GoalWorkspacePanel({
 
     const refreshTasks = async () => {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-      const tasks = (await fetchAgentTasks()).filter((task) => task.goal_run_id === run.id);
+      const tasks = await fetchAgentTasksFiltered({ goalRunId: run.id });
       if (!cancelled) {
         setGoalTasks((current) => (
           taskRenderFingerprint(current) === taskRenderFingerprint(tasks) ? current : tasks

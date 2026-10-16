@@ -137,6 +137,22 @@ pub(super) fn known_models_for_provider_auth(
             ("grok-4", "Grok 4", 256_000),
             ("grok-code-fast-1", "Grok Code Fast 1", 256_000),
         ],
+        PROVIDER_ID_MUSE => &[
+            ("muse-spark-1.3", "Muse Spark 1.3", 1_048_576),
+            ("muse-wonder-1.0", "Muse Wonder 1.0", 1_048_576),
+            (
+                "muse-spark-1.3-contributor",
+                "Muse Spark 1.3 Contributor",
+                1_048_576,
+            ),
+            ("muse-spark-1.2", "Muse Spark 1.2", 1_048_576),
+            (
+                "muse-spark-1.2-contributor",
+                "Muse Spark 1.2 Contributor",
+                1_048_576,
+            ),
+            ("muse-spark-1.1", "Muse Spark 1.1", 1_048_576),
+        ],
         PROVIDER_ID_ELEVENLABS => &[
             ("scribe_v2", "Scribe v2", 0),
             ("eleven_multilingual_v2", "Eleven Multilingual v2", 0),

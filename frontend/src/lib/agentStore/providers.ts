@@ -65,6 +65,15 @@ const OPENAI_CHATGPT_SUBSCRIPTION_MODELS: ModelDefinition[] = [
   { id: "gpt-5.1-codex-mini", name: "GPT-5.1 Codex Mini", contextWindow: 400_000, modalities: M_TI },
 ];
 
+const MUSE_MODELS: ModelDefinition[] = [
+  { id: "muse-spark-1.3", name: "Muse Spark 1.3", contextWindow: 1_048_576, modalities: M_MULTI },
+  { id: "muse-wonder-1.0", name: "Muse Wonder 1.0", contextWindow: 1_048_576, modalities: M_MULTI },
+  { id: "muse-spark-1.3-contributor", name: "Muse Spark 1.3 Contributor", contextWindow: 1_048_576, modalities: M_MULTI },
+  { id: "muse-spark-1.2", name: "Muse Spark 1.2", contextWindow: 1_048_576, modalities: M_MULTI },
+  { id: "muse-spark-1.2-contributor", name: "Muse Spark 1.2 Contributor", contextWindow: 1_048_576, modalities: M_MULTI },
+  { id: "muse-spark-1.1", name: "Muse Spark 1.1", contextWindow: 1_048_576, modalities: M_MULTI },
+];
+
 const XAI_MODELS: ModelDefinition[] = [
   { id: "grok-4.7", name: "Grok 4.7", contextWindow: 500_000, modalities: M_TI },
   { id: "grok-4.6", name: "Grok 4.6", contextWindow: 500_000, modalities: M_TI },
@@ -470,6 +479,7 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
   { id: "deepseek", name: "DeepSeek", defaultBaseUrl: "https://api.deepseek.com", defaultModel: "deepseek-v4-pro", apiType: "openai", authMethod: "bearer", models: DEEPSEEK_MODELS, supportsModelFetch: true, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: false },
   { id: "gemini", name: "Gemini", defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta", defaultModel: "gemini-3.8-flash", apiType: "gemini", authMethod: "x-goog-api-key", models: GEMINI_MODELS, supportsModelFetch: false, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
   { id: "xai", name: "xAI", defaultBaseUrl: "https://api.x.ai/v1", defaultModel: "grok-4.7", apiType: "openai", authMethod: "bearer", models: XAI_MODELS, supportsModelFetch: true, supportedTransports: RESPONSES_AND_CHAT_TRANSPORTS, defaultTransport: "responses", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
+  { id: "muse", name: "Muse", defaultBaseUrl: "https://api.meta.ai/v1", defaultModel: "muse-spark-1.3", apiType: "openai", authMethod: "bearer", models: MUSE_MODELS, supportsModelFetch: true, supportedTransports: RESPONSES_AND_CHAT_TRANSPORTS, defaultTransport: "responses", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
   { id: "elevenlabs", name: "ElevenLabs", defaultBaseUrl: "https://api.elevenlabs.io", defaultModel: "scribe_v2", apiType: "openai", authMethod: "xi-api-key", models: ELEVENLABS_MODELS, supportsModelFetch: false, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: false },
   { id: "azure-openai", name: "Azure OpenAI", defaultBaseUrl: "https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1", defaultModel: "", apiType: "openai", authMethod: "bearer", models: EMPTY_MODELS, supportsModelFetch: true, supportedTransports: RESPONSES_AND_CHAT_TRANSPORTS, defaultTransport: "responses", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
   { id: "github-copilot", name: "GitHub Copilot", defaultBaseUrl: "https://api.githubcopilot.com", defaultModel: "gpt-5.4", apiType: "openai", authMethod: "bearer", models: GITHUB_COPILOT_MODELS, supportsModelFetch: true, supportedTransports: RESPONSES_CHAT_AND_ANTHROPIC_TRANSPORTS, defaultTransport: "responses", supportedAuthSources: GITHUB_COPILOT_AUTH_SOURCES, defaultAuthSource: "github_copilot", supportsResponseContinuity: true },

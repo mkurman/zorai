@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import { useAgentStore, type AgentMessage, type AgentThread } from "@/lib/agentStore";
 import { useOperatorQuestionStore } from "@/lib/operatorQuestionStore";
-import { fetchAgentTasks, type AgentQueueTask } from "@/lib/agentTaskQueue";
+import { fetchAgentTasksFiltered, type AgentQueueTask } from "@/lib/agentTaskQueue";
 import { useWorkspaceContextStore } from "@/lib/workspaceContextStore";
 import { ThreadsView } from "../threads/ThreadsView";
 import { classifyThreadActivityMessage } from "../threads/threadActivityModel";
@@ -55,9 +55,13 @@ export function CodeAgentPane() {
     setError(null);
     try {
       await useWorkspaceContextStore.getState().hydrate();
+      const storeThreads = useAgentStore.getState().threads;
+      const relatedThreadIds = projectThreadIds.map((id) => (
+        storeThreads.find((thread) => thread.id === id)?.daemonThreadId?.trim() || id
+      ));
       const [nextThreads, nextTasks] = await Promise.all([
         fetchThreadList({ includeInternal: true }),
-        fetchAgentTasks(),
+        relatedThreadIds.length > 0 ? fetchAgentTasksFiltered({ relatedThreadIds }) : Promise.resolve([]),
       ]);
       setDaemonThreads(nextThreads);
       setTasks(nextTasks);

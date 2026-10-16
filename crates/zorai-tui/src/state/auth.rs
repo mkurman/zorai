@@ -24,6 +24,8 @@ pub struct AuthState {
     pub login_target: Option<String>,
     pub actions_focused: bool,
     pub action_cursor: usize,
+    pub query: String,
+    pub searching: bool,
 }
 
 impl AuthState {
@@ -39,7 +41,21 @@ impl AuthState {
             login_target: None,
             actions_focused: false,
             action_cursor: 0,
+            query: String::new(),
+            searching: false,
         }
+    }
+
+    pub fn visible_entries(&self) -> Vec<&ProviderAuthEntry> {
+        let needle = self.query.trim().to_lowercase();
+        self.entries
+            .iter()
+            .filter(|entry| {
+                needle.is_empty()
+                    || entry.provider_name.to_lowercase().contains(&needle)
+                    || entry.provider_id.to_lowercase().contains(&needle)
+            })
+            .collect()
     }
 }
 
@@ -58,6 +74,9 @@ pub enum AuthAction {
     LoginKeyBackspace,
     ConfirmLogin,
     Logout(String),
+    SearchChar(char),
+    SearchBackspace,
+    ClearSearch,
 }
 
 impl AuthState {
@@ -71,8 +90,9 @@ impl AuthState {
                         .iter()
                         .any(|entry| &entry.provider_id == provider_id)
                 });
-                if self.selected >= self.entries.len() {
-                    self.selected = self.entries.len().saturating_sub(1);
+                let visible = self.visible_entries().len();
+                if self.selected >= visible {
+                    self.selected = visible.saturating_sub(1);
                 }
             }
             AuthAction::ValidationResult {
@@ -92,7 +112,7 @@ impl AuthState {
                     .insert(provider_id, (valid, message));
             }
             AuthAction::Select(idx) => {
-                if idx < self.entries.len() {
+                if idx < self.visible_entries().len() {
                     self.selected = idx;
                 }
             }
@@ -141,6 +161,22 @@ impl AuthState {
                 self.login_cursor = 0;
             }
             AuthAction::Logout(_) => {}
+            AuthAction::SearchChar(c) => {
+                self.query.push(c);
+                self.selected = 0;
+                self.actions_focused = false;
+            }
+            AuthAction::SearchBackspace => {
+                self.query.pop();
+                self.selected = 0;
+                self.actions_focused = false;
+            }
+            AuthAction::ClearSearch => {
+                self.query.clear();
+                self.searching = false;
+                self.selected = 0;
+                self.actions_focused = false;
+            }
         }
     }
 }

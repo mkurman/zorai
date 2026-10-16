@@ -2158,6 +2158,54 @@
   line-height: 1.45;
 }
 
+.zorai-spawned-card__heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.zorai-spawned-card__heading strong {
+  overflow-wrap: anywhere;
+}
+
+.zorai-spawned-card__info {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--zorai-border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--zorai-muted);
+  font: italic 600 var(--text-2xs)/1 Georgia, serif;
+  cursor: default;
+}
+
+.zorai-spawned-card__popover {
+  position: fixed;
+  z-index: 120;
+  padding: 8px 10px;
+  border: 1px solid var(--zorai-border-strong);
+  border-radius: 8px;
+  background: var(--zorai-bg-panel);
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--shade) 55%, transparent);
+  color: var(--zorai-text);
+  font-size: var(--text-2xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
+.zorai-spawned-card__info:hover,
+.zorai-spawned-card__info:focus-visible {
+  border-color: var(--zorai-accent);
+  color: var(--zorai-accent);
+}
+
 .zorai-spawned-card span,
 .zorai-spawned-card__session-id,
 .zorai-spawned-card__runtime-label {
@@ -3463,7 +3511,6 @@
   gap: 12px;
   padding: 14px 26px 16px;
   border-top: 1px solid var(--zorai-accent);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-surface) 96%, transparent), color-mix(in srgb, var(--shade) 98%, transparent));
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   box-shadow: 0 -12px 32px color-mix(in srgb, var(--shade) 45%, transparent);

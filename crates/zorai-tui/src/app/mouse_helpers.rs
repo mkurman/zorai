@@ -1030,7 +1030,7 @@ impl TuiModel {
                                 return;
                             }
                             self.auth.selected =
-                                index.min(self.auth.entries.len().saturating_sub(1));
+                                index.min(self.auth.visible_entries().len().saturating_sub(1));
                             self.auth.actions_focused = false;
                         }
                         Some(widgets::settings::SettingsHitTarget::AuthAction {
@@ -1041,7 +1041,7 @@ impl TuiModel {
                                 return;
                             }
                             self.auth.selected =
-                                index.min(self.auth.entries.len().saturating_sub(1));
+                                index.min(self.auth.visible_entries().len().saturating_sub(1));
                             self.auth.actions_focused = true;
                             self.auth.action_cursor = match action {
                                 widgets::settings::AuthTabAction::Primary => 0,

@@ -119,6 +119,16 @@ pub(super) enum AgentBridgeCommand {
         task_id: String,
     },
     ListTasks,
+    ListTasksFiltered {
+        #[serde(default)]
+        related_thread_ids: Vec<String>,
+        #[serde(default)]
+        goal_run_id: Option<String>,
+        #[serde(default)]
+        active_only: bool,
+        #[serde(default)]
+        limit: Option<usize>,
+    },
     ListRuns {
         #[serde(default)]
         parent_thread_id: Option<String>,

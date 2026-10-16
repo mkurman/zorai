@@ -13,7 +13,9 @@ pub(crate) use model_handles::{
     ensure_goal_slug, ensure_payload_slug, lookup_operation_id, model_operation_id,
     resolve_goal_id, resolve_payload_id,
 };
-pub(crate) use tools::{execute_answer_child, execute_ask_parent, execute_note_to_child};
+pub(crate) use tools::{
+    execute_answer_child, execute_ask_parent, execute_note_to_child, execute_retry_subagent,
+};
 
 /// blocked_reason prefix that marks a task as blocked on an open `ask_parent`.
 /// stalled_turns classification exempts tasks whose reason starts with this.
@@ -214,6 +216,58 @@ async fn unblock_child_task(agent: &AgentEngine, child: &mut AgentTask) -> bool 
     child.last_error = None;
     child.next_retry_at = None;
     true
+}
+
+pub(crate) async fn requeue_failed_spawned_subagent(
+    agent: &AgentEngine,
+    child: &AgentTask,
+    log_message: &str,
+) -> Result<AgentTask> {
+    if !child.is_spawned_subagent() {
+        anyhow::bail!("task `{}` is not a spawned subagent", child.id);
+    }
+    if child.status != TaskStatus::Failed {
+        anyhow::bail!(
+            "only failed subagents can be retried; task `{}` is {:?}",
+            child.id,
+            child.status
+        );
+    }
+    let mut updated = child.clone();
+    updated.status = TaskStatus::Queued;
+    updated.progress = 0;
+    updated.retry_count = 0;
+    updated.started_at = None;
+    updated.completed_at = None;
+    updated.result = None;
+    updated.error = None;
+    updated.last_error = None;
+    updated.blocked_reason = None;
+    updated.next_retry_at = None;
+    updated.lane_id = None;
+    if let Some(contract) = updated.completion_contract.as_mut() {
+        contract.child_result = None;
+    }
+    updated.logs.push(make_task_log_entry(
+        updated.retry_count,
+        TaskLogLevel::Info,
+        LOG_PHASE,
+        log_message,
+        child.last_error.clone().or_else(|| child.error.clone()),
+    ));
+    agent
+        .subagent_completion_continuations_issued
+        .lock()
+        .await
+        .remove(&updated.id);
+    {
+        let mut tasks = agent.tasks.lock().await;
+        if !tasks.iter().any(|task| task.id == updated.id) {
+            tasks.push_back(updated.clone());
+        }
+    }
+    persist_task_update(agent, &updated, Some("Subagent retry queued".into())).await?;
+    Ok(updated)
 }
 
 fn notes_cursor_after_eviction(delivered: usize, evicted: usize) -> usize {

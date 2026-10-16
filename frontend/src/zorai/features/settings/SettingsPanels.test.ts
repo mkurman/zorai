@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   conciergeReasoningEffortOptions,
+  filterProviderAuthStates,
   normalizeConciergeReasoningEffortForUi,
   serializeConciergeReasoningEffortFromUi,
 } from "./SettingsPanels";
@@ -41,5 +42,22 @@ describe("Rarog settings panel", () => {
 
   it("offers DuckDuckGo safe search settings", () => {
     expect(duckDuckGoSafeSearchOptions).toEqual(["off", "moderate", "strict"]);
+  });
+});
+
+describe("Auth settings panel", () => {
+  const states = [
+    { provider_id: "anthropic", provider_name: "Anthropic" },
+    { provider_id: "openrouter", provider_name: "OpenRouter" },
+    { provider_id: "custom", provider_name: "Custom" },
+  ];
+
+  it("keeps the daemon's name order when no search is entered", () => {
+    expect(filterProviderAuthStates(states, "  ")).toEqual(states);
+  });
+
+  it("matches providers by display name or id, ignoring case", () => {
+    expect(filterProviderAuthStates(states, "ROUTER").map((state) => state.provider_id)).toEqual(["openrouter"]);
+    expect(filterProviderAuthStates(states, "custom").map((state) => state.provider_id)).toEqual(["custom"]);
   });
 });

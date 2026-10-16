@@ -444,6 +444,12 @@ impl AgentEngine {
             });
         }
 
+        states.sort_by_cached_key(|state| {
+            (
+                state.provider_id == zorai_shared::providers::PROVIDER_ID_CUSTOM,
+                state.provider_name.to_lowercase(),
+            )
+        });
         states
     }
 }

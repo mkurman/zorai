@@ -28,6 +28,7 @@ pub(crate) async fn dispatch_part4(
             | ClientMessage::AgentAddTask { .. }
             | ClientMessage::AgentCancelTask { .. }
             | ClientMessage::AgentListTasks
+            | ClientMessage::AgentListTasksFiltered { .. }
             | ClientMessage::AgentListRuns
             | ClientMessage::AgentListRunsForParentThread { .. }
             | ClientMessage::AgentGetRun { .. }
@@ -349,6 +350,29 @@ pub(crate) async fn dispatch_part4(
                 json_len,
                 "dispatch: AgentListTasks done"
             );
+        }
+
+        ClientMessage::AgentListTasksFiltered {
+            related_thread_ids,
+            goal_run_id,
+            active_only,
+            limit,
+        } => {
+            let (tasks, truncated) = agent
+                .list_tasks_filtered_capped_for_ipc(
+                    &related_thread_ids,
+                    goal_run_id,
+                    active_only,
+                    limit,
+                )
+                .await;
+            if truncated {
+                tracing::warn!("truncated filtered task list to fit IPC frame limit");
+            }
+            let json = serde_json::to_string(&tasks).unwrap_or_default();
+            framed
+                .send(DaemonMessage::AgentTaskList { tasks_json: json })
+                .await?;
         }
 
         ClientMessage::AgentListRuns => {

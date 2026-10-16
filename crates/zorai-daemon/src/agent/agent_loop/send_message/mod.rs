@@ -334,12 +334,13 @@ impl AgentEngine {
         let mut record_operator = initial_record_operator;
         let mut reuse_existing_user_message = initial_reuse_existing_user_message;
         let mut scheduled_retry_cycles = 0u32;
+        let mut retained_stream: Option<(String, u64)> = None;
         if let Some(thread_id) = thread_id.as_deref() {
             self.clear_operator_stream_stop(thread_id).await;
         }
 
         loop {
-            let runner = SendMessageRunner::initialize(
+            let initialized = SendMessageRunner::initialize(
                 self,
                 thread_id.as_deref(),
                 stored_user_content,
@@ -353,14 +354,34 @@ impl AgentEngine {
                 reuse_existing_user_message,
                 scheduled_retry_cycles,
             )
-            .await?;
-            let outcome = Box::pin(runner.run()).await?;
+            .await;
+            let runner = match initialized {
+                Ok(runner) => runner,
+                Err(error) => {
+                    if let Some((retained_thread_id, retained_generation)) = retained_stream {
+                        self.finish_stream_cancellation(&retained_thread_id, retained_generation)
+                            .await;
+                    }
+                    return Err(error);
+                }
+            };
+            let runner_thread_id = runner.tid.clone();
+            let runner_generation = runner.stream_generation;
+            let outcome = match Box::pin(runner.run()).await {
+                Ok(outcome) => outcome,
+                Err(error) => {
+                    self.finish_stream_cancellation(&runner_thread_id, runner_generation)
+                        .await;
+                    return Err(error);
+                }
+            };
             if let Some(retry) = outcome.fresh_runner_retry {
                 if self.stream_cancellation_requested(&outcome.thread_id).await {
                     self.finish_stream_cancellation(&outcome.thread_id, outcome.stream_generation)
                         .await;
                     return Ok(outcome);
                 }
+                retained_stream = Some((outcome.thread_id.clone(), outcome.stream_generation));
                 thread_id = Some(outcome.thread_id.clone());
                 record_operator = false;
                 reuse_existing_user_message = true;
@@ -553,6 +574,9 @@ impl<'a> SendMessageRunner<'a> {
                 }
             };
             if retry_timed_out {
+                if iteration.retry_loop {
+                    self.loop_count = self.loop_count.saturating_sub(1);
+                }
                 continue;
             }
             if iteration.final_chunk.is_some() {

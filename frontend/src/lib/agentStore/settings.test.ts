@@ -6,6 +6,14 @@ import {
   normalizeAgentSettingsFromSource,
 } from "./settings";
 
+test("Muse defaults use Model API settings", () => {
+  expect(DEFAULT_AGENT_SETTINGS.muse).toMatchObject({
+    base_url: "https://api.meta.ai/v1",
+    model: "muse-spark-1.3",
+    api_transport: "responses",
+  });
+});
+
 test("xAI defaults use hosted settings", () => {
   expect(DEFAULT_AGENT_SETTINGS.xai).toMatchObject({
     base_url: "https://api.x.ai/v1",

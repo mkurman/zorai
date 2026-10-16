@@ -884,6 +884,7 @@ declare global {
         writeClipboardText?: (text: string) => Promise<void>;
         agentResolveTaskApproval?: (approvalId: string, decision: string) => Promise<unknown>;
         agentListTasks?: () => Promise<unknown[]>;
+        agentListTasksFiltered?: (filter: { relatedThreadIds?: string[]; goalRunId?: string | null; activeOnly?: boolean; limit?: number }) => Promise<unknown[]>;
         sendDiscordMessage?: (payload: { token: string; channelId?: string; userId?: string; message: string }) => Promise<{ ok?: boolean; error?: string; channelId?: string; userId?: string; destination?: string }>;
         whatsappSend?: (jid: string, message: string) => Promise<{ ok?: boolean; error?: string }>;
         whatsappConnect?: () => Promise<{ ok?: boolean; error?: string }>;
