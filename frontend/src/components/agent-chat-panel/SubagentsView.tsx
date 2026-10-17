@@ -100,7 +100,7 @@ export function SubagentsView({ onOpenThreadView, onOpenTasksView }: SubagentsVi
 
     const refreshRuns = useCallback(async () => {
         const result = await fetchAgentRuns();
-        setRuns((current) => sameAgentRunSnapshot(current, result) ? current : result);
+        if (!sameAgentRunSnapshot(runsRef.current, result)) setRuns(result);
     }, []);
 
     const loadCollaborationSessions = useCallback(async () => {

@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
@@ -37,6 +38,9 @@ const renderRoot = (): void => {
   );
   // Let the first paint land before fading the splash out.
   requestAnimationFrame(() => requestAnimationFrame(dismissBootSplash));
+  if (import.meta.env.DEV) {
+    window.setInterval(() => performance.clearMeasures(), 60_000);
+  }
 };
 
 async function bootstrap() {

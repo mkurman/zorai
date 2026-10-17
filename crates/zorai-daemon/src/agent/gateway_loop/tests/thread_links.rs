@@ -144,6 +144,32 @@ async fn unlinking_returns_the_chat_to_gateway_defaults() {
     fs::remove_dir_all(&root).ok();
 }
 
+#[tokio::test]
+async fn gateway_chat_list_reads_titles_of_threads_that_are_not_in_memory() {
+    let (engine, _rx, root) = linked_engine("gateway-chat-list-titles").await;
+    engine
+        .persist_gateway_fast_path_exchange("Telegram:42", &telegram_message("hi"), "Ready")
+        .await
+        .expect("seed chat");
+    let gateway_thread = engine
+        .gateway_threads
+        .read()
+        .await
+        .get("Telegram:42")
+        .cloned()
+        .expect("gateway thread bound");
+    let gateway_title = engine.get_thread(&gateway_thread).await.expect("thread").title;
+    engine.threads.write().await.remove(&gateway_thread);
+
+    let chats = engine.list_gateway_chats().await.expect("list chats");
+    let chat = chats.iter().find(|chat| chat.channel_key == "Telegram:42").expect("chat listed");
+    assert_eq!(chat.thread_id.as_deref(), Some(gateway_thread.as_str()));
+    assert_eq!(chat.thread_title.as_deref(), Some(gateway_title.as_str()));
+    assert_eq!(chat.last_thread_id, gateway_thread);
+    assert_eq!(chat.last_thread_title.as_deref(), Some(gateway_title.as_str()));
+    fs::remove_dir_all(&root).ok();
+}
+
 #[test]
 fn per_platform_default_agent_falls_back_to_the_global_default() {
     let mut gateway = GatewayConfig {

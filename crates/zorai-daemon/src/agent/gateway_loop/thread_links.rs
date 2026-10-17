@@ -34,13 +34,10 @@ impl AgentEngine {
             };
             let thread_id = bindings.get(&channel_key).cloned();
             let thread_title = match thread_id.as_deref() {
-                Some(id) => self.get_thread(id).await.map(|thread| thread.title),
+                Some(id) => self.gateway_chat_thread_title(id).await,
                 None => None,
             };
-            let last_thread_title = self
-                .get_thread(&last_thread_id)
-                .await
-                .map(|thread| thread.title);
+            let last_thread_title = self.gateway_chat_thread_title(&last_thread_id).await;
             chats.push(GatewayChatInfo {
                 platform: platform.to_string(),
                 channel_id: channel_id.to_string(),
@@ -53,6 +50,18 @@ impl AgentEngine {
             });
         }
         Ok(chats)
+    }
+
+    async fn gateway_chat_thread_title(&self, thread_id: &str) -> Option<String> {
+        if let Some(thread) = self.threads.read().await.get(thread_id) {
+            return Some(thread.title.clone());
+        }
+        self.history
+            .get_thread(thread_id)
+            .await
+            .ok()
+            .flatten()
+            .map(|thread| thread.title)
     }
 
     pub async fn link_thread_to_gateway_chat(

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { KATEX_DELIMITERS, markdownRenderMode, protectMathSegments } from "./markdown";
+import { KATEX_DELIMITERS, isRelativeFileHref, localFilePathFromHref, markdownRenderMode, protectMathSegments } from "./markdown";
 
 describe("markdownRenderMode", () => {
   it("skips markdown while streaming so each token does not re-parse the whole bubble", () => {
@@ -56,5 +56,44 @@ describe("KaTeX delimiters", () => {
     const inlineIndex = KATEX_DELIMITERS.findIndex(({ left }) => left === "$");
     expect(displayIndex).toBeGreaterThanOrEqual(0);
     expect(inlineIndex).toBeGreaterThan(displayIndex);
+  });
+});
+
+describe("localFilePathFromHref", () => {
+  it("opens local files from thread links in the Zorai preview instead of the OS", () => {
+    expect(localFilePathFromHref("/home/op/report.md")).toBe("/home/op/report.md");
+    expect(localFilePathFromHref("file:///home/op/My%20Notes.md")).toBe("/home/op/My Notes.md");
+    expect(localFilePathFromHref("/mnt/e/repo/src/main.rs:42")).toBe("/mnt/e/repo/src/main.rs");
+    expect(localFilePathFromHref("/mnt/e/repo/README.md#setup")).toBe("/mnt/e/repo/README.md");
+    expect(localFilePathFromHref("C:\\work\\plan.md")).toBe("C:\\work\\plan.md");
+    expect(localFilePathFromHref("file:///C:/work/plan.md")).toBe("C:/work/plan.md");
+  });
+
+  it("leaves web links and unresolvable relative paths to the browser", () => {
+    expect(localFilePathFromHref("https://example.com/a.md")).toBeNull();
+    expect(localFilePathFromHref("//cdn.example.com/a.js")).toBeNull();
+    expect(localFilePathFromHref("mailto:op@example.com")).toBeNull();
+    expect(localFilePathFromHref("docs/plan.md")).toBeNull();
+    expect(localFilePathFromHref(undefined)).toBeNull();
+  });
+
+  it("resolves agent links written relative to the thread workspace", () => {
+    const root = "/mnt/e/gitlab/ai/clinical-gym";
+    expect(localFilePathFromHref(
+      "knowledge/batches/sixth/_audit/clinical-review-validation.parent.json",
+      root,
+    )).toBe("/mnt/e/gitlab/ai/clinical-gym/knowledge/batches/sixth/_audit/clinical-review-validation.parent.json");
+    expect(localFilePathFromHref("./docs/../README.md#usage", `${root}/`)).toBe("/mnt/e/gitlab/ai/clinical-gym/README.md");
+    expect(localFilePathFromHref("src/main.rs:12", root)).toBe("/mnt/e/gitlab/ai/clinical-gym/src/main.rs");
+    expect(localFilePathFromHref("My%20Notes.md", root)).toBe("/mnt/e/gitlab/ai/clinical-gym/My Notes.md");
+  });
+
+  it("treats only scheme-less, non-anchor links as relative files", () => {
+    expect(isRelativeFileHref("knowledge/review.md")).toBe(true);
+    expect(isRelativeFileHref("../review.md")).toBe(true);
+    expect(isRelativeFileHref("#section")).toBe(false);
+    expect(isRelativeFileHref("https://example.com")).toBe(false);
+    expect(isRelativeFileHref("mailto:op@example.com")).toBe(false);
+    expect(isRelativeFileHref("/abs/path.md")).toBe(false);
   });
 });

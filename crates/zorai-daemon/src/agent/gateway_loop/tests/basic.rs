@@ -203,9 +203,7 @@ fn gateway_prompt_tells_active_responder_not_to_handoff_to_itself() {
 
 #[test]
 fn gateway_high_reasoning_timeout_budgets_are_extended() {
-    assert_eq!(gateway_agent_timeout_for_reasoning("high").as_secs(), 420);
     assert_eq!(gateway_stream_timeout_for_reasoning("high").as_secs(), 300);
-    assert_eq!(gateway_agent_timeout_for_reasoning("off").as_secs(), 120);
     assert_eq!(gateway_stream_timeout_for_reasoning("off").as_secs(), 120);
 }
 
@@ -635,7 +633,7 @@ fn daemon_gateway_loop_boxes_large_delivery_futures() {
     for required in [
         "Box::pin(self.process_gateway_messages()).await",
         "let triage = match Box::pin(tokio::time::timeout(",
-        "let send_result = Box::pin(tokio::time::timeout(",
+        "let send_result = Box::pin(self.send_message_with_agent_scope_override(",
     ] {
         assert!(
             production_source.contains(required),

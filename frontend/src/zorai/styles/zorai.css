@@ -1926,6 +1926,13 @@
   font-size: var(--text-sm);
 }
 
+.zorai-file-preview-overlay__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .zorai-workspace-editor { position: relative; }
 .zorai-code-preview { position: absolute; inset: 0; overflow: auto; padding: 18px 28px; background: var(--zorai-bg-panel); }
 .zorai-code-preview__markdown { max-width: 920px; margin: 0 auto; }
