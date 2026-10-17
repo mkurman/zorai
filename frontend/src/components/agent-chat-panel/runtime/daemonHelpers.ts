@@ -12,7 +12,7 @@ import { useAgentMissionStore } from "@/lib/agentMissionStore";
 import { getAgentBridge } from "@/lib/agentDaemonConfig";
 import { fetchThreadTodos } from "@/lib/agentTodos";
 import { useWorkspaceStore } from "@/lib/workspaceStore";
-import { resolveReactChatHistoryMessageLimit } from "@/lib/chatHistoryPageSize";
+import { MAX_TUI_CHAT_HISTORY_PAGE_SIZE, resolveReactChatHistoryMessageLimit } from "@/lib/chatHistoryPageSize";
 import { shouldFollowThreadHistoryBottom } from "./threadHistoryScroll";
 import type { GoalRun } from "@/lib/goalRuns";
 import type { Workspace } from "@/lib/types";
@@ -326,7 +326,7 @@ export async function loadDaemonThreadPageIntoLocalState({
 }
 
 export function trimFollowedThreadToHistoryWindow(localThreadId: string): boolean {
-  if (!shouldFollowThreadHistoryBottom()) return false;
+  if (localThreadId === useAgentStore.getState().activeThreadId && !shouldFollowThreadHistoryBottom()) return false;
   return trimDaemonThreadMessagesToLatestWindow({
     localThreadId,
     messageLimit: resolveReactChatHistoryMessageLimit(
@@ -388,7 +388,9 @@ function latestLogicalMessageWindow(messages: AgentMessage[], logicalLimit: numb
   let slots = 0;
   let start = messages.length;
   let previousWasTool = false;
+  const rowLimit = Math.max(logicalLimit, MAX_TUI_CHAT_HISTORY_PAGE_SIZE);
   for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages.length - index > rowLimit) break;
     const isTool = messages[index].role === "tool";
     if (!isTool || !previousWasTool) {
       slots += 1;

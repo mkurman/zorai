@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { fetchAgentTasksFiltered, type AgentQueueTask } from "@/lib/agentTaskQueue";
 import { fetchThreadWorkContext } from "@/lib/agentWorkContext";
@@ -60,6 +60,10 @@ export function GoalWorkspacePanel({
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [projectionFiles, setProjectionFiles] = useState<GoalProjectionFile[]>([]);
   const [goalTasks, setGoalTasks] = useState<AgentQueueTask[]>([]);
+  const projectionFilesRef = useRef(projectionFiles);
+  projectionFilesRef.current = projectionFiles;
+  const goalTasksRef = useRef(goalTasks);
+  goalTasksRef.current = goalTasks;
   const { openThreadFilePreview } = useThreadFilePreview();
   const fileThreadKey = useMemo(
     () => (run ? goalFileThreadIds(run, goalTasks).join("\n") : ""),
@@ -90,9 +94,7 @@ export function GoalWorkspacePanel({
       if (cancelled) return;
       const touched = goalFilesFromWorkContext(run.id, contexts.flatMap((context) => context.entries));
       const files = mergeGoalWorkspaceFiles(projection, touched);
-      setProjectionFiles((current) => (
-        goalFileFingerprint(current) === goalFileFingerprint(files) ? current : files
-      ));
+      if (goalFileFingerprint(projectionFilesRef.current) !== goalFileFingerprint(files)) setProjectionFiles(files);
     };
 
     void refreshFiles();
@@ -115,10 +117,8 @@ export function GoalWorkspacePanel({
     const refreshTasks = async () => {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       const tasks = await fetchAgentTasksFiltered({ goalRunId: run.id });
-      if (!cancelled) {
-        setGoalTasks((current) => (
-          taskRenderFingerprint(current) === taskRenderFingerprint(tasks) ? current : tasks
-        ));
+      if (!cancelled && taskRenderFingerprint(goalTasksRef.current) !== taskRenderFingerprint(tasks)) {
+        setGoalTasks(tasks);
       }
     };
     void refreshTasks();

@@ -1175,4 +1175,54 @@ describe("trimDaemonThreadMessagesToLatestWindow", () => {
     expect(useAgentStore.getState().messages["local-active"]).toHaveLength(100);
     resetThreadHistoryScrollStateForTest();
   });
+
+  it("keeps trimming background threads while the operator reads an earlier part of the open thread", () => {
+    useAgentStore.setState({
+      threads: [
+        ...useAgentStore.getState().threads,
+        { ...makeThread("local-background", "daemon-2"), messageCount: 100, loadedMessageStart: 0, loadedMessageEnd: 100 },
+      ],
+      messages: {
+        ...useAgentStore.getState().messages,
+        "local-background": Array.from({ length: 100 }, (_, index) => makeMessage(index)),
+      },
+      agentSettings: {
+        ...useAgentStore.getState().agentSettings,
+        react_chat_history_page_size: 25,
+      },
+    } as any);
+    setFollowThreadHistoryBottom(false);
+    const trimmed = trimFollowedThreadToHistoryWindow("local-background");
+    expect(trimmed).toBe(true);
+    expect(useAgentStore.getState().messages["local-background"]).toHaveLength(25);
+    expect(useAgentStore.getState().messages["local-active"]).toHaveLength(100);
+    resetThreadHistoryScrollStateForTest();
+  });
+
+  it("bounds a tool-only agent loop that never yields a separate logical slot", () => {
+    useAgentStore.setState({
+      threads: [{ ...makeThread("local-active", "daemon-1"), messageCount: 2001, loadedMessageStart: 0, loadedMessageEnd: 2001 }],
+      messages: {
+        "local-active": [
+          { ...makeMessage(0), id: "prompt", role: "user", content: "Run the overnight job" },
+          ...Array.from({ length: 2000 }, (_, index) => ({
+            ...makeMessage(index + 1),
+            id: `tool-${index}`,
+            role: "tool" as const,
+            content: `tool result ${index}`,
+            toolCallId: `call-${index}`,
+            toolName: "bash_command",
+            toolStatus: "done" as const,
+          })),
+        ],
+      },
+    } as any);
+
+    const trimmed = trimDaemonThreadMessagesToLatestWindow({ localThreadId: "local-active", messageLimit: 100 });
+
+    const messages = useAgentStore.getState().messages["local-active"] ?? [];
+    expect(trimmed).toBe(true);
+    expect(messages).toHaveLength(500);
+    expect(messages.at(-1)?.id).toBe("tool-1999");
+  });
 });

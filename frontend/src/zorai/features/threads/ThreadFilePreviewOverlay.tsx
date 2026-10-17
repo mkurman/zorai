@@ -145,9 +145,16 @@ export function ThreadFilePreviewOverlay() {
           <h2>{threadContextEntryDisplayPath(entry, shortenHomePath)}</h2>
           <span>Type: {entry.kind ?? "file"}</span>
         </div>
-        <button type="button" className="zorai-ghost-button zorai-file-preview-overlay__close" aria-label="Close preview" onClick={closeThreadFilePreview}>
-          x
-        </button>
+        <div className="zorai-file-preview-overlay__actions">
+          {getBridge()?.revealFsPath ? (
+            <button type="button" className="zorai-ghost-button" onClick={() => void getBridge()?.revealFsPath?.(entry.path)}>
+              {/mac/i.test(navigator.platform) ? "Reveal in Finder" : "Reveal in File Explorer"}
+            </button>
+          ) : null}
+          <button type="button" className="zorai-ghost-button zorai-file-preview-overlay__close" aria-label="Close preview" onClick={closeThreadFilePreview}>
+            x
+          </button>
+        </div>
       </header>
 
       <div className="zorai-file-preview-overlay__body">

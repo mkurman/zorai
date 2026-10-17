@@ -401,7 +401,6 @@ pub(super) fn build_gateway_agent_prompt(
 
 pub(super) const GATEWAY_TRIAGE_TIMEOUT_SECS: u64 = 12;
 pub(super) const GATEWAY_AGENT_TIMEOUT_SECS: u64 = 120;
-pub(super) const GATEWAY_AGENT_TIMEOUT_HIGH_REASONING_SECS: u64 = 420;
 pub(super) const GATEWAY_STREAM_TIMEOUT_HIGH_REASONING_SECS: u64 = 300;
 pub(super) const GATEWAY_SEND_RESULT_TIMEOUT_SECS: u64 = 180;
 pub(super) const GATEWAY_EVENT_DRAIN_INTERVAL_MS: u64 = 150;
@@ -411,14 +410,6 @@ fn is_high_reasoning_effort(effort: &str) -> bool {
         effort.trim().to_ascii_lowercase().as_str(),
         "high" | "very_high" | "xhigh" | "max"
     )
-}
-
-pub(super) fn gateway_agent_timeout_for_reasoning(effort: &str) -> std::time::Duration {
-    std::time::Duration::from_secs(if is_high_reasoning_effort(effort) {
-        GATEWAY_AGENT_TIMEOUT_HIGH_REASONING_SECS
-    } else {
-        GATEWAY_AGENT_TIMEOUT_SECS
-    })
 }
 
 pub(super) fn gateway_stream_timeout_for_reasoning(effort: &str) -> std::time::Duration {

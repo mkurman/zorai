@@ -28,7 +28,7 @@ export function useDelegatedSession(thread: SessionThreadIdentity | null | undef
       lastFetch = now;
       inFlight = true;
       void fetchAgentRuns().then((next) => {
-        if (!cancelled) setRuns((current) => sameAgentRunSnapshot(current, next) ? current : next);
+        if (!cancelled && !sameAgentRunSnapshot(runsRef.current, next)) setRuns(next);
       }).finally(() => {
         inFlight = false;
       });

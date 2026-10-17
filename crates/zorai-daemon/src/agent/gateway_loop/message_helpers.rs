@@ -634,25 +634,6 @@ impl AgentEngine {
             .await;
     }
 
-    pub(super) async fn send_gateway_timeout_fallback(
-        &self,
-        msg: &gateway::IncomingMessage,
-        reply_tool_name: &str,
-    ) {
-        let fallback_text = "I’m still processing your message and hit a timeout. Please send it again, or use !new to start a fresh session.";
-        let tool_result = self
-            .send_gateway_platform_tool("", "gateway_timeout", reply_tool_name, msg, fallback_text)
-            .await;
-        if tool_result.is_error {
-            tracing::error!(
-                platform = %msg.platform,
-                channel = %msg.channel,
-                error = %tool_result.content,
-                "gateway: failed to send timeout fallback message"
-            );
-        }
-    }
-
     pub(super) async fn handle_gateway_reset_command(
         &self,
         msg: &gateway::IncomingMessage,
@@ -870,21 +851,11 @@ impl AgentEngine {
         true
     }
 
-    pub(super) async fn gateway_timeout_budget(
-        &self,
-    ) -> (std::time::Duration, std::time::Duration) {
+    pub(super) async fn gateway_stream_timeout(&self) -> std::time::Duration {
         let config = self.config.read().await.clone();
         self.resolve_provider_config(&config)
-            .map(|provider| {
-                (
-                    gateway_agent_timeout_for_reasoning(&provider.reasoning_effort),
-                    gateway_stream_timeout_for_reasoning(&provider.reasoning_effort),
-                )
-            })
-            .unwrap_or((
-                std::time::Duration::from_secs(GATEWAY_AGENT_TIMEOUT_SECS),
-                std::time::Duration::from_secs(GATEWAY_AGENT_TIMEOUT_SECS),
-            ))
+            .map(|provider| gateway_stream_timeout_for_reasoning(&provider.reasoning_effort))
+            .unwrap_or(std::time::Duration::from_secs(GATEWAY_AGENT_TIMEOUT_SECS))
     }
 
     pub(super) async fn auto_send_gateway_response(
@@ -993,38 +964,25 @@ impl AgentEngine {
             reply_tool_name,
             active_responder_name.as_deref(),
         );
-        let gateway_timeout_budget = self.gateway_timeout_budget().await;
-        let send_result = Box::pin(tokio::time::timeout(
-            gateway_timeout_budget.0,
-            self.send_message_with_agent_scope_override(
-                Some(&thread_id),
-                &msg.content,
-                &enriched_prompt,
-                agent_scope,
-                gateway_timeout_budget.1,
-            ),
+        let stream_timeout = self.gateway_stream_timeout().await;
+        let send_result = Box::pin(self.send_message_with_agent_scope_override(
+            Some(&thread_id),
+            &msg.content,
+            &enriched_prompt,
+            agent_scope,
+            stream_timeout,
         ))
         .await;
 
         match send_result {
-            Err(_) => {
-                tracing::error!(
-                    platform = %msg.platform,
-                    channel = %msg.channel,
-                    timeout_secs = gateway_timeout_budget.0.as_secs(),
-                    "gateway: full agent response timed out"
-                );
-                self.send_gateway_timeout_fallback(msg, reply_tool_name)
-                    .await;
-            }
-            Ok(Err(e)) => {
+            Err(e) => {
                 tracing::error!(
                     platform = %msg.platform,
                     error = %e,
                     "gateway: failed to process incoming message"
                 );
             }
-            Ok(Ok(thread_id)) => {
+            Ok(thread_id) => {
                 {
                     let mut gateway_threads = self.gateway_threads.write().await;
                     if !gateway_threads.contains_key(channel_key) {

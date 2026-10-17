@@ -49,8 +49,10 @@ export function TaskTrayButton() {
             lastFetch = now;
             const next = await fetchAgentTasksFiltered(open ? { limit: TRAY_RECENT_TASK_LIMIT } : { activeOnly: true });
             if (!mounted) return;
-            setTasks((current) => sameTaskSnapshot(current, next) ? current : next.map(taskWithoutLogs));
-            setSelectedTaskId((current) => current ?? next[0]?.id ?? null);
+            if (sameTaskSnapshot(tasksRef.current, next)) return;
+            setTasks(next.map(taskWithoutLogs));
+            const firstTaskId = next[0]?.id ?? null;
+            setSelectedTaskId((current) => current ?? firstTaskId);
         };
 
         void refresh();

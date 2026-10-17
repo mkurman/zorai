@@ -1,4 +1,5 @@
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, useContext, useEffect, useMemo, useRef } from "react";
+import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -6,6 +7,11 @@ import renderMathInElement from "katex/contrib/auto-render";
 import "katex/dist/katex.min.css";
 import { FencedDataBlock, fencedBlockKind } from "@/components/data-viewers/FencedDataBlock";
 import { MarkdownTable, hastText } from "@/components/data-viewers/MarkdownTable";
+import { ThreadFilePreviewContext } from "@/zorai/features/threads/ThreadFilePreviewContext";
+import { getBridge } from "@/lib/bridge";
+import { useAgentStore } from "@/lib/agentStore";
+import { useWorkspaceContextStore } from "@/lib/workspaceContextStore";
+import { pushToast } from "@/lib/toastStore";
 
 export const KATEX_DELIMITERS = [
   { left: "$$", right: "$$", display: true },
@@ -20,8 +26,72 @@ export const KATEX_DELIMITERS = [
   { left: "$", right: "$", display: false },
 ] as const;
 
-const markdownComponents: Components = {
-  a: ({ href, children }) => (
+export function isRelativeFileHref(href: string | undefined): boolean {
+  if (!href) return false;
+  return !/^[A-Za-z][A-Za-z0-9+.-]*:/.test(href) && !/^[/#?\\]/.test(href);
+}
+
+export function localFilePathFromHref(href: string | undefined, root?: string | null): string | null {
+  if (!href) return null;
+  let path: string;
+  if (/^file:\/\//i.test(href)) {
+    try {
+      path = decodeURIComponent(new URL(href).pathname);
+    } catch {
+      return null;
+    }
+    if (/^\/[A-Za-z]:\//.test(path)) path = path.slice(1);
+  } else if ((href.startsWith("/") && !href.startsWith("//")) || /^[A-Za-z]:[\\/]/.test(href)) {
+    try {
+      path = decodeURIComponent(href);
+    } catch {
+      path = href;
+    }
+  } else if (isRelativeFileHref(href) && root) {
+    let relative: string;
+    try {
+      relative = decodeURIComponent(href);
+    } catch {
+      relative = href;
+    }
+    const segments = root.replace(/[\\/]+$/, "").split("/");
+    for (const segment of relative.replace(/[?#].*$/, "").split("/")) {
+      if (segment === "" || segment === ".") continue;
+      if (segment === "..") {
+        if (segments.length > 1) segments.pop();
+        continue;
+      }
+      segments.push(segment);
+    }
+    path = segments.join("/");
+  } else {
+    return null;
+  }
+  return path.replace(/#.*$/, "").replace(/:\d+(?::\d+)?$/, "") || null;
+}
+
+async function activeThreadWorkspaceRoot(): Promise<string | null> {
+  const { activeThreadId, threads } = useAgentStore.getState();
+  if (!activeThreadId) return null;
+  const localRoot = useWorkspaceContextStore.getState().byThreadId[activeThreadId]?.root;
+  if (localRoot) return localRoot;
+  const daemonThreadId = threads.find((thread) => thread.id === activeThreadId)?.daemonThreadId;
+  if (!daemonThreadId) return null;
+  const reply = await getBridge()?.agentGetThreadWorkspaceContext?.(daemonThreadId);
+  const root = (reply?.context as { root?: unknown } | null | undefined)?.root;
+  return typeof root === "string" && root ? root : null;
+}
+
+function MarkdownLink({ href, children }: { href?: string; children?: ReactNode }) {
+  const filePreview = useContext(ThreadFilePreviewContext);
+  const openPreview = (path: string) => filePreview?.openThreadFilePreview({
+    path,
+    kind: "artifact",
+    source: "message-link",
+    isText: true,
+    updatedAt: Date.now(),
+  });
+  return (
     <a
       href={href}
       target="_blank"
@@ -29,12 +99,32 @@ const markdownComponents: Components = {
       onClick={(event) => {
         if (!href) return;
         event.preventDefault();
+        if (filePreview && isRelativeFileHref(href)) {
+          void activeThreadWorkspaceRoot().then((root) => {
+            const resolved = localFilePathFromHref(href, root);
+            if (resolved) {
+              openPreview(resolved);
+            } else {
+              pushToast(`Cannot open ${href}: this thread has no workspace folder to resolve it against.`, "error");
+            }
+          });
+          return;
+        }
+        const localPath = filePreview ? localFilePathFromHref(href) : null;
+        if (localPath) {
+          openPreview(localPath);
+          return;
+        }
         window.open(href, "_blank", "noopener,noreferrer");
       }}
     >
       {children}
     </a>
-  ),
+  );
+}
+
+const markdownComponents: Components = {
+  a: ({ href, children }) => <MarkdownLink href={href}>{children}</MarkdownLink>,
   pre: ({ node, children }) => {
     const code = node?.children.find((child) => child.type === "element" && child.tagName === "code");
     const className = code && code.type === "element" ? code.properties.className : undefined;

@@ -615,7 +615,7 @@ export function useAgentChatPanelProviderValue(): {
     const runs = await fetchAgentRuns(activeDaemonThreadId);
     if (activeDaemonThreadIdRef.current !== activeDaemonThreadId) return;
     const next = runs.filter(isSubagentRun);
-    setSpawnedAgentRuns((current) => sameAgentRunSnapshot(current, next) ? current : next);
+    if (!sameAgentRunSnapshot(spawnedAgentRunsRef.current, next)) setSpawnedAgentRuns(next);
   }, [activeDaemonThreadId]);
 
   useEffect(() => {
