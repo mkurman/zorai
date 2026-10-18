@@ -331,7 +331,7 @@ const RESPONSES_CHAT_AND_ANTHROPIC_TRANSPORTS: ApiTransportMode[] = [
 ];
 const NATIVE_AND_CHAT_TRANSPORTS: ApiTransportMode[] = ["native_assistant", "chat_completions"];
 const CHAT_AND_ANTHROPIC_TRANSPORTS: ApiTransportMode[] = ["chat_completions", "anthropic_messages"];
-export const DEFAULT_PROVIDER_CONTEXT_WINDOW = 128_000;
+export const DEFAULT_PROVIDER_CONTEXT_WINDOW = 256_000;
 export const DEFAULT_CUSTOM_MODEL_CONTEXT_WINDOW = 264_000;
 
 function getCompatibilityModels(

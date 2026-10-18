@@ -24,7 +24,7 @@ function resolveWelesCompactionWindow(
 export function resolveCompactionTargetTokens(
   settings: ContextCompactionSettings,
 ): number {
-  const primaryWindow = Math.max(1, Number(settings.context_window_tokens || 128000));
+  const primaryWindow = Math.max(1, Number(settings.context_window_tokens || 256000));
   if (!settings.auto_compact_context) {
     return primaryWindow;
   }

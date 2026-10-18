@@ -55,7 +55,7 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
   const btnRef = useRef<HTMLButtonElement | null>(null);
 
   const contextWindowTokens = useMemo(() => {
-    if (!thread) return Math.max(1, Math.trunc((agentSettings as unknown as Record<string, unknown>).context_window_tokens as number || 128000));
+    if (!thread) return Math.max(1, Math.trunc((agentSettings as unknown as Record<string, unknown>).context_window_tokens as number || 256000));
     const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig);
     return profile.contextWindowTokens;
   }, [thread, subAgents, agentSettings, conciergeConfig]);

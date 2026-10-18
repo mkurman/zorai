@@ -864,7 +864,7 @@ pub(super) fn handle_modal_enter(model: &mut TuiModel, kind: modal::ModalKind) {
                             model.config.custom_model_name.clear();
                             model.config.custom_context_window_tokens = None;
                             model.config.context_window_tokens =
-                                model_context_window.unwrap_or(128_000);
+                                model_context_window.unwrap_or(256_000);
                         }
                         let previous_transport = model.config.api_transport.clone();
                         model.config.api_transport = model.provider_transport_snapshot(

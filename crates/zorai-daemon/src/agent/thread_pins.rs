@@ -62,9 +62,12 @@ pub(crate) fn pinned_for_compaction_budget_chars(
     config: &AgentConfig,
     provider_config: &ProviderConfig,
 ) -> usize {
-    provider_config
-        .context_window_tokens
-        .max(config.context_window_tokens)
+    let context_window_tokens = if provider_config.context_window_tokens > 0 {
+        provider_config.context_window_tokens
+    } else {
+        config.context_window_tokens
+    };
+    context_window_tokens
         .max(1)
         .saturating_mul(APPROX_CHARS_PER_TOKEN as u32)
         .saturating_div(PINNED_CONTEXT_BUDGET_DENOMINATOR as u32) as usize

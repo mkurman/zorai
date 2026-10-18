@@ -130,7 +130,7 @@ pub(crate) fn default_participant_observer_restore_window_hours() -> u32 {
     24
 }
 pub(crate) fn default_context_window_tokens() -> u32 {
-    128_000
+    256_000
 }
 pub(crate) fn default_compact_threshold_pct() -> u32 {
     80

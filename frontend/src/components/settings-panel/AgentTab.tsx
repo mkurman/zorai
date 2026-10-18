@@ -634,7 +634,7 @@ export function AgentTab({
                                     custom_model_name: nextCustomModelName,
                                     context_window_tokens: resolvedModel
                                         ? null
-                                        : DEFAULT_CUSTOM_MODEL_CONTEXT_WINDOW,
+                                        : details?.fetchedModel?.contextWindow || DEFAULT_CUSTOM_MODEL_CONTEXT_WINDOW,
                                 });
                                 const effects = getModelSelectionEffects({
                                     enableVisionTool: settings.enable_vision_tool,

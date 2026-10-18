@@ -171,5 +171,5 @@ function contextWindowForProvider(agentSettings: AgentSettings, providerId: stri
   if (typeof providerWindow === "number" && providerWindow > 0) {
     return Math.trunc(providerWindow);
   }
-  return Math.max(1, Math.trunc(agentSettings.context_window_tokens || 128000));
+  return Math.max(1, Math.trunc(agentSettings.context_window_tokens || 256000));
 }

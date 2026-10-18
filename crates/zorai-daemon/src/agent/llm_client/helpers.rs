@@ -514,7 +514,7 @@ pub async fn validate_provider_connection(
                 .iter()
                 .find(|model| model.id == def.default_model)
                 .map(|model| model.context_window)
-                .unwrap_or(128_000),
+                .unwrap_or(256_000),
             response_schema: None,
             stop_sequences: None,
             temperature: None,

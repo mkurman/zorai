@@ -110,13 +110,18 @@ export async function applyThreadProviderModel(
   thread: AgentThread,
   providerId: string,
   model: string,
+  contextWindowTokens?: number,
 ): Promise<void> {
   const nextModel = model.trim() || getDefaultModelForProvider(providerId as AgentProviderId);
+  const knownContextWindow = contextWindowTokens && contextWindowTokens > 0
+    ? clampContextWindowTokens(contextWindowTokens)
+    : null;
   const previous = snapshotThreadRuntimeOverlay(thread);
   const overlay = {
     ...previous,
     profileProvider: providerId,
     profileModel: nextModel,
+    ...(knownContextWindow ? { profileContextWindowTokens: knownContextWindow } : {}),
   };
   pinThreadRuntimeOverlay(thread.id, overlay);
   patchThreadProfile(thread.id, overlay);
@@ -124,6 +129,7 @@ export async function applyThreadProviderModel(
     await patchDaemonThreadExecutionProfile(thread, {
       provider: providerId,
       model: nextModel,
+      ...(knownContextWindow ? { context_window_tokens: knownContextWindow } : {}),
     });
   } catch (error) {
     restoreThreadRuntimeOverlay(thread.id, previous);

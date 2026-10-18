@@ -190,7 +190,7 @@ export function buildDaemonAgentConfig(
     code_review_commit_window: agentSettings.code_review_commit_window,
     context_window_tokens: providerConfig
       ? getEffectiveContextWindow(providerKey, providerConfig)
-      : 128000,
+      : 256000,
     search_provider: agentSettings.search_provider,
     duckduckgo_region: agentSettings.duckduckgo_region,
     duckduckgo_safe_search: agentSettings.duckduckgo_safe_search,

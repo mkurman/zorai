@@ -362,9 +362,10 @@ export function CodeThreadRuntimeSwitcher({ thread, variant = "toolbar" }: Props
                     base_url={providerConfig?.base_url}
                     api_key={providerConfig?.api_key}
                     auth_source={providerConfig?.auth_source}
-                    onChange={(nextModel: string) => {
+                    onChange={(nextModel, _name, details) => {
+                      const nextContextWindow = details?.predefinedModel?.contextWindow || details?.fetchedModel?.contextWindow;
                       setSelectedModel(nextModel);
-                      setSelectedContextWindow((current) => current ?? profile.contextWindowTokens);
+                      setSelectedContextWindow((current) => nextContextWindow || (current ?? profile.contextWindowTokens));
                     }}
                   />
                 </div>

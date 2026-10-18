@@ -35,7 +35,7 @@ export function CodeContextWindowMeter({ thread, messages }: Props) {
   const [autoBusy, setAutoBusy] = useState(false);
 
   const contextWindowTokens = useMemo(() => {
-    if (!thread) return Math.max(1, Math.trunc(agentSettings.context_window_tokens || 128000));
+    if (!thread) return Math.max(1, Math.trunc(agentSettings.context_window_tokens || 256000));
     const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig);
     return profile.contextWindowTokens;
   }, [thread, subAgents, agentSettings, conciergeConfig]);

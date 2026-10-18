@@ -7,13 +7,7 @@ pub(crate) fn compact_messages_for_request(
 ) -> Vec<AgentMessage> {
     let runtime_messages = active_request_messages(messages);
     let Some(candidate) = compaction_candidate(&runtime_messages, config, provider_config) else {
-        let model_window = model_context_window(
-            &config.provider,
-            &provider_config.model,
-            provider_config
-                .context_window_tokens
-                .max(config.context_window_tokens),
-        ) as usize;
+        let model_window = primary_context_window_tokens(config, provider_config);
         let current = predicted_request_tokens(&runtime_messages);
         if current > model_window {
             return hard_truncate_to_fit(&runtime_messages, model_window);
@@ -231,13 +225,12 @@ pub(crate) fn primary_context_window_tokens(
     config: &AgentConfig,
     provider_config: &ProviderConfig,
 ) -> usize {
-    model_context_window(
-        &config.provider,
-        &provider_config.model,
-        provider_config
-            .context_window_tokens
-            .max(config.context_window_tokens),
-    ) as usize
+    let configured_window = if provider_config.context_window_tokens > 0 {
+        provider_config.context_window_tokens
+    } else {
+        config.context_window_tokens
+    };
+    model_context_window(&config.provider, &provider_config.model, configured_window) as usize
 }
 
 pub(crate) fn effective_compaction_window_tokens(
