@@ -305,7 +305,7 @@ export function SubAgentsTab() {
                             type="number"
                             value={form.context_window_tokens}
                             onChange={(e) => setForm({ ...form, context_window_tokens: e.target.value })}
-                            placeholder="128000"
+                            placeholder="256000"
                         />
                     </Field>
                     {form.provider === "openrouter" ? (

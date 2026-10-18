@@ -187,7 +187,7 @@ function ModelPanel() {
             onChange={(value, customModelName, details) => updateProviderConfig({
               model: value,
               custom_model_name: customModelName && customModelName !== value ? customModelName : "",
-              context_window_tokens: details?.predefinedModel?.contextWindow ?? details?.fetchedModel?.contextWindow ?? activeProviderConfig.context_window_tokens,
+              context_window_tokens: details?.predefinedModel?.contextWindow || details?.fetchedModel?.contextWindow || activeProviderConfig.context_window_tokens,
             })}
             base_url={String(activeProviderConfig.base_url ?? "")}
             api_key={String(activeProviderConfig.api_key ?? "")}
@@ -507,7 +507,7 @@ function RarogContextField() {
   const initial = threads.find((thread) => {
     const agentId = canonicalThreadAgentId(thread.agent_name);
     return agentId === "rarog" || agentId === "concierge" || thread.daemonThreadId === "concierge";
-  })?.profileContextWindowTokens ?? agentSettings.context_window_tokens ?? 128000;
+  })?.profileContextWindowTokens ?? agentSettings.context_window_tokens ?? 256000;
   const [value, setValue] = useState(initial);
   return (
     <input
@@ -792,7 +792,7 @@ function AdvancedPanel() {
       api_key: providerConfig.api_key,
       auth_source: providerConfig.auth_source,
       api_transport: normalizeApiTransport(providerId, providerConfig.api_transport),
-      context_window_tokens: providerConfig.context_window_tokens ?? 128000,
+      context_window_tokens: providerConfig.context_window_tokens ?? 256000,
     });
   };
 
@@ -872,7 +872,7 @@ function AdvancedPanel() {
                 customName={customCompactionProviderConfig.custom_model_name}
                 onChange={(value, _customName, details) => updateCompactionCustom({
                   model: value,
-                  context_window_tokens: details?.predefinedModel?.contextWindow ?? details?.fetchedModel?.contextWindow ?? compaction.custom_model.context_window_tokens,
+                  context_window_tokens: details?.predefinedModel?.contextWindow || details?.fetchedModel?.contextWindow || compaction.custom_model.context_window_tokens,
                 })}
                 base_url={compaction.custom_model.base_url}
                 api_key={compaction.custom_model.api_key}

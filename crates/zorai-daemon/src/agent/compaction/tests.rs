@@ -785,6 +785,29 @@ fn compaction_triggers_on_measured_input_tokens_when_heuristic_underestimates() 
 }
 
 #[test]
+fn thread_model_window_is_not_raised_by_a_larger_global_window() {
+    let mut config = AgentConfig::default();
+    config.context_window_tokens = 1_000_000;
+    config.compact_threshold_pct = 80;
+    config.max_context_messages = 500;
+    config.keep_recent_on_compact = 1;
+    config.auto_compact_context = true;
+
+    let provider = sample_provider_config();
+
+    let messages = vec![
+        AgentMessage::user("u1", 1),
+        AgentMessage::user("u2", 2),
+        assistant_message_with_input_tokens("a1", 110_000, 3),
+    ];
+
+    assert_eq!(primary_context_window_tokens(&config, &provider), 128_000);
+    let candidate = compaction_candidate(&messages, &config, &provider)
+        .expect("a 128k model at 110k tokens must compact even when the global window is 1M");
+    assert_eq!(candidate.trigger, CompactionTrigger::TokenThreshold);
+}
+
+#[test]
 fn automatic_compaction_is_skipped_for_claude_code_cli_threads() {
     let mut config = AgentConfig::default();
     config.compact_threshold_pct = 80;

@@ -87,8 +87,9 @@ export function ThreadRuntimeBar({ thread }: { thread: AgentThread }) {
             base_url={providerConfig?.base_url}
             api_key={providerConfig?.api_key}
             auth_source={providerConfig?.auth_source}
-            onChange={(nextModel) => {
-              void run(() => applyThreadProviderModel(thread, providerId, nextModel));
+            onChange={(nextModel, _name, details) => {
+              const nextContextWindow = details?.predefinedModel?.contextWindow || details?.fetchedModel?.contextWindow;
+              void run(() => applyThreadProviderModel(thread, providerId, nextModel, nextContextWindow));
             }}
           />
         ) : <span className="zorai-empty-state">Select a provider</span>}

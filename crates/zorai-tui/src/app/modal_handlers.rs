@@ -439,7 +439,7 @@ impl TuiModel {
                                         };
                                         self.config.custom_context_window_tokens = None;
                                         self.config.context_window_tokens =
-                                            resolved_context_window.unwrap_or(128_000);
+                                            resolved_context_window.unwrap_or(256_000);
                                     }
                                     self.config.api_transport = self.provider_transport_snapshot(
                                         &self.config.provider,

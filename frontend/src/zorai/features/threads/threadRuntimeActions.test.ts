@@ -77,6 +77,22 @@ describe("thread runtime actions", () => {
     expect(useAgentStore.getState().threads[1]).not.toHaveProperty("profileModel");
   });
 
+  it("replaces the previous model's context window with the fetched model's window", async () => {
+    agentGetThreadExecutionProfile.mockResolvedValue({
+      profile: { provider: "openai", model: "gpt-5.5", context_window_tokens: 128_000 },
+    });
+    const selected = useAgentStore.getState().threads[0];
+
+    await applyThreadProviderModel(selected, "openrouter", "deepseek/deepseek-v4.1-flash", 1_048_576);
+
+    expect(agentSetThreadExecutionProfile).toHaveBeenCalledWith("daemon-a", {
+      provider: "openrouter",
+      model: "deepseek/deepseek-v4.1-flash",
+      context_window_tokens: 1_048_576,
+    });
+    expect(useAgentStore.getState().threads[0]).toMatchObject({ profileContextWindowTokens: 1_048_576 });
+  });
+
   it("updates the local thread profile before the daemon round-trip finishes", async () => {
     let finishGet: (value: unknown) => void = () => {};
     agentGetThreadExecutionProfile.mockImplementation(

@@ -80,7 +80,7 @@ impl TuiModel {
                 .unwrap_or(providers::default_custom_model_context_window());
         }
 
-        providers::known_context_window_for(provider_id, model).unwrap_or(128_000)
+        providers::known_context_window_for(provider_id, model).unwrap_or(256_000)
     }
 
     pub(in crate::app) fn effective_current_context_window(&self) -> u32 {
@@ -97,10 +97,10 @@ impl TuiModel {
             &self.config.model,
             &self.config.custom_model_name,
         ) {
-            self.config.custom_context_window_tokens.unwrap_or(128_000)
+            self.config.custom_context_window_tokens.unwrap_or(256_000)
         } else {
             providers::known_context_window_for(&self.config.provider, &self.config.model)
-                .unwrap_or(128_000)
+                .unwrap_or(256_000)
         }
     }
 
@@ -158,7 +158,7 @@ impl TuiModel {
             "assistant_id": "",
             "api_transport": providers::default_transport_for(provider_id),
             "auth_source": providers::default_auth_source_for(provider_id),
-            "context_window_tokens": if provider_id == PROVIDER_ID_CUSTOM { serde_json::Value::from(128_000u32) } else { serde_json::Value::Null },
+            "context_window_tokens": if provider_id == PROVIDER_ID_CUSTOM { serde_json::Value::from(256_000u32) } else { serde_json::Value::Null },
         });
         if provider_id == PROVIDER_ID_OPENROUTER {
             value["openrouter_provider_order"] = serde_json::json!([]);
@@ -221,7 +221,7 @@ impl TuiModel {
                     provider_id,
                     model,
                 )
-                .unwrap_or(128_000) as u64
+                .unwrap_or(256_000) as u64
             },
         });
         if provider_id == PROVIDER_ID_OPENROUTER {

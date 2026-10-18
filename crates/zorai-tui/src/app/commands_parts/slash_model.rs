@@ -154,7 +154,7 @@ fn apply_svarog_custom_model_locally(model: &mut TuiModel, name: &str, model_id:
             name.to_string()
         };
         model.config.custom_context_window_tokens = None;
-        model.config.context_window_tokens = resolved_context_window.unwrap_or(128_000);
+        model.config.context_window_tokens = resolved_context_window.unwrap_or(256_000);
     }
     model.config.api_transport = model.provider_transport_snapshot(
         &model.config.provider,

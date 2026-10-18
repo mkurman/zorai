@@ -108,10 +108,10 @@ impl TuiModel {
             providers::default_model_for_provider_auth(custom_provider, &custom_auth_source)
         };
         let default_custom_context_window = if custom_provider == PROVIDER_ID_CUSTOM {
-            128_000
+            256_000
         } else {
             providers::known_context_window_for(custom_provider, &default_custom_model)
-                .unwrap_or(128_000)
+                .unwrap_or(256_000)
         };
         self.config.compaction_custom_provider = custom_provider.to_string();
         self.config.compaction_custom_base_url = compaction
