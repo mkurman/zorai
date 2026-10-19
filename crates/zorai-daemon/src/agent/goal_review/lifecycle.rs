@@ -36,6 +36,11 @@ impl AgentEngine {
         }
         self.persist_goal_runs().await;
         self.quiesce_goal_execution_tree(&updated, true).await;
+        self.notify_goal_worker_of_verdict(
+            &updated,
+            format!("Supervisor accepted this goal. The goal is complete; stop working on it.\n\n{explanation}"),
+        )
+        .await;
         self.unpin_goal_owner_thread(&updated).await;
         self.emit_goal_run_update(&updated, Some("Goal completed".into()));
         Ok(updated)
@@ -113,7 +118,31 @@ impl AgentEngine {
         self.fail_goal_run(goal_run_id, explanation, "hard_reject", None)
             .await;
         if let Some(updated) = self.get_goal_run(goal_run_id).await {
+            self.notify_goal_worker_of_verdict(
+                &updated,
+                format!("Supervisor hard-rejected this goal. The goal is stopped; do not continue it.\n\n{explanation}"),
+            )
+            .await;
             self.unpin_goal_owner_thread(&updated).await;
+        }
+    }
+
+    async fn notify_goal_worker_of_verdict(&self, goal_run: &GoalRun, content: String) {
+        let Some(worker_thread_id) = goal_run.thread_id.as_deref() else {
+            return;
+        };
+        if goal_run.supervision_thread_id.as_deref() == Some(worker_thread_id) {
+            return;
+        }
+        if !self
+            .append_system_thread_message(worker_thread_id, content.trim_end())
+            .await
+        {
+            tracing::warn!(
+                goal_run_id = %goal_run.id,
+                thread_id = %worker_thread_id,
+                "could not deliver supervisor verdict to goal worker thread"
+            );
         }
     }
 

@@ -111,6 +111,49 @@ async fn accept_completes_goal_stops_worker_and_unpins_owner() {
 }
 
 #[tokio::test]
+async fn worker_thread_learns_the_verdict_so_it_is_not_left_waiting_on_review() {
+    for (verdict, explanation, expected) in [
+        (
+            GoalSupervisorVerdict::Accept,
+            "Verified delivery.",
+            "Supervisor accepted this goal",
+        ),
+        (
+            GoalSupervisorVerdict::HardReject,
+            "Wrong objective.",
+            "Supervisor hard-rejected this goal",
+        ),
+    ] {
+        let engine = test_engine().await;
+        let goal = start_supervised_goal(&engine).await;
+        let worker = enqueue_worker(&engine, &goal.id).await;
+        let worker_thread_id = goal.thread_id.clone().expect("worker thread");
+        engine
+            .get_or_create_thread_with_target(Some(&worker_thread_id), "Worker thread", None)
+            .await;
+        engine
+            .request_goal_review(&goal.id, &worker.id, "Done.")
+            .await
+            .expect("review");
+
+        let owner_id = goal.supervision_thread_id.clone().expect("owner");
+        engine
+            .submit_goal_review(&goal.id, verdict, explanation, Some(&owner_id))
+            .await
+            .expect("verdict");
+
+        let threads = engine.threads.read().await;
+        let last = threads
+            .get(&worker_thread_id)
+            .and_then(|thread| thread.messages.last())
+            .expect("worker thread message");
+        assert_eq!(last.role, MessageRole::System);
+        assert!(last.content.starts_with(expected), "{}", last.content);
+        assert!(last.content.contains(explanation));
+    }
+}
+
+#[tokio::test]
 async fn soft_reject_continues_same_worker_with_explanation() {
     let engine = test_engine().await;
     let goal = start_supervised_goal(&engine).await;

@@ -128,10 +128,6 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
 
   return (
     <article id={`zorai-message-${message.id}`} className={["zorai-message", fromUser ? "zorai-message--user" : "", message.pinnedForCompaction ? "zorai-message--pinned" : ""].filter(Boolean).join(" ")}>
-      <div className="zorai-message__meta">
-        <strong>{author}</strong>
-        <span>{formatTime(message.createdAt)}{tokenText ? ` / ${tokenText}` : ""}</span>
-      </div>
       {reasoning ? (
         <ThreadReasoningBlock content={reasoning} streaming={Boolean(message.isStreaming)} />
       ) : null}
@@ -170,6 +166,7 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
         </div>
       ) : null}
       <div className="zorai-message__actions">
+        <span className="zorai-message__action-meta"><strong>{author}</strong> · {formatTime(message.createdAt)}{tokenText ? ` / ${tokenText}` : ""}</span>
         {hasVisibleContent ? (
           <button
             type="button"
@@ -325,7 +322,7 @@ function formatThoughtDuration(startedAt: number, now: number): string {
   return `${hours}h ${minutes % 60}m`;
 }
 
-function ThreadReasoningBlock({ content, streaming }: { content: string; streaming: boolean }) {
+export function ThreadReasoningBlock({ content, streaming }: { content: string; streaming: boolean }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -533,7 +530,6 @@ function NativeCompactionArtifact({
     <article id={`zorai-message-${message.id}`} className="zorai-message zorai-message--compaction">
       <div className="zorai-message__meta">
         <strong>Auto compaction</strong>
-        <span>{formatTime(message.createdAt)}</span>
       </div>
       <div className="zorai-compaction">
         <div className="zorai-compaction__header">
@@ -555,6 +551,7 @@ function NativeCompactionArtifact({
         ) : null}
       </div>
       <div className="zorai-message__actions">
+        <span className="zorai-message__action-meta">{formatTime(message.createdAt)}</span>
         <button
           type="button"
           className="zorai-ghost-button zorai-message-action"

@@ -21,6 +21,7 @@ import { findTaskWorkspaceLocation } from "../tasks-view/helpers";
 import { formatSkillWorkflowNotice } from "./skillWorkflowNotice";
 import { mergeRemoteThreadProfile } from "@/lib/agentStore/threadProfileMerge";
 import { reconcileThreadMessages, retainLiveLocalMessages } from "./threadMessageReducer";
+import { assistantMessageHasVisibleContent } from "../chat-view/helpers";
 
 const threadHistoryReplaceEpochs = new Map<string, number>();
 
@@ -383,21 +384,41 @@ export function trimDaemonThreadMessagesToLatestWindow({
   return didTrim;
 }
 
+function messageHasReadableContent(message: AgentMessage): boolean {
+  if (message.role === "user") return message.content.trim() !== "";
+  return message.role === "assistant" && assistantMessageHasVisibleContent(message.content);
+}
+
 function latestLogicalMessageWindow(messages: AgentMessage[], logicalLimit: number): AgentMessage[] {
   if (logicalLimit <= 0 || messages.length === 0) return messages;
   let slots = 0;
   let start = messages.length;
-  let previousWasTool = false;
   const rowLimit = Math.max(logicalLimit, MAX_TUI_CHAT_HISTORY_PAGE_SIZE);
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     if (messages.length - index > rowLimit) break;
-    const isTool = messages[index].role === "tool";
-    if (!isTool || !previousWasTool) {
+    if (messageHasReadableContent(messages[index])) {
       slots += 1;
       if (slots > logicalLimit) break;
     }
     start = index;
-    previousWasTool = isTool;
+  }
+  for (let index = start; index > 0 && messages.length - index < rowLimit; index -= 1) {
+    if (messages[index].role === "user") {
+      start = index;
+      break;
+    }
+    if (messages[index - 1].role === "user") {
+      start = index - 1;
+      break;
+    }
+  }
+  if (!messages.slice(start).some(messageHasReadableContent)) {
+    for (let index = start - 1; index >= 0 && messages.length - index <= rowLimit * 2; index -= 1) {
+      if (messageHasReadableContent(messages[index])) {
+        start = index;
+        break;
+      }
+    }
   }
   return messages.slice(start);
 }

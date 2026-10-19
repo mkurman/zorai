@@ -12,7 +12,7 @@ export type ThreadContextPreviewRequest =
   };
 
 export function threadContextEntryKey(entry: WorkContextEntry): string {
-  return `${entry.source}:${entry.repoRoot ?? ""}:${entry.path}`;
+  return `${entry.source}:${entry.repoRoot ?? ""}:${entry.path}:${entry.operationId ?? ""}`;
 }
 
 export function threadContextEntryDisplayPath(entry: WorkContextEntry, shortenPath: (path: string) => string): string {

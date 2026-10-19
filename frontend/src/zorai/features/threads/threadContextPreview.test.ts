@@ -41,6 +41,12 @@ describe("thread context preview helpers", () => {
       .not.toBe(threadContextEntryKey(entry({ source: "daemon", repoRoot: "/repo-b", path: "README.md" })));
   });
 
+  it("keeps separate operations on the same file distinct, as the daemon records one entry per operation", () => {
+    const path = "/home/u/.zorai/threads/t/artifacts/specs/run-analysis.md";
+    expect(threadContextEntryKey(entry({ source: "append_to_file", repoRoot: null, path, operationId: "op-1" })))
+      .not.toBe(threadContextEntryKey(entry({ source: "append_to_file", repoRoot: null, path, operationId: "op-2" })));
+  });
+
   it("treats markdown extensions the same way TUI file preview does", () => {
     expect(isMarkdownPath("docs/README.md")).toBe(true);
     expect(isMarkdownPath("notes.MARKDOWN")).toBe(true);
