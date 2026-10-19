@@ -1140,8 +1140,8 @@ describe("trimDaemonThreadMessagesToLatestWindow", () => {
 
     const messages = useAgentStore.getState().messages["local-active"] ?? [];
     expect(trimmed).toBe(true);
-    expect(messages).toHaveLength(42);
-    expect(messages[0]?.id).toBe("tool-0");
+    expect(messages).toHaveLength(43);
+    expect(messages[0]?.id).toBe("approval");
     expect(messages.at(-2)?.id).toBe("final-answer");
     expect(messages.at(-1)?.id).toBe("new-user");
   });
@@ -1194,7 +1194,7 @@ describe("trimDaemonThreadMessagesToLatestWindow", () => {
     setFollowThreadHistoryBottom(false);
     const trimmed = trimFollowedThreadToHistoryWindow("local-background");
     expect(trimmed).toBe(true);
-    expect(useAgentStore.getState().messages["local-background"]).toHaveLength(25);
+    expect(useAgentStore.getState().messages["local-background"]).toHaveLength(26);
     expect(useAgentStore.getState().messages["local-active"]).toHaveLength(100);
     resetThreadHistoryScrollStateForTest();
   });
@@ -1224,5 +1224,66 @@ describe("trimDaemonThreadMessagesToLatestWindow", () => {
     expect(trimmed).toBe(true);
     expect(messages).toHaveLength(500);
     expect(messages.at(-1)?.id).toBe("tool-1999");
+  });
+
+  it("does not cut into the running turn, so the operator's prompt and the agent's first reply stay visible", () => {
+    const toolRows = Array.from({ length: 150 }, (_, index) => ({
+      ...makeMessage(index + 3),
+      id: `tool-${index}`,
+      role: "tool" as const,
+      content: `tool result ${index}`,
+      toolCallId: `call-${index}`,
+      toolName: "bash_command",
+      toolStatus: "done" as const,
+    }));
+    const callRows = toolRows.flatMap((tool, index) => [
+      { ...makeMessage(index + 3), id: `call-${index}`, role: "assistant" as const, content: "", toolCalls: [{ id: `call-${index}` }] },
+      tool,
+    ]);
+    useAgentStore.setState({
+      threads: [{ ...makeThread("local-active", "daemon-1"), messageCount: 303, loadedMessageStart: 0, loadedMessageEnd: 303 }],
+      messages: {
+        "local-active": [
+          { ...makeMessage(0), id: "older-prompt", role: "user", content: "Earlier question" },
+          { ...makeMessage(0), id: "older-answer", role: "assistant", content: "Earlier turn" },
+          { ...makeMessage(1), id: "prompt", role: "user", content: "Review the case" },
+          { ...makeMessage(2), id: "first-reply", role: "assistant", content: "I'll start by reading the contract." },
+          ...callRows,
+        ],
+      },
+    } as any);
+
+    trimDaemonThreadMessagesToLatestWindow({ localThreadId: "local-active", messageLimit: 2 });
+
+    const messages = useAgentStore.getState().messages["local-active"] ?? [];
+    expect(messages[0]?.id).toBe("prompt");
+    expect(messages[1]?.id).toBe("first-reply");
+    expect(messages.at(-1)?.id).toBe("tool-149");
+  });
+
+  it("reaches back past a long tool run so the window always holds a message the operator can read", () => {
+    useAgentStore.setState({
+      threads: [{ ...makeThread("local-active", "daemon-1"), messageCount: 701, loadedMessageStart: 0, loadedMessageEnd: 701 }],
+      messages: {
+        "local-active": [
+          { ...makeMessage(0), id: "prompt", role: "user", content: "Run the batch" },
+          ...Array.from({ length: 700 }, (_, index) => ({
+            ...makeMessage(index + 1),
+            id: `tool-${index}`,
+            role: "tool" as const,
+            content: `tool result ${index}`,
+            toolCallId: `call-${index}`,
+            toolName: "bash_command",
+            toolStatus: "done" as const,
+          })),
+        ],
+      },
+    } as any);
+
+    trimDaemonThreadMessagesToLatestWindow({ localThreadId: "local-active", messageLimit: 100 });
+
+    const messages = useAgentStore.getState().messages["local-active"] ?? [];
+    expect(messages[0]?.id).toBe("prompt");
+    expect(messages).toHaveLength(701);
   });
 });

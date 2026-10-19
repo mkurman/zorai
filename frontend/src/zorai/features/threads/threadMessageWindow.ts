@@ -1,4 +1,4 @@
-import type { ChatDisplayItem } from "@/components/agent-chat-panel/chat-view/types";
+import type { ThreadDisplayItem } from "./threadTurnActivity";
 
 export const THREAD_MESSAGE_ESTIMATED_HEIGHT_PX = 160;
 export const THREAD_MESSAGE_OVERSCAN_PX = 400;
@@ -12,8 +12,9 @@ export type ThreadMessageWindow = {
   bottomSpacer: number;
 };
 
-export function threadMessageItemKey(item: ChatDisplayItem): string {
+export function threadMessageItemKey(item: ThreadDisplayItem): string {
   if (item.type === "message") return `message:${item.message.id}`;
+  if (item.type === "turnActivity") return `turn:${item.key}`;
   if (item.type === "toolList") return `tools:${item.key}`;
   return `tool:${item.group.key}`;
 }

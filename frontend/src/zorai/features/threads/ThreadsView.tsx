@@ -20,6 +20,8 @@ import { ThreadFilePreviewOverlay } from "./ThreadFilePreviewOverlay";
 import { ThreadComposer } from "./ThreadComposer";
 import { ThreadCompactSessionBar } from "./ThreadCompactSessionBar";
 import { ThreadActivityRow } from "./ThreadActivityRow";
+import { ThreadTurnActivityList } from "./ThreadTurnActivityList";
+import { groupTurnActivity } from "./threadTurnActivity";
 import { classifySystemNotice, classifyThreadActivityMessage } from "./threadActivityModel";
 import { endThreadCompaction, messageTimeMs, useThreadCompaction } from "./threadCompactionStatus";
 import { isCompactionArtifactMessage } from "@/components/agent-chat-panel/chat-view/compactionArtifact";
@@ -88,10 +90,13 @@ export function ThreadsView({
   const messageActionsRef = useRef<ThreadMessageActions | null>(null);
   const viewMountedAtRef = useRef(Date.now());
   const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const displayItems = useMemo(() => buildDisplayItems(runtime.messages), [runtime.messages]);
-  const lastDisplayItem = displayItems[displayItems.length - 1];
-  const streamingContinuesAttributedToolSet = lastDisplayItem?.type === "toolList"
-    && Boolean(lastDisplayItem.attribution);
+  const displayItems = useMemo(
+    () => groupTurnActivity(
+      buildDisplayItems(runtime.messages),
+      (message) => Boolean(classifyThreadActivityMessage(message) ?? classifySystemNotice(message)),
+    ),
+    [runtime.messages],
+  );
   const activeOperations = useMemo(() => runtime.messages.flatMap((message) => {
     const activity = classifyThreadActivityMessage(message);
     return activity?.kind === "operation"
@@ -238,6 +243,7 @@ export function ThreadsView({
         scroller: scrollerRef.current,
         loadOlder: runtime.loadOlderThreadMessages,
         hasOlderHistory: threadHasOlderHistory(runtime.activeThread, runtime.messages.length),
+        lacksReadableMessage: !displayItems.some((item) => item.type === "message"),
       });
     });
     return () => cancelAnimationFrame(frame);
@@ -246,6 +252,7 @@ export function ThreadsView({
     threadLoadingPending,
     runtime.activeThread,
     runtime.loadOlderThreadMessages,
+    displayItems,
   ]);
 
   const messageWindow = useThreadMessageWindow({
@@ -402,7 +409,15 @@ export function ThreadsView({
         {displayItems.slice(messageWindow.start, messageWindow.end).map((item) => {
           const itemKey = threadMessageItemKey(item);
           let row: ReactNode;
-          if (item.type === "toolList") {
+          if (item.type === "turnActivity") {
+            row = (
+              <ThreadTurnActivityList
+                entries={item.entries}
+                onRefreshOperation={runtime.getOperationStatus}
+                onCancelOperation={runtime.cancelOperation}
+              />
+            );
+          } else if (item.type === "toolList") {
             row = (
               <ToolEventList
                 groups={item.groups}
@@ -459,11 +474,6 @@ export function ThreadsView({
         ) : null}
         {compactionStatus ? (
           <ThinkingIndicator label="Compaction" />
-        ) : runtime.isStreamingResponse ? (
-          <ThinkingIndicator
-            label={agentDisplayName(runtime.activeThread.agent_name)}
-            continueAttributedTurn={streamingContinuesAttributedToolSet}
-          />
         ) : null}
         <div ref={runtime.messagesEndRef} />
         </div>
@@ -592,23 +602,17 @@ function ThreadHeader({
   );
 }
 
-function ThinkingIndicator({
-  label,
-  continueAttributedTurn = false,
-}: {
-  label: string;
-  continueAttributedTurn?: boolean;
-}) {
+function ThinkingIndicator({ label }: { label: string }) {
   return (
     <div
-      className={["zorai-thinking", continueAttributedTurn ? "zorai-thinking--continued" : ""].filter(Boolean).join(" ")}
+      className="zorai-thinking"
       role="status"
       aria-live="polite"
-      aria-label={continueAttributedTurn ? `${label} is still working` : `${label} in progress`}
+      aria-label={`${label} in progress`}
     >
       <div className="zorai-thinking__body">
         <div className="zorai-thinking__label">
-          {continueAttributedTurn ? null : <strong>{label}</strong>}
+          <strong>{label}</strong>
           <span className="zorai-thinking__dots" aria-hidden="true">
             <span />
             <span />

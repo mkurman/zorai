@@ -188,3 +188,19 @@ test("runtime response resolution ignores non-allowlisted auth-adjacent events",
   assert.equal(resolvePendingAgentQueryEvent({ pending }, { type: "openai-codex-auth-login" }), false);
   assert.deepEqual([...pending.keys()], ["status"]);
 });
+
+test("every reply type an IPC handler awaits is routed back to its pending query", async () => {
+  const { isAgentQueryResponseType } = await loadRuntimeModule();
+  const dedicatedHandlers = new Set(["error", "whatsapp-link-status"]);
+  const mainDir = path.join(__dirname, "main");
+  const awaited = new Set();
+  for (const file of fs.readdirSync(mainDir).filter((name) => name.endsWith(".cjs") && !name.includes(".test."))) {
+    const source = fs.readFileSync(path.join(mainDir, file), "utf8");
+    for (const match of source.matchAll(/sendAgentQuery\(\s*\{[^}]*?\}\s*,\s*(\[[^\]]*\]|'[^']+'|"[^"]+")/gs)) {
+      for (const type of match[1].matchAll(/['"]([^'"]+)['"]/g)) awaited.add(type[1]);
+    }
+  }
+  assert.ok(awaited.has("data-query-result"));
+  const dropped = [...awaited].filter((type) => !dedicatedHandlers.has(type) && !isAgentQueryResponseType(type));
+  assert.deepEqual(dropped, []);
+});

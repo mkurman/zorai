@@ -1479,6 +1479,14 @@
   min-width: 0;  /* prevent jumping */
 }
 
+.zorai-message__action-meta {
+  margin-right: auto;
+  align-self: center;
+  color: var(--zorai-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
 .zorai-message:hover .zorai-message__actions,
 .zorai-message:focus-within .zorai-message__actions {
   opacity: 1;
@@ -1899,6 +1907,7 @@
   z-index: 40;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   background: var(--zorai-bg-panel);
   color: var(--zorai-text);
 }
@@ -2000,6 +2009,7 @@
   min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 
@@ -2611,16 +2621,6 @@
 @keyframes zorai-thinking-in {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-.zorai-thinking--continued {
-  min-height: 20px;
-  padding-top: 0;
-  padding-left: 8px;
-}
-
-.zorai-thinking--continued .zorai-thinking__label {
-  min-height: 16px;
 }
 
 .zorai-thinking__avatar {

@@ -229,6 +229,22 @@ describe("fillThreadHistoryIfUnscrollable", () => {
     expect(loadOlder).not.toHaveBeenCalled();
   });
 
+  it("pages older history when a scrollable window holds only tool activity and no readable message", async () => {
+    vi.useFakeTimers();
+    const scroller = makeScroller(1600, 2000, 400);
+    const loadOlder = vi.fn(async () => true);
+
+    fillThreadHistoryIfUnscrollable({
+      scroller,
+      loadOlder,
+      hasOlderHistory: true,
+      lacksReadableMessage: true,
+    });
+    await vi.advanceTimersByTimeAsync(THREAD_HISTORY_OLDER_LOAD_DEBOUNCE_MS);
+
+    expect(loadOlder).toHaveBeenCalledTimes(1);
+  });
+
   it("does not page when the database has no older rows", async () => {
     vi.useFakeTimers();
     const loadOlder = vi.fn(async () => true);

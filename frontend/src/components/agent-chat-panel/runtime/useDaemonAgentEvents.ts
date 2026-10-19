@@ -350,7 +350,7 @@ export function useDaemonAgentEvents({
           useAgentMissionStore.getState().setSharedCursorMode("idle");
           const last = ensureStreamingAssistantMessage(tid);
           if (last?.role === "assistant") {
-            updateLastAssistantMessage(tid, last.content || "(empty)", false, {
+            updateLastAssistantMessage(tid, last.content, false, {
               inputTokens: event.input_tokens ?? 0,
               outputTokens: event.output_tokens ?? 0,
               totalTokens: (event.input_tokens ?? 0) + (event.output_tokens ?? 0),

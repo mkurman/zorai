@@ -150,22 +150,24 @@ function scheduleOlderThreadHistoryLoad(
   scroller: HTMLElement,
   loadOlder: (() => Promise<boolean>) | undefined,
   now = Date.now(),
+  anyScrollPosition = false,
 ): void {
   if (!loadOlder || olderLoadInFlight || olderHistoryExhausted) return;
   if (now < olderLoadCooldownUntil) return;
   if (scheduledOlderLoad != null) return;
   scheduledOlderLoad = setTimeout(() => {
     scheduledOlderLoad = null;
-    void runOlderThreadHistoryLoad(scroller, loadOlder);
+    void runOlderThreadHistoryLoad(scroller, loadOlder, anyScrollPosition);
   }, THREAD_HISTORY_OLDER_LOAD_DEBOUNCE_MS);
 }
 
 async function runOlderThreadHistoryLoad(
   scroller: HTMLElement,
   loadOlder: () => Promise<boolean>,
+  anyScrollPosition = false,
 ): Promise<void> {
   if (olderLoadInFlight || olderHistoryExhausted) return;
-  if (scroller.scrollTop > THREAD_HISTORY_SCROLL_THRESHOLD_PX) return;
+  if (!anyScrollPosition && scroller.scrollTop > THREAD_HISTORY_SCROLL_THRESHOLD_PX) return;
 
   olderLoadInFlight = true;
   const loadGeneration = paginationGeneration;
@@ -201,14 +203,15 @@ export function fillThreadHistoryIfUnscrollable(options: {
   scroller: HTMLElement | null | undefined;
   loadOlder?: () => Promise<boolean>;
   hasOlderHistory: boolean;
+  lacksReadableMessage?: boolean;
 }): void {
   const scroller = options.scroller;
   if (!scroller || !options.hasOlderHistory || !options.loadOlder) return;
   if (olderLoadInFlight || olderHistoryExhausted) return;
   if (scroller.clientHeight <= 0) return;
   const unscrollable = scroller.scrollHeight <= scroller.clientHeight + THREAD_HISTORY_SCROLL_THRESHOLD_PX;
-  if (!unscrollable) return;
-  scheduleOlderThreadHistoryLoad(scroller, options.loadOlder);
+  if (!unscrollable && !options.lacksReadableMessage) return;
+  scheduleOlderThreadHistoryLoad(scroller, options.loadOlder, Date.now(), Boolean(options.lacksReadableMessage));
 }
 
 function cancelScheduledOlderThreadHistoryLoad(): void {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
-import type { ChatDisplayItem } from "@/components/agent-chat-panel/chat-view/types";
+import type { ThreadDisplayItem } from "./threadTurnActivity";
 import { setFollowThreadHistoryBottom } from "@/components/agent-chat-panel/runtime/threadHistoryScroll";
 import {
   resolveThreadMessageWindow,
@@ -20,7 +20,7 @@ export function revealThreadMessage(messageId: string): void {
 
 export function useThreadMessageWindow(options: {
   scrollerRef: RefObject<HTMLElement | null>;
-  items: ChatDisplayItem[];
+  items: ThreadDisplayItem[];
   followBottom: boolean;
   threadId: string | null;
   onReleaseFollow?: () => void;
@@ -42,6 +42,8 @@ export function useThreadMessageWindow(options: {
   const itemKeys = useMemo(() => items.map(threadMessageItemKey), [items]);
   const itemKeysRef = useRef(itemKeys);
   itemKeysRef.current = itemKeys;
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
   const heightList = useMemo(
     () => itemKeys.map((key) => heights[key]),
     [heights, itemKeys],
@@ -159,7 +161,10 @@ export function useThreadMessageWindow(options: {
     revealHandler = (messageId: string) => {
       const scroller = scrollerRef.current;
       const keys = itemKeysRef.current;
-      const index = keys.indexOf(`message:${messageId}`);
+      const directIndex = keys.indexOf(`message:${messageId}`);
+      const index = directIndex >= 0
+        ? directIndex
+        : itemsRef.current.findIndex((item) => item.type === "turnActivity" && item.messageIds.includes(messageId));
       if (!scroller || index < 0) return;
       setFollowThreadHistoryBottom(false);
       onReleaseFollowRef.current?.();

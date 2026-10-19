@@ -641,15 +641,11 @@ describe("Zorai feature surfaces", () => {
     expect(hook).toContain("prompt_queue_update");
   });
 
-  it("shows a thinking indicator while the agent streams", () => {
+  it("leaves streaming state to the activity list and composer instead of a separate responder indicator", () => {
     const source = readFeature("./threads/ThreadsView.tsx");
 
-    expect(source).toContain("ThinkingIndicator");
-    expect(source).toContain("streamingContinuesAttributedToolSet");
-    expect(source).toContain("continueAttributedTurn={streamingContinuesAttributedToolSet}");
-    expect(source).toContain("continueAttributedTurn ? null : <strong>{agentName}</strong>");
-    expect(source).toContain("zorai-thinking");
-    expect(source).toContain("runtime.isStreamingResponse");
+    expect(source).not.toContain("label={agentDisplayName(runtime.activeThread.agent_name)}");
+    expect(source).toContain("<ThinkingIndicator label=\"Compaction\" />");
     // Assistant fallback name should come from the thread's agent, not hardcoded "Zorai".
     expect(source).toContain("threadAgentName");
     expect(source).toContain("ThreadRetryStatusBanner");
