@@ -130,7 +130,7 @@ export function ThreadActivityRow({
         aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}
       >
-        <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>
+        <span aria-hidden="true" className="acp-tool-row__caret">{expanded ? "▼" : "▶"}</span>
         <span>{title}</span>
         <time>{formatActivityTime(createdAt)}</time>
       </button>

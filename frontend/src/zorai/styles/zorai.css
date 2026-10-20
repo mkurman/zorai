@@ -1186,15 +1186,18 @@
 
 .zorai-message--user {
   align-self: flex-end;
-  background: var(--zorai-bg-active);
-  border-color: var(--zorai-border-strong);
   justify-content: flex-end;
   justify-self: flex-end;
   width: auto;
   min-width: auto;
-  padding: 12px 18px;
-  border-radius: 20px;
   max-width: 50%;
+}
+
+.zorai-message--user .zorai-message__content {
+  background: var(--zorai-bg-active);
+  border-color: var(--zorai-border-strong);
+  border-radius: 20px;
+  padding: 12px 18px;
 }
 
 .zorai-message--pinned {
