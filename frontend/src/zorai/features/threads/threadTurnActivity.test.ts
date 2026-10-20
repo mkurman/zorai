@@ -7,17 +7,20 @@ function message(id: string, role: AgentMessage["role"], content: string, extra:
   return { id, threadId: "t", role, content, createdAt: 1, ...extra } as AgentMessage;
 }
 
-function tools(key: string): ChatDisplayItem {
-  const group: ToolEventGroup = {
+function toolGroup(key: string, createdAt = 1): ToolEventGroup {
+  return {
     key,
     toolCallId: key,
     toolName: "read_file",
     toolArguments: "{}",
     status: "done",
     resultContent: "ok",
-    createdAt: 1,
+    createdAt,
   };
-  return { type: "toolList", key, groups: [group] };
+}
+
+function tools(key: string): ChatDisplayItem {
+  return { type: "toolList", key, groups: [toolGroup(key)] };
 }
 
 const isNotice = (entry: AgentMessage) => entry.role === "system";
@@ -57,6 +60,21 @@ describe("groupTurnActivity", () => {
     ];
 
     expect(shape(groupTurnActivity(items, isNotice))).toEqual(["u1", "list(tools)", "a1", "list(tools)"]);
+  });
+
+  it("places a notice parked after the tool run back at the moment it happened, so the latest tool stays last", () => {
+    const items: ChatDisplayItem[] = [
+      { type: "message", message: message("u1", "user", "do it") },
+      { type: "toolList", key: "run", groups: [toolGroup("call-1", 10), toolGroup("call-2", 20), toolGroup("call-3", 30)] },
+      { type: "message", message: message("m1", "system", "Metacognitive intervention", { createdAt: 15 }) },
+      { type: "message", message: message("m2", "system", "Background operation finished.", { createdAt: 25 }) },
+    ];
+
+    const [, list] = groupTurnActivity(items, isNotice);
+    if (list.type !== "turnActivity") throw new Error("expected activity list");
+    expect(list.entries.map((entry) => entry.kind === "tools" ? entry.groups.map((group) => group.key).join("+") : entry.key))
+      .toEqual(["call-1", "m1", "call-2", "m2", "call-3"]);
+    expect(list.key).toBe("run");
   });
 
   it("never turns an assistant message without text into a bubble", () => {

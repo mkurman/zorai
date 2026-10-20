@@ -71,7 +71,7 @@ export function groupTurnActivity(
     if (hasReasoning) {
       entries.push({ kind: "reasoning", key: `${message.id}:reasoning`, message });
     } else if (isActivity(message)) {
-      entries.push({ kind: "notice", key: message.id, message });
+      insertNoticeInTimeOrder(entries, { kind: "notice", key: message.id, message });
     } else {
       continue;
     }
@@ -79,4 +79,24 @@ export function groupTurnActivity(
   }
   flush();
   return result;
+}
+
+function insertNoticeInTimeOrder(entries: TurnActivityEntry[], notice: TurnActivityEntry): void {
+  const tools = entries[entries.length - 1];
+  if (notice.kind !== "notice" || tools?.kind !== "tools") {
+    entries.push(notice);
+    return;
+  }
+  const split = tools.groups.findIndex((group) => group.createdAt > notice.message.createdAt);
+  if (split < 0) {
+    entries.push(notice);
+    return;
+  }
+  const later = tools.groups.slice(split);
+  const laterEntry: TurnActivityEntry = { kind: "tools", key: `${tools.key}:${later[0].key}`, groups: later };
+  if (split === 0) {
+    entries.splice(entries.length - 1, 1, notice, { ...laterEntry, key: tools.key });
+    return;
+  }
+  entries.splice(entries.length - 1, 1, { ...tools, groups: tools.groups.slice(0, split) }, notice, laterEntry);
 }
