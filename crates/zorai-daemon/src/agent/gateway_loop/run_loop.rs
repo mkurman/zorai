@@ -75,6 +75,11 @@ impl AgentEngine {
                 let rx = shutdown.clone();
                 async move { engine.run_subagent_supervision_loop(rx).await }
             }),
+            tokio::spawn({
+                let engine = self.clone();
+                let rx = shutdown.clone();
+                async move { engine.run_desktop_notification_loop(rx).await }
+            }),
         ];
 
         spawn_lancedb_indexer_runtime(self.clone(), shutdown.clone());

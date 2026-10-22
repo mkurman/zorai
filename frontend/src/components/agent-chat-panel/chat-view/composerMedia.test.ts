@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildAttachmentSendPayload,
   collectClipboardFiles,
+  readComposerAttachment,
   readSpeechToTextContent,
   readSpeechToTextError,
 } from "./composerMedia";
@@ -96,5 +97,32 @@ describe("buildAttachmentSendPayload", () => {
     expect(payload.localContentBlocks?.[1]).toEqual({ type: "image", data_url: previewDataUrl, mime_type: "image/png" });
     expect(boundContentBlocks(payload.localContentBlocks)?.[1]).toEqual(payload.localContentBlocks?.[1]);
     expect(JSON.parse(payload.contentBlocksJson ?? "null")[1]).toEqual({ type: "image", data_url: fullDataUrl, mime_type: "image/png" });
+  });
+});
+
+describe("non-text file attachments", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("attaches a PDF by its local path so the agent can read it with tools instead of dropping it", async () => {
+    vi.stubGlobal("window", { zorai: { getPathForFile: () => "/home/op/papers/study.pdf" } });
+    const pdf = new File([new Uint8Array([37, 80, 68, 70])], "study.pdf", { type: "application/pdf" });
+
+    const attachment = await readComposerAttachment(pdf);
+
+    expect(attachment).toMatchObject({ kind: "file", path: "/home/op/papers/study.pdf", mimeType: "application/pdf" });
+    const payload = buildAttachmentSendPayload("summarize this", [attachment!]);
+    expect(payload.text).toBe(
+      '<attached_file name="study.pdf" path="/home/op/papers/study.pdf" mime_type="application/pdf" />\n\nsummarize this',
+    );
+    expect(payload.contentBlocksJson).toBeUndefined();
+  });
+
+  it("rejects a binary file that has no local path rather than sending a reference the agent cannot open", async () => {
+    vi.stubGlobal("window", { zorai: {} });
+    const pdf = new File([new Uint8Array([1])], "study.pdf", { type: "application/pdf" });
+
+    expect(await readComposerAttachment(pdf)).toBeNull();
   });
 });

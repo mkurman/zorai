@@ -881,6 +881,7 @@ declare global {
         pluginUpdateSettings?: (pluginName: string, key: string, value: string, isSecret: boolean) => Promise<{ ok?: boolean; error?: string }>;
         pluginTestConnection?: (name: string) => Promise<{ plugin_name: string; success: boolean; message: string }>;
         readClipboardText?: () => Promise<string | null>;
+        getPathForFile?: (file: File) => string;
         writeClipboardText?: (text: string) => Promise<void>;
         agentResolveTaskApproval?: (approvalId: string, decision: string) => Promise<unknown>;
         agentListTasks?: () => Promise<unknown[]>;

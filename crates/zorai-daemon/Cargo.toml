@@ -54,6 +54,7 @@ which = "7"
 jsonrepair = "0.1.0"
 serde_yaml = "0.9.34"
 notify = "6"
+notify-rust = "4"
 notify-debouncer-mini = { workspace = true }
 croner = "3"
 chrono = "0.4"

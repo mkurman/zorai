@@ -149,6 +149,8 @@ export function ThreadComposer({
   const appendFiles = async (files: File[]) => {
     if (files.length === 0) return;
     const loaded = await Promise.all(files.map((file) => readComposerAttachment(file)));
+    const rejected = files.filter((_, index) => !loaded[index]).map((file) => file.name);
+    setTargetError(rejected.length > 0 ? `Could not attach ${rejected.join(", ")}: no local file path is available.` : null);
     setAttachments((current) => [...current, ...loaded.filter((item): item is ComposerAttachment => Boolean(item))]);
   };
 

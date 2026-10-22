@@ -202,6 +202,7 @@ impl Default for AgentConfig {
             api_key: String::new(),
             assistant_id: String::new(),
             enable_honcho_memory: false,
+            desktop_notifications: true,
             mlflow_tracing: crate::agent::mlflow_tracing::MlflowTracingConfig::default(),
             honcho_api_key: String::new(),
             honcho_base_url: String::new(),

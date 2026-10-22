@@ -1,5 +1,6 @@
 import { MAX_RENDERER_TEXT_CHARS } from "@/lib/agentStore/rendererText";
 import type { AgentContentBlock } from "@/lib/agentStore/types";
+import { getBridge } from "@/lib/bridge";
 import type { ComposerAttachment, SendMessagePayload } from "./types";
 
 const TEXT_ATTACHMENT_EXTENSIONS = new Set([
@@ -21,7 +22,19 @@ export async function readComposerAttachment(file: File): Promise<ComposerAttach
       : fileLooksTextual(file)
         ? "text"
         : null;
-  if (!kind) return null;
+  if (!kind) {
+    const path = getBridge()?.getPathForFile?.(file);
+    return path
+      ? {
+          id: composerAttachmentId(file),
+          name: file.name,
+          size: file.size,
+          kind: "file",
+          mimeType: file.type || "application/octet-stream",
+          path,
+        }
+      : null;
+  }
 
   if (kind === "text") {
     return {
@@ -237,8 +250,11 @@ export function buildAttachmentSendPayload(text: string, attachments: ComposerAt
   const textAttachmentWrappers = attachments
     .filter((attachment) => attachment.kind === "text" && attachment.textContent)
     .map((attachment) => `<attached_file name="${attachment.name}">\n${attachment.textContent}\n</attached_file>`);
-  const mediaAttachments = attachments.filter((attachment) => attachment.kind !== "text");
-  const finalText = [...textAttachmentWrappers, trimmedText].filter(Boolean).join("\n\n").trim();
+  const pathAttachmentReferences = attachments
+    .filter((attachment) => attachment.kind === "file" && attachment.path)
+    .map((attachment) => `<attached_file name="${attachment.name}" path="${attachment.path}" mime_type="${attachment.mimeType}" />`);
+  const mediaAttachments = attachments.filter((attachment) => attachment.kind === "image" || attachment.kind === "audio");
+  const finalText = [...textAttachmentWrappers, ...pathAttachmentReferences, trimmedText].filter(Boolean).join("\n\n").trim();
 
   if (mediaAttachments.length === 0) {
     return { text: finalText };

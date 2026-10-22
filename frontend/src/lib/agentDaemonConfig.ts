@@ -239,6 +239,7 @@ export function buildDaemonAgentConfig(
     },
     mlflow_tracing: agentSettings.mlflow_tracing,
     enable_honcho_memory: agentSettings.enable_honcho_memory,
+    desktop_notifications: agentSettings.desktop_notifications,
     honcho_api_key: agentSettings.honcho_api_key,
     honcho_base_url: agentSettings.honcho_base_url,
     honcho_workspace_id: agentSettings.honcho_workspace_id,

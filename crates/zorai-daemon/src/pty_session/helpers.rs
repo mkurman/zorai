@@ -77,27 +77,31 @@ pub(super) fn pty_reader_loop(
                             *active_command.lock().unwrap() = None;
                             let _ = tx.send(DaemonMessage::CommandFinished { id, exit_code });
 
-                            let completed = {
+                            let (completed, next_dispatch) = {
                                 let mut lane = managed_lane.lock().unwrap();
                                 let completed = lane.active.take();
-                                if let Some(next) = lane.queue.pop_front() {
-                                    if let Err(error) = dispatch_managed_command(
-                                        &master_write,
-                                        &next.request,
-                                        cwd.as_deref(),
-                                    ) {
-                                        tracing::error!(%id, error = %error, "failed to dispatch queued managed command");
-                                    } else {
-                                        lane.active = Some(ActiveManagedCommand {
-                                            execution_id: next.execution_id,
-                                            request: next.request,
-                                            snapshot: next.snapshot,
-                                            enqueued_at: Instant::now(),
-                                        });
-                                    }
-                                }
-                                completed
+                                let next_dispatch = lane.queue.pop_front().map(|next| {
+                                    let dispatch = (next.execution_id.clone(), next.request.clone());
+                                    lane.active = Some(ActiveManagedCommand {
+                                        execution_id: next.execution_id,
+                                        request: next.request,
+                                        snapshot: next.snapshot,
+                                        enqueued_at: Instant::now(),
+                                    });
+                                    dispatch
+                                });
+                                (completed, next_dispatch)
                             };
+                            if let Some((execution_id, request)) = next_dispatch {
+                                dispatch_queued_managed_command_off_reader(
+                                    id,
+                                    master_write.clone(),
+                                    managed_lane.clone(),
+                                    cwd.clone(),
+                                    execution_id,
+                                    request,
+                                );
+                            }
 
                             if let Some(active) = completed {
                                 let duration_ms = active.enqueued_at.elapsed().as_millis() as u64;
@@ -159,6 +163,34 @@ pub(super) fn pty_reader_loop(
                 break;
             }
         }
+    }
+}
+
+fn dispatch_queued_managed_command_off_reader(
+    id: SessionId,
+    master_write: Arc<std::sync::Mutex<Box<dyn Write + Send>>>,
+    managed_lane: Arc<std::sync::Mutex<ManagedLaneState>>,
+    cwd: Option<String>,
+    execution_id: String,
+    request: ManagedCommandRequest,
+) {
+    let spawned = std::thread::Builder::new()
+        .name(format!("pty-dispatch-{id}"))
+        .spawn(move || {
+            if let Err(error) = dispatch_managed_command(&master_write, &request, cwd.as_deref()) {
+                tracing::error!(%id, %execution_id, error = %error, "failed to dispatch queued managed command");
+                let mut lane = managed_lane.lock().unwrap();
+                if lane
+                    .active
+                    .as_ref()
+                    .is_some_and(|active| active.execution_id == execution_id)
+                {
+                    lane.active = None;
+                }
+            }
+        });
+    if let Err(error) = spawned {
+        tracing::error!(%id, error = %error, "failed to spawn managed command dispatch thread");
     }
 }
 
