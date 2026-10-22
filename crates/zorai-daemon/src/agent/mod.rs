@@ -75,6 +75,7 @@ mod messaging;
 mod metadata;
 pub(crate) mod mlflow_tracing;
 pub(crate) mod morphogenesis;
+mod desktop_notifications;
 mod notifications;
 pub(crate) mod openai_codex_auth;
 mod operation_wakeup;

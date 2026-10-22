@@ -29,6 +29,7 @@ pub(super) use run_loop::*;
 pub(super) use state::*;
 #[allow(unused_imports)]
 pub(super) use supervision::*;
+pub(super) use thread_links::canonical_gateway_channel_key;
 
 #[cfg(test)]
 mod tests;

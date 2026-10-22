@@ -687,7 +687,15 @@ impl AgentEngine {
 
         match self.history.list_gateway_thread_bindings().await {
             Ok(bindings) if !bindings.is_empty() => {
-                let map: HashMap<String, String> = bindings.into_iter().collect();
+                let mut map: HashMap<String, String> = HashMap::new();
+                for (channel_key, thread_id) in bindings {
+                    map.entry(
+                        crate::agent::gateway_loop::canonical_gateway_channel_key(
+                            &channel_key,
+                        ),
+                    )
+                    .or_insert(thread_id);
+                }
                 *self.gateway_threads.write().await = map;
             }
             Ok(_) => {}

@@ -5,7 +5,7 @@ import { getBridge } from "@/lib/bridge";
 
 export type AttachmentTileModel = {
   id: string;
-  kind: "image" | "audio" | "text";
+  kind: "image" | "audio" | "text" | "file";
   name: string;
   previewUrl?: string;
   inventoryPath?: string;
@@ -119,7 +119,7 @@ function AttachmentImagePreview({ src, name, onClose }: { src: string; name: str
   );
 }
 
-function AttachmentKindIcon({ kind }: { kind: "image" | "audio" | "text" }) {
+function AttachmentKindIcon({ kind }: { kind: "image" | "audio" | "text" | "file" }) {
   if (kind === "audio") {
     return (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

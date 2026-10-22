@@ -150,6 +150,7 @@ export interface AgentSettings {
   enable_streaming: boolean;
   enable_conversation_memory: boolean;
   enable_honcho_memory: boolean;
+  desktop_notifications: boolean;
   honcho_api_key: string;
   honcho_base_url: string;
   honcho_workspace_id: string;
@@ -296,6 +297,7 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   enable_streaming: true,
   enable_conversation_memory: true,
   enable_honcho_memory: false,
+  desktop_notifications: true,
   honcho_api_key: "",
   honcho_base_url: "",
   honcho_workspace_id: "zorai",
@@ -593,6 +595,7 @@ export type DiskAgentSettings = Partial<AgentSettings> & {
   };
   agent_backend?: AgentBackend | string;
   enable_honcho_memory?: boolean;
+  desktop_notifications?: boolean;
   honcho_api_key?: string;
   honcho_base_url?: string;
   honcho_workspace_id?: string;
@@ -919,6 +922,7 @@ export function normalizeAgentSettingsFromSource(source: DiskAgentSettings): Age
     },
     mlflow_tracing: normalizeMlflowTracingSettings(source.mlflow_tracing),
     enable_honcho_memory: source.enable_honcho_memory ?? DEFAULT_AGENT_SETTINGS.enable_honcho_memory,
+    desktop_notifications: source.desktop_notifications ?? DEFAULT_AGENT_SETTINGS.desktop_notifications,
     honcho_api_key: source.honcho_api_key ?? DEFAULT_AGENT_SETTINGS.honcho_api_key,
     honcho_base_url: source.honcho_base_url ?? DEFAULT_AGENT_SETTINGS.honcho_base_url,
     honcho_workspace_id: source.honcho_workspace_id ?? DEFAULT_AGENT_SETTINGS.honcho_workspace_id,

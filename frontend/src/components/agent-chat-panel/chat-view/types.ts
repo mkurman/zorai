@@ -9,8 +9,9 @@ export type ComposerAttachment = {
   id: string;
   name: string;
   size: number;
-  kind: "image" | "audio" | "text";
+  kind: "image" | "audio" | "text" | "file";
   mimeType: string;
+  path?: string;
   dataUrl?: string;
   previewDataUrl?: string;
   textContent?: string;

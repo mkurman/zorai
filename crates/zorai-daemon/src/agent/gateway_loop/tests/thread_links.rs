@@ -121,6 +121,53 @@ async fn linked_gui_thread_continues_on_the_chat_with_its_own_agent_and_title() 
 }
 
 #[tokio::test]
+async fn linking_a_legacy_lowercase_chat_key_moves_the_chat_instead_of_binding_a_second_thread() {
+    let (engine, mut rx, root) = linked_engine("gateway-link-legacy-key").await;
+    engine
+        .persist_gateway_fast_path_exchange("Telegram:42", &telegram_message("hi"), "Ready")
+        .await
+        .expect("seed chat");
+    let old_thread = engine
+        .gateway_threads
+        .read()
+        .await
+        .get("Telegram:42")
+        .cloned()
+        .expect("old thread bound");
+    let (legacy_thread, _) = engine.get_or_create_thread(None, "legacy").await;
+    engine
+        .history
+        .upsert_gateway_thread_binding("telegram:42", &legacy_thread, 1)
+        .await
+        .expect("seed legacy row");
+
+    let chats = engine.list_gateway_chats().await.expect("list chats");
+    assert_eq!(
+        chats.iter().filter(|chat| chat.channel_id == "42").count(),
+        1,
+        "one chat must be listed once, whatever casing older rows used"
+    );
+
+    let (new_thread, _) = engine.get_or_create_thread(None, "new work").await;
+    link_and_ack(&engine, &mut rx, &new_thread, "telegram:42").await;
+
+    let bindings = engine.gateway_threads.read().await.clone();
+    assert_eq!(bindings.get("Telegram:42"), Some(&new_thread));
+    assert!(bindings.get("telegram:42").is_none());
+    assert!(
+        !bindings.values().any(|thread| thread == &old_thread),
+        "incoming messages must stop landing in the previously linked thread"
+    );
+    let persisted = engine
+        .history
+        .list_gateway_thread_bindings()
+        .await
+        .expect("persisted bindings");
+    assert_eq!(persisted, vec![("Telegram:42".to_string(), new_thread.clone())]);
+    fs::remove_dir_all(&root).ok();
+}
+
+#[tokio::test]
 async fn unlinking_returns_the_chat_to_gateway_defaults() {
     let (engine, mut rx, root) = linked_engine("gateway-link-unlink").await;
     engine

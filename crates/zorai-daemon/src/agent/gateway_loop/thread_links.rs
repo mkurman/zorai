@@ -23,12 +23,23 @@ pub(super) fn gateway_link_note(title: &str, agent_name: &str, last_reply: Optio
     note
 }
 
+pub(in crate::agent) fn canonical_gateway_channel_key(channel_key: &str) -> String {
+    match channel_key.split_once(':') {
+        Some((platform, channel)) => gateway::gateway_channel_key(platform, channel),
+        None => channel_key.to_string(),
+    }
+}
+
 impl AgentEngine {
     pub async fn list_gateway_chats(&self) -> Result<Vec<GatewayChatInfo>> {
         let rows = self.history.list_gateway_chat_history().await?;
         let bindings = self.gateway_threads.read().await.clone();
-        let mut chats = Vec::with_capacity(rows.len());
+        let mut chats: Vec<GatewayChatInfo> = Vec::with_capacity(rows.len());
         for (channel_key, last_thread_id, updated_at, _) in rows {
+            let channel_key = canonical_gateway_channel_key(&channel_key);
+            if chats.iter().any(|chat| chat.channel_key == channel_key) {
+                continue;
+            }
             let Some((platform, channel_id)) = channel_key.split_once(':') else {
                 continue;
             };
@@ -73,26 +84,43 @@ impl AgentEngine {
             .get_thread(thread_id)
             .await
             .ok_or_else(|| anyhow::anyhow!("thread {thread_id} not found"))?;
+        let channel_key = channel_key.map(canonical_gateway_channel_key);
+        let channel_key = channel_key.as_deref();
+        let mut previous_keys: Vec<String> = Vec::new();
         if let Some(channel_key) = channel_key {
-            let known = self
+            let history_keys: Vec<String> = self
                 .history
                 .list_gateway_chat_history()
                 .await?
                 .into_iter()
-                .any(|(key, _, _, _)| key == channel_key);
-            if !known {
+                .map(|(key, _, _, _)| key)
+                .filter(|key| canonical_gateway_channel_key(key) == channel_key)
+                .collect();
+            if history_keys.is_empty() {
                 anyhow::bail!("gateway chat {channel_key} has not messaged zorai yet");
             }
+            previous_keys.extend(history_keys.into_iter().filter(|key| key != channel_key));
         }
 
-        let previous_keys: Vec<String> = self
+        let bound_keys: Vec<String> = self
             .gateway_threads
             .read()
             .await
             .iter()
-            .filter(|(key, mapped)| mapped.as_str() == thread_id && Some(key.as_str()) != channel_key)
+            .filter(|(key, mapped)| {
+                let stale_for_thread =
+                    mapped.as_str() == thread_id && Some(key.as_str()) != channel_key;
+                let variant_of_target = Some(key.as_str()) != channel_key
+                    && Some(canonical_gateway_channel_key(key).as_str()) == channel_key;
+                stale_for_thread || variant_of_target
+            })
             .map(|(key, _)| key.clone())
             .collect();
+        for key in bound_keys {
+            if !previous_keys.contains(&key) {
+                previous_keys.push(key);
+            }
+        }
         for key in &previous_keys {
             self.gateway_threads.write().await.remove(key);
             self.gateway_route_modes.write().await.remove(key);

@@ -950,6 +950,9 @@ export function AgentTab({
                 <SettingRow label="Streaming">
                     <Toggle value={settings.enable_streaming} onChange={(value) => updateSetting("enable_streaming", value)} />
                 </SettingRow>
+                <SettingRow label="Desktop Notifications">
+                    <Toggle value={settings.desktop_notifications} onChange={(value) => updateSetting("desktop_notifications", value)} />
+                </SettingRow>
                 <SettingRow label="Conversation Memory">
                     <Toggle value={settings.enable_conversation_memory} onChange={(value) => updateSetting("enable_conversation_memory", value)} />
                 </SettingRow>

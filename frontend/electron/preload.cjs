@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 const loadedExternalPluginEntries = new Set();
 
@@ -210,6 +210,7 @@ const bridgeApi = {
         return () => ipcRenderer.removeListener('workspace-test-event', listener);
     },
     readClipboardText: () => ipcRenderer.invoke('clipboard-read-text'),
+    getPathForFile: (file) => webUtils.getPathForFile(file),
     writeClipboardText: (text) => ipcRenderer.invoke('clipboard-write-text', text),
     startTerminalSession: (options) => ipcRenderer.invoke('terminal-start', options),
     sendTerminalInput: (paneId, data) => ipcRenderer.invoke('terminal-input', paneId, data),
