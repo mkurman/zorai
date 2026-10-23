@@ -367,6 +367,7 @@ async fn web_search_runtime_uses_default_timeout_on_caller_path() {
         "exa",
         "exa-key",
         "",
+        "",
         move |request: super::WebSearchRequest, provider| {
             let observed_timeout = observed_timeout_clone.clone();
             async move {
@@ -399,6 +400,7 @@ async fn web_search_runtime_clamps_timeout_override_on_caller_path() {
         "tavily",
         "",
         "tavily-key",
+        "",
         move |request: super::WebSearchRequest, provider| {
             let observed_timeout = observed_timeout_clone.clone();
             async move {
@@ -430,6 +432,7 @@ async fn web_search_runtime_routes_explicit_duckduckgo_provider_without_api_key(
         "duckduckgo",
         "",
         "",
+        "",
         |_request: super::WebSearchRequest, provider| async move {
             Ok::<String, anyhow::Error>(format!("provider={provider}"))
         },
@@ -457,6 +460,7 @@ async fn web_search_runtime_returns_timeout_error_when_runner_exceeds_limit() {
         "ddg",
         "",
         "",
+        "",
         |_request: super::WebSearchRequest, _provider| async move {
             tokio::time::sleep(Duration::from_millis(10)).await;
             Ok::<String, anyhow::Error>("late result".to_string())
@@ -467,4 +471,52 @@ async fn web_search_runtime_returns_timeout_error_when_runner_exceeds_limit() {
 
     assert!(error.to_string().contains("web search timed out"));
     assert!(error.to_string().contains("0"));
+}
+
+#[tokio::test]
+async fn web_search_runtime_routes_firecrawl_only_when_its_key_is_set() {
+    let args = serde_json::json!({ "query": "crawl" });
+    for (key, expected) in [("fc-key", "firecrawl"), ("", "ddg")] {
+        let provider = execute_web_search_with_runner(
+            &args,
+            "firecrawl",
+            "",
+            "",
+            key,
+            |_request: super::WebSearchRequest, provider| async move {
+                Ok::<String, anyhow::Error>(provider.to_string())
+            },
+        )
+        .await
+        .expect("search");
+        assert_eq!(provider, expected, "key {key:?}");
+    }
+}
+
+#[test]
+fn firecrawl_v2_web_results_are_formatted_like_other_providers() {
+    let text = super::format_firecrawl_search_results(
+        "rust async",
+        &serde_json::json!({
+            "success": true,
+            "data": { "web": [
+                { "title": "Async Book", "url": "https://rust-lang.github.io/async-book/", "description": "Asynchronous programming in Rust" }
+            ] }
+        }),
+    );
+
+    assert!(text.starts_with("Web results for \"rust async\""), "{text}");
+    assert!(text.contains("Async Book"), "{text}");
+    assert!(
+        text.contains("https://rust-lang.github.io/async-book/"),
+        "{text}"
+    );
+    assert!(text.contains("Asynchronous programming in Rust"), "{text}");
+    assert_eq!(
+        super::format_firecrawl_search_results(
+            "nothing",
+            &serde_json::json!({ "success": true, "data": { "web": [] } })
+        ),
+        "No web results found for: nothing"
+    );
 }

@@ -426,6 +426,7 @@ const bridgeApi = {
     agentRemoveSubAgent: (subAgentId) => ipcRenderer.invoke('agent-remove-sub-agent', subAgentId),
     agentListSubAgents: () => ipcRenderer.invoke('agent-list-sub-agents'),
     agentListGatewayChats: () => ipcRenderer.invoke('agent-list-gateway-chats'),
+    agentSearchThreads: (query, limit) => ipcRenderer.invoke('agent-search-threads', query, limit),
     agentLinkThreadToGatewayChat: (threadId, channelKey) => ipcRenderer.invoke('agent-link-thread-to-gateway-chat', threadId, channelKey),
     agentGetConciergeConfig: () => ipcRenderer.invoke('agent-get-concierge-config'),
     agentSetConciergeConfig: (config) => ipcRenderer.invoke('agent-set-concierge-config', config),

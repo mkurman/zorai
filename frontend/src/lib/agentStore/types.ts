@@ -172,6 +172,8 @@ export interface AgentProviderConfig {
   openrouter_provider_ignore?: string[];
   openrouter_allow_fallbacks?: boolean | null;
   openrouter_response_cache_enabled?: boolean;
+  huggingface_provider?: string;
+  reasoning_effort?: string;
 }
 
 export interface ProviderAuthState {

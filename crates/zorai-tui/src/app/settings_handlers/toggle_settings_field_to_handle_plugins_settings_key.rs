@@ -193,39 +193,69 @@ impl TuiModel {
             "feat_tier_override" => {
                 self.activate_settings_field();
             }
-            "feat_security_level" => {
-                self.activate_settings_field();
+            "desktop_notifications" => {
+                let enabled = self
+                    .config
+                    .agent_config_raw
+                    .as_ref()
+                    .and_then(|r| r.get("desktop_notifications"))
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(true);
+                self.set_raw_config_item(
+                    &["desktop_notifications"],
+                    serde_json::Value::Bool(!enabled),
+                );
+            }
+            "feat_audio_tts_auto_speak" => {
+                let enabled = self
+                    .config
+                    .agent_config_raw
+                    .as_ref()
+                    .and_then(|r| r.get("audio"))
+                    .and_then(|a| a.get("tts"))
+                    .and_then(|t| t.get("auto_speak"))
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                self.set_raw_config_item(
+                    &["audio", "tts", "auto_speak"],
+                    serde_json::Value::Bool(!enabled),
+                );
+            }
+            "feat_heartbeat_enabled" => {
+                let enabled = self
+                    .config
+                    .agent_config_raw
+                    .as_ref()
+                    .and_then(|r| r.get("heartbeat_enabled"))
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                self.set_raw_config_item(&["heartbeat_enabled"], serde_json::Value::Bool(!enabled));
             }
             "feat_check_stale_todos"
             | "feat_check_stuck_goals"
             | "feat_check_unreplied_messages"
-            | "feat_check_repo_changes" => {
+            | "feat_check_repo_changes"
+            | "feat_check_plugin_auth" => {
                 let key = match field.as_str() {
-                    "feat_check_stale_todos" => "check_stale_todos",
-                    "feat_check_stuck_goals" => "check_stuck_goals",
-                    "feat_check_unreplied_messages" => "check_unreplied_messages",
-                    "feat_check_repo_changes" => "check_repo_changes",
+                    "feat_check_stale_todos" => "stale_todos_enabled",
+                    "feat_check_stuck_goals" => "stuck_goals_enabled",
+                    "feat_check_unreplied_messages" => "unreplied_messages_enabled",
+                    "feat_check_repo_changes" => "repo_changes_enabled",
+                    "feat_check_plugin_auth" => "plugin_auth_enabled",
                     _ => return,
                 };
                 let current = self
                     .config
                     .agent_config_raw
                     .as_ref()
-                    .and_then(|r| r.get("heartbeat"))
+                    .and_then(|r| r.get("heartbeat_checks"))
                     .and_then(|h| h.get(key))
                     .and_then(|v| v.as_bool())
                     .unwrap_or(true);
-                let next = !current;
-                self.send_daemon_command(DaemonCommand::SetConfigItem {
-                    key_path: format!("/heartbeat/{}", key),
-                    value_json: next.to_string(),
-                });
-                if let Some(ref mut raw) = self.config.agent_config_raw {
-                    if raw.get("heartbeat").is_none() {
-                        raw["heartbeat"] = serde_json::json!({});
-                    }
-                    raw["heartbeat"][key] = serde_json::Value::Bool(next);
-                }
+                self.set_raw_config_item(
+                    &["heartbeat_checks", key],
+                    serde_json::Value::Bool(!current),
+                );
             }
             "feat_consolidation_enabled" => {
                 let current = self
@@ -343,9 +373,7 @@ impl TuiModel {
                 self.concierge.model = None;
                 self.send_concierge_config();
             }
-            field
-                if field.starts_with("tool_") && field != "tool_synthesis_max_generated_tools" =>
-            {
+            field if crate::state::settings::is_tool_toggle_field(field) => {
                 let tool_name = field.strip_prefix("tool_").unwrap_or(field).to_string();
                 self.config
                     .reduce(config::ConfigAction::ToggleTool(tool_name));
@@ -622,5 +650,24 @@ impl TuiModel {
             }
         }
         false
+    }
+}
+
+impl TuiModel {
+    pub(crate) fn set_raw_config_item(&mut self, path: &[&str], value: serde_json::Value) {
+        self.send_daemon_command(DaemonCommand::SetConfigItem {
+            key_path: format!("/{}", path.join("/")),
+            value_json: value.to_string(),
+        });
+        if let Some(raw) = self.config.agent_config_raw.as_mut() {
+            let mut node = raw;
+            for key in &path[..path.len() - 1] {
+                if !node.get(*key).is_some_and(serde_json::Value::is_object) {
+                    node[*key] = serde_json::json!({});
+                }
+                node = &mut node[*key];
+            }
+            node[path[path.len() - 1]] = value;
+        }
     }
 }

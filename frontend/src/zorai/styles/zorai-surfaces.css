@@ -1301,6 +1301,8 @@ select.zorai-input:disabled option {
 }
 
 .zorai-switch {
+  flex: none;
+  box-sizing: border-box;
   width: 42px;
   height: 24px;
   border: 1px solid var(--zorai-border-strong);
@@ -2003,4 +2005,90 @@ select.zorai-input:disabled option {
   overflow-x: auto;
   overflow-y: hidden;
   padding: 4px 0;
+}
+
+.zorai-settings-nav {
+  gap: 16px;
+}
+
+.zorai-settings-nav__group {
+  display: grid;
+  gap: 2px;
+}
+
+.zorai-settings-nav__group > .zorai-section-label {
+  padding: 0 8px 4px;
+}
+
+.zorai-settings-nav__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--zorai-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--zorai-transition),
+    color var(--zorai-transition);
+}
+
+.zorai-settings-nav__item:hover {
+  background: var(--zorai-bg-elevated);
+  color: var(--zorai-text);
+}
+
+.zorai-settings-nav__item--active {
+  background: var(--zorai-bg-active);
+  border-color: var(--zorai-border);
+  color: var(--zorai-text);
+}
+
+.zorai-settings-nav__item--active .zorai-settings-icon {
+  color: var(--zorai-accent);
+}
+
+.zorai-settings-icon {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.zorai-settings-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.zorai-settings-title .zorai-settings-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--zorai-accent);
+}
+
+.zorai-settings-tab-strip .zorai-ghost-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.zorai-settings-surface .zorai-settings-grid {
+  max-width: 920px;
+}
+
+.zorai-settings-surface .zorai-setting-row > .zorai-input {
+  flex: 0 0 min(280px, 45%);
+  width: min(280px, 45%);
 }

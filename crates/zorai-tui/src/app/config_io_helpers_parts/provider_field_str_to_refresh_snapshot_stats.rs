@@ -197,6 +197,12 @@ impl TuiModel {
             model,
             custom_model_name,
         );
+        let reasoning_effort = if provider_id == self.config.provider {
+            self.config.reasoning_effort.as_str()
+        } else {
+            Self::provider_field_str(&ui_value, "reasoning_effort", "reasoning_effort")
+                .unwrap_or(self.config.reasoning_effort.as_str())
+        };
         let mut value = serde_json::json!({
             "base_url": Self::provider_field_str(&ui_value, "base_url", "base_url").unwrap_or(""),
             "model": model,
@@ -205,7 +211,7 @@ impl TuiModel {
             "assistant_id": Self::provider_field_str(&ui_value, "assistant_id", "assistant_id").unwrap_or(""),
             "auth_source": auth_source,
             "api_transport": api_transport,
-            "reasoning_effort": &self.config.reasoning_effort,
+            "reasoning_effort": reasoning_effort,
             "context_window_tokens": if let Some(context_window) = resolved_context_window {
                 context_window as u64
             } else if providers::model_uses_context_window_override(

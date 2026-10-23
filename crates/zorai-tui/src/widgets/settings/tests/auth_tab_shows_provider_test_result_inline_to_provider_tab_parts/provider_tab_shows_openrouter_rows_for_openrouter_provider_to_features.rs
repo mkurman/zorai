@@ -181,7 +181,6 @@ fn protected_weles_row_hides_delete_and_disable_actions() {
             raw_json: Some(serde_json::json!({ "id": "weles_builtin" })),
         });
     let concierge = crate::state::concierge::ConciergeState::new();
-    let tier = crate::state::tier::TierState::from_tier("power_user");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
 
     let lines = render_tab_content(
@@ -192,7 +191,6 @@ fn protected_weles_row_hides_delete_and_disable_actions() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     );
@@ -245,7 +243,6 @@ fn subagent_editor_renders_reasoning_effort_field() {
     editor.field = crate::state::subagents::SubAgentEditorField::ReasoningEffort;
     subagents.editor = Some(editor);
     let concierge = crate::state::concierge::ConciergeState::new();
-    let tier = crate::state::tier::TierState::from_tier("power_user");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
 
     let lines = render_tab_content(
@@ -256,7 +253,6 @@ fn subagent_editor_renders_reasoning_effort_field() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     );
@@ -290,7 +286,6 @@ fn subagent_editor_custom_model_edit_shows_cursor() {
     let modal = ModalState::new();
     let auth = crate::state::auth::AuthState::new();
     let concierge = crate::state::concierge::ConciergeState::new();
-    let tier = crate::state::tier::TierState::from_tier("power_user");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
 
     let lines = render_tab_content(
@@ -301,7 +296,6 @@ fn subagent_editor_custom_model_edit_shows_cursor() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     );
@@ -381,11 +375,10 @@ fn make_config_without_audio() -> ConfigState {
 }
 
 #[test]
-fn features_tab_includes_audio_section_when_enabled() {
+fn media_page_includes_audio_section_when_enabled() {
     let mut settings = SettingsState::new();
-    settings.reduce(SettingsAction::SwitchTab(SettingsTab::Features));
+    settings.reduce(SettingsAction::SwitchTab(SettingsTab::Media));
     let config = make_config_with_audio();
-    let tier = crate::state::tier::TierState::from_tier("base");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
     let modal = crate::state::modal::ModalState::new();
     let auth = crate::state::auth::AuthState::new();
@@ -400,26 +393,24 @@ fn features_tab_includes_audio_section_when_enabled() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     );
 
     let audio_header = lines
         .iter()
-        .find(|l| l.spans.iter().any(|s| s.content.contains("Audio")));
+        .find(|l| l.spans.iter().any(|s| s.content.contains("SPEECH-TO-TEXT")));
     assert!(
         audio_header.is_some(),
-        "Audio section header should appear in Features tab"
+        "Speech-to-text section header should appear on the Audio & Images page"
     );
 }
 
 #[test]
-fn features_tab_shows_stt_provider_when_configured() {
+fn media_page_shows_stt_provider_when_configured() {
     let mut settings = SettingsState::new();
-    settings.reduce(SettingsAction::SwitchTab(SettingsTab::Features));
+    settings.reduce(SettingsAction::SwitchTab(SettingsTab::Media));
     let config = make_config_with_audio();
-    let tier = crate::state::tier::TierState::from_tier("base");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
     let modal = crate::state::modal::ModalState::new();
     let auth = crate::state::auth::AuthState::new();
@@ -434,24 +425,22 @@ fn features_tab_shows_stt_provider_when_configured() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     );
 
     let stt_line = lines.iter().find(|l| {
         let text: String = l.spans.iter().map(|s| s.content.clone()).collect();
-        text.contains("STT") && text.contains("openai")
+        text.contains("Provider") && text.contains("openai")
     });
     assert!(stt_line.is_some(), "STT line with provider should appear");
 }
 
 #[test]
-fn features_tab_shows_tts_voice_when_configured() {
+fn media_page_shows_tts_voice_when_configured() {
     let mut settings = SettingsState::new();
-    settings.reduce(SettingsAction::SwitchTab(SettingsTab::Features));
+    settings.reduce(SettingsAction::SwitchTab(SettingsTab::Media));
     let config = make_config_with_audio();
-    let tier = crate::state::tier::TierState::from_tier("base");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
     let modal = crate::state::modal::ModalState::new();
     let auth = crate::state::auth::AuthState::new();
@@ -466,24 +455,22 @@ fn features_tab_shows_tts_voice_when_configured() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     );
 
     let tts_line = lines.iter().find(|l| {
         let text: String = l.spans.iter().map(|s| s.content.clone()).collect();
-        text.contains("TTS") && text.contains("alloy")
+        text.contains("Voice") && text.contains("alloy")
     });
     assert!(tts_line.is_some(), "TTS line with voice should appear");
 }
 
 #[test]
-fn features_tab_shows_hotkey_hints() {
+fn media_page_shows_audio_hotkey_hints() {
     let mut settings = SettingsState::new();
-    settings.reduce(SettingsAction::SwitchTab(SettingsTab::Features));
+    settings.reduce(SettingsAction::SwitchTab(SettingsTab::Media));
     let config = make_config_with_audio();
-    let tier = crate::state::tier::TierState::from_tier("base");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
     let modal = crate::state::modal::ModalState::new();
     let auth = crate::state::auth::AuthState::new();
@@ -498,7 +485,6 @@ fn features_tab_shows_hotkey_hints() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     );
@@ -512,11 +498,10 @@ fn features_tab_shows_hotkey_hints() {
 }
 
 #[test]
-fn features_tab_audio_defaults_when_missing() {
+fn media_page_audio_defaults_when_missing() {
     let mut settings = SettingsState::new();
-    settings.reduce(SettingsAction::SwitchTab(SettingsTab::Features));
+    settings.reduce(SettingsAction::SwitchTab(SettingsTab::Media));
     let config = make_config_without_audio();
-    let tier = crate::state::tier::TierState::from_tier("base");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
     let modal = crate::state::modal::ModalState::new();
     let auth = crate::state::auth::AuthState::new();
@@ -531,17 +516,18 @@ fn features_tab_audio_defaults_when_missing() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     );
 
-    let stt_line = lines
-        .iter()
-        .find(|l| l.spans.iter().any(|s| s.content.contains("STT")));
+    let stt_line = lines.iter().find(|l| {
+        l.spans
+            .iter()
+            .any(|s| s.content.contains("Speech-to-text "))
+    });
     assert!(
         stt_line.is_some(),
-        "STT line should appear even when disabled"
+        "speech-to-text toggle should appear even when disabled"
     );
 
     let content: String = stt_line
@@ -551,7 +537,7 @@ fn features_tab_audio_defaults_when_missing() {
         .map(|s| s.content.clone())
         .collect();
     assert!(
-        content.contains("off") || content.contains("disabled") || !content.contains("openai"),
+        content.contains("[ ]"),
         "STT should show disabled/default state"
     );
 }

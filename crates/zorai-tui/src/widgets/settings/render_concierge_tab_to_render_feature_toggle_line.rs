@@ -172,7 +172,8 @@ pub(crate) fn render_concierge_tab<'a>(
     }
 
     {
-        let is_selected = settings.field_cursor() == 5;
+        let is_selected =
+            settings.field_cursor() == concierge.settings_field_index("concierge_api_transport");
         let marker = if is_selected { "> " } else { "  " };
         lines.push(Line::from(vec![
             Span::styled(
@@ -199,7 +200,8 @@ pub(crate) fn render_concierge_tab<'a>(
     }
 
     if concierge.provider.as_deref() != Some(zorai_shared::providers::PROVIDER_ID_OPENROUTER) {
-        let is_selected = settings.field_cursor() == 6;
+        let is_selected = settings.field_cursor()
+            == concierge.settings_field_index("concierge_claude_permission_mode");
         let marker = if is_selected { "> " } else { "  " };
         lines.push(Line::from(vec![
             Span::styled(
@@ -226,7 +228,8 @@ pub(crate) fn render_concierge_tab<'a>(
     }
 
     if concierge.provider.as_deref() == Some(zorai_shared::providers::PROVIDER_ID_HUGGINGFACE) {
-        let is_selected = settings.field_cursor() == 7;
+        let is_selected = settings.field_cursor()
+            == concierge.settings_field_index("concierge_huggingface_provider");
         let marker = if is_selected { "> " } else { "  " };
         let value = if concierge.huggingface_provider.trim().is_empty() {
             "auto"
@@ -257,7 +260,7 @@ pub(crate) fn render_concierge_tab<'a>(
     if concierge.provider.as_deref() == Some(zorai_shared::providers::PROVIDER_ID_OPENROUTER) {
         let openrouter_fields = [
             (
-                5,
+                concierge.settings_field_index("concierge_openrouter_provider_order"),
                 "OR Prefer:   ",
                 if concierge.openrouter_provider_order.trim().is_empty() {
                     "(none)".to_string()
@@ -266,7 +269,7 @@ pub(crate) fn render_concierge_tab<'a>(
                 },
             ),
             (
-                6,
+                concierge.settings_field_index("concierge_openrouter_provider_ignore"),
                 "OR Exclude:  ",
                 if concierge.openrouter_provider_ignore.trim().is_empty() {
                     "(none)".to_string()
@@ -275,7 +278,7 @@ pub(crate) fn render_concierge_tab<'a>(
                 },
             ),
             (
-                7,
+                concierge.settings_field_index("concierge_openrouter_allow_fallbacks"),
                 "OR Fallback: ",
                 if concierge.openrouter_allow_fallbacks {
                     "allowed".to_string()
@@ -310,11 +313,7 @@ pub(crate) fn render_concierge_tab<'a>(
     }
 
     {
-        let base_url_idx = match concierge.provider.as_deref() {
-            Some(zorai_shared::providers::PROVIDER_ID_OPENROUTER)
-            | Some(zorai_shared::providers::PROVIDER_ID_HUGGINGFACE) => 8,
-            _ => 7,
-        };
+        let base_url_idx = concierge.settings_field_index("concierge_base_url");
         let is_selected = settings.field_cursor() == base_url_idx;
         let marker = if is_selected { "> " } else { "  " };
         let value = if concierge.base_url.trim().is_empty() {
@@ -369,103 +368,4 @@ pub(crate) fn render_concierge_tab<'a>(
     }
 
     lines
-}
-
-pub(crate) fn render_feature_field_line<'a>(
-    lines: &mut Vec<Line<'a>>,
-    settings: &'a SettingsState,
-    field_idx: usize,
-    label: &'a str,
-    value: &str,
-    hint: &'a str,
-    theme: &ThemeTokens,
-) {
-    let is_selected = settings.field_cursor() == field_idx;
-    let expected_field = match field_idx {
-        0 => "feat_tier_override",
-        1 => "feat_security_level",
-        2 => "feat_heartbeat_cron",
-        3 => "feat_heartbeat_quiet_start",
-        4 => "feat_heartbeat_quiet_end",
-        10 => "feat_decay_half_life_hours",
-        11 => "feat_heuristic_promotion_threshold",
-        14 => "feat_skill_community_preapprove_timeout_secs",
-        15 => "feat_skill_suggest_global_enable_after_approvals",
-        17 => "feat_audio_stt_provider",
-        18 => "feat_audio_stt_model",
-        20 => "feat_audio_tts_provider",
-        21 => "feat_audio_tts_model",
-        22 => "feat_audio_tts_voice",
-        28 => "feat_embedding_dimensions",
-        _ => "",
-    };
-    let is_editing = settings.is_editing()
-        && !expected_field.is_empty()
-        && settings.editing_field() == Some(expected_field);
-
-    let marker = if is_selected { "> " } else { "  " };
-    let marker_style = if is_selected {
-        theme.accent_primary
-    } else {
-        theme.fg_dim
-    };
-    let display_value: String = if is_editing {
-        format!("{}\u{2588}", settings.edit_buffer())
-    } else {
-        value.to_string()
-    };
-    let value_style = if is_editing {
-        theme.fg_active
-    } else if is_selected {
-        theme.accent_primary
-    } else {
-        theme.fg_active
-    };
-    let mut spans = vec![
-        Span::styled(marker.to_string(), marker_style),
-        Span::styled(format!("{:<17} ", label), theme.fg_dim),
-        Span::styled(display_value, value_style),
-    ];
-    if is_selected && !is_editing {
-        spans.push(Span::styled(hint, theme.fg_dim));
-    }
-    lines.push(Line::from(spans));
-}
-
-pub(crate) fn render_feature_toggle_line<'a>(
-    lines: &mut Vec<Line<'a>>,
-    settings: &SettingsState,
-    field_idx: usize,
-    label: &'a str,
-    enabled: bool,
-    theme: &ThemeTokens,
-) {
-    let is_selected = settings.field_cursor() == field_idx;
-    let marker = if is_selected { "> " } else { "  " };
-    let marker_style = if is_selected {
-        theme.accent_primary
-    } else {
-        theme.fg_dim
-    };
-    let check = if enabled { "[x]" } else { "[ ]" };
-    let check_style = if enabled {
-        theme.accent_success
-    } else {
-        theme.fg_dim
-    };
-    let label_style = if is_selected {
-        theme.accent_primary
-    } else {
-        theme.fg_active
-    };
-    let mut spans = vec![
-        Span::styled(marker.to_string(), marker_style),
-        Span::styled(check, check_style),
-        Span::raw(" "),
-        Span::styled(label, label_style),
-    ];
-    if is_selected {
-        spans.push(Span::styled("  [Space: toggle]", theme.fg_dim));
-    }
-    lines.push(Line::from(spans));
 }

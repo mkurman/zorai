@@ -11,7 +11,12 @@
 
 use super::*;
 use chrono::Timelike;
+use futures::StreamExt;
 use std::collections::HashSet;
+
+const HEARTBEAT_SYNTHESIS_SYSTEM_PROMPT: &str =
+    "You summarize scheduled heartbeat check data for the operator. \
+You cannot run tools or take actions; reply only with the requested ACTIONABLE / DIGEST / ITEMS text.";
 
 mod helpers;
 mod legacy;
@@ -441,49 +446,31 @@ impl AgentEngine {
         );
 
         let checks_json = serde_json::to_string(&check_results).unwrap_or_default();
-        let (synthesis_json, actionable, digest_text, digest_items, llm_tokens) = match self
-            .send_internal_message_as(
-                None,
-                crate::agent::agent_identity::WELES_AGENT_ID,
-                &synthesis_prompt,
-            )
-            .await
-        {
-            Ok(thread_id) => {
-                let response = match self.history.latest_assistant_message(&thread_id).await {
-                    Ok(Some(message)) => message.content,
-                    Ok(None) => String::new(),
-                    Err(error) => {
-                        tracing::warn!(
-                            thread_id = %thread_id,
-                            "failed to load persisted heartbeat synthesis response: {error}"
-                        );
-                        String::new()
-                    }
-                };
+        let (synthesis_json, actionable, digest_text, digest_items, llm_tokens) =
+            match self.request_heartbeat_synthesis(&synthesis_prompt).await {
+                Ok((response, llm_tokens)) => {
+                    let actionable = response.contains("ACTIONABLE: true");
+                    let digest = response
+                        .lines()
+                        .find(|l| l.starts_with("DIGEST:"))
+                        .map(|l| l.trim_start_matches("DIGEST:").trim().to_string())
+                        .unwrap_or_else(|| {
+                            if actionable {
+                                "Items need attention.".into()
+                            } else {
+                                "All systems normal.".into()
+                            }
+                        });
 
-                let actionable = response.contains("ACTIONABLE: true");
-                let digest = response
-                    .lines()
-                    .find(|l| l.starts_with("DIGEST:"))
-                    .map(|l| l.trim_start_matches("DIGEST:").trim().to_string())
-                    .unwrap_or_else(|| {
-                        if actionable {
-                            "Items need attention.".into()
-                        } else {
-                            "All systems normal.".into()
-                        }
-                    });
+                    let items = parse_digest_items(&response);
 
-                let items = parse_digest_items(&response);
-
-                (Some(response), actionable, digest, items, 0u64)
-            }
-            Err(e) => {
-                tracing::error!("heartbeat LLM synthesis failed: {e}");
-                (None, false, format!("Synthesis failed: {e}"), vec![], 0u64)
-            }
-        };
+                    (Some(response), actionable, digest, items, llm_tokens)
+                }
+                Err(e) => {
+                    tracing::error!("heartbeat LLM synthesis failed: {e}");
+                    (None, false, format!("Synthesis failed: {e}"), vec![], 0u64)
+                }
+            };
 
         let duration_ms = start.elapsed().as_millis() as i64;
         let status = heartbeat_persistence_status(synthesis_json.as_deref());
@@ -592,3 +579,78 @@ impl AgentEngine {
 #[cfg(test)]
 #[path = "tests/heartbeat.rs"]
 mod tests;
+
+impl AgentEngine {
+    async fn request_heartbeat_synthesis(&self, prompt: &str) -> Result<(String, u64)> {
+        let config = self.config.read().await.clone();
+        let weles = super::config::build_effective_weles_definition(&config);
+        let mut provider_config =
+            resolve_provider_config_for(&config, &weles.provider, Some(&weles.model))?;
+        crate::agent::provider_resolution::apply_role_transport_override(
+            &weles.provider,
+            &mut provider_config,
+            weles.api_transport,
+        );
+        drop(config);
+
+        self.check_circuit_breaker(&weles.provider).await?;
+        let messages = vec![ApiMessage {
+            role: "user".into(),
+            content: ApiContent::Text(prompt.to_string()),
+            reasoning: None,
+            tool_call_id: None,
+            name: None,
+            tool_calls: None,
+        }];
+        let stream = send_completion_request(
+            &self.http_client,
+            &weles.provider,
+            &provider_config,
+            HEARTBEAT_SYNTHESIS_SYSTEM_PROMPT,
+            &messages,
+            &[],
+            provider_config.api_transport,
+            None,
+            None,
+            RetryStrategy::Bounded {
+                max_retries: 1,
+                retry_delay_ms: 1000,
+            },
+        );
+        let mut content = String::new();
+        let mut stream = std::pin::pin!(stream);
+        while let Some(chunk) = stream.next().await {
+            let chunk = match chunk {
+                Ok(value) => value,
+                Err(error) => {
+                    self.record_llm_outcome(&weles.provider, false).await;
+                    return Err(error);
+                }
+            };
+            match chunk {
+                CompletionChunk::Delta { content: delta, .. } => content.push_str(&delta),
+                CompletionChunk::Done {
+                    content: done_content,
+                    input_tokens,
+                    output_tokens,
+                    ..
+                } => {
+                    self.record_llm_outcome(&weles.provider, true).await;
+                    if !done_content.trim().is_empty() {
+                        content = done_content;
+                    }
+                    if content.trim().is_empty() {
+                        anyhow::bail!("empty heartbeat synthesis response");
+                    }
+                    return Ok((content, input_tokens + output_tokens));
+                }
+                CompletionChunk::Error { message } => {
+                    self.record_llm_outcome(&weles.provider, false).await;
+                    anyhow::bail!("LLM error: {message}");
+                }
+                _ => {}
+            }
+        }
+        anyhow::bail!("heartbeat synthesis stream ended without a final response")
+    }
+}

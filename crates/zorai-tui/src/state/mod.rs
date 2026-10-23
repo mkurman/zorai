@@ -14,6 +14,7 @@ pub mod input_refs;
 pub mod modal;
 pub mod notifications;
 pub mod settings;
+pub mod settings_registry;
 pub mod sidebar;
 pub mod spawned_tree;
 pub mod statistics;
@@ -38,6 +39,9 @@ pub enum DaemonCommand {
     /// demand.
     RefreshThreadsForAgent {
         agent_filter: Option<String>,
+    },
+    SearchThreads {
+        query: String,
     },
     GetConfig,
     GetMlflowTracingStatus,

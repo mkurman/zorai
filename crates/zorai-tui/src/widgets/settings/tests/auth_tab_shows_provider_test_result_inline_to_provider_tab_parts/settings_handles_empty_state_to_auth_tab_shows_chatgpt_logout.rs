@@ -102,7 +102,6 @@ fn plugins_tab_shows_install_shortcut_in_list_mode() {
     let auth = crate::state::auth::AuthState::new();
     let subagents = SubAgentsState::new();
     let concierge = crate::state::concierge::ConciergeState::new();
-    let tier = crate::state::tier::TierState::from_tier("base");
     let plugin_settings = PluginSettingsState::new();
 
     let lines = render_tab_content(
@@ -113,7 +112,6 @@ fn plugins_tab_shows_install_shortcut_in_list_mode() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     );
@@ -128,18 +126,14 @@ fn plugins_tab_shows_install_shortcut_in_list_mode() {
 }
 
 #[test]
-fn settings_footer_omits_select_hint_for_read_only_advanced_field() {
+fn settings_footer_omits_select_hint_when_nothing_on_the_tab_is_editable() {
     let mut settings = SettingsState::new();
-    settings.reduce(SettingsAction::SwitchTab(SettingsTab::Advanced));
-    for _ in 0..20 {
-        settings.reduce(SettingsAction::NavigateField(1));
-    }
+    settings.reduce(SettingsAction::SwitchTab(SettingsTab::About));
     let config = ConfigState::new();
     let modal = ModalState::new();
     let auth = crate::state::auth::AuthState::new();
     let subagents = SubAgentsState::new();
     let concierge = crate::state::concierge::ConciergeState::new();
-    let tier = crate::state::tier::TierState::from_tier("base");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
     let theme = ThemeTokens::default();
     let backend = ratatui::backend::TestBackend::new(100, 16);
@@ -156,7 +150,6 @@ fn settings_footer_omits_select_hint_for_read_only_advanced_field() {
                 &auth,
                 &subagents,
                 &concierge,
-                &tier,
                 &plugin_settings,
                 0,
                 &theme,
@@ -215,18 +208,16 @@ fn settings_tab_bar_includes_about_label() {
 }
 
 #[test]
-fn chat_tab_keeps_honcho_as_single_row_in_main_list() {
+fn memory_page_keeps_honcho_as_single_row_until_its_editor_opens() {
     let mut settings = SettingsState::new();
     settings.reduce(crate::state::settings::SettingsAction::SwitchTab(
-        SettingsTab::Chat,
+        SettingsTab::Memory,
     ));
-    settings.reduce(crate::state::settings::SettingsAction::NavigateField(2));
     let config = ConfigState::new();
     let modal = ModalState::new();
     let auth = crate::state::auth::AuthState::new();
     let subagents = SubAgentsState::new();
     let concierge = crate::state::concierge::ConciergeState::new();
-    let tier = crate::state::tier::TierState::from_tier("power_user");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
 
     let lines = render_tab_content(
@@ -237,7 +228,6 @@ fn chat_tab_keeps_honcho_as_single_row_in_main_list() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     );
@@ -247,17 +237,18 @@ fn chat_tab_keeps_honcho_as_single_row_in_main_list() {
         .collect::<Vec<_>>()
         .join("\n");
 
-    assert!(text.contains("Honcho Memory"));
+    assert!(text.contains("Honcho memory"));
+    assert!(!text.contains("Honcho Memory Settings"));
     assert!(!text.contains("Honcho API Key"));
     assert!(!text.contains("Honcho Base URL"));
     assert!(!text.contains("Honcho Workspace"));
 }
 
 #[test]
-fn chat_tab_renders_inline_honcho_editor_when_active() {
+fn memory_page_renders_inline_honcho_editor_when_active() {
     let mut settings = SettingsState::new();
     settings.reduce(crate::state::settings::SettingsAction::SwitchTab(
-        SettingsTab::Chat,
+        SettingsTab::Memory,
     ));
     let mut config = ConfigState::new();
     config.honcho_editor = Some(crate::state::config::HonchoEditorState {
@@ -271,7 +262,6 @@ fn chat_tab_renders_inline_honcho_editor_when_active() {
     let auth = crate::state::auth::AuthState::new();
     let subagents = SubAgentsState::new();
     let concierge = crate::state::concierge::ConciergeState::new();
-    let tier = crate::state::tier::TierState::from_tier("power_user");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
 
     let lines = render_tab_content(
@@ -282,7 +272,6 @@ fn chat_tab_renders_inline_honcho_editor_when_active() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     );
@@ -301,10 +290,10 @@ fn chat_tab_renders_inline_honcho_editor_when_active() {
 }
 
 #[test]
-fn chat_tab_places_honcho_editor_below_last_checkbox() {
+fn memory_page_places_honcho_editor_after_its_fields_so_rows_do_not_shift() {
     let mut settings = SettingsState::new();
     settings.reduce(crate::state::settings::SettingsAction::SwitchTab(
-        SettingsTab::Chat,
+        SettingsTab::Memory,
     ));
     let mut config = ConfigState::new();
     config.honcho_editor = Some(crate::state::config::HonchoEditorState {
@@ -318,7 +307,6 @@ fn chat_tab_places_honcho_editor_below_last_checkbox() {
     let auth = crate::state::auth::AuthState::new();
     let subagents = SubAgentsState::new();
     let concierge = crate::state::concierge::ConciergeState::new();
-    let tier = crate::state::tier::TierState::from_tier("power_user");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
 
     let lines = render_tab_content(
@@ -329,7 +317,6 @@ fn chat_tab_places_honcho_editor_below_last_checkbox() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     );
@@ -339,18 +326,14 @@ fn chat_tab_places_honcho_editor_below_last_checkbox() {
         .collect::<Vec<_>>()
         .join("\n");
 
-    let require_activation = text
-        .find("Require Activation")
-        .expect("require activation row should render");
+    let last_field = text
+        .find("Dimensions")
+        .expect("last memory field should render");
     let honcho_editor = text
         .find("Honcho Memory Settings")
         .expect("honcho editor heading should render");
-    let tool_limit = text
-        .find("Tool Limit:")
-        .expect("tool limit row should render");
 
-    assert!(require_activation < honcho_editor);
-    assert!(honcho_editor < tool_limit);
+    assert!(last_field < honcho_editor);
 }
 
 #[test]
@@ -364,7 +347,6 @@ fn about_tab_renders_product_metadata() {
     let auth = crate::state::auth::AuthState::new();
     let subagents = SubAgentsState::new();
     let concierge = crate::state::concierge::ConciergeState::new();
-    let tier = crate::state::tier::TierState::from_tier("power_user");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
 
     let lines = render_tab_content(
@@ -375,7 +357,6 @@ fn about_tab_renders_product_metadata() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     );
@@ -410,18 +391,16 @@ fn gateway_tab_contains_selectable_link_device_row() {
 }
 
 #[test]
-fn advanced_tab_renders_sleep_delay_rows() {
+fn execution_page_renders_sleep_delay_rows() {
     let mut settings = SettingsState::new();
     settings.reduce(crate::state::settings::SettingsAction::SwitchTab(
-        SettingsTab::Advanced,
+        SettingsTab::Execution,
     ));
-    settings.reduce(crate::state::settings::SettingsAction::NavigateField(7));
     let config = ConfigState::new();
     let modal = ModalState::new();
     let auth = crate::state::auth::AuthState::new();
     let subagents = SubAgentsState::new();
     let concierge = crate::state::concierge::ConciergeState::new();
-    let tier = crate::state::tier::TierState::from_tier("power_user");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
 
     let lines = render_tab_content(
@@ -432,7 +411,6 @@ fn advanced_tab_renders_sleep_delay_rows() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     );
@@ -442,9 +420,9 @@ fn advanced_tab_renders_sleep_delay_rows() {
         .collect::<Vec<_>>()
         .join("\n");
 
-    assert!(text.contains("Message Loop (ms):"));
-    assert!(text.contains("Tool Call Gap (ms):"));
-    assert!(text.contains("LLM Stream Timeout (s):"));
+    assert!(text.contains("Message loop (ms)"));
+    assert!(text.contains("Tool call gap (ms)"));
+    assert!(text.contains("Stream timeout (s)"));
 }
 
 #[test]
@@ -464,7 +442,6 @@ fn auth_tab_shows_chatgpt_logout_when_daemon_auth_is_available() {
     }];
     let subagents = SubAgentsState::new();
     let concierge = crate::state::concierge::ConciergeState::new();
-    let tier = crate::state::tier::TierState::from_tier("power_user");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
 
     let lines = render_tab_content(
@@ -475,7 +452,6 @@ fn auth_tab_shows_chatgpt_logout_when_daemon_auth_is_available() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     );

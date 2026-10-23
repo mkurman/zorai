@@ -9,7 +9,7 @@ fn audio_toggle_fields_write_extra_paths() {
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
 
-    focus_settings_field(&mut model, SettingsTab::Features, "feat_audio_stt_enabled");
+    focus_settings_field(&mut model, SettingsTab::Media, "feat_audio_stt_enabled");
     let quit = model.handle_key_modal(
         KeyCode::Char(' '),
         KeyModifiers::NONE,
@@ -43,7 +43,7 @@ fn audio_text_fields_start_and_commit_edit() {
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
 
-    focus_settings_field(&mut model, SettingsTab::Features, "feat_audio_tts_voice");
+    focus_settings_field(&mut model, SettingsTab::Media, "feat_audio_tts_voice");
 
     let quit = model.handle_key_modal(
         KeyCode::Enter,

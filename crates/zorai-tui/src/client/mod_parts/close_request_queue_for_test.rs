@@ -45,6 +45,27 @@ pub struct GatewayChatVm {
     pub updated_at: u64,
 }
 
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct ThreadSearchResultVm {
+    pub thread_id: String,
+    #[serde(default)]
+    pub title: String,
+    #[serde(default)]
+    pub updated_at: i64,
+    #[serde(default)]
+    pub snippet: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct ThreadSearchResultsVm {
+    pub query: String,
+    #[serde(default)]
+    pub semantic: bool,
+    #[serde(default)]
+    pub semantic_error: Option<String>,
+    pub results: Vec<ThreadSearchResultVm>,
+}
+
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct ThreadMessagePinResultVm {
     pub ok: bool,
@@ -107,6 +128,7 @@ pub enum ClientEvent {
     },
     ThreadHandoffResult(zorai_protocol::ThreadHandoffResult),
     GatewayChats(Vec<GatewayChatVm>),
+    ThreadSearchResults(ThreadSearchResultsVm),
     MessageFeedbackUpdated {
         thread_id: String,
         message_id: String,

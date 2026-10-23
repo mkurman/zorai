@@ -504,10 +504,11 @@ describe("Zorai feature surfaces", () => {
 
   it("keeps feature provider/model controls aligned with TUI pickers", () => {
     const panelSource = readFeature("./settings/SettingsPanels.tsx");
-    const featuresSource = readFunctionSource(panelSource, "function FeaturesPanel()", "function AdvancedPanel()");
+    const featuresSource = readFunctionSource(panelSource, "function MediaPanel()", "const CAPABILITY_TIER_LABELS");
+    const workflowsSource = readFunctionSource(panelSource, "function WorkflowsPanel()", "function CompactionPanel()");
 
     expect(featuresSource).toContain("semantic_embedding_enabled");
-    expect(featuresSource).toContain("auto_thread_title");
+    expect(workflowsSource).toContain("auto_thread_title");
     expect(featuresSource).toContain("semantic_embedding_provider");
     expect(featuresSource).toContain("semantic_embedding_model");
     expect(featuresSource).toContain("filterAudioProviderOptions");
@@ -526,7 +527,7 @@ describe("Zorai feature surfaces", () => {
 
   it("keeps advanced compaction provider/model controls aligned with TUI pickers", () => {
     const panelSource = readFeature("./settings/SettingsPanels.tsx");
-    const advancedSource = readFunctionSource(panelSource, "function AdvancedPanel()", "function PluginsPanel()");
+    const advancedSource = readFunctionSource(panelSource, "function CompactionPanel()", "function ExecutionPanel()");
 
     expect(advancedSource).toContain('<option value="heuristic">Heuristic</option>');
     expect(advancedSource).toContain('<option value="weles">WELES</option>');

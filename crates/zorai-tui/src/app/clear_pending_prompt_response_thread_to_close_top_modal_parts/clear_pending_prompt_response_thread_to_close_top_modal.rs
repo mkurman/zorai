@@ -562,6 +562,7 @@ impl TuiModel {
         if self.modal.top() == Some(modal::ModalKind::ThreadPicker) {
             self.pending_thread_picker_refresh = None;
             self.thread_picker_loading_tab = None;
+            self.pending_thread_search = None;
         }
         if self.modal.top() == Some(modal::ModalKind::Settings) {
             self.settings_modal_scroll = 0;

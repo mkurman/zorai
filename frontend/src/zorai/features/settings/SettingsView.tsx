@@ -7,9 +7,9 @@ import {
 } from "@/lib/agentDaemonConfig";
 import { useAgentStore } from "@/lib/agentStore";
 import { useSettingsStore } from "@/lib/settingsStore";
-import { ZORAI_APP_NAME } from "@/zorai/branding";
 import { SettingsTabPanel } from "./SettingsPanels";
-import { getZoraiSettingsTab, zoraiSettingsTabs, type ZoraiSettingsTabId } from "./settingsTabs";
+import { SettingsIcon } from "./SettingsIcons";
+import { getZoraiSettingsTab, zoraiSettingsGroups, zoraiSettingsTabs, zoraiSettingsTabsByGroup, type ZoraiSettingsTabId } from "./settingsTabs";
 
 type SettingsProps = {
   activeTab: ZoraiSettingsTabId;
@@ -18,24 +18,29 @@ type SettingsProps = {
 
 export function SettingsRail({ activeTab, onSelectTab }: SettingsProps) {
   return (
-    <div className="zorai-rail-stack">
-      <div className="zorai-section-label">Settings</div>
-      {zoraiSettingsTabs.map((tab) => (
-        <button
-          type="button"
-          key={tab.id}
-          className={[
-            "zorai-rail-card",
-            "zorai-rail-card--button",
-            tab.id === activeTab ? "zorai-rail-card--active" : "",
-          ].filter(Boolean).join(" ")}
-          onClick={() => onSelectTab(tab.id)}
-        >
-          <strong>{tab.title}</strong>
-          <span>{tab.description}</span>
-        </button>
+    <nav className="zorai-rail-stack zorai-settings-nav" aria-label="Settings sections">
+      {zoraiSettingsTabsByGroup().map((group) => (
+        <div key={group.id} className="zorai-settings-nav__group">
+          <div className="zorai-section-label">{group.title}</div>
+          {group.tabs.map((tab) => (
+            <button
+              type="button"
+              key={tab.id}
+              title={tab.description}
+              aria-current={tab.id === activeTab ? "page" : undefined}
+              className={[
+                "zorai-settings-nav__item",
+                tab.id === activeTab ? "zorai-settings-nav__item--active" : "",
+              ].filter(Boolean).join(" ")}
+              onClick={() => onSelectTab(tab.id)}
+            >
+              <SettingsIcon icon={tab.icon} />
+              <span>{tab.title}</span>
+            </button>
+          ))}
+        </div>
       ))}
-    </div>
+    </nav>
   );
 }
 
@@ -103,9 +108,9 @@ export function SettingsView({ activeTab, onSelectTab }: SettingsProps) {
     <section className="zorai-feature-surface zorai-settings-surface">
       <div className="zorai-view-header">
         <div>
-          <div className="zorai-kicker">Settings</div>
-          <h1>{selectedTab.title}</h1>
-          <p>{selectedTab.description} Configure {ZORAI_APP_NAME} without leaving orchestration.</p>
+          <div className="zorai-kicker">Settings / {zoraiSettingsGroups.find((group) => group.id === selectedTab.group)?.title}</div>
+          <h1 className="zorai-settings-title"><SettingsIcon icon={selectedTab.icon} />{selectedTab.title}</h1>
+          <p>{selectedTab.description}</p>
         </div>
       </div>
 
@@ -117,6 +122,7 @@ export function SettingsView({ activeTab, onSelectTab }: SettingsProps) {
             className={["zorai-ghost-button", tab.id === activeTab ? "zorai-button--active" : ""].filter(Boolean).join(" ")}
             onClick={() => onSelectTab(tab.id)}
           >
+            <SettingsIcon icon={tab.icon} />
             {tab.title}
           </button>
         ))}

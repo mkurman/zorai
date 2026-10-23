@@ -116,6 +116,7 @@ impl TuiModel {
             pending_new_thread_execution_profile: None,
             pending_thread_picker_refresh: None,
             thread_picker_loading_tab: None,
+            pending_thread_search: None,
             pending_builtin_persona_setup: None,
             pending_target_agent_config: None,
             pending_svarog_reasoning_effort: None,

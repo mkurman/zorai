@@ -78,7 +78,7 @@ export function AgentReviewPanel({ root, reviewerLabel, commitWindow, onFindIssu
               Open review thread
             </button>
           ) : null}
-          <button type="button" className="zorai-agent-review-configure" onClick={() => navigateZorai({ view: "settings", settingsTab: "features" })}>
+          <button type="button" className="zorai-agent-review-configure" onClick={() => navigateZorai({ view: "settings", settingsTab: "workflows" })}>
             Change reviewer or commit count
           </button>
           {hasFindings ? (

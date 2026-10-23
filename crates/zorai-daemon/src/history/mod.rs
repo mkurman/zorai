@@ -1778,6 +1778,8 @@ pub(crate) use schema::init_schema_on_connection;
 mod schema_helpers;
 mod schema_migrations;
 mod schema_sql;
+mod thread_search;
+pub(crate) use thread_search::ThreadSearchCandidate;
 mod schema_sql_extra;
 mod semantic_documents;
 pub(crate) use semantic_documents::SemanticDocumentSyncSummary;

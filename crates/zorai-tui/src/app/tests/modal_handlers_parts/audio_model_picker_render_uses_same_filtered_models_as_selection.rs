@@ -239,10 +239,10 @@ fn enter_on_honcho_memory_opens_inline_editor() {
     let (mut model, _daemon_rx) = make_model();
     model
         .settings
-        .reduce(SettingsAction::SwitchTab(SettingsTab::Chat));
+        .reduce(SettingsAction::SwitchTab(SettingsTab::Memory));
     model
         .settings
-        .navigate_field(2, model.settings_field_count());
+        .navigate_field(0, model.settings_field_count());
     model
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
@@ -264,10 +264,10 @@ fn honcho_editor_save_updates_config() {
     model.config.honcho_workspace_id = "zorai".to_string();
     model
         .settings
-        .reduce(SettingsAction::SwitchTab(SettingsTab::Chat));
+        .reduce(SettingsAction::SwitchTab(SettingsTab::Memory));
     model
         .settings
-        .navigate_field(2, model.settings_field_count());
+        .navigate_field(0, model.settings_field_count());
     model
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
@@ -309,10 +309,10 @@ fn honcho_editor_cancel_discards_staged_values() {
     model.config.honcho_api_key = "persisted".to_string();
     model
         .settings
-        .reduce(SettingsAction::SwitchTab(SettingsTab::Chat));
+        .reduce(SettingsAction::SwitchTab(SettingsTab::Memory));
     model
         .settings
-        .navigate_field(2, model.settings_field_count());
+        .navigate_field(0, model.settings_field_count());
     model
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
@@ -344,10 +344,10 @@ fn honcho_editor_space_toggles_staged_enabled_only() {
     model.config.enable_honcho_memory = false;
     model
         .settings
-        .reduce(SettingsAction::SwitchTab(SettingsTab::Chat));
+        .reduce(SettingsAction::SwitchTab(SettingsTab::Memory));
     model
         .settings
-        .navigate_field(2, model.settings_field_count());
+        .navigate_field(0, model.settings_field_count());
     model
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));

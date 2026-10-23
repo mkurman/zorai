@@ -6,7 +6,7 @@ fn collaboration_sessions_inspect_field_requests_collaboration_snapshot() {
     let (mut model, mut daemon_rx) = make_model();
     focus_settings_field(
         &mut model,
-        SettingsTab::Chat,
+        SettingsTab::Workflows,
         "collaboration_sessions_inspect",
     );
     assert_eq!(
@@ -30,7 +30,7 @@ fn collaboration_sessions_inspect_field_requests_collaboration_snapshot() {
 #[test]
 fn generated_tools_inspect_field_requests_generated_tools_snapshot() {
     let (mut model, mut daemon_rx) = make_model();
-    focus_settings_field(&mut model, SettingsTab::Chat, "generated_tools_inspect");
+    focus_settings_field(&mut model, SettingsTab::Tools, "generated_tools_inspect");
     assert_eq!(
         model.settings.current_field_name(),
         "generated_tools_inspect"

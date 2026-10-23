@@ -123,6 +123,10 @@ impl TuiModel {
                 self.handle_gateway_chats(chats);
                 None
             }
+            ClientEvent::ThreadSearchResults(results) => {
+                self.handle_thread_search_results(results);
+                None
+            }
             ClientEvent::ThreadReloadRequired { thread_id } => {
                 if !self.deleted_thread_ids.contains(&thread_id) {
                     self.handle_thread_reload_required_event(thread_id);

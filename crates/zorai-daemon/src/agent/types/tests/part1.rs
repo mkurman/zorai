@@ -601,3 +601,24 @@ fn circuit_breaker_event_serde_roundtrip() {
         _ => panic!("wrong variant after deserialize"),
     }
 }
+
+#[test]
+fn heartbeats_are_off_for_new_installs_and_for_configs_saved_before_the_setting_existed() {
+    assert!(!AgentConfig::default().heartbeat_enabled);
+
+    let legacy: AgentConfig = serde_json::from_value(serde_json::json!({
+        "heartbeat_interval_mins": 15,
+        "dnd_enabled": false
+    }))
+    .expect("config saved before heartbeat_enabled existed still loads");
+    assert!(
+        !legacy.heartbeat_enabled,
+        "existing users get heartbeats switched off once until they opt back in"
+    );
+    assert_eq!(legacy.heartbeat_interval_mins, 15);
+
+    let opted_in: AgentConfig =
+        serde_json::from_value(serde_json::json!({ "heartbeat_enabled": true }))
+            .expect("opted-in config loads");
+    assert!(opted_in.heartbeat_enabled);
+}

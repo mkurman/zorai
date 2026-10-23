@@ -458,6 +458,36 @@ impl TuiModel {
             message.content.clone()
         };
 
+        self.speak_text(content_to_speak);
+    }
+
+    pub(crate) fn auto_speak_finished_turn(&mut self, thread_id: &str) {
+        let auto_speak = Self::voice_audio_bool(
+            self.config.agent_config_raw.as_ref(),
+            "audio_tts_auto_speak",
+            &["audio", "tts", "auto_speak"],
+            false,
+        );
+        if !auto_speak || self.chat.active_thread_id() != Some(thread_id) {
+            return;
+        }
+        let Some(content) = self.chat.active_thread().and_then(|thread| {
+            thread
+                .messages
+                .iter()
+                .rev()
+                .find(|message| {
+                    message.role == chat::MessageRole::Assistant
+                        && !message.content.trim().is_empty()
+                })
+                .map(|message| message.content.clone())
+        }) else {
+            return;
+        };
+        self.speak_text(content);
+    }
+
+    fn speak_text(&mut self, content_to_speak: String) {
         let enabled = Self::voice_audio_bool(
             self.config.agent_config_raw.as_ref(),
             "audio_tts_enabled",

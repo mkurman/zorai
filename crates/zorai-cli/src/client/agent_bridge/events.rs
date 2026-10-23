@@ -482,6 +482,10 @@ where
             let msg = serde_json::json!({"type":"gateway-chats","data":serde_json::from_str::<serde_json::Value>(&chats_json).unwrap_or_default()});
             emit_agent_event(&msg.to_string())?;
         }
+        Some(Ok(DaemonMessage::AgentThreadSearchResults { results_json })) => {
+            let msg = serde_json::json!({"type":"thread-search","data":serde_json::from_str::<serde_json::Value>(&results_json).unwrap_or_default()});
+            emit_agent_event(&msg.to_string())?;
+        }
         Some(Ok(DaemonMessage::AgentConciergeConfig { config_json })) => {
             let msg = serde_json::json!({"type":"concierge-config","data":serde_json::from_str::<serde_json::Value>(&config_json).unwrap_or_default()});
             emit_agent_event(&msg.to_string())?;

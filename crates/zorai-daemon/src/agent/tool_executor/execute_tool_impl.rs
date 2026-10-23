@@ -2110,6 +2110,12 @@ async fn dispatch_tool_execution(
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
+            let firecrawl_api_key = config
+                .extra
+                .get("firecrawl_api_key")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             let duckduckgo_region = config
                 .extra
                 .get("duckduckgo_region")
@@ -2129,6 +2135,7 @@ async fn dispatch_tool_execution(
                 &search_provider,
                 &exa_api_key,
                 &tavily_api_key,
+                &firecrawl_api_key,
                 &duckduckgo_region,
                 &duckduckgo_safe_search,
             )

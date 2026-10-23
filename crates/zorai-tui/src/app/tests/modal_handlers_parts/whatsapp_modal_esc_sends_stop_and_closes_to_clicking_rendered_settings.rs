@@ -454,16 +454,23 @@ pub(super) fn clicking_rendered_settings_tab_switches_tabs() {
         .current_modal_area()
         .expect("settings modal should expose its overlay area");
     let screen = render_screen(&mut model);
-    let tab_row = overlay_area.y.saturating_add(1) as usize;
-    let chat_col = screen[tab_row]
-        .find("Chat")
-        .map(|idx| idx as u16)
-        .expect("rendered settings tabs should include Chat");
+    let sidebar_start = overlay_area.x as usize + 1;
+    let (chat_row, chat_col) = screen
+        .iter()
+        .enumerate()
+        .skip(overlay_area.y as usize)
+        .find_map(|(row, line)| {
+            let sidebar: String = line.chars().skip(sidebar_start).take(20).collect();
+            sidebar
+                .find("Chat")
+                .map(|col| (row as u16, (sidebar_start + col) as u16))
+        })
+        .expect("rendered settings sidebar should include Chat");
 
     model.handle_mouse(MouseEvent {
         kind: MouseEventKind::Down(MouseButton::Left),
         column: chat_col,
-        row: overlay_area.y.saturating_add(1),
+        row: chat_row,
         modifiers: KeyModifiers::NONE,
     });
 

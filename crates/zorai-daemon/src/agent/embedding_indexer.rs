@@ -577,6 +577,50 @@ impl AgentEngine {
     }
 
     #[cfg(not(feature = "lancedb-vector"))]
+    pub(crate) async fn semantic_message_ids(
+        &self,
+        _query: &str,
+        _limit: usize,
+        _config: &AgentConfig,
+    ) -> Result<Option<Vec<String>>> {
+        Ok(None)
+    }
+
+    #[cfg(feature = "lancedb-vector")]
+    pub(crate) async fn semantic_message_ids(
+        &self,
+        query: &str,
+        limit: usize,
+        config: &AgentConfig,
+    ) -> Result<Option<Vec<String>>> {
+        if !config.semantic.embedding.enabled || query.trim().is_empty() || limit == 0 {
+            return Ok(None);
+        }
+        let embedding_model = resolved_embedding_model(config);
+        if embedding_model.is_empty() {
+            return Ok(None);
+        }
+        let query_embeddings =
+            request_embeddings(&self.http_client, config, &[query.trim().to_string()]).await?;
+        let Some(query_embedding) = query_embeddings.into_iter().next() else {
+            return Ok(Some(Vec::new()));
+        };
+        let index = crate::history::vector_index::VectorIndex::open(self.history.data_root());
+        let hits = index
+            .search(crate::history::vector_index::VectorSearchRequest {
+                embedding: query_embedding,
+                embedding_model,
+                limit,
+                source_kinds: vec![crate::history::vector_index::VectorSourceKind::AgentMessage],
+                workspace_id: None,
+                thread_id: None,
+                agent_id: None,
+            })
+            .await?;
+        Ok(Some(hits.into_iter().map(|hit| hit.source_id).collect()))
+    }
+
+    #[cfg(not(feature = "lancedb-vector"))]
     async fn semantic_vector_history_search(
         &self,
         _query: &str,

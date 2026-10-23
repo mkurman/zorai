@@ -1479,6 +1479,63 @@ pub(super) async fn apply_schema_migrations<E: super::db::DbExecutor + ?Sized>(
             ON thread_prompt_queue(thread_id, position, created_at);",
     )
     .await?;
+    ensure_agent_message_fts(&mut *exec).await?;
 
+    Ok(())
+}
+
+pub(super) const AGENT_MESSAGE_FTS_MAX_CHARS: usize = 4000;
+
+async fn ensure_agent_message_fts<E: super::db::DbExecutor + ?Sized>(
+    exec: &mut E,
+) -> anyhow::Result<()> {
+    let existed = exec
+        .query_opt(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'agent_message_fts'",
+            super::db::Params::None,
+        )
+        .await?
+        .is_some();
+    let max_chars = AGENT_MESSAGE_FTS_MAX_CHARS;
+    let indexed = "role IN ('user', 'assistant') AND deleted_at IS NULL AND content <> ''";
+    let new_indexed =
+        "NEW.role IN ('user', 'assistant') AND NEW.deleted_at IS NULL AND NEW.content <> ''";
+    exec.execute_batch(&format!(
+        "CREATE VIRTUAL TABLE IF NOT EXISTS agent_message_fts USING fts5(
+            thread_id UNINDEXED,
+            content,
+            tokenize = 'unicode61 remove_diacritics 2'
+        );
+        CREATE TRIGGER IF NOT EXISTS agent_message_fts_before_insert
+        BEFORE INSERT ON agent_messages BEGIN
+            DELETE FROM agent_message_fts
+            WHERE rowid = (SELECT rowid FROM agent_messages WHERE id = NEW.id);
+        END;
+        CREATE TRIGGER IF NOT EXISTS agent_message_fts_after_insert
+        AFTER INSERT ON agent_messages WHEN {new_indexed} BEGIN
+            INSERT INTO agent_message_fts(rowid, thread_id, content)
+            VALUES (NEW.rowid, NEW.thread_id, substr(NEW.content, 1, {max_chars}));
+        END;
+        CREATE TRIGGER IF NOT EXISTS agent_message_fts_after_update
+        AFTER UPDATE OF content, role, deleted_at, thread_id ON agent_messages BEGIN
+            DELETE FROM agent_message_fts WHERE rowid = OLD.rowid;
+            INSERT INTO agent_message_fts(rowid, thread_id, content)
+            SELECT NEW.rowid, NEW.thread_id, substr(NEW.content, 1, {max_chars})
+            WHERE {new_indexed};
+        END;
+        CREATE TRIGGER IF NOT EXISTS agent_message_fts_after_delete
+        AFTER DELETE ON agent_messages BEGIN
+            DELETE FROM agent_message_fts WHERE rowid = OLD.rowid;
+        END;"
+    ))
+    .await?;
+    if !existed {
+        exec.execute_batch(&format!(
+            "INSERT INTO agent_message_fts(rowid, thread_id, content)
+             SELECT rowid, thread_id, substr(content, 1, {max_chars})
+             FROM agent_messages WHERE {indexed};"
+        ))
+        .await?;
+    }
     Ok(())
 }

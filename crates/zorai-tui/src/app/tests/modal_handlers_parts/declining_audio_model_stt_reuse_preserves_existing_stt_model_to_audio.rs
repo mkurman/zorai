@@ -141,7 +141,7 @@ fn audio_stt_custom_model_entry_keeps_audio_field_selected() {
     }));
     model
         .settings
-        .reduce(SettingsAction::SwitchTab(SettingsTab::Features));
+        .reduce(SettingsAction::SwitchTab(SettingsTab::Media));
     model
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
@@ -172,8 +172,8 @@ fn audio_stt_custom_model_entry_keeps_audio_field_selected() {
     );
 
     assert!(!quit);
-    assert_eq!(model.settings.active_tab(), SettingsTab::Features);
-    assert_eq!(model.settings.field_cursor(), 18);
+    assert_eq!(model.settings.active_tab(), SettingsTab::Media);
+    assert_eq!(model.settings.field_cursor(), 2);
     assert_eq!(model.settings.editing_field(), Some("feat_audio_stt_model"));
 }
 
@@ -190,7 +190,7 @@ fn audio_tts_custom_model_entry_keeps_audio_field_selected() {
     }));
     model
         .settings
-        .reduce(SettingsAction::SwitchTab(SettingsTab::Features));
+        .reduce(SettingsAction::SwitchTab(SettingsTab::Media));
     model
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
@@ -221,8 +221,8 @@ fn audio_tts_custom_model_entry_keeps_audio_field_selected() {
     );
 
     assert!(!quit);
-    assert_eq!(model.settings.active_tab(), SettingsTab::Features);
-    assert_eq!(model.settings.field_cursor(), 21);
+    assert_eq!(model.settings.active_tab(), SettingsTab::Media);
+    assert_eq!(model.settings.field_cursor(), 6);
     assert_eq!(model.settings.editing_field(), Some("feat_audio_tts_model"));
 }
 

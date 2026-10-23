@@ -229,6 +229,7 @@ impl Default for AgentConfig {
             keep_recent_on_compact: default_keep_recent_on_compact(),
             compaction: CompactionConfig::default(),
             task_poll_interval_secs: default_task_poll_secs(),
+            heartbeat_enabled: false,
             heartbeat_interval_mins: default_heartbeat_mins(),
             heartbeat_cron: None,
             heartbeat_checks: HeartbeatChecksConfig::default(),

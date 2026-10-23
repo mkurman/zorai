@@ -1,7 +1,7 @@
 use super::from_tasks_to_is_weles_thread::*;
 use super::hit_test_for_workspace_to_now_millis::*;
 use crate::state::chat::{AgentThread, ChatState};
-use crate::state::modal::{ModalState, ThreadPickerTab};
+use crate::state::modal::{ModalState, ThreadPickerTab, ThreadSearchState};
 use crate::state::subagents::SubAgentsState;
 use crate::state::task::TaskState;
 use crate::state::workspace::WorkspaceState;
@@ -80,7 +80,7 @@ pub(super) fn thread_display_title_inner(
 #[cfg(test)]
 pub(crate) fn filtered_threads<'a>(
     chat: &'a ChatState,
-    modal: &ModalState,
+    modal: &'a ModalState,
     subagents: &SubAgentsState,
 ) -> Vec<&'a AgentThread> {
     filtered_threads_inner(chat, modal, subagents, None, None)
@@ -89,7 +89,7 @@ pub(crate) fn filtered_threads<'a>(
 #[cfg(test)]
 pub(crate) fn filtered_threads_for_tasks<'a>(
     chat: &'a ChatState,
-    modal: &ModalState,
+    modal: &'a ModalState,
     subagents: &SubAgentsState,
     tasks: &TaskState,
 ) -> Vec<&'a AgentThread> {
@@ -99,7 +99,7 @@ pub(crate) fn filtered_threads_for_tasks<'a>(
 
 pub(crate) fn filtered_threads_for_workspace<'a>(
     chat: &'a ChatState,
-    modal: &ModalState,
+    modal: &'a ModalState,
     subagents: &SubAgentsState,
     tasks: &TaskState,
     workspace: &WorkspaceState,
@@ -117,11 +117,23 @@ pub(crate) fn filtered_threads_for_workspace<'a>(
 
 pub(super) fn filtered_threads_inner<'a>(
     chat: &'a ChatState,
-    modal: &ModalState,
+    modal: &'a ModalState,
     subagents: &SubAgentsState,
     goal_index: Option<&GoalThreadIndex>,
     workspace_index: Option<&WorkspaceThreadIndex>,
 ) -> Vec<&'a AgentThread> {
+    if let Some(search) = modal.thread_search() {
+        return search
+            .hits
+            .iter()
+            .map(|hit| {
+                chat.threads()
+                    .iter()
+                    .find(|thread| thread.id == hit.thread.id)
+                    .unwrap_or(&hit.thread)
+            })
+            .collect();
+    }
     let query = modal.command_query();
     chat.threads()
         .iter()
@@ -360,10 +372,13 @@ pub fn render_for_workspace(
     ]);
     frame.render_widget(Paragraph::new(input_line), search_row);
 
-    let sep = Line::from(Span::styled(
-        "\u{2500}".repeat(separator_row.width as usize),
-        theme.fg_dim,
-    ));
+    let sep = match modal.thread_search() {
+        Some(search) => thread_search_status_line(search, modal, separator_row.width, theme),
+        None => Line::from(Span::styled(
+            "\u{2500}".repeat(separator_row.width as usize),
+            theme.fg_dim,
+        )),
+    };
     frame.render_widget(Paragraph::new(sep), separator_row);
 
     let active_id = chat.active_thread_id();
@@ -375,15 +390,27 @@ pub fn render_for_workspace(
     // picker can hold hundreds of summaries; only one viewport is rendered.
     // Filter to stable indices first, then format the visible window below.
     let query = modal.command_query();
-    let filtered_indices =
-        filtered_thread_indices(chat, modal, subagents, &goal_index, &workspace_index, query);
-    let total_items = filtered_indices.len() + 1;
+    let filtered = if modal.thread_search().is_some() {
+        filtered_threads_inner(
+            chat,
+            modal,
+            subagents,
+            Some(&goal_index),
+            Some(&workspace_index),
+        )
+    } else {
+        filtered_thread_indices(chat, modal, subagents, &goal_index, &workspace_index, query)
+            .into_iter()
+            .filter_map(|index| chat.threads().get(index))
+            .collect()
+    };
+    let total_items = filtered.len() + 1;
     let (visible_start, visible_len) = visible_window(cursor, total_items, list_h);
-    let visible_threads = filtered_indices
+    let visible_threads = filtered
         .iter()
         .skip(visible_start.saturating_sub(1))
         .take(visible_len)
-        .filter_map(|index| chat.threads().get(*index))
+        .copied()
         .collect::<Vec<_>>();
     let status_index = ThreadPickerStatusIndex::from_state_for_threads(
         chat,
@@ -570,6 +597,35 @@ fn filtered_thread_indices(
         })
         .map(|(index, _)| index)
         .collect()
+}
+
+pub(super) fn thread_search_status_line(
+    search: &ThreadSearchState,
+    modal: &ModalState,
+    width: u16,
+    theme: &ThemeTokens,
+) -> Line<'static> {
+    let mode = if modal.thread_search_query() != Some(search.query.as_str()) {
+        "searching\u{2026}".to_string()
+    } else if search.hits.is_empty() {
+        "no matches".to_string()
+    } else if search.semantic {
+        "semantic + keyword".to_string()
+    } else if let Some(error) = search.semantic_error.as_deref() {
+        format!("keyword (semantic failed: {error})")
+    } else {
+        "keyword".to_string()
+    };
+    let snippet = modal
+        .picker_cursor()
+        .checked_sub(1)
+        .and_then(|index| search.hits.get(index))
+        .and_then(|hit| hit.snippet.as_deref())
+        .map(|snippet| format!(" \u{2502} {snippet}"))
+        .unwrap_or_default();
+    let line =
+        crate::widgets::message::truncate_to_width(&format!(" {mode}{snippet}"), width as usize);
+    Line::from(Span::styled(line, theme.fg_dim))
 }
 
 fn thread_picker_spinner_frame(tick_counter: u64) -> &'static str {

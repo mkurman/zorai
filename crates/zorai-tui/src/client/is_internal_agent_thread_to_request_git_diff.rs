@@ -82,6 +82,10 @@ impl DaemonClient {
         })
     }
 
+    pub fn search_threads(&self, query: String) -> Result<()> {
+        self.send(ClientMessage::AgentSearchThreads { query, limit: None })
+    }
+
     pub fn get_config(&self) -> Result<()> {
         self.send(ClientMessage::AgentGetConfig)
     }

@@ -58,23 +58,37 @@ pub(crate) fn render_tab_content<'a>(
     auth: &'a crate::state::auth::AuthState,
     subagents: &'a SubAgentsState,
     concierge: &'a ConciergeState,
-    tier: &crate::state::tier::TierState,
     plugin_settings: &PluginSettingsState,
     theme: &ThemeTokens,
 ) -> Vec<Line<'a>> {
+    if let Some(page) = crate::state::settings_registry::settings_page_spec(settings.active_tab()) {
+        let mut lines = render_settings_page(page, settings, config, theme);
+        if settings.active_tab() == SettingsTab::Memory {
+            lines.extend(render_honcho_editor_block(settings, config, theme));
+        }
+        return lines;
+    }
     match settings.active_tab() {
         SettingsTab::Provider => render_provider_tab(settings, config, theme),
-        SettingsTab::Tools => render_tools_tab(settings, config, theme),
-        SettingsTab::WebSearch => render_websearch_tab(settings, config, theme),
-        SettingsTab::Chat => render_chat_tab(settings, config, theme),
+        SettingsTab::Tools
+        | SettingsTab::Skills
+        | SettingsTab::WebSearch
+        | SettingsTab::Media
+        | SettingsTab::Memory
+        | SettingsTab::Heartbeat
+        | SettingsTab::Proactivity
+        | SettingsTab::Workflows
+        | SettingsTab::Chat
+        | SettingsTab::Compaction
+        | SettingsTab::Execution
+        | SettingsTab::Safety
+        | SettingsTab::Storage => Vec::new(),
         SettingsTab::Mlflow => render_mlflow_tab(settings, config, theme),
         SettingsTab::Gateway => render_gateway_tab(settings, config, modal, theme),
         SettingsTab::Auth => render_auth_tab(content_width, auth, config, theme),
         SettingsTab::Agent => render_agent_tab(settings, config, theme),
         SettingsTab::SubAgents => render_subagents_tab(content_width, settings, subagents, theme),
         SettingsTab::Concierge => render_concierge_tab(settings, concierge, theme),
-        SettingsTab::Features => render_features_tab(settings, config, tier, theme),
-        SettingsTab::Advanced => render_advanced_tab(settings, config, theme),
         SettingsTab::Plugins => render_plugins_tab(settings, plugin_settings, content_width, theme),
         SettingsTab::Database => render_database_tab(settings, config, theme),
         SettingsTab::About => render_about_tab(theme),

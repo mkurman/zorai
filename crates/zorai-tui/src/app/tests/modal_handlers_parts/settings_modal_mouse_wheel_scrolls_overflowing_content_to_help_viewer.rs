@@ -7,7 +7,7 @@ fn settings_modal_mouse_wheel_scrolls_overflowing_content() {
     model.height = 16;
     model
         .settings
-        .reduce(SettingsAction::SwitchTab(SettingsTab::Chat));
+        .reduce(SettingsAction::SwitchTab(SettingsTab::Tools));
     model
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
@@ -17,14 +17,14 @@ fn settings_modal_mouse_wheel_scrolls_overflowing_content() {
         .expect("settings modal should expose its overlay area");
     let before = render_screen(&mut model).join("\n");
     assert!(
-        !before.contains("Inspect Generated Tools"),
+        !before.contains("Inspect generated tools"),
         "expected overflowing settings content to be clipped before scrolling"
     );
 
     for _ in 0..8 {
         model.handle_mouse(MouseEvent {
             kind: MouseEventKind::ScrollDown,
-            column: overlay_area.x.saturating_add(2),
+            column: overlay_area.x.saturating_add(30),
             row: overlay_area.y.saturating_add(4),
             modifiers: KeyModifiers::NONE,
         });
@@ -32,7 +32,7 @@ fn settings_modal_mouse_wheel_scrolls_overflowing_content() {
 
     let after = render_screen(&mut model).join("\n");
     assert!(
-        after.contains("Inspect Generated Tools"),
+        after.contains("Inspect generated tools"),
         "expected mouse wheel scrolling to reveal lower settings rows"
     );
 }
@@ -44,14 +44,14 @@ fn settings_modal_keyboard_navigation_scrolls_selected_field_into_view() {
     model.height = 16;
     model
         .settings
-        .reduce(SettingsAction::SwitchTab(SettingsTab::Chat));
+        .reduce(SettingsAction::SwitchTab(SettingsTab::Tools));
     model
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
 
     let before = render_screen(&mut model).join("\n");
     assert!(
-        !before.contains("Inspect Generated Tools"),
+        !before.contains("Inspect generated tools"),
         "expected overflowing settings content to be clipped before keyboard navigation"
     );
 
@@ -77,7 +77,7 @@ fn settings_modal_keyboard_navigation_scrolls_selected_field_into_view() {
 
     let after = render_screen(&mut model).join("\n");
     assert!(
-        after.contains("Inspect Generated Tools"),
+        after.contains("Inspect generated tools"),
         "expected keyboard navigation to reveal the selected lower settings row"
     );
 }
@@ -133,24 +133,24 @@ fn settings_modal_auth_keyboard_navigation_scrolls_selected_provider_into_view()
 }
 
 #[test]
-fn settings_modal_features_keyboard_navigation_scrolls_audio_fields_into_view() {
+fn settings_modal_keyboard_navigation_scrolls_lower_audio_fields_into_view() {
     let (mut model, _daemon_rx) = make_model();
     model.width = 100;
     model.height = 16;
     model
         .settings
-        .reduce(SettingsAction::SwitchTab(SettingsTab::Features));
+        .reduce(SettingsAction::SwitchTab(SettingsTab::Media));
     model
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
 
     let before = render_screen(&mut model).join("\n");
     assert!(
-        !before.contains("TTS Voice"),
-        "expected lower Features rows to be clipped before keyboard navigation"
+        !before.contains("Voice "),
+        "expected lower Audio & Images rows to be clipped before keyboard navigation"
     );
 
-    for _ in 0..22 {
+    for _ in 0..7 {
         let quit = model.handle_key_modal(
             KeyCode::Down,
             KeyModifiers::NONE,
@@ -159,16 +159,16 @@ fn settings_modal_features_keyboard_navigation_scrolls_audio_fields_into_view() 
         assert!(!quit);
     }
 
-    assert_eq!(model.settings.field_cursor(), 22);
+    assert_eq!(model.settings.field_cursor(), 7);
     assert!(
         model.settings_modal_scroll > 0,
-        "expected Features keyboard navigation to advance the settings scroll offset"
+        "expected keyboard navigation to advance the settings scroll offset"
     );
 
     let after = render_screen(&mut model).join("\n");
     assert!(
-        after.contains("TTS Voice"),
-        "expected Features keyboard navigation to reveal the selected audio field"
+        after.contains("Voice "),
+        "expected keyboard navigation to reveal the selected audio field"
     );
 }
 

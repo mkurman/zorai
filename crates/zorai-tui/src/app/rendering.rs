@@ -2252,7 +2252,6 @@ impl TuiModel {
                         &self.auth,
                         &self.subagents,
                         &self.concierge,
-                        &self.tier,
                         &self.plugin_settings,
                         self.settings_modal_scroll,
                         &self.theme,

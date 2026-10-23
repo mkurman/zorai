@@ -203,7 +203,7 @@ pub(crate) fn render_provider_tab<'a>(
     }
     if config.provider == PROVIDER_ID_HUGGINGFACE {
         fields.push((
-            12,
+            8,
             "HF Route",
             huggingface_provider_val,
             "huggingface_provider",
@@ -254,67 +254,6 @@ pub(crate) fn render_provider_tab<'a>(
             spans.push(Span::styled(*hint, theme.fg_dim));
         }
 
-        lines.push(Line::from(spans));
-    }
-
-    lines
-}
-
-pub(crate) fn render_tools_tab<'a>(
-    settings: &'a SettingsState,
-    config: &'a ConfigState,
-    theme: &ThemeTokens,
-) -> Vec<Line<'a>> {
-    let mut lines = Vec::new();
-
-    lines.push(Line::raw(""));
-    lines.push(Line::from(Span::styled("  Tools", theme.fg_active)));
-    lines.push(Line::from(Span::styled(
-        "  Enable or disable tool categories",
-        theme.fg_dim,
-    )));
-    lines.push(Line::raw(""));
-
-    let tools: [(bool, &str); 7] = [
-        (config.tool_bash, "Terminal / Bash"),
-        (config.tool_file_ops, "File Operations"),
-        (config.tool_web_search, "Web Search"),
-        (config.tool_web_browse, "Web Browse"),
-        (config.tool_vision, "Vision"),
-        (config.tool_system_info, "System Info"),
-        (config.tool_gateway, "Gateway Messaging"),
-    ];
-
-    for (i, (enabled, name)) in tools.iter().enumerate() {
-        let is_selected = settings.field_cursor() == i;
-        let check = if *enabled { "[x]" } else { "[ ]" };
-        let marker = if is_selected { "> " } else { "  " };
-
-        let marker_style = if is_selected {
-            theme.accent_primary
-        } else {
-            theme.fg_dim
-        };
-        let check_style = if *enabled {
-            theme.accent_success
-        } else {
-            theme.fg_dim
-        };
-        let label_style = if is_selected {
-            theme.accent_primary
-        } else {
-            theme.fg_active
-        };
-
-        let mut spans = vec![
-            Span::styled(marker, marker_style),
-            Span::styled(check, check_style),
-            Span::raw(" "),
-            Span::styled(*name, label_style),
-        ];
-        if is_selected {
-            spans.push(Span::styled("  [Space: toggle]", theme.fg_dim));
-        }
         lines.push(Line::from(spans));
     }
 

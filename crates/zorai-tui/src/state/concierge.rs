@@ -82,6 +82,41 @@ pub enum ConciergeAction {
 }
 
 impl ConciergeState {
+    pub fn settings_fields(&self) -> Vec<&'static str> {
+        let provider = self.provider.as_deref();
+        let openrouter = provider == Some(zorai_shared::providers::PROVIDER_ID_OPENROUTER);
+        let mut fields = vec![
+            "concierge_enabled",
+            "concierge_detail_level",
+            "concierge_provider",
+            "concierge_model",
+            "concierge_reasoning_effort",
+            "concierge_api_transport",
+        ];
+        if !openrouter {
+            fields.push("concierge_claude_permission_mode");
+        }
+        if provider == Some(zorai_shared::providers::PROVIDER_ID_HUGGINGFACE) {
+            fields.push("concierge_huggingface_provider");
+        }
+        if openrouter {
+            fields.extend([
+                "concierge_openrouter_provider_order",
+                "concierge_openrouter_provider_ignore",
+                "concierge_openrouter_allow_fallbacks",
+            ]);
+        }
+        fields.extend(["concierge_base_url", "rarog_alias"]);
+        fields
+    }
+
+    pub fn settings_field_index(&self, field: &str) -> usize {
+        self.settings_fields()
+            .iter()
+            .position(|name| *name == field)
+            .unwrap_or(usize::MAX)
+    }
+
     pub fn has_active_welcome(&self) -> bool {
         self.welcome_visible
             && self

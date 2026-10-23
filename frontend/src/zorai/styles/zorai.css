@@ -665,6 +665,25 @@
   white-space: nowrap;
 }
 
+.zorai-thread-search__mode {
+  color: var(--zorai-muted);
+  font-size: var(--text-xs);
+  padding: 2px 8px 6px;
+}
+
+.zorai-thread-search__snippet {
+  grid-column: 2 / -1;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  color: var(--zorai-muted);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+}
+
 .zorai-thread-activity,
 .zorai-thread-workers {
   color: var(--zorai-muted);

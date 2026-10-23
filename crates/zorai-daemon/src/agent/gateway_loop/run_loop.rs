@@ -180,8 +180,11 @@ impl AgentEngine {
             tokio::select! {
                 _ = tokio::time::sleep_until(next_heartbeat) => {
                     heartbeat_cycle_count += 1;
+                    let heartbeat_enabled = self.config.read().await.heartbeat_enabled;
                     let is_quiet = self.is_quiet_hours().await;
-                    if !is_quiet {
+                    if !heartbeat_enabled {
+                        tracing::debug!("heartbeat skipped (disabled in settings)");
+                    } else if !is_quiet {
                         let config_snap = self.config.read().await.clone();
                         let model = self.operator_model.read().await;
                         let current_hour = chrono::Utc::now().hour() as u8;
