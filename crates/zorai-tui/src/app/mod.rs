@@ -34,6 +34,7 @@ mod render_helpers;
 mod rendering;
 mod settings_handlers;
 mod thread_handoff;
+mod thread_search;
 mod workspace_actor_picker;
 mod workspace_create_modal;
 #[cfg(test)]
@@ -195,6 +196,7 @@ pub struct TuiModel {
     pending_new_thread_execution_profile: Option<PendingThreadExecutionProfile>,
     pending_thread_picker_refresh: Option<PendingThreadPickerRefresh>,
     thread_picker_loading_tab: Option<modal::ThreadPickerTab>,
+    pending_thread_search: Option<thread_search::PendingThreadSearch>,
 
     pending_builtin_persona_setup: Option<PendingBuiltinPersonaSetup>,
     pending_target_agent_config: Option<PendingTargetAgentConfig>,

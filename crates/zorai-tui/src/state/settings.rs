@@ -15,8 +15,16 @@ pub enum SettingsTab {
     Agent,
     SubAgents,
     Concierge,
-    Features,
-    Advanced,
+    Skills,
+    Media,
+    Memory,
+    Heartbeat,
+    Proactivity,
+    Workflows,
+    Compaction,
+    Execution,
+    Safety,
+    Storage,
     Plugins,
     Database,
     About,
@@ -62,6 +70,19 @@ pub struct SettingsState {
     dropdown_open: bool,
     dropdown_cursor: usize,
     dirty: bool,
+}
+
+pub fn is_tool_toggle_field(field: &str) -> bool {
+    matches!(
+        field,
+        "tool_bash"
+            | "tool_file_ops"
+            | "tool_web_search"
+            | "tool_web_browse"
+            | "tool_vision"
+            | "tool_system_info"
+            | "tool_gateway"
+    )
 }
 
 fn field_uses_textarea(field: &str) -> bool {

@@ -25,7 +25,7 @@ fn activating_openrouter_audio_tts_model_requests_audio_output_filter() {
     model
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
-    focus_settings_field(&mut model, SettingsTab::Features, "feat_audio_tts_model");
+    focus_settings_field(&mut model, SettingsTab::Media, "feat_audio_tts_model");
 
     model.activate_settings_field();
 
@@ -71,7 +71,7 @@ fn activating_openrouter_image_generation_model_requests_image_output_filter() {
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
     focus_settings_field(
         &mut model,
-        SettingsTab::Features,
+        SettingsTab::Media,
         "feat_image_generation_model",
     );
 
@@ -278,7 +278,7 @@ fn activating_audio_stt_model_prefills_groq_static_models_and_fetches_remote_cat
     model
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
-    focus_settings_field(&mut model, SettingsTab::Features, "feat_audio_stt_model");
+    focus_settings_field(&mut model, SettingsTab::Media, "feat_audio_stt_model");
 
     model.activate_settings_field();
 
@@ -412,7 +412,7 @@ fn activating_compaction_custom_auth_source_for_openai_forces_responses_transpor
     model.config.compaction_custom_api_transport = "chat_completions".to_string();
     focus_settings_field(
         &mut model,
-        SettingsTab::Advanced,
+        SettingsTab::Compaction,
         "compaction_custom_auth_source",
     );
 
@@ -432,7 +432,7 @@ fn settings_enter_toggles_embedding_enabled() {
     model
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
-    focus_settings_field(&mut model, SettingsTab::Features, "feat_embedding_enabled");
+    focus_settings_field(&mut model, SettingsTab::Memory, "feat_embedding_enabled");
     assert!(!model.config.semantic_embedding_enabled());
 
     let quit = model.handle_key_modal(
@@ -459,7 +459,7 @@ fn settings_enter_cycles_auto_thread_title() {
     model
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
-    focus_settings_field(&mut model, SettingsTab::Features, "feat_auto_thread_title");
+    focus_settings_field(&mut model, SettingsTab::Workflows, "feat_auto_thread_title");
 
     let quit = model.handle_key_modal(
         KeyCode::Enter,

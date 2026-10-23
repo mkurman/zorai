@@ -337,6 +337,7 @@ impl TuiModel {
             },
         );
 
+        self.auto_speak_finished_turn(&thread_id);
         let _ = self.maybe_request_auto_response_for_open_thread(&thread_id);
         let _ = self.maybe_auto_send_always_auto_response();
         self.dispatch_next_queued_prompt_if_ready();

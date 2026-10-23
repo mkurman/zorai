@@ -172,6 +172,8 @@ pub struct AgentConfig {
     pub compaction: CompactionConfig,
     #[serde(default = "default_task_poll_secs")]
     pub task_poll_interval_secs: u64,
+    #[serde(default)]
+    pub heartbeat_enabled: bool,
     #[serde(default = "default_heartbeat_mins")]
     pub heartbeat_interval_mins: u64,
     /// Cron expression for heartbeat schedule (overrides heartbeat_interval_mins). Per D-06.

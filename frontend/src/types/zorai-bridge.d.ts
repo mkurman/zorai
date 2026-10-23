@@ -862,6 +862,7 @@ declare global {
         agentRemoveSubAgent?: (subAgentId: string) => Promise<{ ok?: boolean }>;
         agentListSubAgents?: () => Promise<unknown[]>;
         agentListGatewayChats?: () => Promise<unknown>;
+        agentSearchThreads?: (query: string, limit?: number) => Promise<unknown>;
         agentLinkThreadToGatewayChat?: (threadId: string, channelKey: string | null) => Promise<unknown>;
         agentGetConciergeConfig?: () => Promise<unknown>;
         agentSetConciergeConfig?: (config: unknown) => Promise<unknown>;

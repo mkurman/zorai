@@ -198,6 +198,7 @@ pub(crate) fn render_agent_tab<'a>(
     theme: &ThemeTokens,
 ) -> Vec<Line<'a>> {
     let mut lines = render_provider_tab(settings, config, theme);
+    let row_offset = SettingsState::provider_extra_field_names(&config.provider).len();
 
     lines.push(Line::raw(""));
     lines.push(Line::from(Span::styled(
@@ -214,7 +215,7 @@ pub(crate) fn render_agent_tab<'a>(
     lines.push(Line::raw(""));
 
     {
-        let is_selected = settings.field_cursor() == 8;
+        let is_selected = settings.field_cursor() == 8 + row_offset;
         let is_editing = settings.is_editing() && settings.editing_field() == Some("swarog_alias");
         let marker = if is_selected { "> " } else { "  " };
         let marker_style = if is_selected {
@@ -263,7 +264,7 @@ pub(crate) fn render_agent_tab<'a>(
     };
 
     let editable_fields: [(usize, &str, String, &str, &str); 1] = [(
-        9,
+        9 + row_offset,
         "System Prompt ",
         system_prompt,
         "system_prompt",
@@ -373,7 +374,7 @@ pub(crate) fn render_agent_tab<'a>(
     }
 
     {
-        let is_selected = settings.field_cursor() == 10;
+        let is_selected = settings.field_cursor() == 10 + row_offset;
         let marker = if is_selected { "> " } else { "  " };
         let marker_style = if is_selected {
             theme.accent_primary
@@ -393,7 +394,7 @@ pub(crate) fn render_agent_tab<'a>(
     }
 
     {
-        let is_selected = settings.field_cursor() == 11;
+        let is_selected = settings.field_cursor() == 11 + row_offset;
         let marker = if is_selected { "> " } else { "  " };
         let style = if is_selected {
             theme.accent_primary

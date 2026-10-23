@@ -12,6 +12,20 @@ fn is_settings_textarea_submit_key(code: KeyCode, modifiers: KeyModifiers) -> bo
         || (code == KeyCode::Char('s') && modifiers.contains(KeyModifiers::CONTROL))
 }
 
+fn parse_quiet_hour(value: &str) -> Result<Option<u32>, String> {
+    let value = value.trim();
+    if value.is_empty() || value.eq_ignore_ascii_case("off") {
+        return Ok(None);
+    }
+    let hour = value.strip_suffix(":00").unwrap_or(value);
+    match hour.parse::<u32>() {
+        Ok(hour) if hour <= 23 => Ok(Some(hour)),
+        _ => Err(format!(
+            "Quiet hour must be 0-23 (or empty to turn it off), got {value:?}"
+        )),
+    }
+}
+
 fn matches_shift_char(code: KeyCode, modifiers: KeyModifiers, expected: char) -> bool {
     modifiers.contains(KeyModifiers::SHIFT)
         && matches!(code, KeyCode::Char(ch) if ch.eq_ignore_ascii_case(&expected))
@@ -668,13 +682,22 @@ impl TuiModel {
                                 self.send_daemon_command(DaemonCommand::GetConfig);
                             }
                             "system_prompt" => {
-                                if let Some(ref mut raw) = self.config.agent_config_raw {
-                                    raw["system_prompt"] = serde_json::Value::String(value);
-                                } else {
-                                    let mut raw = serde_json::json!({});
-                                    raw["system_prompt"] = serde_json::Value::String(value);
-                                    self.config.agent_config_raw = Some(raw);
-                                }
+                                self.set_raw_config_item(
+                                    &["system_prompt"],
+                                    serde_json::Value::String(value),
+                                );
+                            }
+                            "workspace_repo_monitor_include_dirs" => {
+                                self.config.workspace_repo_monitor_include_dirs = value;
+                                self.sync_workspace_repo_monitor_to_daemon(
+                                    self.config.workspace_repo_monitor_enabled,
+                                );
+                            }
+                            "workspace_repo_monitor_exclude_dirs" => {
+                                self.config.workspace_repo_monitor_exclude_dirs = value;
+                                self.sync_workspace_repo_monitor_to_daemon(
+                                    self.config.workspace_repo_monitor_enabled,
+                                );
                             }
                             "subagent_name" => {
                                 if let Some(editor) = self.subagents.editor.as_mut() {
@@ -761,49 +784,70 @@ impl TuiModel {
                                 };
                                 self.send_concierge_config();
                             }
+                            "feat_audio_stt_language" => {
+                                self.set_raw_config_item(
+                                    &["audio", "stt", "language"],
+                                    serde_json::Value::String(value.trim().to_string()),
+                                );
+                            }
+                            "code_review_commit_window" => match value.trim().parse::<u64>() {
+                                Ok(commits) if (1..=50).contains(&commits) => {
+                                    self.set_raw_config_item(
+                                        &["code_review_commit_window"],
+                                        serde_json::json!(commits),
+                                    );
+                                }
+                                _ => {
+                                    self.status_line = format!(
+                                        "Commits per review must be a whole number from 1 to 50, got {value:?}"
+                                    );
+                                }
+                            },
+                            "feat_heartbeat_interval" => match value.trim().parse::<u64>() {
+                                Ok(mins) if mins > 0 => {
+                                    self.set_raw_config_item(
+                                        &["heartbeat_interval_mins"],
+                                        serde_json::json!(mins),
+                                    );
+                                }
+                                _ => {
+                                    self.status_line = format!(
+                                        "Heartbeat interval must be a whole number of minutes, got {value:?}"
+                                    );
+                                }
+                            },
                             "feat_heartbeat_cron" => {
-                                self.send_daemon_command(DaemonCommand::SetConfigItem {
-                                    key_path: "/heartbeat/cron".to_string(),
-                                    value_json: format!("\"{}\"", value),
-                                });
-                                if let Some(ref mut raw) = self.config.agent_config_raw {
-                                    if raw.get("heartbeat").is_none() {
-                                        raw["heartbeat"] = serde_json::json!({});
-                                    }
-                                    raw["heartbeat"]["cron"] = serde_json::Value::String(value);
-                                }
+                                let cron = value.trim();
+                                self.set_raw_config_item(
+                                    &["heartbeat_cron"],
+                                    if cron.is_empty() {
+                                        serde_json::Value::Null
+                                    } else {
+                                        serde_json::Value::String(cron.to_string())
+                                    },
+                                );
                             }
-                            "feat_heartbeat_quiet_start" => {
-                                self.send_daemon_command(DaemonCommand::SetConfigItem {
-                                    key_path: "/heartbeat/quiet_start".to_string(),
-                                    value_json: format!("\"{}\"", value),
-                                });
-                                if let Some(ref mut raw) = self.config.agent_config_raw {
-                                    if raw.get("heartbeat").is_none() {
-                                        raw["heartbeat"] = serde_json::json!({});
-                                    }
-                                    raw["heartbeat"]["quiet_start"] =
-                                        serde_json::Value::String(value);
-                                }
-                            }
-                            "feat_heartbeat_quiet_end" => {
-                                self.send_daemon_command(DaemonCommand::SetConfigItem {
-                                    key_path: "/heartbeat/quiet_end".to_string(),
-                                    value_json: format!("\"{}\"", value),
-                                });
-                                if let Some(ref mut raw) = self.config.agent_config_raw {
-                                    if raw.get("heartbeat").is_none() {
-                                        raw["heartbeat"] = serde_json::json!({});
-                                    }
-                                    raw["heartbeat"]["quiet_end"] =
-                                        serde_json::Value::String(value);
+                            "feat_heartbeat_quiet_start" | "feat_heartbeat_quiet_end" => {
+                                let key = if field == "feat_heartbeat_quiet_start" {
+                                    "quiet_hours_start"
+                                } else {
+                                    "quiet_hours_end"
+                                };
+                                match parse_quiet_hour(&value) {
+                                    Ok(hour) => self.set_raw_config_item(
+                                        &[key],
+                                        hour.map_or(serde_json::Value::Null, |hour| {
+                                            serde_json::json!(hour)
+                                        }),
+                                    ),
+                                    Err(message) => self.status_line = message,
                                 }
                             }
                             "feat_decay_half_life_hours" => {
                                 if let Ok(n) = value.parse::<f64>() {
                                     let clamped = n.clamp(1.0, 10000.0);
                                     self.send_daemon_command(DaemonCommand::SetConfigItem {
-                                        key_path: "/consolidation/decay_half_life_hours"
+                                        key_path: "/consolidation/memory_decay_half_life_hours"
                                             .to_string(),
                                         value_json: format!("{}", clamped),
                                     });
@@ -811,7 +855,7 @@ impl TuiModel {
                                         if raw.get("consolidation").is_none() {
                                             raw["consolidation"] = serde_json::json!({});
                                         }
-                                        raw["consolidation"]["decay_half_life_hours"] =
+                                        raw["consolidation"]["memory_decay_half_life_hours"] =
                                             serde_json::json!(clamped);
                                     }
                                 }
@@ -1061,7 +1105,7 @@ impl TuiModel {
                         return false;
                     }
                 }
-                SettingsTab::Chat => {
+                SettingsTab::Memory => {
                     if self.config.honcho_editor.is_some() {
                         self.handle_honcho_settings_key(code);
                         self.sync_settings_modal_scroll_to_selection();
@@ -1933,6 +1977,7 @@ impl TuiModel {
                 ));
                 if kind == modal::ModalKind::ThreadPicker {
                     self.sync_thread_picker_item_count();
+                    self.queue_thread_search();
                 } else if kind == modal::ModalKind::GoalPicker {
                     self.sync_goal_picker_item_count();
                 } else if kind == modal::ModalKind::WorkspacePicker {
@@ -1960,6 +2005,7 @@ impl TuiModel {
                     ));
                     if kind == modal::ModalKind::ThreadPicker {
                         self.sync_thread_picker_item_count();
+                        self.queue_thread_search();
                     } else if kind == modal::ModalKind::GoalPicker {
                         self.sync_goal_picker_item_count();
                     } else if kind == modal::ModalKind::WorkspacePicker {

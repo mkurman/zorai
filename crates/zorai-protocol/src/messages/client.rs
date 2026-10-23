@@ -333,4 +333,5 @@ pub enum ClientMessage {
         #[serde(default)]
         limit: Option<usize>,
     },
+    AgentSearchThreads { query: String, limit: Option<usize> },
 }

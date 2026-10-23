@@ -63,6 +63,7 @@ pub(crate) async fn dispatch_part4(
             | ClientMessage::AgentExternalRuntimeMigrationShadowRun { .. }
             | ClientMessage::AgentGetGatewayConfig
             | ClientMessage::AgentListGatewayChats
+            | ClientMessage::AgentSearchThreads { .. }
             | ClientMessage::AgentLinkThreadToGatewayChat { .. }
             | ClientMessage::AgentGetEffectiveConfigState
             | ClientMessage::AgentListTaskApprovalRules
@@ -990,6 +991,24 @@ pub(crate) async fn dispatch_part4(
                     .await?;
             }
         },
+
+        ClientMessage::AgentSearchThreads { query, limit } => {
+            match agent.search_threads(&query, limit.unwrap_or(50).min(200)).await {
+                Ok(response) => {
+                    let results_json = serde_json::to_string(&response)?;
+                    framed
+                        .send(DaemonMessage::AgentThreadSearchResults { results_json })
+                        .await?;
+                }
+                Err(error) => {
+                    framed
+                        .send(DaemonMessage::Error {
+                            message: format!("Failed to search threads: {error}"),
+                        })
+                        .await?;
+                }
+            }
+        }
 
         ClientMessage::AgentLinkThreadToGatewayChat {
             thread_id,

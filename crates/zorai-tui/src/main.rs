@@ -551,12 +551,18 @@ fn run_loop(
             .pending_thread_picker_refresh_deadline()
             .map(|deadline| deadline.saturating_duration_since(now))
             .unwrap_or(until_tick);
+        let until_thread_search = model
+            .pending_thread_search_deadline()
+            .map(|deadline| deadline.saturating_duration_since(now))
+            .unwrap_or(until_tick);
         let wait_for = if processed_daemon_events == MAX_DAEMON_EVENTS_PER_FRAME
             || pump_outcome.stopped_for_render
         {
             Duration::ZERO
         } else {
-            until_tick.min(until_thread_picker_refresh)
+            until_tick
+                .min(until_thread_picker_refresh)
+                .min(until_thread_search)
         };
 
         let polled = match event::poll(wait_for) {
@@ -644,6 +650,7 @@ fn run_loop(
         if model.dispatch_due_thread_picker_refresh(Instant::now()) {
             needs_draw = true;
         }
+        model.dispatch_due_thread_search(Instant::now());
     }
 }
 
@@ -704,6 +711,13 @@ fn start_daemon_bridge(
                                     &daemon_event_tx,
                                     "refresh threads for agent",
                                     client.refresh_threads_for_agent(agent_filter),
+                                );
+                            }
+                            DaemonCommand::SearchThreads { query } => {
+                                forward_bridge_command_result(
+                                    &daemon_event_tx,
+                                    "search threads",
+                                    client.search_threads(query),
                                 );
                             }
                             DaemonCommand::GetConfig => {

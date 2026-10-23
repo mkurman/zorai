@@ -5,7 +5,7 @@ use crate::state::subagents::SubAgentsState;
 use crate::theme::ThemeTokens;
 use crate::widgets::settings::render_gateway_tab;
 use crate::widgets::settings::render_tab_content;
-use crate::widgets::settings::{render_features_tab, render_provider_tab};
+use crate::widgets::settings::{render_provider_tab, render_settings_page};
 use zorai_shared::providers::*;
 #[test]
 fn auth_tab_shows_provider_test_result_inline() {
@@ -28,7 +28,6 @@ fn auth_tab_shows_provider_test_result_inline() {
     });
     let subagents = SubAgentsState::new();
     let concierge = crate::state::concierge::ConciergeState::new();
-    let tier = crate::state::tier::TierState::from_tier("power_user");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
 
     let lines = render_tab_content(
@@ -39,7 +38,6 @@ fn auth_tab_shows_provider_test_result_inline() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     );
@@ -148,12 +146,11 @@ fn custom_provider_model_row_shows_active_edit_buffer() {
 }
 
 #[test]
-fn features_embedding_dimensions_row_shows_active_edit_buffer() {
+fn memory_embedding_dimensions_row_shows_active_edit_buffer() {
     let mut settings = SettingsState::new();
     settings.reduce(crate::state::settings::SettingsAction::SwitchTab(
-        SettingsTab::Features,
+        SettingsTab::Memory,
     ));
-    settings.reduce(crate::state::settings::SettingsAction::NavigateField(28));
     settings.start_editing("feat_embedding_dimensions", "3072");
     let mut config = ConfigState::new();
     config.agent_config_raw = Some(serde_json::json!({
@@ -164,20 +161,21 @@ fn features_embedding_dimensions_row_shows_active_edit_buffer() {
         }
     }));
 
-    let lines = render_features_tab(
+    let lines = render_settings_page(
+        crate::state::settings_registry::settings_page_spec(SettingsTab::Memory)
+            .expect("memory page"),
         &settings,
         &config,
-        &crate::state::tier::TierState::default(),
         &ThemeTokens::default(),
     );
-    let text = lines
+    let row = lines
         .iter()
         .map(|line| line.to_string())
-        .collect::<Vec<_>>()
-        .join("\n");
+        .find(|line| line.contains("Dimensions"))
+        .expect("dimensions row");
 
-    assert!(text.contains("Embedding Dimensions 3072█"));
-    assert!(!text.contains("Embedding Dimensions 1536"));
+    assert!(row.contains("3072\u{2588}"), "{row}");
+    assert!(!row.contains("1536"), "{row}");
 }
 
 #[test]
@@ -227,7 +225,6 @@ fn subagent_editor_shows_live_name_edit_buffer() {
     editor.field = crate::state::subagents::SubAgentEditorField::Name;
     subagents.editor = Some(editor);
     let concierge = crate::state::concierge::ConciergeState::new();
-    let tier = crate::state::tier::TierState::from_tier("power_user");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
 
     let lines = render_tab_content(
@@ -238,7 +235,6 @@ fn subagent_editor_shows_live_name_edit_buffer() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     );
@@ -272,7 +268,6 @@ fn subagent_editor_shows_live_model_edit_buffer() {
     editor.field = crate::state::subagents::SubAgentEditorField::Model;
     subagents.editor = Some(editor);
     let concierge = crate::state::concierge::ConciergeState::new();
-    let tier = crate::state::tier::TierState::from_tier("power_user");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
 
     let lines = render_tab_content(
@@ -283,7 +278,6 @@ fn subagent_editor_shows_live_model_edit_buffer() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     );
@@ -307,7 +301,6 @@ fn subagent_editor_shows_openrouter_rows_only_for_openrouter_provider() {
     let modal = ModalState::new();
     let auth = crate::state::auth::AuthState::new();
     let concierge = crate::state::concierge::ConciergeState::new();
-    let tier = crate::state::tier::TierState::from_tier("power_user");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
 
     let mut subagents = SubAgentsState::new();
@@ -326,7 +319,6 @@ fn subagent_editor_shows_openrouter_rows_only_for_openrouter_provider() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     )
@@ -352,7 +344,6 @@ fn subagent_editor_shows_openrouter_rows_only_for_openrouter_provider() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     )
@@ -387,7 +378,6 @@ fn subagent_system_prompt_textarea_wraps_long_lines_to_content_width() {
     editor.field = crate::state::subagents::SubAgentEditorField::SystemPrompt;
     subagents.editor = Some(editor);
     let concierge = crate::state::concierge::ConciergeState::new();
-    let tier = crate::state::tier::TierState::from_tier("power_user");
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
 
     let lines = render_tab_content(
@@ -398,7 +388,6 @@ fn subagent_system_prompt_textarea_wraps_long_lines_to_content_width() {
         &auth,
         &subagents,
         &concierge,
-        &tier,
         &plugin_settings,
         &ThemeTokens::default(),
     );

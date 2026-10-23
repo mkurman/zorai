@@ -712,6 +712,11 @@ where
         AgentBridgeCommand::ListGatewayChats => {
             framed.send(ClientMessage::AgentListGatewayChats).await?;
         }
+        AgentBridgeCommand::SearchThreads { query, limit } => {
+            framed
+                .send(ClientMessage::AgentSearchThreads { query, limit })
+                .await?;
+        }
         AgentBridgeCommand::LinkThreadToGatewayChat {
             thread_id,
             channel_key,

@@ -1,56 +1,21 @@
 use super::*;
-use zorai_shared::providers::{
-    AudioToolKind, PROVIDER_ID_CUSTOM, PROVIDER_ID_HUGGINGFACE, PROVIDER_ID_OPENROUTER,
-};
+use zorai_shared::providers::{AudioToolKind, PROVIDER_ID_CUSTOM};
 impl TuiModel {
     pub(crate) fn current_settings_field_name(&self) -> &str {
         if self.settings.active_tab() == crate::state::SettingsTab::Concierge {
-            return match self.settings.field_cursor() {
-                0 => "concierge_enabled",
-                1 => "concierge_detail_level",
-                2 => "concierge_provider",
-                3 => "concierge_model",
-                4 => "concierge_reasoning_effort",
-                5 if self.concierge.provider.as_deref() == Some(PROVIDER_ID_OPENROUTER) => {
-                    "concierge_openrouter_provider_order"
-                }
-                6 if self.concierge.provider.as_deref() == Some(PROVIDER_ID_OPENROUTER) => {
-                    "concierge_openrouter_provider_ignore"
-                }
-                7 if self.concierge.provider.as_deref() == Some(PROVIDER_ID_OPENROUTER) => {
-                    "concierge_openrouter_allow_fallbacks"
-                }
-                7 if self.concierge.provider.as_deref() == Some(PROVIDER_ID_HUGGINGFACE) => {
-                    "concierge_huggingface_provider"
-                }
-                8 if self.concierge.provider.as_deref() == Some(PROVIDER_ID_OPENROUTER)
-                    || self.concierge.provider.as_deref() == Some(PROVIDER_ID_HUGGINGFACE) =>
-                {
-                    "concierge_base_url"
-                }
-                9 if self.concierge.provider.as_deref() == Some(PROVIDER_ID_OPENROUTER)
-                    || self.concierge.provider.as_deref() == Some(PROVIDER_ID_HUGGINGFACE) =>
-                {
-                    "rarog_alias"
-                }
-                7 => "concierge_base_url",
-                8 => "rarog_alias",
-                6 => "concierge_claude_permission_mode",
-                _ => "",
-            };
+            return self
+                .concierge
+                .settings_fields()
+                .get(self.settings.field_cursor())
+                .copied()
+                .unwrap_or("");
         }
         self.settings.current_field_name_with_config(&self.config)
     }
 
     pub(crate) fn settings_field_count(&self) -> usize {
         if self.settings.active_tab() == crate::state::SettingsTab::Concierge {
-            return if self.concierge.provider.as_deref() == Some(PROVIDER_ID_OPENROUTER) {
-                10
-            } else if self.concierge.provider.as_deref() == Some(PROVIDER_ID_HUGGINGFACE) {
-                10
-            } else {
-                9
-            };
+            return self.concierge.settings_fields().len();
         }
         self.settings.field_count_with_config(&self.config)
     }
@@ -58,6 +23,25 @@ impl TuiModel {
     pub(crate) fn clamp_settings_cursor(&mut self) {
         self.settings
             .clamp_field_cursor(self.settings_field_count());
+    }
+
+    pub(crate) fn focus_settings_page_field(&mut self, field: &str) {
+        let Some(tab) = crate::state::settings_registry::settings_page_tab_for_field(field) else {
+            return;
+        };
+        if self.settings.active_tab() != tab {
+            self.settings.reduce(SettingsAction::SwitchTab(tab));
+        }
+        let Some(index) =
+            crate::state::settings_registry::settings_page_spec(tab).and_then(|page| {
+                page.visible_fields(&self.config)
+                    .iter()
+                    .position(|spec| spec.name == field)
+            })
+        else {
+            return;
+        };
+        self.settings_navigate_to(index);
     }
 
     pub(crate) fn open_honcho_editor(&mut self) {
@@ -419,9 +403,7 @@ impl TuiModel {
                     self.modal
                         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
                 }
-                self.settings
-                    .reduce(SettingsAction::SwitchTab(SettingsTab::Features));
-                self.settings_navigate_to(18);
+                self.focus_settings_page_field("feat_audio_stt_model");
                 self.settings
                     .start_editing("feat_audio_stt_model", &self.config.audio_stt_model());
                 self.status_line = "Enter STT model ID".to_string();
@@ -431,9 +413,7 @@ impl TuiModel {
                     self.modal
                         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
                 }
-                self.settings
-                    .reduce(SettingsAction::SwitchTab(SettingsTab::Features));
-                self.settings_navigate_to(21);
+                self.focus_settings_page_field("feat_audio_tts_model");
                 self.settings
                     .start_editing("feat_audio_tts_model", &self.config.audio_tts_model());
                 self.status_line = "Enter TTS model ID".to_string();
@@ -443,9 +423,7 @@ impl TuiModel {
                     self.modal
                         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
                 }
-                self.settings
-                    .reduce(SettingsAction::SwitchTab(SettingsTab::Features));
-                self.settings_navigate_to(24);
+                self.focus_settings_page_field("feat_image_generation_model");
                 self.settings.start_editing(
                     "feat_image_generation_model",
                     &self.config.image_generation_model(),
@@ -457,9 +435,7 @@ impl TuiModel {
                     self.modal
                         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
                 }
-                self.settings
-                    .reduce(SettingsAction::SwitchTab(SettingsTab::Features));
-                self.settings_navigate_to(27);
+                self.focus_settings_page_field("feat_embedding_model");
                 self.settings.start_editing(
                     "feat_embedding_model",
                     &self.config.semantic_embedding_model(),

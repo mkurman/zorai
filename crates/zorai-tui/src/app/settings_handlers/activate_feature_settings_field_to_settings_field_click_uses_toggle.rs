@@ -27,24 +27,74 @@ impl TuiModel {
                 self.tier.on_tier_changed(next);
                 true
             }
-            "feat_security_level" => {
-                let levels = ["permissive", "balanced", "strict"];
+            "feat_audio_stt_language" => {
                 let current = self
                     .config
                     .agent_config_raw
                     .as_ref()
-                    .and_then(|r| r.get("managed_security_level"))
+                    .and_then(|r| r.get("audio"))
+                    .and_then(|a| a.get("stt"))
+                    .and_then(|s| s.get("language"))
                     .and_then(|v| v.as_str())
-                    .unwrap_or("balanced");
-                let current_idx = levels.iter().position(|l| *l == current).unwrap_or(1);
-                let next = levels[(current_idx + 1) % levels.len()];
-                self.send_daemon_command(DaemonCommand::SetConfigItem {
-                    key_path: "/managed_security_level".to_string(),
-                    value_json: format!("\"{}\"", next),
-                });
-                if let Some(ref mut raw) = self.config.agent_config_raw {
-                    raw["managed_security_level"] = serde_json::Value::String(next.to_string());
+                    .unwrap_or("")
+                    .to_string();
+                self.settings
+                    .start_editing("feat_audio_stt_language", &current);
+                true
+            }
+            "code_review_agent" => {
+                let options = std::iter::once("thread".to_string())
+                    .chain(
+                        self.subagents
+                            .entries
+                            .iter()
+                            .filter(|entry| entry.enabled)
+                            .map(|entry| entry.id.clone()),
+                    )
+                    .collect::<Vec<_>>();
+                let current = self
+                    .config
+                    .agent_config_raw
+                    .as_ref()
+                    .and_then(|r| r.get("code_review_agent"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("thread");
+                let next = options
+                    .iter()
+                    .position(|option| option == current)
+                    .map(|index| options[(index + 1) % options.len()].clone())
+                    .unwrap_or_else(|| "thread".to_string());
+                if options.len() < 2 {
+                    self.status_line =
+                        "Enable a sub-agent to use it as the code reviewer".to_string();
                 }
+                self.set_raw_config_item(&["code_review_agent"], serde_json::Value::String(next));
+                true
+            }
+            "code_review_commit_window" => {
+                let current = self
+                    .config
+                    .agent_config_raw
+                    .as_ref()
+                    .and_then(|r| r.get("code_review_commit_window"))
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(5)
+                    .to_string();
+                self.settings
+                    .start_editing("code_review_commit_window", &current);
+                true
+            }
+            "feat_heartbeat_interval" => {
+                let current = self
+                    .config
+                    .agent_config_raw
+                    .as_ref()
+                    .and_then(|r| r.get("heartbeat_interval_mins"))
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(30)
+                    .to_string();
+                self.settings
+                    .start_editing("feat_heartbeat_interval", &current);
                 true
             }
             "feat_heartbeat_cron" => {
@@ -52,40 +102,28 @@ impl TuiModel {
                     .config
                     .agent_config_raw
                     .as_ref()
-                    .and_then(|r| r.get("heartbeat"))
-                    .and_then(|h| h.get("cron"))
+                    .and_then(|r| r.get("heartbeat_cron"))
                     .and_then(|v| v.as_str())
-                    .unwrap_or("*/15 * * * *")
+                    .unwrap_or("")
                     .to_string();
                 self.settings.start_editing("feat_heartbeat_cron", &current);
                 true
             }
-            "feat_heartbeat_quiet_start" => {
+            "feat_heartbeat_quiet_start" | "feat_heartbeat_quiet_end" => {
+                let key = if field == "feat_heartbeat_quiet_start" {
+                    "quiet_hours_start"
+                } else {
+                    "quiet_hours_end"
+                };
                 let current = self
                     .config
                     .agent_config_raw
                     .as_ref()
-                    .and_then(|r| r.get("heartbeat"))
-                    .and_then(|h| h.get("quiet_start"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("22:00")
-                    .to_string();
-                self.settings
-                    .start_editing("feat_heartbeat_quiet_start", &current);
-                true
-            }
-            "feat_heartbeat_quiet_end" => {
-                let current = self
-                    .config
-                    .agent_config_raw
-                    .as_ref()
-                    .and_then(|r| r.get("heartbeat"))
-                    .and_then(|h| h.get("quiet_end"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("07:00")
-                    .to_string();
-                self.settings
-                    .start_editing("feat_heartbeat_quiet_end", &current);
+                    .and_then(|r| r.get(key))
+                    .and_then(|v| v.as_u64())
+                    .map(|hour| hour.to_string())
+                    .unwrap_or_default();
+                self.settings.start_editing(field, &current);
                 true
             }
             "feat_decay_half_life_hours" => {
@@ -94,7 +132,7 @@ impl TuiModel {
                     .agent_config_raw
                     .as_ref()
                     .and_then(|r| r.get("consolidation"))
-                    .and_then(|c| c.get("decay_half_life_hours"))
+                    .and_then(|c| c.get("memory_decay_half_life_hours"))
                     .and_then(|v| v.as_f64())
                     .map(|v| format!("{:.0}", v))
                     .unwrap_or_else(|| "69".to_string());
@@ -253,11 +291,14 @@ impl TuiModel {
                 | "compaction_custom_reasoning_effort"
                 | "snapshot_auto_cleanup"
                 | "feat_tier_override"
-                | "feat_security_level"
                 | "feat_check_stale_todos"
                 | "feat_check_stuck_goals"
                 | "feat_check_unreplied_messages"
                 | "feat_check_repo_changes"
+                | "feat_check_plugin_auth"
+                | "feat_heartbeat_enabled"
+                | "desktop_notifications"
+                | "feat_audio_tts_auto_speak"
                 | "feat_consolidation_enabled"
                 | "feat_skill_recommendation_enabled"
                 | "feat_skill_background_community_search"
@@ -277,7 +318,6 @@ impl TuiModel {
                 | "mlflow_capture_mode"
                 | "mlflow_test_connection"
                 | "mlflow_send_test_trace"
-        ) || (self.current_settings_field_name().starts_with("tool_")
-            && self.current_settings_field_name() != "tool_synthesis_max_generated_tools")
+        ) || crate::state::settings::is_tool_toggle_field(self.current_settings_field_name())
     }
 }

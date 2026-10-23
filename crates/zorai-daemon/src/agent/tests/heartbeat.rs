@@ -951,7 +951,7 @@ async fn heartbeat_weles_health_marks_review_unavailable_as_degraded() {
 }
 
 #[tokio::test]
-async fn structured_heartbeat_routes_synthesis_through_weles_runtime() {
+async fn structured_heartbeat_synthesis_uses_weles_model_without_tools_or_agent_runtime() {
     let recorded_bodies = Arc::new(StdMutex::new(VecDeque::new()));
     let root = tempdir().expect("tempdir should succeed");
     let manager = SessionManager::new_test(root.path()).await;
@@ -1007,7 +1007,7 @@ async fn structured_heartbeat_routes_synthesis_through_weles_runtime() {
     engine
         .run_structured_heartbeat_adaptive(0)
         .await
-        .expect("structured heartbeat should succeed through Weles runtime");
+        .expect("structured heartbeat synthesis should succeed");
 
     let recorded = recorded_bodies
         .lock()
@@ -1024,7 +1024,20 @@ async fn structured_heartbeat_routes_synthesis_through_weles_runtime() {
         "heartbeat synthesis should not fall back to main-agent model, body was: {body}"
     );
     assert!(
-        body.contains("You are Weles in zorai."),
-        "heartbeat synthesis should execute with the Weles runtime persona, body was: {body}"
+        !body.contains("\"tools\""),
+        "heartbeat synthesis must not offer tools, or the model starts acting on the data instead of summarizing it; body was: {body}"
+    );
+    assert!(
+        !body.contains("You are Weles in zorai."),
+        "heartbeat synthesis must not run as a full Weles agent turn, body was: {body}"
+    );
+    assert_eq!(
+        recorded.len(),
+        1,
+        "one heartbeat is exactly one model request"
+    );
+    assert!(
+        engine.list_threads().await.is_empty(),
+        "heartbeat synthesis must not create a thread"
     );
 }

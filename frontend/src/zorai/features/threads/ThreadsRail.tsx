@@ -20,7 +20,13 @@ import {
   type ThreadFilterTab,
   visibleThreadTabs,
 } from "./threadFilterModel";
-import { openListedThread } from "./openThreadTarget";
+import { openListedThread, openThreadTarget } from "./openThreadTarget";
+import {
+  searchThreads,
+  THREAD_SEARCH_DEBOUNCE_MS,
+  threadSearchQueryIsActive,
+  type ThreadSearchResponse,
+} from "./threadSearchModel";
 import { fetchGatewayChats, gatewayLinkedThreadIds } from "./gatewayChatModel";
 import { isThreadLoading, useThreadLoadingStore } from "./threadLoadingStore";
 import { useThreadRailTabStore } from "./threadRailTabStore";
@@ -69,6 +75,8 @@ export function ThreadsRail() {
   const pendingFetchIdRef = useRef(0);
   const loadedAgentFilterRef = useRef<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const [threadSearch, setThreadSearch] = useState<{ query: string; response: ThreadSearchResponse | null; error: string | null }>({ query: "", response: null, error: null });
+  const searchActive = threadSearchQueryIsActive(runtime.searchQuery);
   const goalThreadIdSet = useMemo(() => goalThreadIds(runtime.goalRunsForTrace), [runtime.goalRunsForTrace]);
   const daemonAgentFilter = useMemo(() => daemonAgentFilterForThreadTab(tab, subAgents), [subAgents, tab]);
   const fetchKey = daemonAgentFilter ?? "__all__";
@@ -120,6 +128,25 @@ export function ThreadsRail() {
   useEffect(() => {
     void refreshSubAgents();
   }, [refreshSubAgents]);
+
+  useEffect(() => {
+    const query = runtime.searchQuery.trim();
+    if (!threadSearchQueryIsActive(query)) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      searchThreads(query)
+        .then((response) => {
+          if (!cancelled) setThreadSearch({ query, response, error: null });
+        })
+        .catch((error: unknown) => {
+          if (!cancelled) setThreadSearch({ query, response: null, error: error instanceof Error ? error.message : String(error) });
+        });
+    }, THREAD_SEARCH_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [runtime.searchQuery]);
 
   useEffect(() => {
     let cancelled = false;
@@ -336,6 +363,15 @@ export function ThreadsRail() {
         ) : null}
       </div>
       </div>
+      {searchActive ? (
+        <ThreadSearchResults
+          query={runtime.searchQuery.trim()}
+          search={threadSearch}
+          now={now}
+          activeDaemonThreadId={runtime.activeThread?.daemonThreadId ?? null}
+          onOpen={(threadId) => void openThreadTarget(runtime, threadId)}
+        />
+      ) : (
       <div className="zorai-thread-list" aria-busy={loadingTab !== null}>
         {loadingTab && daemonFilteredThreads === null ? (
           <ThreadListSkeleton />
@@ -381,6 +417,61 @@ export function ThreadsRail() {
           );
         })}
       </div>
+      )}
+    </div>
+  );
+}
+
+function ThreadSearchResults({
+  query,
+  search,
+  now,
+  activeDaemonThreadId,
+  onOpen,
+}: {
+  query: string;
+  search: { query: string; response: ThreadSearchResponse | null; error: string | null };
+  now: number;
+  activeDaemonThreadId: string | null;
+  onOpen: (threadId: string) => void;
+}) {
+  const settled = search.query === query;
+  const response = settled ? search.response : null;
+  return (
+    <div className="zorai-thread-list zorai-thread-search" aria-busy={!settled}>
+      {settled && search.error ? (
+        <div className="zorai-empty">Search failed: {search.error}</div>
+      ) : !response ? (
+        <ThreadListSkeleton />
+      ) : (
+        <>
+          <div className="zorai-thread-search__mode">
+            {response.semantic ? "Semantic + keyword search" : "Keyword search"}
+            {response.semantic_error ? ` · semantic unavailable: ${response.semantic_error}` : ""}
+          </div>
+          {response.results.length === 0 ? (
+            <div className="zorai-empty">No threads match this search.</div>
+          ) : response.results.map((hit) => {
+            const active = hit.thread_id === activeDaemonThreadId;
+            return (
+              <div key={hit.thread_id} className={["zorai-thread-row", "zorai-thread-search__hit", active ? "zorai-thread-row--active" : ""].filter(Boolean).join(" ")}>
+                <button
+                  type="button"
+                  className="zorai-thread-row__main"
+                  aria-current={active ? "page" : undefined}
+                  title={`${hit.title} — matched ${hit.matched.join(", ")}`}
+                  onClick={() => onOpen(hit.thread_id)}
+                >
+                  <span className="zorai-thread-dot zorai-thread-dot--idle" aria-hidden="true" />
+                  <span className="zorai-thread-title">{hit.title}</span>
+                  <span className="zorai-thread-activity">{sessionActivityLabel(hit.updated_at, now)}</span>
+                  {hit.snippet ? <span className="zorai-thread-search__snippet">{hit.snippet}</span> : null}
+                </button>
+              </div>
+            );
+          })}
+        </>
+      )}
     </div>
   );
 }

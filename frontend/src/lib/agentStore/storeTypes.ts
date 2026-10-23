@@ -24,10 +24,13 @@ export interface ConciergeConfig {
   provider?: string;
   model?: string;
   reasoning_effort?: string;
+  base_url?: string | null;
   api_transport?: ApiTransportMode | null;
+  claude_permission_mode?: string | null;
   openrouter_provider_order?: string[];
   openrouter_provider_ignore?: string[];
   openrouter_allow_fallbacks?: boolean | null;
+  huggingface_provider?: string | null;
   auto_cleanup_on_navigate: boolean;
 }
 

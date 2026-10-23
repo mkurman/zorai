@@ -8,6 +8,7 @@ import {
   handleThreadCreatedEvent,
   handleWorkspaceCommand,
 } from "./daemonEventHandlers";
+import { reconcileThreadMessages } from "./threadMessageReducer";
 import { clearPendingUnboundThreadBind, notePendingUnboundThreadBind } from "./newThreadTargetAgent";
 
 vi.mock("@/lib/agentTodos", () => ({
@@ -40,7 +41,7 @@ function makeThread(id: string, daemonThreadId: string | null, title = id): Agen
 }
 
 function gatewayUserContent(content = "Hey brush, grab the latest qwen next release") {
-  return `[discord — mariuszkurman]: ${content}`;
+  return content;
 }
 
 describe("handleGatewayIncomingEvent", () => {
@@ -100,6 +101,27 @@ describe("handleGatewayIncomingEvent", () => {
     expect(gatewayMessages[0]?.content).toBe(gatewayUserContent());
     expect(gatewayMessages[1]?.role).toBe("assistant");
     expect(gatewayMessages[1]?.isStreaming).toBe(true);
+  });
+
+  it("shows one bubble per chat message once the daemon's stored copy arrives, even for markdown-like text", () => {
+    const pendingGatewayMessagesRef = { current: [] as any[] };
+
+    handleGatewayIncomingEvent({
+      event: {
+        platform: "discord",
+        sender: "mariuszkurman",
+        content: "Go",
+        channel: "user:42",
+        thread_id: "daemon-gateway",
+      },
+      addMessage: useAgentStore.getState().addMessage,
+      pendingGatewayMessagesRef,
+    });
+
+    const local = useAgentStore.getState().getThreadMessages("local-gateway");
+    const stored = { ...local[0], id: "db-user-go", content: "Go" };
+    const users = reconcileThreadMessages(local, [stored]).filter((message) => message.role === "user");
+    expect(users.map((message) => [message.id, message.content])).toEqual([["db-user-go", "Go"]]);
   });
 
   it("materializes a dedicated local thread when the bound daemon thread is not loaded yet", () => {

@@ -357,6 +357,11 @@ pub(super) enum AgentBridgeCommand {
     },
     ListSubAgents,
     ListGatewayChats,
+    SearchThreads {
+        query: String,
+        #[serde(default)]
+        limit: Option<usize>,
+    },
     LinkThreadToGatewayChat {
         thread_id: String,
         #[serde(default)]

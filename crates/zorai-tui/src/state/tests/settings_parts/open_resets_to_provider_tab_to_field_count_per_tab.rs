@@ -131,7 +131,7 @@ fn close_clears_editing_and_dropdown() {
 
 #[test]
 fn all_tabs_hide_provider_variant() {
-    assert_eq!(SettingsTab::all().len(), 13);
+    assert_eq!(SettingsTab::all().len(), 22);
     assert!(!SettingsTab::all().contains(&SettingsTab::Provider));
     assert_eq!(SettingsTab::all()[0], SettingsTab::Auth);
     assert_eq!(SettingsTab::all()[1], SettingsTab::Agent);
@@ -257,15 +257,17 @@ fn current_field_name_tools_tab() {
     state.reduce(SettingsAction::NavigateField(1));
     assert_eq!(state.current_field_name(), "tool_file_ops");
     state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "tool_web_search");
+    assert_eq!(state.current_field_name(), "tool_vision");
     state.reduce(SettingsAction::NavigateField(1));
     assert_eq!(state.current_field_name(), "tool_web_browse");
     state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "tool_vision");
+    assert_eq!(state.current_field_name(), "tool_web_search");
     state.reduce(SettingsAction::NavigateField(1));
     assert_eq!(state.current_field_name(), "tool_system_info");
     state.reduce(SettingsAction::NavigateField(1));
     assert_eq!(state.current_field_name(), "tool_gateway");
+    state.reduce(SettingsAction::NavigateField(1));
+    assert_eq!(state.current_field_name(), "tool_synthesis_enabled");
 }
 
 #[test]
@@ -332,19 +334,6 @@ fn current_field_name_chat_tab() {
     state.reduce(SettingsAction::SwitchTab(SettingsTab::Chat));
     assert_eq!(state.current_field_name(), "enable_streaming");
     state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "enable_conversation_memory");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "enable_honcho_memory");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "anticipatory_enabled");
-    state.reduce(SettingsAction::NavigateField(4));
-    assert_eq!(state.current_field_name(), "operator_model_enabled");
-    state.reduce(SettingsAction::NavigateField(11));
-    assert_eq!(
-        state.current_field_name(),
-        "tool_synthesis_max_generated_tools"
-    );
-    state.reduce(SettingsAction::NavigateField(1));
     assert_eq!(state.current_field_name(), "tui_chat_history_page_size");
     state.reduce(SettingsAction::NavigateField(1));
     assert_eq!(
@@ -352,68 +341,9 @@ fn current_field_name_chat_tab() {
         "participant_observer_restore_window_hours"
     );
     state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "operator_model_inspect");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "operator_model_reset");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "collaboration_sessions_inspect");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "generated_tools_inspect");
+    assert_eq!(state.current_field_name(), "auto_refresh_interval_secs");
     state.reduce(SettingsAction::NavigateField(4));
-    assert_eq!(state.current_field_name(), "generated_tools_inspect");
-    assert_eq!(state.field_cursor(), 24);
-}
-
-#[test]
-fn current_field_name_advanced_tab() {
-    let mut state = SettingsState::new();
-    state.reduce(SettingsAction::SwitchTab(SettingsTab::Advanced));
-    assert_eq!(state.current_field_name(), "managed_sandbox_enabled");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "managed_security_level");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "auto_compact_context");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "compaction_strategy");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "max_context_messages");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "max_tool_loops");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "max_retries");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "retry_delay_ms");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "message_loop_delay_ms");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "tool_call_delay_ms");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "llm_stream_chunk_timeout_secs");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "auto_retry");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "context_window_tokens");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "compact_threshold_pct");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "keep_recent_on_compact");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "bash_timeout_secs");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "weles_max_concurrent_reviews");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "snapshot_auto_cleanup");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "snapshot_max_count");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "snapshot_max_size_mb");
-    state.reduce(SettingsAction::NavigateField(1));
-    assert_eq!(state.current_field_name(), "snapshot_stats");
-    state.reduce(SettingsAction::NavigateField(1));
     assert_eq!(state.current_field_name(), "auto_refresh_interval_secs");
-    state.reduce(SettingsAction::NavigateField(5));
-    assert_eq!(state.current_field_name(), "auto_refresh_interval_secs");
-    assert_eq!(state.field_cursor(), 21);
 }
 
 #[test]
@@ -423,11 +353,13 @@ fn field_count_per_tab() {
     state.reduce(SettingsAction::SwitchTab(SettingsTab::Provider));
     assert_eq!(state.field_count(), 8);
     state.reduce(SettingsAction::SwitchTab(SettingsTab::Tools));
-    assert_eq!(state.field_count(), 7);
+    assert_eq!(state.field_count(), 11);
     state.reduce(SettingsAction::SwitchTab(SettingsTab::WebSearch));
-    assert_eq!(state.field_count(), 10);
+    assert_eq!(state.field_count(), 11);
+    state.reduce(SettingsAction::SwitchTab(SettingsTab::Heartbeat));
+    assert_eq!(state.field_count(), 11);
     state.reduce(SettingsAction::SwitchTab(SettingsTab::Chat));
-    assert_eq!(state.field_count(), 25);
+    assert_eq!(state.field_count(), 4);
     state.reduce(SettingsAction::SwitchTab(SettingsTab::Gateway));
     assert_eq!(state.field_count(), 19);
     state.reduce(SettingsAction::SwitchTab(SettingsTab::Auth));
@@ -438,10 +370,8 @@ fn field_count_per_tab() {
     assert_eq!(state.field_count(), 1);
     state.reduce(SettingsAction::SwitchTab(SettingsTab::Concierge));
     assert_eq!(state.field_count(), 9);
-    state.reduce(SettingsAction::SwitchTab(SettingsTab::Features));
-    assert_eq!(state.field_count(), 30);
-    state.reduce(SettingsAction::SwitchTab(SettingsTab::Advanced));
-    assert_eq!(state.field_count(), 25);
+    state.reduce(SettingsAction::SwitchTab(SettingsTab::Compaction));
+    assert_eq!(state.field_count(), 18);
     state.reduce(SettingsAction::SwitchTab(SettingsTab::Plugins));
     assert_eq!(state.field_count(), 1);
     state.reduce(SettingsAction::SwitchTab(SettingsTab::About));

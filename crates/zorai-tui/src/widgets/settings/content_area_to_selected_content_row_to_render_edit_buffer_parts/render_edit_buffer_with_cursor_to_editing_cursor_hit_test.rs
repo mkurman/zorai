@@ -43,9 +43,9 @@ pub enum SubAgentTabAction {
     Toggle,
 }
 
-pub(crate) const TAB_LABELS: [&str; 14] = [
-    "Auth", "Svar", "Rar", "Tools", "Search", "Chat", "ML", "GW", "Sub", "Feat", "Adv", "Plug",
-    "DB", "About",
+pub(crate) const TAB_LABELS: [&str; 22] = [
+    "Auth", "Svar", "Rar", "Sub", "Tools", "Skill", "Web", "Media", "Mem", "Beat", "Pro", "Flow",
+    "GW", "Chat", "Cmp", "Exec", "Safe", "ML", "Store", "Plug", "DB", "About",
 ];
 pub(crate) const TAB_DIVIDER: &str = " | ";
 
@@ -107,7 +107,6 @@ pub(crate) fn render(
     auth: &crate::state::auth::AuthState,
     subagents: &SubAgentsState,
     concierge: &ConciergeState,
-    tier: &crate::state::tier::TierState,
     plugin_settings: &PluginSettingsState,
     scroll: usize,
     theme: &ThemeTokens,
@@ -118,51 +117,43 @@ pub(crate) fn render(
         .border_type(BorderType::Double)
         .border_style(theme.accent_secondary);
 
-    let inner = block.inner(area);
     frame.render_widget(block, area);
-
-    if inner.height < 5 {
+    let Some(layout) = settings_layout(area) else {
         return;
-    }
-
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Min(1),
-            Constraint::Length(1),
-        ])
-        .split(inner);
+    };
 
     let active = settings.active_tab();
-    let tab_index = active_tab_index(active);
-    let tabs = visible_tabs(chunks[0], tab_index);
-    frame.render_widget(
-        Paragraph::new(render_tabs_line(&tabs, settings, theme)),
-        chunks[0],
-    );
-
-    let sep = Line::from(Span::styled(
-        "\u{2500}".repeat(chunks[1].width as usize),
-        theme.fg_dim,
-    ));
-    frame.render_widget(Paragraph::new(sep), chunks[1]);
+    if let (Some(sidebar), Some(divider)) = (layout.sidebar, layout.divider) {
+        render_settings_sidebar(frame, sidebar, divider, active, theme);
+    }
+    if let (Some(tabs_line), Some(separator)) = (layout.tabs_line, layout.separator) {
+        let tabs = visible_tabs(tabs_line, active_tab_index(active));
+        frame.render_widget(
+            Paragraph::new(render_tabs_line(&tabs, settings, theme)),
+            tabs_line,
+        );
+        frame.render_widget(
+            Paragraph::new(Line::from(Span::styled(
+                "\u{2500}".repeat(separator.width as usize),
+                theme.fg_dim,
+            ))),
+            separator,
+        );
+    }
 
     let content_lines = render_tab_content(
-        chunks[2].width,
+        layout.content.width,
         settings,
         config,
         modal,
         auth,
         subagents,
         concierge,
-        tier,
         plugin_settings,
         theme,
     );
     let paragraph = Paragraph::new(content_lines).scroll((scroll.min(u16::MAX as usize) as u16, 0));
-    frame.render_widget(paragraph, chunks[2]);
+    frame.render_widget(paragraph, layout.content);
 
     let hints = if settings.is_editing() {
         Line::from(vec![
@@ -194,7 +185,7 @@ pub(crate) fn render(
         ]);
         Line::from(spans)
     };
-    frame.render_widget(Paragraph::new(hints), chunks[3]);
+    frame.render_widget(Paragraph::new(hints), layout.hints);
 }
 
 pub(crate) fn settings_field_can_activate(settings: &SettingsState, config: &ConfigState) -> bool {
@@ -230,13 +221,17 @@ pub(crate) fn settings_field_can_activate(settings: &SettingsState, config: &Con
             | "feat_check_stuck_goals"
             | "feat_check_unreplied_messages"
             | "feat_check_repo_changes"
+            | "feat_check_plugin_auth"
+            | "feat_heartbeat_enabled"
+            | "desktop_notifications"
+            | "feat_audio_tts_auto_speak"
             | "feat_consolidation_enabled"
             | "feat_skill_recommendation_enabled"
             | "feat_skill_background_community_search"
             | "feat_audio_stt_enabled"
             | "feat_audio_tts_enabled"
             | "feat_embedding_enabled"
-    ) && !field.starts_with("tool_")
+    ) && !crate::state::settings::is_tool_toggle_field(field)
 }
 
 pub(crate) fn settings_field_can_toggle(settings: &SettingsState, config: &ConfigState) -> bool {
@@ -276,11 +271,14 @@ pub(crate) fn settings_field_can_toggle(settings: &SettingsState, config: &Confi
             | "snapshot_auto_cleanup"
             | "workspace_repo_monitor_enabled"
             | "feat_tier_override"
-            | "feat_security_level"
             | "feat_check_stale_todos"
             | "feat_check_stuck_goals"
             | "feat_check_unreplied_messages"
             | "feat_check_repo_changes"
+            | "feat_check_plugin_auth"
+            | "feat_heartbeat_enabled"
+            | "desktop_notifications"
+            | "feat_audio_tts_auto_speak"
             | "feat_consolidation_enabled"
             | "feat_skill_recommendation_enabled"
             | "feat_skill_background_community_search"
@@ -290,7 +288,7 @@ pub(crate) fn settings_field_can_toggle(settings: &SettingsState, config: &Confi
             | "feat_auto_thread_title"
             | "whatsapp_link_device"
             | "whatsapp_relink_device"
-    ) || field.starts_with("tool_")
+    ) || crate::state::settings::is_tool_toggle_field(field)
 }
 
 pub(crate) fn hit_test(
@@ -302,54 +300,37 @@ pub(crate) fn hit_test(
     scroll: usize,
     mouse: Position,
 ) -> Option<SettingsHitTarget> {
-    let block = Block::default()
-        .title(" SETTINGS ")
-        .borders(Borders::ALL)
-        .border_type(BorderType::Double);
-    let inner = block.inner(area);
-    if inner.height < 5
-        || mouse.x < inner.x
-        || mouse.x >= inner.x.saturating_add(inner.width)
-        || mouse.y < inner.y
-        || mouse.y >= inner.y.saturating_add(inner.height)
-    {
-        return None;
-    }
-
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Min(1),
-            Constraint::Length(1),
-        ])
-        .split(inner);
-
-    if mouse.y == chunks[0].y {
-        if let Some(tab) = tab_hit_test(chunks[0], settings.active_tab(), mouse.x) {
-            return Some(SettingsHitTarget::Tab(tab));
+    let layout = settings_layout(area)?;
+    if let Some(sidebar) = layout.sidebar {
+        if sidebar.contains(mouse) {
+            return sidebar_hit_test(sidebar, settings.active_tab(), mouse)
+                .map(SettingsHitTarget::Tab);
         }
+    }
+    if let Some(tabs_line) = layout.tabs_line {
+        if mouse.y == tabs_line.y && tabs_line.contains(mouse) {
+            return tab_hit_test(tabs_line, settings.active_tab(), mouse.x)
+                .map(SettingsHitTarget::Tab);
+        }
+    }
+    if !layout.content.contains(mouse) {
         return None;
     }
+    let content = layout.content;
 
-    if mouse.y < chunks[2].y || mouse.y >= chunks[2].y.saturating_add(chunks[2].height) {
-        return None;
-    }
-
-    if let Some((line, col)) = editing_cursor_hit_test(chunks[2], settings, config, scroll, mouse) {
+    if let Some((line, col)) = editing_cursor_hit_test(content, settings, config, scroll, mouse) {
         return Some(SettingsHitTarget::EditCursor { line, col });
     }
 
     if matches!(settings.active_tab(), SettingsTab::Auth) {
-        return auth_hit_test(chunks[2], auth, scroll, mouse);
+        return auth_hit_test(content, auth, scroll, mouse);
     }
 
     if matches!(settings.active_tab(), SettingsTab::SubAgents) {
-        return subagents_hit_test(chunks[2], subagents, scroll, mouse);
+        return subagents_hit_test(content, subagents, scroll, mouse);
     }
 
-    let row = mouse.y.saturating_sub(chunks[2].y) as usize + scroll;
+    let row = mouse.y.saturating_sub(content.y) as usize + scroll;
     match settings_row_hit(settings, config, subagents, row) {
         Some((_, Some(subagent_index))) => {
             Some(SettingsHitTarget::SubAgentListItem(subagent_index))
@@ -371,21 +352,227 @@ pub(crate) fn tab_hit_test(
 }
 
 pub(crate) fn active_tab_index(tab: SettingsTab) -> usize {
-    match tab {
-        SettingsTab::Auth => 0,
-        SettingsTab::Provider | SettingsTab::Agent => 1,
-        SettingsTab::Concierge => 2,
-        SettingsTab::Tools => 3,
-        SettingsTab::WebSearch => 4,
-        SettingsTab::Chat => 5,
-        SettingsTab::Mlflow => 6,
-        SettingsTab::Gateway => 7,
-        SettingsTab::SubAgents => 8,
-        SettingsTab::Features => 9,
-        SettingsTab::Advanced => 10,
-        SettingsTab::Plugins => 11,
-        SettingsTab::Database => 12,
-        SettingsTab::About => 13,
+    let tab = if tab == SettingsTab::Provider {
+        SettingsTab::Agent
+    } else {
+        tab
+    };
+    SettingsTab::all()
+        .iter()
+        .position(|candidate| *candidate == tab)
+        .unwrap_or(0)
+}
+
+pub(crate) const SETTINGS_SIDEBAR_WIDTH: u16 = 20;
+pub(crate) const SETTINGS_SIDEBAR_MIN_INNER_WIDTH: u16 = 76;
+
+const SETTINGS_SIDEBAR_GROUPS: &[(&str, &[(SettingsTab, &str)])] = &[
+    (
+        "AGENTS",
+        &[
+            (SettingsTab::Auth, "Providers"),
+            (SettingsTab::Agent, "Svarog"),
+            (SettingsTab::Concierge, "Rarog"),
+            (SettingsTab::SubAgents, "Sub-agents"),
+        ],
+    ),
+    (
+        "CAPABILITIES",
+        &[
+            (SettingsTab::Tools, "Tools"),
+            (SettingsTab::Skills, "Skills"),
+            (SettingsTab::WebSearch, "Web"),
+            (SettingsTab::Media, "Audio & Images"),
+            (SettingsTab::Memory, "Memory"),
+        ],
+    ),
+    (
+        "AUTOMATION",
+        &[
+            (SettingsTab::Heartbeat, "Heartbeat"),
+            (SettingsTab::Proactivity, "Proactivity"),
+            (SettingsTab::Workflows, "Workflows"),
+            (SettingsTab::Gateway, "Gateway"),
+        ],
+    ),
+    (
+        "RUNTIME",
+        &[
+            (SettingsTab::Chat, "Chat"),
+            (SettingsTab::Compaction, "Compaction"),
+            (SettingsTab::Execution, "Execution"),
+            (SettingsTab::Safety, "Safety"),
+            (SettingsTab::Mlflow, "MLflow"),
+        ],
+    ),
+    (
+        "SYSTEM",
+        &[
+            (SettingsTab::Storage, "Storage"),
+            (SettingsTab::Plugins, "Plugins"),
+            (SettingsTab::Database, "Database"),
+            (SettingsTab::About, "About"),
+        ],
+    ),
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SettingsSidebarRow {
+    Blank,
+    Group(&'static str),
+    Tab(SettingsTab, &'static str),
+}
+
+pub(crate) fn settings_sidebar_rows() -> Vec<SettingsSidebarRow> {
+    let mut rows = Vec::new();
+    for (index, (group, tabs)) in SETTINGS_SIDEBAR_GROUPS.iter().enumerate() {
+        if index > 0 {
+            rows.push(SettingsSidebarRow::Blank);
+        }
+        rows.push(SettingsSidebarRow::Group(group));
+        rows.extend(
+            tabs.iter()
+                .map(|(tab, label)| SettingsSidebarRow::Tab(*tab, label)),
+        );
+    }
+    rows
+}
+
+pub(crate) fn settings_sidebar_scroll(height: u16, active: SettingsTab) -> usize {
+    let rows = settings_sidebar_rows();
+    let active = if active == SettingsTab::Provider {
+        SettingsTab::Agent
+    } else {
+        active
+    };
+    let active_row = rows
+        .iter()
+        .position(|row| matches!(row, SettingsSidebarRow::Tab(tab, _) if *tab == active))
+        .unwrap_or(0);
+    let height = height as usize;
+    if height == 0 || rows.len() <= height {
+        return 0;
+    }
+    active_row
+        .saturating_sub(height.saturating_sub(1))
+        .min(rows.len() - height)
+}
+
+pub(crate) struct SettingsLayout {
+    pub(crate) sidebar: Option<Rect>,
+    pub(crate) divider: Option<Rect>,
+    pub(crate) tabs_line: Option<Rect>,
+    pub(crate) separator: Option<Rect>,
+    pub(crate) content: Rect,
+    pub(crate) hints: Rect,
+}
+
+pub(crate) fn settings_layout(area: Rect) -> Option<SettingsLayout> {
+    let inner = Block::default()
+        .title(" SETTINGS ")
+        .borders(Borders::ALL)
+        .border_type(BorderType::Double)
+        .inner(area);
+    if inner.height < 5 {
+        return None;
+    }
+    if inner.width >= SETTINGS_SIDEBAR_MIN_INNER_WIDTH {
+        let columns = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Length(SETTINGS_SIDEBAR_WIDTH),
+                Constraint::Length(1),
+                Constraint::Min(1),
+            ])
+            .split(inner);
+        let right = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(1), Constraint::Length(1)])
+            .split(columns[2]);
+        return Some(SettingsLayout {
+            sidebar: Some(columns[0]),
+            divider: Some(columns[1]),
+            tabs_line: None,
+            separator: None,
+            content: right[0],
+            hints: right[1],
+        });
+    }
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Min(1),
+            Constraint::Length(1),
+        ])
+        .split(inner);
+    Some(SettingsLayout {
+        sidebar: None,
+        divider: None,
+        tabs_line: Some(rows[0]),
+        separator: Some(rows[1]),
+        content: rows[2],
+        hints: rows[3],
+    })
+}
+
+fn render_settings_sidebar(
+    frame: &mut Frame,
+    sidebar: Rect,
+    divider: Rect,
+    active: SettingsTab,
+    theme: &ThemeTokens,
+) {
+    let active = if active == SettingsTab::Provider {
+        SettingsTab::Agent
+    } else {
+        active
+    };
+    let lines = settings_sidebar_rows()
+        .into_iter()
+        .map(|row| match row {
+            SettingsSidebarRow::Blank => Line::raw(""),
+            SettingsSidebarRow::Group(title) => {
+                Line::from(Span::styled(format!(" {title}"), theme.fg_dim))
+            }
+            SettingsSidebarRow::Tab(tab, label) if tab == active => Line::from(vec![
+                Span::styled(" \u{25b8} ", theme.accent_primary),
+                Span::styled(label, theme.fg_active),
+            ]),
+            SettingsSidebarRow::Tab(_, label) => {
+                Line::from(vec![Span::raw("   "), Span::styled(label, theme.fg_dim)])
+            }
+        })
+        .collect::<Vec<_>>();
+    let scroll = settings_sidebar_scroll(sidebar.height, active);
+    frame.render_widget(
+        Paragraph::new(lines).scroll((scroll.min(u16::MAX as usize) as u16, 0)),
+        sidebar,
+    );
+    frame.render_widget(
+        Paragraph::new(
+            (0..divider.height)
+                .map(|_| Line::from(Span::styled("\u{2502}", theme.fg_dim)))
+                .collect::<Vec<_>>(),
+        ),
+        divider,
+    );
+}
+
+pub(crate) fn sidebar_hit_test(
+    sidebar: Rect,
+    active: SettingsTab,
+    mouse: Position,
+) -> Option<SettingsTab> {
+    if !sidebar.contains(mouse) {
+        return None;
+    }
+    let row = mouse.y.saturating_sub(sidebar.y) as usize
+        + settings_sidebar_scroll(sidebar.height, active);
+    match settings_sidebar_rows().get(row)? {
+        SettingsSidebarRow::Tab(tab, _) => Some(*tab),
+        _ => None,
     }
 }
 
@@ -403,11 +590,11 @@ pub(crate) fn visible_tabs(tab_area: Rect, active_index: usize) -> Vec<VisibleTa
     let mut end = all.len().saturating_sub(1);
     let available = tab_area.width.saturating_sub(2);
 
-    while start < active_index && total_width(start, end) > available {
-        start += 1;
-    }
     while end > active_index && total_width(start, end) > available {
         end = end.saturating_sub(1);
+    }
+    while start < active_index && total_width(start, end) > available {
+        start += 1;
     }
     while total_width(start, end) > available && start < end {
         if active_index.saturating_sub(start) > end.saturating_sub(active_index) {

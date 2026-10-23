@@ -711,6 +711,7 @@ pub(crate) async fn execute_web_search(
     search_provider: &str,
     exa_api_key: &str,
     tavily_api_key: &str,
+    firecrawl_api_key: &str,
     duckduckgo_region: &str,
     duckduckgo_safe_search: &str,
 ) -> Result<String> {
@@ -719,8 +720,18 @@ pub(crate) async fn execute_web_search(
         search_provider,
         exa_api_key,
         tavily_api_key,
+        firecrawl_api_key,
         |request, provider| async move {
             match provider {
+                "firecrawl" => {
+                    execute_firecrawl_search(
+                        http_client,
+                        &request.query,
+                        request.max_results,
+                        firecrawl_api_key,
+                    )
+                    .await
+                }
                 "exa" => {
                     execute_exa_search(
                         http_client,
@@ -770,6 +781,7 @@ pub(crate) async fn execute_web_search_with_runner<F, Fut>(
     search_provider: &str,
     exa_api_key: &str,
     tavily_api_key: &str,
+    firecrawl_api_key: &str,
     runner: F,
 ) -> Result<String>
 where
@@ -781,6 +793,7 @@ where
     let provider = match search_provider {
         "exa" if !exa_api_key.is_empty() => "exa",
         "tavily" if !tavily_api_key.is_empty() => "tavily",
+        "firecrawl" if !firecrawl_api_key.is_empty() => "firecrawl",
         "duckduckgo" | "ddg" => "duckduckgo",
         _ => "ddg",
     };
@@ -930,6 +943,61 @@ async fn execute_tavily_search(
             "Web results for \"{query}\":\n\n{}",
             results.join("\n\n")
         ))
+    }
+}
+
+async fn execute_firecrawl_search(
+    http_client: &reqwest::Client,
+    query: &str,
+    max_results: u64,
+    api_key: &str,
+) -> Result<String> {
+    let body = serde_json::json!({
+        "query": query,
+        "limit": max_results.clamp(1, 100),
+    });
+
+    let resp = http_client
+        .post("https://api.firecrawl.dev/v2/search")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        anyhow::bail!(
+            "Firecrawl API returned {status}: {}",
+            safe_text_excerpt(&text, 200)
+        );
+    }
+
+    let json: serde_json::Value = resp.json().await?;
+    Ok(format_firecrawl_search_results(query, &json))
+}
+
+pub(crate) fn format_firecrawl_search_results(query: &str, json: &serde_json::Value) -> String {
+    let results = json["data"]["web"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .map(|r| {
+                    let title = r["title"].as_str().unwrap_or("(no title)");
+                    let url = r["url"].as_str().unwrap_or("");
+                    let description = r["description"].as_str().unwrap_or("");
+                    let snippet = safe_snippet_preview(description, 300);
+                    format_result_with_metadata(title, url, &snippet, None)
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    if results.is_empty() {
+        format!("No web results found for: {query}")
+    } else {
+        format!("Web results for \"{query}\":\n\n{}", results.join("\n\n"))
     }
 }
 

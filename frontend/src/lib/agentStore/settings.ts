@@ -24,6 +24,10 @@ import {
 
 export type CompactionStrategy = "heuristic" | "weles" | "custom_model";
 export type AutoThreadTitleMode = "off" | "rarog" | "weles";
+export const CLAUDE_PERMISSION_MODES = ["", "default", "acceptEdits", "plan", "bypassPermissions", "dontAsk"] as const;
+export type ClaudePermissionMode = (typeof CLAUDE_PERMISSION_MODES)[number];
+export const CAPABILITY_TIER_OVERRIDES = ["", "newcomer", "familiar", "power_user", "expert"] as const;
+export type CapabilityTierOverride = (typeof CAPABILITY_TIER_OVERRIDES)[number];
 
 export interface AgentCompactionWelesSettings {
   provider: AgentProviderId;
@@ -84,6 +88,14 @@ export interface AgentMlflowTracingSettings {
   request_timeout_ms: number;
   max_retries: number;
 }
+
+export type AgentHeartbeatChecksSettings = {
+  stale_todos_enabled: boolean;
+  stuck_goals_enabled: boolean;
+  unreplied_messages_enabled: boolean;
+  repo_changes_enabled: boolean;
+  plugin_auth_enabled: boolean;
+};
 
 export interface AgentSettings {
   [providerId: string]: any;
@@ -151,6 +163,20 @@ export interface AgentSettings {
   enable_conversation_memory: boolean;
   enable_honcho_memory: boolean;
   desktop_notifications: boolean;
+  claude_permission_mode: ClaudePermissionMode;
+  enable_file_operations_tool: boolean;
+  enable_system_info_tool: boolean;
+  enable_gateway_messaging_tool: boolean;
+  tier_user_override: CapabilityTierOverride;
+  consolidation_enabled: boolean;
+  consolidation_heuristic_promotion_threshold: number;
+  consolidation_memory_decay_half_life_hours: number;
+  heartbeat_enabled: boolean;
+  heartbeat_interval_mins: number;
+  heartbeat_cron: string;
+  quiet_hours_start: number | null;
+  quiet_hours_end: number | null;
+  heartbeat_checks: AgentHeartbeatChecksSettings;
   honcho_api_key: string;
   honcho_base_url: string;
   honcho_workspace_id: string;
@@ -298,6 +324,26 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   enable_conversation_memory: true,
   enable_honcho_memory: false,
   desktop_notifications: true,
+  claude_permission_mode: "",
+  enable_file_operations_tool: true,
+  enable_system_info_tool: true,
+  enable_gateway_messaging_tool: true,
+  tier_user_override: "",
+  consolidation_enabled: true,
+  consolidation_heuristic_promotion_threshold: 3,
+  consolidation_memory_decay_half_life_hours: 69,
+  heartbeat_enabled: false,
+  heartbeat_interval_mins: 30,
+  heartbeat_cron: "",
+  quiet_hours_start: null,
+  quiet_hours_end: null,
+  heartbeat_checks: {
+    stale_todos_enabled: true,
+    stuck_goals_enabled: true,
+    unreplied_messages_enabled: true,
+    repo_changes_enabled: true,
+    plugin_auth_enabled: true,
+  },
   honcho_api_key: "",
   honcho_base_url: "",
   honcho_workspace_id: "zorai",
@@ -482,6 +528,26 @@ function normalizeMlflowTracingSettings(
   };
 }
 
+export const HEARTBEAT_INTERVAL_OPTIONS_MINS = [5, 10, 15, 20, 30, 60, 120, 180, 240, 360, 720, 1440] as const;
+
+export function normalizeHeartbeatIntervalMins(value: unknown): number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0
+    ? value
+    : DEFAULT_AGENT_SETTINGS.heartbeat_interval_mins;
+}
+
+export function normalizeClaudePermissionMode(value: unknown): ClaudePermissionMode {
+  return CLAUDE_PERMISSION_MODES.find((mode) => mode === value) ?? "";
+}
+
+export function normalizeCapabilityTierOverride(value: unknown): CapabilityTierOverride {
+  return CAPABILITY_TIER_OVERRIDES.find((tier) => tier === value) ?? "";
+}
+
+export function normalizeQuietHour(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 23 ? value : null;
+}
+
 export function normalizeAutoThreadTitleMode(value: unknown): AutoThreadTitleMode {
   const raw = String(value ?? "").trim().toLowerCase();
   if (raw === "rarog" || raw === "weles") {
@@ -596,6 +662,21 @@ export type DiskAgentSettings = Partial<AgentSettings> & {
   agent_backend?: AgentBackend | string;
   enable_honcho_memory?: boolean;
   desktop_notifications?: boolean;
+  claude_permission_mode?: string | null;
+  tier?: {
+    user_override?: string | null;
+  };
+  consolidation?: {
+    enabled?: boolean;
+    heuristic_promotion_threshold?: number;
+    memory_decay_half_life_hours?: number;
+  };
+  heartbeat_enabled?: boolean;
+  heartbeat_interval_mins?: number;
+  heartbeat_cron?: string | null;
+  quiet_hours_start?: number | null;
+  quiet_hours_end?: number | null;
+  heartbeat_checks?: Partial<AgentHeartbeatChecksSettings>;
   honcho_api_key?: string;
   honcho_base_url?: string;
   honcho_workspace_id?: string;
@@ -610,12 +691,17 @@ export type DiskAgentSettings = Partial<AgentSettings> & {
     openrouter_provider_order?: string[];
     openrouter_provider_ignore?: string[];
     openrouter_allow_fallbacks?: boolean | null;
+    openrouter_response_cache_enabled?: boolean;
+    huggingface_provider?: string | null;
   }>;
   tools?: {
     bash?: boolean;
     vision?: boolean;
     web_browse?: boolean;
     web_search?: boolean;
+    file_operations?: boolean;
+    system_info?: boolean;
+    gateway_messaging?: boolean;
   };
   anticipatory?: {
     enabled?: boolean;
@@ -699,6 +785,11 @@ function providerConfigFromRaw(
       providerMapValue?.openrouter_provider_ignore ?? flatValue?.openrouter_provider_ignore,
     openrouter_allow_fallbacks:
       providerMapValue?.openrouter_allow_fallbacks ?? flatValue?.openrouter_allow_fallbacks,
+    openrouter_response_cache_enabled:
+      providerMapValue?.openrouter_response_cache_enabled ?? flatValue?.openrouter_response_cache_enabled,
+    huggingface_provider:
+      providerMapValue?.huggingface_provider ?? flatValue?.huggingface_provider ?? undefined,
+    reasoning_effort: providerMapValue?.reasoning_effort ?? flatValue?.reasoning_effort ?? undefined,
   };
   return normalizeProviderConfig(providerId, fallback, mergedValue);
 }
@@ -923,6 +1014,25 @@ export function normalizeAgentSettingsFromSource(source: DiskAgentSettings): Age
     mlflow_tracing: normalizeMlflowTracingSettings(source.mlflow_tracing),
     enable_honcho_memory: source.enable_honcho_memory ?? DEFAULT_AGENT_SETTINGS.enable_honcho_memory,
     desktop_notifications: source.desktop_notifications ?? DEFAULT_AGENT_SETTINGS.desktop_notifications,
+    claude_permission_mode: normalizeClaudePermissionMode(source.claude_permission_mode),
+    enable_file_operations_tool: source.tools?.file_operations ?? DEFAULT_AGENT_SETTINGS.enable_file_operations_tool,
+    enable_system_info_tool: source.tools?.system_info ?? DEFAULT_AGENT_SETTINGS.enable_system_info_tool,
+    enable_gateway_messaging_tool: source.tools?.gateway_messaging ?? DEFAULT_AGENT_SETTINGS.enable_gateway_messaging_tool,
+    tier_user_override: normalizeCapabilityTierOverride(source.tier?.user_override),
+    consolidation_enabled: source.consolidation?.enabled ?? DEFAULT_AGENT_SETTINGS.consolidation_enabled,
+    consolidation_heuristic_promotion_threshold:
+      source.consolidation?.heuristic_promotion_threshold ?? DEFAULT_AGENT_SETTINGS.consolidation_heuristic_promotion_threshold,
+    consolidation_memory_decay_half_life_hours:
+      source.consolidation?.memory_decay_half_life_hours ?? DEFAULT_AGENT_SETTINGS.consolidation_memory_decay_half_life_hours,
+    heartbeat_enabled: source.heartbeat_enabled ?? DEFAULT_AGENT_SETTINGS.heartbeat_enabled,
+    heartbeat_interval_mins: normalizeHeartbeatIntervalMins(source.heartbeat_interval_mins),
+    heartbeat_cron: source.heartbeat_cron?.trim() ?? DEFAULT_AGENT_SETTINGS.heartbeat_cron,
+    quiet_hours_start: normalizeQuietHour(source.quiet_hours_start),
+    quiet_hours_end: normalizeQuietHour(source.quiet_hours_end),
+    heartbeat_checks: {
+      ...DEFAULT_AGENT_SETTINGS.heartbeat_checks,
+      ...source.heartbeat_checks,
+    },
     honcho_api_key: source.honcho_api_key ?? DEFAULT_AGENT_SETTINGS.honcho_api_key,
     honcho_base_url: source.honcho_base_url ?? DEFAULT_AGENT_SETTINGS.honcho_base_url,
     honcho_workspace_id: source.honcho_workspace_id ?? DEFAULT_AGENT_SETTINGS.honcho_workspace_id,

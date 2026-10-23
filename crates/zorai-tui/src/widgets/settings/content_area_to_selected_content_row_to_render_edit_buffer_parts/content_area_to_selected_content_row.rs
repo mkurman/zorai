@@ -1,4 +1,5 @@
 use super::super::advanced_single_line_edit_layout_to_subagent_row_action_offsets::*;
+use super::render_edit_buffer_with_cursor_to_editing_cursor_hit_test::settings_layout;
 use crate::state::concierge::ConciergeState;
 use crate::state::config::ConfigState;
 use crate::state::modal::ModalState;
@@ -7,27 +8,8 @@ use crate::state::subagents::SubAgentsState;
 use crate::theme::ThemeTokens;
 use ratatui::prelude::*;
 use ratatui::text::Line;
-use ratatui::widgets::{Block, BorderType, Borders};
 pub(crate) fn content_area(area: Rect) -> Option<Rect> {
-    let block = Block::default()
-        .title(" SETTINGS ")
-        .borders(Borders::ALL)
-        .border_type(BorderType::Double);
-    let inner = block.inner(area);
-    if inner.height < 5 {
-        return None;
-    }
-
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Min(1),
-            Constraint::Length(1),
-        ])
-        .split(inner);
-    Some(chunks[2])
+    settings_layout(area).map(|layout| layout.content)
 }
 
 pub(crate) fn max_scroll(
@@ -38,7 +20,6 @@ pub(crate) fn max_scroll(
     auth: &crate::state::auth::AuthState,
     subagents: &SubAgentsState,
     concierge: &ConciergeState,
-    tier: &crate::state::tier::TierState,
     plugin_settings: &PluginSettingsState,
     theme: &ThemeTokens,
 ) -> usize {
@@ -53,7 +34,6 @@ pub(crate) fn max_scroll(
         auth,
         subagents,
         concierge,
-        tier,
         plugin_settings,
         theme,
     )
@@ -69,7 +49,6 @@ pub(crate) fn scroll_for_selected_field(
     auth: &crate::state::auth::AuthState,
     subagents: &SubAgentsState,
     concierge: &ConciergeState,
-    tier: &crate::state::tier::TierState,
     plugin_settings: &PluginSettingsState,
     current_scroll: usize,
     theme: &ThemeTokens,
@@ -85,7 +64,6 @@ pub(crate) fn scroll_for_selected_field(
         auth,
         subagents,
         concierge,
-        tier,
         plugin_settings,
         theme,
     );

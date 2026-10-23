@@ -158,7 +158,7 @@ fn activating_context_length_for_custom_model_starts_inline_edit() {
 #[test]
 fn activating_message_loop_delay_starts_inline_edit() {
     let (mut model, _daemon_rx) = make_model();
-    focus_settings_field(&mut model, SettingsTab::Advanced, "message_loop_delay_ms");
+    focus_settings_field(&mut model, SettingsTab::Execution, "message_loop_delay_ms");
 
     assert_eq!(
         model.settings.current_field_name_with_config(&model.config),
@@ -190,7 +190,7 @@ fn activating_compaction_weles_provider_opens_provider_picker() {
     model.config.compaction_strategy = "weles".to_string();
     focus_settings_field(
         &mut model,
-        SettingsTab::Advanced,
+        SettingsTab::Compaction,
         "compaction_weles_provider",
     );
 
@@ -214,7 +214,11 @@ fn activating_compaction_weles_model_opens_model_picker() {
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
     model.config.compaction_strategy = "weles".to_string();
     model.config.compaction_weles_provider = PROVIDER_ID_OPENAI.to_string();
-    focus_settings_field(&mut model, SettingsTab::Advanced, "compaction_weles_model");
+    focus_settings_field(
+        &mut model,
+        SettingsTab::Compaction,
+        "compaction_weles_model",
+    );
 
     model.activate_settings_field();
 
@@ -237,7 +241,7 @@ fn activating_compaction_custom_provider_opens_provider_picker() {
     model.config.compaction_strategy = "custom_model".to_string();
     focus_settings_field(
         &mut model,
-        SettingsTab::Advanced,
+        SettingsTab::Compaction,
         "compaction_custom_provider",
     );
 
@@ -261,7 +265,11 @@ fn activating_compaction_custom_model_opens_model_picker() {
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
     model.config.compaction_strategy = "custom_model".to_string();
     model.config.compaction_custom_provider = PROVIDER_ID_OPENAI.to_string();
-    focus_settings_field(&mut model, SettingsTab::Advanced, "compaction_custom_model");
+    focus_settings_field(
+        &mut model,
+        SettingsTab::Compaction,
+        "compaction_custom_model",
+    );
 
     model.activate_settings_field();
 
@@ -290,7 +298,7 @@ fn activating_audio_stt_provider_opens_provider_picker() {
     model
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
-    focus_settings_field(&mut model, SettingsTab::Features, "feat_audio_stt_provider");
+    focus_settings_field(&mut model, SettingsTab::Media, "feat_audio_stt_provider");
 
     model.activate_settings_field();
 
@@ -317,7 +325,7 @@ fn activating_audio_stt_model_opens_model_picker() {
             }
         }
     }));
-    focus_settings_field(&mut model, SettingsTab::Features, "feat_audio_stt_model");
+    focus_settings_field(&mut model, SettingsTab::Media, "feat_audio_stt_model");
 
     model.activate_settings_field();
 
@@ -346,7 +354,7 @@ fn activating_audio_tts_provider_opens_provider_picker() {
     model
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
-    focus_settings_field(&mut model, SettingsTab::Features, "feat_audio_tts_provider");
+    focus_settings_field(&mut model, SettingsTab::Media, "feat_audio_tts_provider");
 
     model.activate_settings_field();
 
@@ -373,7 +381,7 @@ fn activating_audio_tts_model_opens_model_picker() {
             }
         }
     }));
-    focus_settings_field(&mut model, SettingsTab::Features, "feat_audio_tts_model");
+    focus_settings_field(&mut model, SettingsTab::Media, "feat_audio_tts_model");
 
     model.activate_settings_field();
 
@@ -401,7 +409,7 @@ fn activating_audio_stt_model_fetches_remote_models_for_audio_provider() {
     model
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
-    focus_settings_field(&mut model, SettingsTab::Features, "feat_audio_stt_model");
+    focus_settings_field(&mut model, SettingsTab::Media, "feat_audio_stt_model");
 
     model.activate_settings_field();
 
@@ -440,7 +448,7 @@ fn activating_audio_tts_model_fetches_remote_models_for_audio_provider() {
     model
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
-    focus_settings_field(&mut model, SettingsTab::Features, "feat_audio_tts_model");
+    focus_settings_field(&mut model, SettingsTab::Media, "feat_audio_tts_model");
 
     model.activate_settings_field();
 

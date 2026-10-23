@@ -130,7 +130,24 @@ pub struct ModalState {
     /// Override item count for non-command-palette pickers (providers, models, etc.)
     picker_item_count: Option<usize>,
     thread_picker_tab: ThreadPickerTab,
+    thread_search: Option<ThreadSearchState>,
     whatsapp_link: WhatsAppLinkState,
+}
+
+pub const THREAD_SEARCH_MIN_CHARS: usize = 2;
+
+#[derive(Debug, Clone)]
+pub struct ThreadSearchHit {
+    pub thread: crate::state::chat::AgentThread,
+    pub snippet: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ThreadSearchState {
+    pub query: String,
+    pub semantic: bool,
+    pub semantic_error: Option<String>,
+    pub hits: Vec<ThreadSearchHit>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -179,6 +196,7 @@ impl ModalState {
             picker_cursor: 0,
             picker_item_count: None,
             thread_picker_tab: ThreadPickerTab::Swarog,
+            thread_search: None,
             whatsapp_link: WhatsAppLinkState::default(),
         }
     }
@@ -231,6 +249,18 @@ impl ModalState {
     pub fn set_thread_picker_tab(&mut self, tab: ThreadPickerTab) {
         self.thread_picker_tab = tab;
         self.picker_cursor = 0;
+    }
+    pub fn thread_search_query(&self) -> Option<&str> {
+        let query = self.command_query.trim();
+        (self.top() == Some(ModalKind::ThreadPicker)
+            && query.chars().count() >= THREAD_SEARCH_MIN_CHARS)
+            .then_some(query)
+    }
+    pub fn thread_search(&self) -> Option<&ThreadSearchState> {
+        self.thread_search.as_ref()
+    }
+    pub fn set_thread_search(&mut self, search: ThreadSearchState) {
+        self.thread_search = Some(search);
     }
     pub fn whatsapp_link(&self) -> &WhatsAppLinkState {
         &self.whatsapp_link
@@ -349,6 +379,7 @@ impl ModalState {
                 self.command_palette_explicit_selection = false;
                 self.picker_cursor = 0;
                 self.picker_item_count = None;
+                self.thread_search = None;
                 if kind == ModalKind::ThreadPicker {
                     self.thread_picker_tab = ThreadPickerTab::Swarog;
                 } else if kind == ModalKind::RolePicker {
@@ -360,6 +391,7 @@ impl ModalState {
             ModalAction::Pop => {
                 self.stack.pop();
                 self.command_query.clear();
+                self.thread_search = None;
                 self.command_palette_explicit_selection = false;
                 self.picker_cursor = 0;
                 self.picker_item_count = None;
@@ -370,6 +402,7 @@ impl ModalState {
                 self.stack.retain(|entry| *entry != kind);
                 if self.top() != top_before {
                     self.command_query.clear();
+                    self.thread_search = None;
                     self.command_palette_explicit_selection = false;
                     self.picker_cursor = 0;
                     self.picker_item_count = None;
@@ -382,6 +415,9 @@ impl ModalState {
                 } else {
                     query
                 };
+                if self.thread_search_query().is_none() {
+                    self.thread_search = None;
+                }
                 self.command_palette_explicit_selection = false;
                 self.refilter();
                 self.picker_cursor = 0;

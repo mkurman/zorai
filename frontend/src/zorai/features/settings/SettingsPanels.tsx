@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { RefreshButton } from "@/zorai/shell/RefreshButton";
+import { OpenRouterProviderRoutingControls } from "@/components/settings-panel/OpenRouterProviderRoutingControls";
 import { SubAgentsTab } from "@/components/settings-panel/SubAgentsTab";
 import { ModelSelector } from "@/components/settings-panel/shared";
 import {
@@ -16,7 +17,18 @@ import {
   normalizeImageGenerationModelForProviderChange,
   type ProviderOption,
 } from "@/components/settings-panel/agentTabHelpers";
-import { useAgentStore, type AgentSettings } from "@/lib/agentStore";
+import {
+  CAPABILITY_TIER_OVERRIDES,
+  CLAUDE_PERMISSION_MODES,
+  HEARTBEAT_INTERVAL_OPTIONS_MINS,
+  normalizeCapabilityTierOverride,
+  normalizeClaudePermissionMode,
+  useAgentStore,
+  type AgentHeartbeatChecksSettings,
+  type AgentSettings,
+  type CapabilityTierOverride,
+  type ClaudePermissionMode,
+} from "@/lib/agentStore";
 import {
   getDefaultApiTransport,
   getDefaultAuthSource,
@@ -72,13 +84,13 @@ const APP_HOMEPAGE = "zorai.app";
 const DEFAULT_WORKSPACE_ID = "main";
 
 const toolToggles: ToggleSetting[] = [
-  { key: "enable_bash_tool", label: "Terminal tool", description: "Allow agents to execute managed shell commands." },
-  { key: "enable_vision_tool", label: "Vision tool", description: "Allow screenshot and image inspection workflows." },
-  { key: "enable_web_browsing_tool", label: "Browser tool", description: "Allow browser-backed research actions." },
-  { key: "enable_web_search_tool", label: "Web search", description: "Allow configured search provider access." },
-  { key: "enable_streaming", label: "Streaming", description: "Stream assistant output as it arrives." },
-  { key: "enable_conversation_memory", label: "Conversation memory", description: "Keep durable context across agent sessions." },
-  { key: "auto_retry", label: "Auto retry", description: "Retry recoverable provider and tool failures." },
+  { key: "enable_bash_tool", label: "Terminal", description: "Run managed shell commands." },
+  { key: "enable_file_operations_tool", label: "File operations", description: "Read, write, and edit files in the workspace." },
+  { key: "enable_vision_tool", label: "Vision", description: "Inspect screenshots and images." },
+  { key: "enable_web_browsing_tool", label: "Browser", description: "Open and read web pages." },
+  { key: "enable_web_search_tool", label: "Web search", description: "Query the configured search provider." },
+  { key: "enable_system_info_tool", label: "System info", description: "Read host resources such as CPU, memory, and disks." },
+  { key: "enable_gateway_messaging_tool", label: "Gateway messaging", description: "Send messages to connected Slack, Discord, Telegram, and WhatsApp chats." },
 ];
 
 export function normalizeConciergeReasoningEffortForUi(value: string | null | undefined): AgentSettings["reasoning_effort"] {
@@ -101,21 +113,35 @@ export function filterProviderAuthStates<T extends { provider_id: string; provid
   return states.filter((state) => state.provider_name.toLowerCase().includes(needle) || state.provider_id.toLowerCase().includes(needle));
 }
 
+const SETTINGS_TAB_PANELS: Record<ZoraiSettingsTabId, () => ReactNode> = {
+  auth: AuthPanel,
+  model: ModelPanel,
+  concierge: ConciergePanel,
+  subagents: SubAgentsPanel,
+  tools: ToolsPanel,
+  skills: SkillsPanel,
+  search: SearchPanel,
+  media: MediaPanel,
+  memory: MemoryPanel,
+  heartbeat: HeartbeatTab,
+  proactive: ProactivityPanel,
+  workflows: WorkflowsPanel,
+  gateway: GatewayPanel,
+  runtime: ChatPanel,
+  compaction: CompactionPanel,
+  execution: ExecutionPanel,
+  safety: SafetyPanel,
+  mlflow: MlflowPanel,
+  storage: StoragePanel,
+  plugins: PluginsPanel,
+  interface: InterfacePanel,
+  migration: MigrationTab,
+  about: AboutPanel,
+};
+
 export function SettingsTabPanel({ activeTab }: { activeTab: ZoraiSettingsTabId }) {
-  if (activeTab === "model") return <ModelPanel />;
-  if (activeTab === "auth") return <AuthPanel />;
-  if (activeTab === "interface") return <InterfacePanel />;
-  if (activeTab === "tools") return <ToolsPanel />;
-  if (activeTab === "search") return <SearchPanel />;
-  if (activeTab === "mlflow") return <MlflowPanel />;
-  if (activeTab === "concierge") return <ConciergePanel />;
-  if (activeTab === "subagents") return <SubAgentsPanel />;
-  if (activeTab === "gateway") return <GatewayPanel />;
-  if (activeTab === "features") return <FeaturesPanel />;
-  if (activeTab === "advanced") return <AdvancedPanel />;
-  if (activeTab === "plugins") return <PluginsPanel />;
-  if (activeTab === "about") return <AboutPanel />;
-  return <ChatPanel />;
+  const TabPanel = SETTINGS_TAB_PANELS[activeTab];
+  return <TabPanel />;
 }
 
 function ChatPanel() {
@@ -124,36 +150,13 @@ function ChatPanel() {
 
   return (
     <SettingsGrid>
-      <Panel section="Chat" title="Streaming and memory">
+      <Panel section="Chat" title="Responses">
         <SettingRow label="Streaming" description="Stream assistant output as it arrives."><Switch checked={agentSettings.enable_streaming} onChange={(checked) => updateAgentSetting("enable_streaming", checked)} /></SettingRow>
-        <SettingRow label="Conversation Memory" description="Keep durable context across agent sessions."><Switch checked={agentSettings.enable_conversation_memory} onChange={(checked) => updateAgentSetting("enable_conversation_memory", checked)} /></SettingRow>
-        <SettingRow label="Honcho Memory" description="Enable Honcho-backed memory when configured."><Switch checked={agentSettings.enable_honcho_memory} onChange={(checked) => updateAgentSetting("enable_honcho_memory", checked)} /></SettingRow>
-        <SettingRow label="Visible Msgs" description="Messages visible in the terminal chat history page.">
-          <input className="zorai-input" type="number" min={25} max={1000} value={agentSettings.tui_chat_history_page_size} onChange={(event) => updateAgentSetting("tui_chat_history_page_size", Number(event.target.value))} />
-        </SettingRow>
-        <SettingRow label="Restore Hours" description="Recent lazy participant threads and stalled-turn supervision scanned by the daemon on startup.">
-          <input className="zorai-input" type="number" min={0} max={24 * 30} value={agentSettings.participant_observer_restore_window_hours} onChange={(event) => updateAgentSetting("participant_observer_restore_window_hours", Number(event.target.value))} />
-        </SettingRow>
       </Panel>
-      <Panel section="Chat" title="Operational intelligence">
-        <SettingRow label="Anticipatory Support" description="Enable proactive operator support."><Switch checked={agentSettings.anticipatory_enabled} onChange={(checked) => updateAgentSetting("anticipatory_enabled", checked)} /></SettingRow>
-        <SettingRow label="Morning Brief" description="Include morning brief generation."><Switch checked={agentSettings.anticipatory_morning_brief} onChange={(checked) => updateAgentSetting("anticipatory_morning_brief", checked)} /></SettingRow>
-        <SettingRow label="Predictive Hydration" description="Hydrate likely-needed context ahead of time."><Switch checked={agentSettings.anticipatory_predictive_hydration} onChange={(checked) => updateAgentSetting("anticipatory_predictive_hydration", checked)} /></SettingRow>
-        <SettingRow label="Stuck Detection" description="Detect stalled work and stale execution."><Switch checked={agentSettings.anticipatory_stuck_detection} onChange={(checked) => updateAgentSetting("anticipatory_stuck_detection", checked)} /></SettingRow>
-        <SettingRow label="Operator Model" description="Learn operator preferences from local activity."><Switch checked={agentSettings.operator_model_enabled} onChange={(checked) => updateAgentSetting("operator_model_enabled", checked)} /></SettingRow>
-        <SettingRow label="Collaboration" description="Enable multi-agent collaboration features."><Switch checked={agentSettings.collaboration_enabled} onChange={(checked) => updateAgentSetting("collaboration_enabled", checked)} /></SettingRow>
-      </Panel>
-      <Panel section="Chat" title="Compliance and synthesis">
-        <SettingRow label="Compliance" description="Audit mode for retained events.">
-          <select className="zorai-input" value={agentSettings.compliance_mode} onChange={(event) => updateAgentSetting("compliance_mode", event.target.value as AgentSettings["compliance_mode"])}>
-            {["standard", "soc2", "hipaa", "fedramp"].map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
-        </SettingRow>
-        <NumberRow label="Retention Days" description="Compliance event retention window." value={agentSettings.compliance_retention_days} onChange={(value) => updateAgentSetting("compliance_retention_days", value)} min={1} max={3650} />
-        <SettingRow label="Sign All Events" description="Sign compliance audit events."><Switch checked={agentSettings.compliance_sign_all_events} onChange={(checked) => updateAgentSetting("compliance_sign_all_events", checked)} /></SettingRow>
-        <SettingRow label="Tool Synthesis" description="Allow generated tool workflows."><Switch checked={agentSettings.tool_synthesis_enabled} onChange={(checked) => updateAgentSetting("tool_synthesis_enabled", checked)} /></SettingRow>
-        <SettingRow label="Require Activation" description="Require generated tools to be activated before use."><Switch checked={agentSettings.tool_synthesis_require_activation} onChange={(checked) => updateAgentSetting("tool_synthesis_require_activation", checked)} /></SettingRow>
-        <NumberRow label="Tool Limit" description="Maximum generated tools." value={agentSettings.tool_synthesis_max_generated_tools} onChange={(value) => updateAgentSetting("tool_synthesis_max_generated_tools", value)} min={0} max={100} />
+      <Panel section="Chat" title="History and restore">
+        <NumberRow label="Visible Msgs" description="Messages visible in the terminal chat history page." value={agentSettings.tui_chat_history_page_size} onChange={(value) => updateAgentSetting("tui_chat_history_page_size", value)} min={25} max={1000} />
+        <NumberRow label="Restore Hours" description="Recent lazy participant threads and stalled-turn supervision scanned by the daemon on startup." value={agentSettings.participant_observer_restore_window_hours} onChange={(value) => updateAgentSetting("participant_observer_restore_window_hours", value)} min={0} max={24 * 30} />
+        <NumberRow label="Auto Refresh (s)" description="Goal and workspace refresh interval; 0 disables polling." value={agentSettings.auto_refresh_interval_secs} onChange={(value) => updateAgentSetting("auto_refresh_interval_secs", value)} min={0} max={86400} />
       </Panel>
     </SettingsGrid>
   );
@@ -195,6 +198,14 @@ function ModelPanel() {
             allowProviderAuthFetch={providerAuthenticated}
           />
         </SettingRow>
+        <SettingRow label="Effort" description="Svarog reasoning effort.">
+          <select className="zorai-input" value={agentSettings.reasoning_effort} onChange={(event) => updateAgentSetting("reasoning_effort", event.target.value as AgentSettings["reasoning_effort"])}>
+            {reasoningEfforts.map((value) => <option key={value} value={value}>{value}</option>)}
+          </select>
+        </SettingRow>
+        <NumberRow label="Ctx Length" description="Context length override in tokens. Only used for models without a known context window." value={Number(activeProviderConfig.context_window_tokens ?? 0)} onChange={(value) => updateProviderConfig({ context_window_tokens: value || null })} min={0} max={2000000} />
+      </Panel>
+      <Panel section="Svarog" title="Connection">
         <SettingRow label="Transport" description="Provider API transport mode.">
           <select className="zorai-input" value={transportValue} onChange={(event) => updateProviderConfig({ api_transport: normalizeApiTransport(activeProvider, event.target.value) })}>
             {supportedTransports.map((transport) => <option key={transport} value={transport}>{formatTransportLabel(transport)}</option>)}
@@ -206,20 +217,48 @@ function ModelPanel() {
         <SettingRow label="Assistant ID" description="Optional native assistant identifier.">
           <input className="zorai-input" value={String(activeProviderConfig.assistant_id ?? "")} onChange={(event) => updateProviderConfig({ assistant_id: event.target.value })} />
         </SettingRow>
-        <SettingRow label="Effort" description="Svarog reasoning effort.">
-          <select className="zorai-input" value={agentSettings.reasoning_effort} onChange={(event) => updateAgentSetting("reasoning_effort", event.target.value as AgentSettings["reasoning_effort"])}>
-            {reasoningEfforts.map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
-        </SettingRow>
-        <NumberRow label="Ctx Length" description="Context length override in tokens." value={Number(activeProviderConfig.context_window_tokens ?? 0)} onChange={(value) => updateProviderConfig({ context_window_tokens: value || null })} min={0} max={2000000} />
+        {activeProvider === "claude-code-cli" ? (
+          <ClaudePermissionSelect value={agentSettings.claude_permission_mode} onChange={(value) => updateAgentSetting("claude_permission_mode", value)} />
+        ) : null}
+        {activeProvider === "huggingface" ? (
+          <SettingRow label="HF Route" description="Hugging Face inference provider to route through, e.g. together or fireworks-ai. Empty lets Hugging Face choose.">
+            <input className="zorai-input" value={String(activeProviderConfig.huggingface_provider ?? "")} placeholder="auto" onChange={(event) => updateProviderConfig({ huggingface_provider: event.target.value })} />
+          </SettingRow>
+        ) : null}
       </Panel>
-      <Panel section="Svarog" title="Main agent identity and behavior">
+      {activeProvider === "openrouter" ? (
+        <Panel section="Svarog" title="OpenRouter routing">
+          <OpenRouterProviderRoutingControls
+            config={{ ...activeProviderConfig, model: String(activeProviderConfig.model ?? "") }}
+            baseUrl={String(activeProviderConfig.base_url ?? "")}
+            onChange={(next) => updateProviderConfig(next)}
+          />
+        </Panel>
+      ) : null}
+      <Panel section="Svarog" title="Identity">
         <AgentAliasRow aliasKey="swarog" name="Svarog" />
         <SettingRow label="System Prompt" description="Primary agent identity prompt.">
           <textarea className="zorai-input" value={agentSettings.system_prompt} onChange={(event) => updateAgentSetting("system_prompt", event.target.value)} />
         </SettingRow>
         <Metric label="Backend" value="daemon" />
       </Panel>
+    </SettingsGrid>
+  );
+}
+
+function ClaudePermissionSelect({ value, inheritLabel, onChange }: { value: string; inheritLabel?: string; onChange: (value: ClaudePermissionMode) => void }) {
+  return (
+    <SettingRow label="Claude perms" description="Permission mode passed to the Claude Code CLI.">
+      <select className="zorai-input" value={normalizeClaudePermissionMode(value)} onChange={(event) => onChange(normalizeClaudePermissionMode(event.target.value))}>
+        {CLAUDE_PERMISSION_MODES.map((mode) => <option key={mode} value={mode}>{mode || (inheritLabel ?? "CLI default")}</option>)}
+      </select>
+    </SettingRow>
+  );
+}
+
+function MigrationTab() {
+  return (
+    <SettingsGrid>
       <MigrationPanel />
     </SettingsGrid>
   );
@@ -371,29 +410,37 @@ function AuthPanel() {
 function SearchPanel() {
   const agentSettings = useAgentStore((state) => state.agentSettings);
   const updateAgentSetting = useAgentStore((state) => state.updateAgentSetting);
+  const provider = agentSettings.search_provider;
 
   return (
     <SettingsGrid>
-      <Panel section="Search" title="Web Search">
+      <Panel section="Web" title="Web Search">
         <SettingRow label="Enable Web Search" description="Mirrors the web search tool toggle."><Switch checked={agentSettings.enable_web_search_tool} onChange={(checked) => updateAgentSetting("enable_web_search_tool", checked)} /></SettingRow>
         <SettingRow label="Provider" description="Search provider used by agent web search.">
-          <select className="zorai-input" value={agentSettings.search_provider} onChange={(event) => updateAgentSetting("search_provider", event.target.value as AgentSettings["search_provider"])}>
+          <select className="zorai-input" value={provider} onChange={(event) => updateAgentSetting("search_provider", event.target.value as AgentSettings["search_provider"])}>
             {searchProviderOptions.map((value) => <option key={value} value={value}>{value}</option>)}
           </select>
         </SettingRow>
-        <SettingRow label="DDG Region" description="DuckDuckGo region code such as us-en, wt-wt, or pl-pl.">
-          <input className="zorai-input" value={agentSettings.duckduckgo_region} onChange={(event) => updateAgentSetting("duckduckgo_region", event.target.value)} />
-        </SettingRow>
-        <SettingRow label="DDG Safe Search" description="DuckDuckGo Safe Search setting.">
-          <select className="zorai-input" value={agentSettings.duckduckgo_safe_search} onChange={(event) => updateAgentSetting("duckduckgo_safe_search", event.target.value as AgentSettings["duckduckgo_safe_search"])}>
-            {duckDuckGoSafeSearchOptions.map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
-        </SettingRow>
-        <SecretRow label="Firecrawl Key" value={agentSettings.firecrawl_api_key} onChange={(value) => updateAgentSetting("firecrawl_api_key", value)} />
-        <SecretRow label="Exa Key" value={agentSettings.exa_api_key} onChange={(value) => updateAgentSetting("exa_api_key", value)} />
-        <SecretRow label="Tavily Key" value={agentSettings.tavily_api_key} onChange={(value) => updateAgentSetting("tavily_api_key", value)} />
+        {provider === "duckduckgo" ? (
+          <>
+            <SettingRow label="DDG Region" description="DuckDuckGo region code such as us-en, wt-wt, or pl-pl.">
+              <input className="zorai-input" value={agentSettings.duckduckgo_region} onChange={(event) => updateAgentSetting("duckduckgo_region", event.target.value)} />
+            </SettingRow>
+            <SettingRow label="DDG Safe Search" description="DuckDuckGo Safe Search setting.">
+              <select className="zorai-input" value={agentSettings.duckduckgo_safe_search} onChange={(event) => updateAgentSetting("duckduckgo_safe_search", event.target.value as AgentSettings["duckduckgo_safe_search"])}>
+                {duckDuckGoSafeSearchOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </SettingRow>
+          </>
+        ) : null}
+        {provider === "firecrawl" ? <SecretRow label="Firecrawl Key" description="API key for Firecrawl search." value={agentSettings.firecrawl_api_key} onChange={(value) => updateAgentSetting("firecrawl_api_key", value)} /> : null}
+        {provider === "exa" ? <SecretRow label="Exa Key" description="API key for Exa search." value={agentSettings.exa_api_key} onChange={(value) => updateAgentSetting("exa_api_key", value)} /> : null}
+        {provider === "tavily" ? <SecretRow label="Tavily Key" description="API key for Tavily search." value={agentSettings.tavily_api_key} onChange={(value) => updateAgentSetting("tavily_api_key", value)} /> : null}
         <NumberRow label="Max Results" description="Maximum search results." value={agentSettings.search_max_results} onChange={(value) => updateAgentSetting("search_max_results", value)} min={1} max={50} />
         <NumberRow label="Timeout" description="Search timeout in seconds." value={agentSettings.search_timeout_secs} onChange={(value) => updateAgentSetting("search_timeout_secs", value)} min={1} max={120} />
+      </Panel>
+      <Panel section="Web" title="Browsing">
+        <SettingRow label="Browser tool" description="Allow agents to open and read web pages."><Switch checked={agentSettings.enable_web_browsing_tool} onChange={(checked) => updateAgentSetting("enable_web_browsing_tool", checked)} /></SettingRow>
         <SettingRow label="Browser" description="Browsing provider.">
           <select className="zorai-input" value={agentSettings.browse_provider} onChange={(event) => updateAgentSetting("browse_provider", event.target.value as AgentSettings["browse_provider"])}>
             {["auto", "lightpanda", "chrome", "none"].map((value) => <option key={value} value={value}>{value}</option>)}
@@ -416,6 +463,28 @@ function ToolsPanel() {
             <Switch checked={Boolean(agentSettings[toggle.key])} onChange={(checked) => updateAgentSetting(toggle.key, checked as never)} />
           </SettingRow>
         ))}
+      </Panel>
+      <Panel section="Tools" title="Generated tools">
+        <SettingRow label="Tool Synthesis" description="Allow generated tool workflows."><Switch checked={agentSettings.tool_synthesis_enabled} onChange={(checked) => updateAgentSetting("tool_synthesis_enabled", checked)} /></SettingRow>
+        <SettingRow label="Require Activation" description="Require generated tools to be activated before use."><Switch checked={agentSettings.tool_synthesis_require_activation} onChange={(checked) => updateAgentSetting("tool_synthesis_require_activation", checked)} /></SettingRow>
+        <NumberRow label="Tool Limit" description="Maximum generated tools." value={agentSettings.tool_synthesis_max_generated_tools} onChange={(value) => updateAgentSetting("tool_synthesis_max_generated_tools", value)} min={0} max={100} />
+      </Panel>
+    </SettingsGrid>
+  );
+}
+
+function SkillsPanel() {
+  const skills = useAgentStore((state) => state.agentSettings.skill_recommendation);
+  const updateAgentSetting = useAgentStore((state) => state.updateAgentSetting);
+  const updateSkills = (patch: Partial<AgentSettings["skill_recommendation"]>) => updateAgentSetting("skill_recommendation", { ...skills, ...patch });
+
+  return (
+    <SettingsGrid>
+      <Panel section="Skills" title="Skill recommendation">
+        <SettingRow label="Local Skill Gate" description="Recommend installed skills that match the task."><Switch checked={skills.enabled} onChange={(checked) => updateSkills({ enabled: checked })} /></SettingRow>
+        <SettingRow label="Community Scout" description="Search the community skill registry in the background for install candidates."><Switch checked={skills.background_community_search} onChange={(checked) => updateSkills({ background_community_search: checked })} /></SettingRow>
+        <NumberRow label="Scout Timeout (s)" description="How long a community skill install candidate waits for pre-approval." value={skills.community_preapprove_timeout_secs} onChange={(value) => updateSkills({ community_preapprove_timeout_secs: value })} min={5} max={300} />
+        <NumberRow label="Suggest After" description="Approvals before suggesting the skill be enabled globally." value={skills.suggest_global_enable_after_approvals} onChange={(value) => updateSkills({ suggest_global_enable_after_approvals: value })} min={1} max={12} />
       </Panel>
     </SettingsGrid>
   );
@@ -445,6 +514,7 @@ function ConciergePanel() {
   const refreshProviderAuthStates = useAgentStore((state) => state.refreshProviderAuthStates);
   const providerIds = useProviderIds(agentSettings);
   const selectedConciergeProvider = config.provider ?? "";
+  const effectiveProvider = (selectedConciergeProvider || agentSettings.active_provider) as AgentProviderId;
   const providerNames = new Map(providerAuthStates.map((state) => [state.provider_id, state.provider_name]));
   const selectableProviders = Array.from(new Set([
     ...providerIds,
@@ -473,8 +543,10 @@ function ConciergePanel() {
             {detailLevels.map((value) => <option key={value} value={value}>{value}</option>)}
           </select>
         </SettingRow>
+      </Panel>
+      <Panel section="Rarog" title="Model">
         <SettingRow label="Provider" description="Rarog provider, or inherit from Svarog.">
-          <select className="zorai-input" value={selectedConciergeProvider} onChange={(event) => patchConfig({ provider: event.target.value || undefined, model: event.target.value ? config.model : undefined })}>
+          <select className="zorai-input" value={selectedConciergeProvider} onChange={(event) => patchConfig({ provider: event.target.value || undefined, model: event.target.value ? config.model : undefined, api_transport: null })}>
             <option value="">(use Svarog)</option>
             {selectableProviders.map((provider) => <option key={provider.provider_id} value={provider.provider_id}>{provider.provider_name}</option>)}
           </select>
@@ -493,6 +565,34 @@ function ConciergePanel() {
           <RarogContextField />
         </SettingRow>
       </Panel>
+      <Panel section="Rarog" title="Connection">
+        <SettingRow label="Transport" description="API transport for Rarog. Inherit uses the provider default.">
+          <select className="zorai-input" value={config.api_transport ?? ""} onChange={(event) => patchConfig({ api_transport: event.target.value ? normalizeApiTransport(effectiveProvider, event.target.value) : null })}>
+            <option value="">Inherit</option>
+            {getSupportedApiTransports(effectiveProvider).map((transport) => <option key={transport} value={transport}>{formatTransportLabel(transport)}</option>)}
+          </select>
+        </SettingRow>
+        <SettingRow label="Base URL" description="Optional endpoint override for Rarog. Empty uses the provider default.">
+          <input className="zorai-input" value={config.base_url ?? ""} placeholder="Provider default" onChange={(event) => patchConfig({ base_url: event.target.value.trim() ? event.target.value : null })} />
+        </SettingRow>
+        {effectiveProvider === "claude-code-cli" ? (
+          <ClaudePermissionSelect value={config.claude_permission_mode ?? ""} inheritLabel="Inherit" onChange={(value) => patchConfig({ claude_permission_mode: value || null })} />
+        ) : null}
+        {effectiveProvider === "huggingface" ? (
+          <SettingRow label="HF Route" description="Hugging Face inference provider for Rarog. Empty lets Hugging Face choose.">
+            <input className="zorai-input" value={config.huggingface_provider ?? ""} placeholder="auto" onChange={(event) => patchConfig({ huggingface_provider: event.target.value.trim() ? event.target.value : null })} />
+          </SettingRow>
+        ) : null}
+      </Panel>
+      {selectedConciergeProvider === "openrouter" ? (
+        <Panel section="Rarog" title="OpenRouter routing">
+          <OpenRouterProviderRoutingControls
+            config={{ ...config, model: config.model ?? "" }}
+            baseUrl={config.base_url ?? ""}
+            onChange={({ model: _model, ...routing }) => patchConfig(routing)}
+          />
+        </Panel>
+      ) : null}
     </SettingsGrid>
   );
 }
@@ -595,26 +695,92 @@ function GatewayAgentSelect({ value, allowInherit = false, onChange }: { value: 
   );
 }
 
-function FeaturesPanel() {
+const HEARTBEAT_CHECK_ROWS: Array<{ key: keyof AgentHeartbeatChecksSettings; label: string; description: string }> = [
+  { key: "stale_todos_enabled", label: "Stale Todos", description: "Flag todos that have not moved for a while." },
+  { key: "stuck_goals_enabled", label: "Stuck Goals", description: "Flag goal runs that stopped making progress." },
+  { key: "unreplied_messages_enabled", label: "Unreplied Messages", description: "Flag gateway messages still waiting for a reply." },
+  { key: "repo_changes_enabled", label: "Repo Changes", description: "Report uncommitted changes in watched repositories." },
+  { key: "plugin_auth_enabled", label: "Plugin Auth", description: "Warn about plugins whose authentication expired." },
+];
+
+function formatHeartbeatInterval(mins: number): string {
+  if (mins % 1440 === 0) return mins === 1440 ? "Every day" : `Every ${mins / 1440} days`;
+  if (mins % 60 === 0) return mins === 60 ? "Every hour" : `Every ${mins / 60} hours`;
+  return `Every ${mins} minutes`;
+}
+
+function HeartbeatPanel() {
+  const agentSettings = useAgentStore((state) => state.agentSettings);
+  const updateAgentSetting = useAgentStore((state) => state.updateAgentSetting);
+  const heartbeatOn = agentSettings.heartbeat_enabled;
+  const usesCron = agentSettings.heartbeat_cron.trim() !== "";
+  const intervalOptions: number[] = HEARTBEAT_INTERVAL_OPTIONS_MINS.includes(agentSettings.heartbeat_interval_mins as (typeof HEARTBEAT_INTERVAL_OPTIONS_MINS)[number])
+    ? [...HEARTBEAT_INTERVAL_OPTIONS_MINS]
+    : [...HEARTBEAT_INTERVAL_OPTIONS_MINS, agentSettings.heartbeat_interval_mins].sort((left, right) => left - right);
+  const quietHourSelect = (value: number | null, key: "quiet_hours_start" | "quiet_hours_end") => (
+    <select className="zorai-input" value={value ?? ""} disabled={!heartbeatOn} onChange={(event) => updateAgentSetting(key, event.target.value === "" ? null : Number(event.target.value))}>
+      <option value="">Off</option>
+      {Array.from({ length: 24 }, (_, hour) => <option key={hour} value={hour}>{`${String(hour).padStart(2, "0")}:00`}</option>)}
+    </select>
+  );
+
+  return (
+    <Panel section="Heartbeat" title="Schedule and checks">
+      <SettingRow label="Heartbeat" description="Off by default. Periodically checks todos, goals, messages and repos, then makes one model call without tools to summarize anything that needs your attention.">
+        <Switch checked={heartbeatOn} onChange={(checked) => updateAgentSetting("heartbeat_enabled", checked)} />
+      </SettingRow>
+      <SettingRow label="Interval" description="How often the heartbeat runs. Ignored when a cron schedule is set.">
+        <select className="zorai-input" value={agentSettings.heartbeat_interval_mins} disabled={!heartbeatOn || usesCron} onChange={(event) => updateAgentSetting("heartbeat_interval_mins", Number(event.target.value))}>
+          {intervalOptions.map((mins) => <option key={mins} value={mins}>{formatHeartbeatInterval(mins)}</option>)}
+        </select>
+      </SettingRow>
+      <SettingRow label="Cron Schedule" description="Optional cron expression that replaces the interval, e.g. 0 9-18 * * 1-5. Leave empty to use the interval.">
+        <input className="zorai-input" value={agentSettings.heartbeat_cron} placeholder="Use interval" disabled={!heartbeatOn} onChange={(event) => updateAgentSetting("heartbeat_cron", event.target.value)} />
+      </SettingRow>
+      <SettingRow label="Quiet Hours Start" description="Local hour when heartbeats pause. Needs an end hour too.">{quietHourSelect(agentSettings.quiet_hours_start, "quiet_hours_start")}</SettingRow>
+      <SettingRow label="Quiet Hours End" description="Local hour when heartbeats resume.">{quietHourSelect(agentSettings.quiet_hours_end, "quiet_hours_end")}</SettingRow>
+      {HEARTBEAT_CHECK_ROWS.map((row) => (
+        <SettingRow key={row.key} label={row.label} description={row.description}>
+          <Switch checked={agentSettings.heartbeat_checks[row.key]} onChange={(checked) => updateAgentSetting("heartbeat_checks", { ...agentSettings.heartbeat_checks, [row.key]: checked })} />
+        </SettingRow>
+      ))}
+    </Panel>
+  );
+}
+
+function HeartbeatTab() {
+  const desktopNotifications = useAgentStore((state) => state.agentSettings.desktop_notifications);
+  const updateAgentSetting = useAgentStore((state) => state.updateAgentSetting);
+
+  return (
+    <SettingsGrid>
+      <HeartbeatPanel />
+      <Panel section="Heartbeat" title="Notifications">
+        <SettingRow label="Desktop Notifications" description="Show a system notification when another thread asks a question or needs an approval.">
+          <Switch checked={desktopNotifications} onChange={(checked) => updateAgentSetting("desktop_notifications", checked)} />
+        </SettingRow>
+      </Panel>
+    </SettingsGrid>
+  );
+}
+
+function MediaPanel() {
   const agentSettings = useAgentStore((state) => state.agentSettings);
   const updateAgentSetting = useAgentStore((state) => state.updateAgentSetting);
   const providerAuthStates = useAgentStore((state) => state.providerAuthStates);
-  const subAgents = useAgentStore((state) => state.subAgents);
   const providerIds = useProviderIds(agentSettings);
   const providerOptions = useProviderOptions(agentSettings);
   const audioSttProviderOptions = filterAudioProviderOptions(providerOptions, "stt");
   const audioTtsProviderOptions = filterAudioProviderOptions(providerOptions, "tts");
   const imageGenerationProviderOptions = filterImageGenerationProviderOptions(providerOptions);
-  const embeddingProviderOptions = filterEmbeddingProviderOptions(providerOptions);
   const audioSttProviderConfig = getProviderConfig(agentSettings, agentSettings.audio_stt_provider);
   const audioTtsProviderConfig = getProviderConfig(agentSettings, agentSettings.audio_tts_provider);
   const imageGenerationProviderConfig = getProviderConfig(agentSettings, agentSettings.image_generation_provider);
-  const embeddingProviderConfig = getProviderConfig(agentSettings, agentSettings.semantic_embedding_provider);
   const providerHasDaemonAuth = (providerId: AgentProviderId) => providerAuthStates.some((state) => state.provider_id === providerId && state.authenticated);
 
   return (
     <SettingsGrid>
-      <Panel section="Features" title="Audio and media">
+      <Panel section="Audio" title="Speech-to-text">
         <SettingRow label="STT Enabled" description="Speech-to-text feature toggle."><Switch checked={agentSettings.audio_stt_enabled} onChange={(checked) => updateAgentSetting("audio_stt_enabled", checked)} /></SettingRow>
         <SettingRow label="STT Provider" description="Speech-to-text provider.">
           <ProviderSelect
@@ -644,6 +810,8 @@ function FeaturesPanel() {
           />
         </SettingRow>
         <SettingRow label="STT Language" description="Speech-to-text language override."><input className="zorai-input" value={agentSettings.audio_stt_language} placeholder="auto" disabled={!agentSettings.audio_stt_enabled} onChange={(event) => updateAgentSetting("audio_stt_language", event.target.value)} /></SettingRow>
+      </Panel>
+      <Panel section="Audio" title="Text-to-speech">
         <SettingRow label="TTS Enabled" description="Text-to-speech feature toggle."><Switch checked={agentSettings.audio_tts_enabled} onChange={(checked) => updateAgentSetting("audio_tts_enabled", checked)} /></SettingRow>
         <SettingRow label="TTS Provider" description="Text-to-speech provider.">
           <ProviderSelect
@@ -674,6 +842,8 @@ function FeaturesPanel() {
         </SettingRow>
         <SettingRow label="TTS Voice" description="Text-to-speech voice."><input className="zorai-input" value={agentSettings.audio_tts_voice} disabled={!agentSettings.audio_tts_enabled} onChange={(event) => updateAgentSetting("audio_tts_voice", event.target.value)} /></SettingRow>
         <SettingRow label="TTS Auto Speak" description="Speak assistant replies automatically."><Switch checked={agentSettings.audio_tts_auto_speak} onChange={(checked) => updateAgentSetting("audio_tts_auto_speak", checked)} /></SettingRow>
+      </Panel>
+      <Panel section="Images" title="Image generation">
         <SettingRow label="Image Provider" description="Image generation provider.">
           <ProviderSelect
             value={agentSettings.image_generation_provider}
@@ -701,7 +871,34 @@ function FeaturesPanel() {
           />
         </SettingRow>
       </Panel>
-      <Panel section="Features" title="Semantic embeddings">
+    </SettingsGrid>
+  );
+}
+
+function MemoryPanel() {
+  const agentSettings = useAgentStore((state) => state.agentSettings);
+  const updateAgentSetting = useAgentStore((state) => state.updateAgentSetting);
+  const providerAuthStates = useAgentStore((state) => state.providerAuthStates);
+  const providerIds = useProviderIds(agentSettings);
+  const providerOptions = useProviderOptions(agentSettings);
+  const embeddingProviderOptions = filterEmbeddingProviderOptions(providerOptions);
+  const embeddingProviderConfig = getProviderConfig(agentSettings, agentSettings.semantic_embedding_provider);
+  const providerHasDaemonAuth = (providerId: AgentProviderId) => providerAuthStates.some((state) => state.provider_id === providerId && state.authenticated);
+
+  return (
+    <SettingsGrid>
+      <Panel section="Memory" title="Honcho memory">
+        <SettingRow label="Honcho Memory" description="Store and recall long-term memory through a Honcho server."><Switch checked={agentSettings.enable_honcho_memory} onChange={(checked) => updateAgentSetting("enable_honcho_memory", checked)} /></SettingRow>
+        <SecretRow label="API Key" description="Honcho API key." value={agentSettings.honcho_api_key} onChange={(value) => updateAgentSetting("honcho_api_key", value)} />
+        <SettingRow label="Base URL" description="Honcho server URL. Empty uses the hosted service."><input className="zorai-input" value={agentSettings.honcho_base_url} disabled={!agentSettings.enable_honcho_memory} onChange={(event) => updateAgentSetting("honcho_base_url", event.target.value)} /></SettingRow>
+        <SettingRow label="Workspace" description="Honcho workspace id."><input className="zorai-input" value={agentSettings.honcho_workspace_id} placeholder="zorai" disabled={!agentSettings.enable_honcho_memory} onChange={(event) => updateAgentSetting("honcho_workspace_id", event.target.value)} /></SettingRow>
+      </Panel>
+      <Panel section="Memory" title="Consolidation">
+        <SettingRow label="Consolidation" description="Consolidate memory while you are idle."><Switch checked={agentSettings.consolidation_enabled} onChange={(checked) => updateAgentSetting("consolidation_enabled", checked)} /></SettingRow>
+        <NumberRow label="Decay Half-Life (h)" description="Half-life in hours for memory fact decay." value={agentSettings.consolidation_memory_decay_half_life_hours} onChange={(value) => updateAgentSetting("consolidation_memory_decay_half_life_hours", value)} min={1} max={10000} />
+        <NumberRow label="Promotion Threshold" description="Successful repetitions before a heuristic is promoted." value={agentSettings.consolidation_heuristic_promotion_threshold} onChange={(value) => updateAgentSetting("consolidation_heuristic_promotion_threshold", value)} min={1} max={100} />
+      </Panel>
+      <Panel section="Memory" title="Semantic embeddings">
         <SettingRow label="Embeddings Enabled" description="Enable semantic embedding generation."><Switch checked={agentSettings.semantic_embedding_enabled} onChange={(checked) => updateAgentSetting("semantic_embedding_enabled", checked)} /></SettingRow>
         <SettingRow label="Embedding Provider" description="Provider used for semantic embeddings.">
           <ProviderSelect
@@ -740,7 +937,59 @@ function FeaturesPanel() {
         <NumberRow label="Batch Size" description="Embedding request batch size." value={agentSettings.semantic_embedding_batch_size} onChange={(value) => updateAgentSetting("semantic_embedding_batch_size", value)} min={1} max={512} />
         <NumberRow label="Concurrency" description="Concurrent embedding requests." value={agentSettings.semantic_embedding_max_concurrency} onChange={(value) => updateAgentSetting("semantic_embedding_max_concurrency", value)} min={1} max={16} />
       </Panel>
-      <Panel section="Features" title="Threads">
+    </SettingsGrid>
+  );
+}
+
+const CAPABILITY_TIER_LABELS: Record<CapabilityTierOverride, string> = {
+  "": "Automatic",
+  newcomer: "Newcomer",
+  familiar: "Familiar",
+  power_user: "Power user",
+  expert: "Expert",
+};
+
+function ProactivityPanel() {
+  const agentSettings = useAgentStore((state) => state.agentSettings);
+  const updateAgentSetting = useAgentStore((state) => state.updateAgentSetting);
+
+  return (
+    <SettingsGrid>
+      <Panel section="Proactivity" title="Anticipatory support">
+        <SettingRow label="Anticipatory Support" description="Enable proactive operator support."><Switch checked={agentSettings.anticipatory_enabled} onChange={(checked) => updateAgentSetting("anticipatory_enabled", checked)} /></SettingRow>
+        <SettingRow label="Morning Brief" description="Include morning brief generation."><Switch checked={agentSettings.anticipatory_morning_brief} onChange={(checked) => updateAgentSetting("anticipatory_morning_brief", checked)} /></SettingRow>
+        <SettingRow label="Predictive Hydration" description="Hydrate likely-needed context ahead of time."><Switch checked={agentSettings.anticipatory_predictive_hydration} onChange={(checked) => updateAgentSetting("anticipatory_predictive_hydration", checked)} /></SettingRow>
+        <SettingRow label="Stuck Detection" description="Detect stalled work and stale execution."><Switch checked={agentSettings.anticipatory_stuck_detection} onChange={(checked) => updateAgentSetting("anticipatory_stuck_detection", checked)} /></SettingRow>
+      </Panel>
+      <Panel section="Proactivity" title="Operator model">
+        <SettingRow label="Operator Model" description="Learn operator preferences from local activity."><Switch checked={agentSettings.operator_model_enabled} onChange={(checked) => updateAgentSetting("operator_model_enabled", checked)} /></SettingRow>
+        <SettingRow label="Message Statistics" description="Allow learning from message statistics."><Switch checked={agentSettings.operator_model_allow_message_statistics} onChange={(checked) => updateAgentSetting("operator_model_allow_message_statistics", checked)} /></SettingRow>
+        <SettingRow label="Approval Learning" description="Allow learning from approval decisions."><Switch checked={agentSettings.operator_model_allow_approval_learning} onChange={(checked) => updateAgentSetting("operator_model_allow_approval_learning", checked)} /></SettingRow>
+        <SettingRow label="Attention Tracking" description="Allow tracking which surfaces have your attention."><Switch checked={agentSettings.operator_model_allow_attention_tracking} onChange={(checked) => updateAgentSetting("operator_model_allow_attention_tracking", checked)} /></SettingRow>
+        <SettingRow label="Implicit Feedback" description="Allow learning from implicit feedback such as revisions and fallbacks."><Switch checked={agentSettings.operator_model_allow_implicit_feedback} onChange={(checked) => updateAgentSetting("operator_model_allow_implicit_feedback", checked)} /></SettingRow>
+      </Panel>
+      <Panel section="Proactivity" title="Feature tier">
+        <SettingRow label="Tier Override" description="Which feature tier to surface. Automatic lets the daemon pick from your usage.">
+          <select className="zorai-input" value={agentSettings.tier_user_override} onChange={(event) => updateAgentSetting("tier_user_override", normalizeCapabilityTierOverride(event.target.value))}>
+            {CAPABILITY_TIER_OVERRIDES.map((tier) => <option key={tier} value={tier}>{CAPABILITY_TIER_LABELS[tier]}</option>)}
+          </select>
+        </SettingRow>
+      </Panel>
+    </SettingsGrid>
+  );
+}
+
+function WorkflowsPanel() {
+  const agentSettings = useAgentStore((state) => state.agentSettings);
+  const updateAgentSetting = useAgentStore((state) => state.updateAgentSetting);
+  const subAgents = useAgentStore((state) => state.subAgents);
+
+  return (
+    <SettingsGrid>
+      <Panel section="Workflows" title="Collaboration">
+        <SettingRow label="Collaboration" description="Enable multi-agent collaboration features."><Switch checked={agentSettings.collaboration_enabled} onChange={(checked) => updateAgentSetting("collaboration_enabled", checked)} /></SettingRow>
+      </Panel>
+      <Panel section="Workflows" title="Threads">
         <SettingRow label="Auto Title" description="Generate a thread title from the first operator message using Rarog, WELES, or leave titles unchanged.">
           <select className="zorai-input" value={agentSettings.auto_thread_title ?? "off"} onChange={(event) => updateAgentSetting("auto_thread_title", event.target.value as AgentSettings["auto_thread_title"])}>
             <option value="off">Off</option>
@@ -749,7 +998,7 @@ function FeaturesPanel() {
           </select>
         </SettingRow>
       </Panel>
-      <Panel section="Features" title="Code review">
+      <Panel section="Workflows" title="Code review">
         <SettingRow label="Review Agent" description="Runs Find Issues in the Code tab's Source Control view. Pick a subagent to review with its own provider and model; Svarog, Rarog and Weles lead threads and cannot be spawned as reviewers.">
           <select className="zorai-input" value={subAgents.some((subAgent) => subAgent.enabled && subAgent.id === agentSettings.code_review_agent) ? agentSettings.code_review_agent : "thread"} onChange={(event) => updateAgentSetting("code_review_agent", event.target.value)}>
             <option value="thread">This thread&apos;s agent</option>
@@ -762,7 +1011,7 @@ function FeaturesPanel() {
   );
 }
 
-function AdvancedPanel() {
+function CompactionPanel() {
   const agentSettings = useAgentStore((state) => state.agentSettings);
   const updateAgentSetting = useAgentStore((state) => state.updateAgentSetting);
   const providerAuthStates = useAgentStore((state) => state.providerAuthStates);
@@ -774,7 +1023,6 @@ function AdvancedPanel() {
   const customCompactionProviderConfig = getProviderConfig(agentSettings, customCompactionProvider);
   const customCompactionTransports = getSupportedApiTransports(customCompactionProvider);
   const customCompactionTransport = normalizeApiTransport(customCompactionProvider, compaction.custom_model.api_transport);
-  const updateLooseAgentSetting = (key: keyof AgentSettings, value: unknown) => updateAgentSetting(key, value as never);
   const updateCompaction = (patch: Partial<AgentSettings["compaction"]>) => updateAgentSetting("compaction", { ...compaction, ...patch });
   const updateCompactionWeles = (patch: Partial<AgentSettings["compaction"]["weles"]>) => updateCompaction({ weles: { ...compaction.weles, ...patch } });
   const updateCompactionCustom = (patch: Partial<AgentSettings["compaction"]["custom_model"]>) => updateCompaction({ custom_model: { ...compaction.custom_model, ...patch } });
@@ -798,13 +1046,7 @@ function AdvancedPanel() {
 
   return (
     <SettingsGrid>
-      <Panel section="Advanced" title="Context compaction, safety, and retry settings">
-        <SettingRow label="Sandbox Managed Cmds" description="Use daemon-managed command execution defaults."><Switch checked={Boolean(agentSettings.managed_sandbox_enabled)} onChange={(checked) => updateLooseAgentSetting("managed_sandbox_enabled", checked)} /></SettingRow>
-        <SettingRow label="Managed Security" description="Default approval strictness for managed shell commands.">
-          <select className="zorai-input" value={String(agentSettings.managed_security_level ?? "lowest")} onChange={(event) => updateLooseAgentSetting("managed_security_level", event.target.value)}>
-            {["highest", "moderate", "lowest", "yolo"].map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
-        </SettingRow>
+      <Panel section="Compaction" title="Context compaction">
         <SettingRow label="Auto Compact Context" description="Compress older conversation context automatically."><Switch checked={agentSettings.auto_compact_context} onChange={(checked) => updateAgentSetting("auto_compact_context", checked)} /></SettingRow>
         <SettingRow label="Compaction Mode" description="Strategy used when active context needs compaction.">
           <select className="zorai-input" value={compaction.strategy} onChange={(event) => updateCompaction({ strategy: event.target.value as AgentSettings["compaction"]["strategy"] })}>
@@ -813,23 +1055,11 @@ function AdvancedPanel() {
             <option value="custom_model">LLM provider</option>
           </select>
         </SettingRow>
-        <NumberRow label="Heuristic Max Msgs" description="Conversation messages kept before compaction." value={agentSettings.max_context_messages} onChange={(value) => updateAgentSetting("max_context_messages", value)} min={10} max={500} />
-        <NumberRow label="Max Tool Loops" description="Upper bound for tool-call cycles in one response." value={agentSettings.max_tool_loops} onChange={(value) => updateAgentSetting("max_tool_loops", value)} min={0} max={50} />
-        <NumberRow label="Max Retries" description="Provider and tool retry attempts." value={agentSettings.max_retries} onChange={(value) => updateAgentSetting("max_retries", value)} min={0} max={10} />
-        <NumberRow label="Auto Refresh (s)" description="Goal and workspace refresh interval; 0 disables polling." value={agentSettings.auto_refresh_interval_secs} onChange={(value) => updateAgentSetting("auto_refresh_interval_secs", value)} min={0} max={86400} />
-        <NumberRow label="Retry Delay (ms)" description="Delay between retries." value={agentSettings.retry_delay_ms} onChange={(value) => updateAgentSetting("retry_delay_ms", value)} min={0} max={60000} />
-        <NumberRow label="Message Loop (ms)" description="Delay between message loop iterations." value={agentSettings.message_loop_delay_ms} onChange={(value) => updateAgentSetting("message_loop_delay_ms", value)} min={0} max={60000} />
-        <NumberRow label="Tool Call Gap (ms)" description="Delay between tool calls." value={agentSettings.tool_call_delay_ms} onChange={(value) => updateAgentSetting("tool_call_delay_ms", value)} min={0} max={60000} />
-        <NumberRow label="LLM Stream Timeout (s)" description="Timeout while waiting for streamed model chunks." value={agentSettings.llm_stream_chunk_timeout_secs} onChange={(value) => updateAgentSetting("llm_stream_chunk_timeout_secs", value)} min={1} max={3600} />
-        <SettingRow label="Auto Retry" description="Retry recoverable provider and tool failures."><Switch checked={agentSettings.auto_retry} onChange={(checked) => updateAgentSetting("auto_retry", checked)} /></SettingRow>
-        <NumberRow label="Context Len Tok" description="Fallback context length when the provider model has no known value." value={agentSettings.context_window_tokens} onChange={(value) => updateAgentSetting("context_window_tokens", value)} min={1000} max={2000000} />
         <NumberRow label="Compact Thres %" description="Token-budget threshold that triggers compaction." value={agentSettings.compact_threshold_pct} onChange={(value) => updateAgentSetting("compact_threshold_pct", value)} min={1} max={100} />
         <NumberRow label="Keep Recent" description="Recent messages preserved across compaction." value={agentSettings.keep_recent_on_compact} onChange={(value) => updateAgentSetting("keep_recent_on_compact", value)} min={0} max={100} />
-        <NumberRow label="Bash Timeout (s)" description="Managed shell command timeout." value={agentSettings.bash_timeout_seconds} onChange={(value) => updateAgentSetting("bash_timeout_seconds", value)} min={5} max={300} />
-        <NumberRow label="WELES Reviews" description="Concurrent WELES review limit." value={agentSettings.weles_max_concurrent_reviews} onChange={(value) => updateAgentSetting("weles_max_concurrent_reviews", value)} min={0} max={16} />
+        <NumberRow label="Heuristic Max Msgs" description="Conversation messages kept before compaction." value={agentSettings.max_context_messages} onChange={(value) => updateAgentSetting("max_context_messages", value)} min={10} max={500} />
       </Panel>
-      <WorkspaceRepoMonitorPanel />
-      <Panel section="Advanced" title="Compaction Strategy Settings">
+      <Panel section="Compaction" title="Compaction Strategy Settings">
         {compaction.strategy === "weles" ? (
           <>
             <SettingRow label="WELES Provider" description="Provider used by WELES compaction.">
@@ -850,6 +1080,12 @@ function AdvancedPanel() {
             <SettingRow label="WELES Reasoning" description="Reasoning effort for WELES compaction.">
               <select className="zorai-input" value={compaction.weles.reasoning_effort} onChange={(event) => updateCompactionWeles({ reasoning_effort: event.target.value as AgentSettings["reasoning_effort"] })}>
                 {reasoningEfforts.map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </SettingRow>
+            <SettingRow label="WELES Transport" description="API transport for WELES compaction. Inherit uses the provider default.">
+              <select className="zorai-input" value={compaction.weles.api_transport ?? ""} onChange={(event) => updateCompactionWeles({ api_transport: event.target.value ? normalizeApiTransport(compaction.weles.provider, event.target.value) : null })}>
+                <option value="">Inherit</option>
+                {getSupportedApiTransports(compaction.weles.provider).map((transport) => <option key={transport} value={transport}>{formatTransportLabel(transport)}</option>)}
               </select>
             </SettingRow>
           </>
@@ -897,6 +1133,74 @@ function AdvancedPanel() {
         ) : null}
         {compaction.strategy === "heuristic" ? <p className="zorai-empty-state">Heuristic compaction uses the message limit and token threshold above.</p> : null}
       </Panel>
+    </SettingsGrid>
+  );
+}
+
+function ExecutionPanel() {
+  const agentSettings = useAgentStore((state) => state.agentSettings);
+  const updateAgentSetting = useAgentStore((state) => state.updateAgentSetting);
+
+  return (
+    <SettingsGrid>
+      <Panel section="Execution" title="Tool loop">
+        <NumberRow label="Max Tool Loops" description="Upper bound for tool-call cycles in one response." value={agentSettings.max_tool_loops} onChange={(value) => updateAgentSetting("max_tool_loops", value)} min={0} max={50} />
+        <NumberRow label="Tool Call Gap (ms)" description="Delay between tool calls." value={agentSettings.tool_call_delay_ms} onChange={(value) => updateAgentSetting("tool_call_delay_ms", value)} min={0} max={60000} />
+        <NumberRow label="Message Loop (ms)" description="Delay between message loop iterations." value={agentSettings.message_loop_delay_ms} onChange={(value) => updateAgentSetting("message_loop_delay_ms", value)} min={0} max={60000} />
+      </Panel>
+      <Panel section="Execution" title="Retries and timeouts">
+        <SettingRow label="Auto Retry" description="Retry recoverable provider and tool failures."><Switch checked={agentSettings.auto_retry} onChange={(checked) => updateAgentSetting("auto_retry", checked)} /></SettingRow>
+        <NumberRow label="Max Retries" description="Provider and tool retry attempts." value={agentSettings.max_retries} onChange={(value) => updateAgentSetting("max_retries", value)} min={0} max={10} />
+        <NumberRow label="Retry Delay (ms)" description="Delay between retries." value={agentSettings.retry_delay_ms} onChange={(value) => updateAgentSetting("retry_delay_ms", value)} min={0} max={60000} />
+        <NumberRow label="LLM Stream Timeout (s)" description="Timeout while waiting for streamed model chunks." value={agentSettings.llm_stream_chunk_timeout_secs} onChange={(value) => updateAgentSetting("llm_stream_chunk_timeout_secs", value)} min={1} max={3600} />
+      </Panel>
+      <Panel section="Execution" title="Reviews">
+        <NumberRow label="WELES Reviews" description="Concurrent WELES review limit." value={agentSettings.weles_max_concurrent_reviews} onChange={(value) => updateAgentSetting("weles_max_concurrent_reviews", value)} min={0} max={16} />
+      </Panel>
+    </SettingsGrid>
+  );
+}
+
+function SafetyPanel() {
+  const agentSettings = useAgentStore((state) => state.agentSettings);
+  const updateAgentSetting = useAgentStore((state) => state.updateAgentSetting);
+  const updateLooseAgentSetting = (key: keyof AgentSettings, value: unknown) => updateAgentSetting(key, value as never);
+
+  return (
+    <SettingsGrid>
+      <Panel section="Safety" title="Managed commands">
+        <SettingRow label="Sandbox Managed Cmds" description="Use daemon-managed command execution defaults."><Switch checked={Boolean(agentSettings.managed_sandbox_enabled)} onChange={(checked) => updateLooseAgentSetting("managed_sandbox_enabled", checked)} /></SettingRow>
+        <SettingRow label="Managed Security" description="Default approval strictness for managed shell commands.">
+          <select className="zorai-input" value={String(agentSettings.managed_security_level ?? "lowest")} onChange={(event) => updateLooseAgentSetting("managed_security_level", event.target.value)}>
+            {["highest", "moderate", "lowest", "yolo"].map((value) => <option key={value} value={value}>{value}</option>)}
+          </select>
+        </SettingRow>
+      </Panel>
+      <Panel section="Safety" title="Compliance">
+        <SettingRow label="Compliance" description="Audit mode for retained events.">
+          <select className="zorai-input" value={agentSettings.compliance_mode} onChange={(event) => updateAgentSetting("compliance_mode", event.target.value as AgentSettings["compliance_mode"])}>
+            {["standard", "soc2", "hipaa", "fedramp"].map((value) => <option key={value} value={value}>{value}</option>)}
+          </select>
+        </SettingRow>
+        <NumberRow label="Retention Days" description="Compliance event retention window." value={agentSettings.compliance_retention_days} onChange={(value) => updateAgentSetting("compliance_retention_days", value)} min={1} max={3650} />
+        <SettingRow label="Sign All Events" description="Sign compliance audit events."><Switch checked={agentSettings.compliance_sign_all_events} onChange={(checked) => updateAgentSetting("compliance_sign_all_events", checked)} /></SettingRow>
+      </Panel>
+    </SettingsGrid>
+  );
+}
+
+function StoragePanel() {
+  const settings = useSettingsStore((state) => state.settings);
+  const updateSetting = useSettingsStore((state) => state.updateSetting);
+
+  return (
+    <SettingsGrid>
+      <Panel section="Storage" title="Snapshots">
+        <SettingRow label="Auto Cleanup" description="Delete the oldest snapshots once a limit below is reached."><Switch checked={settings.snapshotAutoCleanup} onChange={(checked) => updateSetting("snapshotAutoCleanup", checked)} /></SettingRow>
+        <NumberRow label="Max Snapshots" description="Snapshots to keep; 0 means no count limit." value={settings.snapshotMaxCount} onChange={(value) => updateSetting("snapshotMaxCount", value)} min={0} max={100} />
+        <NumberRow label="Max Size (MB)" description="Total snapshot storage allowed." value={settings.snapshotMaxSizeMb} onChange={(value) => updateSetting("snapshotMaxSizeMb", value)} min={1024} max={500000} />
+      </Panel>
+      <WorkspaceRepoMonitorPanel />
     </SettingsGrid>
   );
 }
@@ -957,7 +1261,7 @@ function WorkspaceRepoMonitorPanel() {
   };
 
   return (
-    <Panel section="Advanced" title="Workspace git monitoring">
+    <Panel section="Storage" title="Workspace git monitoring">
       <SettingRow label="Enable Monitor" description="Default is off. Monitoring only runs when this is enabled and the include list is not empty.">
         <Switch checked={enabled} onChange={setEnabled} />
       </SettingRow>
@@ -1154,9 +1458,9 @@ function SettingRow({ label, description, children }: { label: string; descripti
   );
 }
 
-function SecretRow({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function SecretRow({ label, description = "Stored as a local gateway credential.", value, onChange }: { label: string; description?: string; value: string; onChange: (value: string) => void }) {
   return (
-    <SettingRow label={label} description="Stored as a local gateway credential.">
+    <SettingRow label={label} description={description}>
       <input className="zorai-input" type="password" value={value} onChange={(event) => onChange(event.target.value)} />
     </SettingRow>
   );

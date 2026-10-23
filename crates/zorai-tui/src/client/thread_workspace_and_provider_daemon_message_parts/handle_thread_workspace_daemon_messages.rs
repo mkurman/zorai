@@ -50,6 +50,16 @@ impl DaemonClient {
                     Err(err) => warn!("Failed to parse gateway chats: {}", err),
                 }
             }
+            DaemonMessage::AgentThreadSearchResults { results_json } => {
+                match serde_json::from_str::<crate::client::ThreadSearchResultsVm>(&results_json) {
+                    Ok(results) => {
+                        let _ = event_tx
+                            .send(ClientEvent::ThreadSearchResults(results))
+                            .await;
+                    }
+                    Err(err) => warn!("Failed to parse thread search results: {}", err),
+                }
+            }
             DaemonMessage::AgentThreadDetailChunk {
                 thread_id,
                 thread_json_chunk,

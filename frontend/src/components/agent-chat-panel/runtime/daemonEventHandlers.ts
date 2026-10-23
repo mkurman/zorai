@@ -442,7 +442,7 @@ export function handleWorkspaceCommand(event: any) {
 export function handleGatewayIncomingEvent({ event, addMessage, pendingGatewayMessagesRef }: any) {
   const gatewayMessage = {
     role: "user" as const,
-    content: `[${event.platform} — ${event.sender}]: ${event.content}`,
+    content: event.content,
     inputTokens: 0,
     outputTokens: 0,
     totalTokens: 0,

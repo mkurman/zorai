@@ -139,7 +139,11 @@ export function buildDaemonAgentConfig(
           api_transport: normalizeApiTransport(referencedProviderId, referencedConfig.api_transport),
           auth_source: referencedAuthSource,
           context_window_tokens: getEffectiveContextWindow(referencedProviderId, referencedConfig),
-          reasoning_effort: agentSettings.reasoning_effort || "high",
+          ...(referencedProviderId === providerKey
+            ? { reasoning_effort: agentSettings.reasoning_effort || "high" }
+            : referencedConfig.reasoning_effort
+              ? { reasoning_effort: referencedConfig.reasoning_effort }
+              : {}),
           ...(referencedProviderId === "openrouter"
             ? {
               openrouter_provider_order: referencedConfig.openrouter_provider_order ?? [],
@@ -147,6 +151,9 @@ export function buildDaemonAgentConfig(
               openrouter_allow_fallbacks: referencedConfig.openrouter_allow_fallbacks ?? null,
               openrouter_response_cache_enabled: referencedConfig.openrouter_response_cache_enabled === true,
             }
+            : {}),
+          ...(referencedProviderId === "huggingface"
+            ? { huggingface_provider: referencedConfig.huggingface_provider?.trim() || null }
             : {}),
         },
       ]];
@@ -213,6 +220,7 @@ export function buildDaemonAgentConfig(
         provider: agentSettings.compaction.weles.provider,
         model: agentSettings.compaction.weles.model,
         reasoning_effort: agentSettings.compaction.weles.reasoning_effort,
+        api_transport: agentSettings.compaction.weles.api_transport ?? null,
       },
       custom_model: {
         provider: agentSettings.compaction.custom_model.provider,
@@ -240,6 +248,21 @@ export function buildDaemonAgentConfig(
     mlflow_tracing: agentSettings.mlflow_tracing,
     enable_honcho_memory: agentSettings.enable_honcho_memory,
     desktop_notifications: agentSettings.desktop_notifications,
+    claude_permission_mode: agentSettings.claude_permission_mode || null,
+    tier: {
+      user_override: agentSettings.tier_user_override || null,
+    },
+    consolidation: {
+      enabled: agentSettings.consolidation_enabled,
+      heuristic_promotion_threshold: Math.max(1, Math.floor(agentSettings.consolidation_heuristic_promotion_threshold)),
+      memory_decay_half_life_hours: Math.max(1, agentSettings.consolidation_memory_decay_half_life_hours),
+    },
+    heartbeat_enabled: agentSettings.heartbeat_enabled,
+    heartbeat_interval_mins: agentSettings.heartbeat_interval_mins,
+    heartbeat_cron: agentSettings.heartbeat_cron.trim() || null,
+    quiet_hours_start: agentSettings.quiet_hours_start,
+    quiet_hours_end: agentSettings.quiet_hours_end,
+    heartbeat_checks: agentSettings.heartbeat_checks,
     honcho_api_key: agentSettings.honcho_api_key,
     honcho_base_url: agentSettings.honcho_base_url,
     honcho_workspace_id: agentSettings.honcho_workspace_id,
@@ -280,9 +303,9 @@ export function buildDaemonAgentConfig(
       web_search: agentSettings.enable_web_search_tool,
       web_browse: agentSettings.enable_web_browsing_tool,
       vision: agentSettings.enable_vision_tool,
-      gateway_messaging: true,
-      file_operations: true,
-      system_info: true,
+      gateway_messaging: agentSettings.enable_gateway_messaging_tool,
+      file_operations: agentSettings.enable_file_operations_tool,
+      system_info: agentSettings.enable_system_info_tool,
     },
     gateway: {
       enabled: agentSettings.gateway_enabled,
