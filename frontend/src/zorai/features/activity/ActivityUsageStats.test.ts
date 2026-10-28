@@ -125,6 +125,31 @@ describe("fillDailyRange", () => {
     expect(filled[filled.length - 1].totalTokens).toBe(45);
     expect(filled[0].totalTokens).toBe(16);
   });
+
+  it("emits each calendar day once across a 25-hour DST fall-back day", () => {
+    const previousTz = process.env.TZ;
+    process.env.TZ = "Europe/Warsaw";
+    try {
+      const first = startOfLocalDay(new Date(2026, 9, 24).getTime());
+      const last = startOfLocalDay(new Date(2026, 9, 26).getTime());
+      const filled = fillDailyRange([dayRow(first, 1), dayRow(last, 26)], 30);
+      expect(filled.map((row) => row.dayKey)).toEqual(["2026-10-24", "2026-10-25", "2026-10-26"]);
+      expect(filled.map((row) => row.totalTokens)).toEqual([1, 0, 26]);
+    } finally {
+      process.env.TZ = previousTz;
+    }
+  });
+
+  it("anchors windows to calendar days across a 23-hour DST spring-forward day", () => {
+    const previousTz = process.env.TZ;
+    process.env.TZ = "Europe/Warsaw";
+    try {
+      const filled = fillDailyRange([], 3, new Date(2026, 2, 30, 12).getTime());
+      expect(filled.map((row) => row.dayKey)).toEqual(["2026-03-28", "2026-03-29", "2026-03-30"]);
+    } finally {
+      process.env.TZ = previousTz;
+    }
+  });
 });
 
 describe("share helpers", () => {

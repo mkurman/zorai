@@ -208,10 +208,9 @@ impl TuiModel {
             include(tick / 3);
         }
 
-        // Agent activity labels are state, not animations. Tool/reasoning
-        // events redraw when the label changes; keeping this in the tick epoch
-        // repainted the entire screen four times per second for any stale
-        // activity entry and kept the main loop on its fast cadence forever.
+        if self.footer_activity_text().is_some() {
+            include(tick / 2);
+        }
 
         if self.chat.retry_status().is_some()
             || self.active_auto_response_countdown_secs().is_some()

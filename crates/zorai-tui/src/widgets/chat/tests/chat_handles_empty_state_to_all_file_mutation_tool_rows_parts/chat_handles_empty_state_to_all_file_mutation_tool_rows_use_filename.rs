@@ -118,7 +118,7 @@ fn hit_test_marks_tool_header_as_toggle() {
         &chat,
         &ThemeTokens::default(),
         0,
-        Position::new(2, 2),
+        Position::new(2, 3),
     );
 
     assert_eq!(hit, Some(ChatHitTarget::ToolToggle(0)));
@@ -183,7 +183,7 @@ fn read_file_tool_row_renders_clickable_path_chip() {
         .expect("tool row should be rendered");
     let text = rendered_line_plain_text(tool_line);
 
-    assert!(text.contains("read_file"));
+    assert!(text.contains("Read File"));
     assert!(text.contains("[demo.txt]"));
     assert!(!text.contains("[/tmp/demo.txt]"));
 }
@@ -235,7 +235,7 @@ fn edit_tool_row_renders_clickable_path_chip() {
         .expect("tool row should be rendered");
     let text = rendered_line_plain_text(tool_line);
 
-    assert!(text.contains("write_file"));
+    assert!(text.contains("Write File"));
     assert!(text.contains("[demo.txt]"));
     assert!(!text.contains("[/tmp/demo.txt]"));
 }
@@ -260,7 +260,7 @@ fn read_skill_tool_row_renders_skill_name_chip() {
         .expect("tool row should be rendered");
     let text = rendered_line_plain_text(tool_line);
 
-    assert!(text.contains("read_skill"));
+    assert!(text.contains("Read Skill"));
     assert!(text.contains("[systematic-debugging]"));
 }
 
@@ -300,7 +300,7 @@ fn read_skill_tool_row_renders_clickable_file_chip_from_result_path() {
         .expect("tool row should be rendered");
     let text = rendered_line_plain_text(tool_line);
 
-    assert!(text.contains("read_skill"));
+    assert!(text.contains("Read Skill"));
     assert!(
         text.contains("[SKILL.md]"),
         "expected file chip, got: {text}"
@@ -365,7 +365,7 @@ fn read_guideline_tool_row_renders_clickable_file_chip_from_result_header() {
         .expect("tool row should be rendered");
     let text = rendered_line_plain_text(tool_line);
 
-    assert!(text.contains("read_guideline"));
+    assert!(text.contains("Read Guideline"));
     assert!(
         text.contains("[coding-task.md]"),
         "expected guideline file chip, got: {text}"
@@ -479,7 +479,9 @@ fn all_file_mutation_tool_rows_use_filename_chip() {
         let text = rendered_line_plain_text(tool_line);
 
         assert!(
-            text.contains(tool_name),
+            text.contains(&crate::widgets::message::compact_tool_display_name(
+                tool_name
+            )),
             "expected tool name in row: {text}"
         );
         assert!(

@@ -16,6 +16,7 @@ import {
   resolveThreadCreationAgent,
   resolveThreadListSource,
   searchThreadTabs,
+  threadDeletionTarget,
   type DateFilterId,
   type ThreadFilterTab,
   visibleThreadTabs,
@@ -411,7 +412,11 @@ export function ThreadsRail() {
               }}
               onCancelRename={() => setEditingThreadId(null)}
               onDelete={() => {
-                if (window.confirm(`Delete “${thread.title}”?`)) deleteThread(thread.id);
+                if (!window.confirm(`Delete “${thread.title}”?`)) return;
+                const target = threadDeletionTarget(thread, storeThreads);
+                if (target.storeThreadId) deleteThread(target.storeThreadId);
+                if (target.daemonThreadId) void getBridge()?.agentDeleteThread?.(target.daemonThreadId);
+                setDaemonFilteredThreads((current) => current?.filter((item) => item.id !== thread.id) ?? null);
               }}
             />
           );

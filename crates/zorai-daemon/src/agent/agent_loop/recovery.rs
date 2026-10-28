@@ -3,10 +3,14 @@ use crate::agent::llm_client::{
     is_exhausted_provider_usage_limit, parse_structured_upstream_failure, StructuredUpstreamFailure,
 };
 
+pub(in crate::agent) const MISSING_PREVIOUS_RESPONSE_SIGNATURE: &str =
+    "request-invalid-missing-previous-response";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FixableUpstreamRecoveryAction {
     InvestigateOnly,
     RepairThreadStateAndRetry,
+    ResetContinuationAndRetry,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -48,12 +52,13 @@ impl AgentEngine {
             .await
             .is_some();
 
-        let retry_allowed = matches!(
-            recovery.action,
-            FixableUpstreamRecoveryAction::RepairThreadStateAndRetry
-        ) && !assistant_output_visible
-            && !tool_side_effect_committed
-            && attempted_recovery_signatures.insert(recovery.signature.clone());
+        let retry_allowed = match recovery.action {
+            FixableUpstreamRecoveryAction::RepairThreadStateAndRetry => {
+                !assistant_output_visible && !tool_side_effect_committed
+            }
+            FixableUpstreamRecoveryAction::ResetContinuationAndRetry => true,
+            FixableUpstreamRecoveryAction::InvestigateOnly => false,
+        } && attempted_recovery_signatures.insert(recovery.signature.clone());
 
         if retry_allowed {
             self.emit_workflow_notice(
@@ -78,7 +83,9 @@ impl AgentEngine {
                 true,
             )
             .await;
-            self.repair_tool_call_sequence(thread_id).await;
+            if recovery.action == FixableUpstreamRecoveryAction::RepairThreadStateAndRetry {
+                self.repair_tool_call_sequence(thread_id).await;
+            }
             self.clear_thread_continuation_state(thread_id).await;
             return Ok(FixableUpstreamRecoveryDisposition {
                 started_investigation,
@@ -222,7 +229,14 @@ fn classify_fixable_upstream_recovery(
         || combined.contains("message stack")
         || (combined.contains("no tool call found") && combined.contains("function call output"));
 
+    let missing_previous_response = combined.contains("referenced response not found")
+        || (combined.contains("previous response") && combined.contains("not found"));
+
     match structured.class.as_str() {
+        "request_invalid" if missing_previous_response => Some(FixableUpstreamRecovery {
+            signature: MISSING_PREVIOUS_RESPONSE_SIGNATURE.to_string(),
+            action: FixableUpstreamRecoveryAction::ResetContinuationAndRetry,
+        }),
         "request_invalid"
             if combined.contains("empty string")
                 && combined.contains("input[")

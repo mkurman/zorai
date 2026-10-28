@@ -220,18 +220,21 @@ export function fillDailyRange(rows: DailyUsageRow[], maxDays: number, endDay?: 
   const lastDataDay = rows.length > 0 ? rows[rows.length - 1].dayStart : requestedLastDay!;
   const lastDay = requestedLastDay ?? lastDataDay;
   const firstDataDay = rows.length > 0 ? rows[0].dayStart : lastDay;
-  const desiredFirstDay = lastDay - (maxDays - 1) * DAY_MS;
+  const desiredFirstDay = addLocalDays(lastDay, -(maxDays - 1));
   const boundedFirstDay = requestedLastDay === undefined && desiredFirstDay < firstDataDay ? firstDataDay : desiredFirstDay;
   const byKey = new Map(rows.map((row) => [row.dayKey, row]));
   const filled: DailyUsageRow[] = [];
-  for (let day = boundedFirstDay; day <= lastDay; day += DAY_MS) {
+  for (let day = boundedFirstDay; day <= lastDay; day = addLocalDays(day, 1)) {
     const key = formatDayKey(day);
     filled.push(byKey.get(key) ?? createEmptyDailyRow(day));
   }
   return filled;
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+function addLocalDays(dayStart: number, days: number): number {
+  const date = new Date(dayStart);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days).getTime();
+}
 
 function createEmptyDailyRow(dayStart: number): DailyUsageRow {
   return { dayStart, dayKey: formatDayKey(dayStart), inputTokens: 0, outputTokens: 0, totalTokens: 0, cost: 0, requests: 0 };

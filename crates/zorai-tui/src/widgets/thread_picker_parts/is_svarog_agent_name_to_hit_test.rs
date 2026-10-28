@@ -317,41 +317,95 @@ pub fn render_for_workspace(
         return;
     }
 
-    let [tabs_row, search_row, separator_row, list_row, hints_row] = thread_picker_layout(inner);
+    let layout = thread_picker_layout(inner);
+    let search_row = layout.search;
+    let separator_row = layout.separator;
+    let list_row = layout.list;
+    let hints_row = layout.hints;
     let goal_index = GoalThreadIndex::from_tasks(tasks);
     let workspace_index = WorkspaceThreadIndex::from_workspace(workspace, tasks);
-
-    let tab_cells = tab_cells_inner(chat, subagents, Some(&goal_index), Some(&workspace_index));
     let selected_tab = modal.thread_picker_tab();
-    let tab_scroll = tab_scroll_offset(tabs_row.width, &tab_cells, &selected_tab);
-    let tab_line = Line::from(
-        tab_cells
+
+    if let (Some(sidebar), Some(divider)) = (layout.sidebar, layout.divider) {
+        let rows = sidebar_rows(tab_specs_inner(
+            chat,
+            subagents,
+            Some(&goal_index),
+            Some(&workspace_index),
+        ));
+        let label_width = (sidebar.width as usize).saturating_sub(4);
+        let lines = rows
             .iter()
-            .enumerate()
-            .flat_map(|(index, cell)| {
-                let label = if loading_tab.as_ref() == Some(&cell.tab) {
-                    format!(
-                        "{} {}",
-                        cell.label,
-                        thread_picker_spinner_frame(tick_counter)
-                    )
-                } else {
-                    cell.label.clone()
-                };
-                let style = if cell.tab == selected_tab {
-                    theme.accent_primary
-                } else {
-                    theme.fg_dim
-                };
-                let mut spans = vec![Span::styled(label, style)];
-                if index + 1 < tab_cells.len() {
-                    spans.push(Span::raw(" "));
+            .map(|row| match row {
+                ThreadPickerSidebarRow::Blank => Line::raw(""),
+                ThreadPickerSidebarRow::Group(title) => {
+                    Line::from(Span::styled(format!(" {title}"), theme.fg_dim))
                 }
-                spans
+                ThreadPickerSidebarRow::Tab(tab, label) => {
+                    let label = if loading_tab.as_ref() == Some(tab) {
+                        format!("{label} {}", thread_picker_spinner_frame(tick_counter))
+                    } else {
+                        label.clone()
+                    };
+                    let label = crate::widgets::message::truncate_to_width(&label, label_width);
+                    if *tab == selected_tab {
+                        Line::from(vec![
+                            Span::styled(" \u{25b8} ", theme.accent_primary),
+                            Span::styled(label, theme.fg_active),
+                        ])
+                    } else {
+                        Line::from(vec![Span::raw("   "), Span::styled(label, theme.fg_dim)])
+                    }
+                }
             })
-            .collect::<Vec<_>>(),
-    );
-    frame.render_widget(Paragraph::new(tab_line).scroll((0, tab_scroll)), tabs_row);
+            .collect::<Vec<_>>();
+        let scroll = sidebar_scroll(sidebar.height, &rows, &selected_tab);
+        frame.render_widget(
+            Paragraph::new(lines).scroll((scroll.min(u16::MAX as usize) as u16, 0)),
+            sidebar,
+        );
+        frame.render_widget(
+            Paragraph::new(
+                (0..divider.height)
+                    .map(|_| Line::from(Span::styled("\u{2502}", theme.fg_dim)))
+                    .collect::<Vec<_>>(),
+            ),
+            divider,
+        );
+    }
+
+    if let Some(tabs_row) = layout.tabs {
+        let tab_cells = tab_cells_inner(chat, subagents, Some(&goal_index), Some(&workspace_index));
+        let tab_scroll = tab_scroll_offset(tabs_row.width, &tab_cells, &selected_tab);
+        let tab_line = Line::from(
+            tab_cells
+                .iter()
+                .enumerate()
+                .flat_map(|(index, cell)| {
+                    let label = if loading_tab.as_ref() == Some(&cell.tab) {
+                        format!(
+                            "{} {}",
+                            cell.label,
+                            thread_picker_spinner_frame(tick_counter)
+                        )
+                    } else {
+                        cell.label.clone()
+                    };
+                    let style = if cell.tab == selected_tab {
+                        theme.accent_primary
+                    } else {
+                        theme.fg_dim
+                    };
+                    let mut spans = vec![Span::styled(label, style)];
+                    if index + 1 < tab_cells.len() {
+                        spans.push(Span::raw(" "));
+                    }
+                    spans
+                })
+                .collect::<Vec<_>>(),
+        );
+        frame.render_widget(Paragraph::new(tab_line).scroll((0, tab_scroll)), tabs_row);
+    }
 
     let query = modal.command_query();
     let input_line = Line::from(vec![
@@ -384,7 +438,7 @@ pub fn render_for_workspace(
     let active_id = chat.active_thread_id();
     let cursor = modal.picker_cursor();
     let list_h = list_row.height as usize;
-    let inner_w = inner.width as usize;
+    let inner_w = list_row.width as usize;
 
     // Do not build metadata and formatted titles for every cached thread. The
     // picker can hold hundreds of summaries; only one viewport is rendered.

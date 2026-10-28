@@ -451,7 +451,7 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
                 session_limit: Number.isFinite(sessionLimit) ? Math.min(100, Math.max(1, Math.trunc(sessionLimit))) : 25,
                 session_offset: Number.isFinite(sessionOffset) ? Math.max(0, Math.trunc(sessionOffset)) : 0,
                 sessions_only: sessionsOnly === true,
-            }, 'statistics-response');
+            }, 'statistics-response', 60000);
         } catch (err) {
             logToFile('warn', 'agent-get-statistics failed', { error: err?.message ?? String(err), window });
             return null;

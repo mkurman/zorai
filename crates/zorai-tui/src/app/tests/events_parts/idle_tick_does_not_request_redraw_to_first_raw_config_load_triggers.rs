@@ -66,16 +66,26 @@ pub(super) fn idle_tick_does_not_request_redraw() {
 }
 
 #[test]
-pub(super) fn activity_state_does_not_force_spinner_repaints() {
+pub(super) fn activity_spinner_repaints_at_half_tick_rate() {
     let (mut model, _daemon_rx) = make_model_with_daemon_rx();
     model.connected = true;
     model.agent_config_loaded = true;
+    model.next_system_monitor_tick = u64::MAX;
     model.agent_activity = Some("Thinking".to_string());
 
+    assert!(model.wants_fast_tick());
+    let redraws = (0..8).filter(|_| model.on_tick()).count();
+    assert_eq!(
+        redraws, 4,
+        "a quiet tool wait has no daemon events, so the spinner must repaint on its own, but only every other tick"
+    );
+
+    model.agent_activity = None;
+    model.on_tick();
     assert!(!model.wants_fast_tick());
     assert!(
         !model.on_tick_elapsed(20),
-        "unchanged activity state must wait for an event-driven redraw"
+        "without visible activity the TUI must stay on the idle cadence"
     );
 }
 

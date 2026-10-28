@@ -83,6 +83,8 @@ export type BuiltinAgentProviderId =
   | "openai"
   | "xai"
   | "muse"
+  | "kojo"
+  | "liquid"
   | "elevenlabs"
   | "azure-openai"
   | "github-copilot"
@@ -124,6 +126,8 @@ export const AGENT_PROVIDER_IDS: BuiltinAgentProviderId[] = [
   "openai",
   "xai",
   "muse",
+  "kojo",
+  "liquid",
   "elevenlabs",
   "azure-openai",
   "github-copilot",

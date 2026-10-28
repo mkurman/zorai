@@ -82,6 +82,8 @@ export function AgentTab({
         { id: "openai", label: "OpenAI / ChatGPT" },
         { id: "xai", label: "xAI" },
         { id: "muse", label: "Muse" },
+        { id: "kojo", label: "Kojo" },
+        { id: "liquid", label: "Liquid" },
         { id: "azure-openai", label: "Azure OpenAI" },
         { id: "github-copilot", label: "GitHub Copilot" },
         { id: "qwen", label: "Qwen" },

@@ -311,7 +311,7 @@ pub(crate) fn render_compact(
     if msg.role == MessageRole::Tool {
         if let Some(name) = &msg.tool_name {
             let status = msg.tool_status.as_deref().unwrap_or("done");
-            let (status_text, status_style) = format_tool_status(status, theme);
+            let (status_text, status_style) = format_compact_tool_status(status, theme);
             let is_expanded = expanded_tools.contains(&msg_index);
             let tool_icon = tool_icon_for(name, msg.tool_arguments.as_deref());
             let mut header_spans = vec![
@@ -319,12 +319,16 @@ pub(crate) fn render_compact(
                 Span::raw(" "),
                 Span::styled(tool_icon.marker, theme.accent_assistant),
                 Span::raw("  "),
-                Span::styled(name.clone(), theme.fg_dim),
+                Span::styled(compact_tool_display_name(name), theme.fg_active),
                 Span::raw(" "),
                 Span::styled(status_text, status_style),
             ];
 
-            if let Some(review) = msg.weles_review.as_ref() {
+            if let Some(review) = msg
+                .weles_review
+                .as_ref()
+                .filter(|review| matches!(review.verdict.as_str(), "block" | "flag_only"))
+            {
                 let (badge, badge_style) = format_weles_review_badge(review, theme);
                 header_spans.push(Span::raw(" "));
                 header_spans.push(Span::styled(badge, badge_style));
@@ -593,6 +597,31 @@ pub(crate) fn render_full(
         &full_tools,
         lines,
     );
+}
+
+pub(crate) fn format_compact_tool_status(
+    status: &str,
+    theme: &ThemeTokens,
+) -> (&'static str, Style) {
+    match status {
+        "completed" | "done" | "success" => ("\u{2713}", theme.accent_success),
+        "error" | "failed" => ("\u{2717}", theme.accent_danger),
+        _ => ("\u{25cf} running", theme.accent_secondary),
+    }
+}
+
+pub(crate) fn compact_tool_display_name(name: &str) -> String {
+    name.split('_')
+        .filter(|word| !word.is_empty())
+        .map(|word| {
+            let mut chars = word.chars();
+            match chars.next() {
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 pub(crate) fn format_tool_status(status: &str, theme: &ThemeTokens) -> (&'static str, Style) {

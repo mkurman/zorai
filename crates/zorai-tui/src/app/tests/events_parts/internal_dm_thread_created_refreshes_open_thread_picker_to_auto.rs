@@ -555,3 +555,64 @@ fn auto_compaction_workflow_notice_keeps_last_known_tokens_when_post_compaction_
         Some((thread_id, Some(101), Some(0))) if thread_id == "thread-compaction"
     ));
 }
+
+#[test]
+fn replayed_operator_question_after_each_thread_load_shows_once() {
+    let mut model = make_model();
+    let wire_thread = || crate::wire::AgentThread {
+        id: "thread-1".to_string(),
+        title: "Thread".to_string(),
+        total_message_count: 2,
+        loaded_message_start: 0,
+        loaded_message_end: 2,
+        messages: (0..2)
+            .map(|index| crate::wire::AgentMessage {
+                id: Some(format!("m{index}")),
+                role: crate::wire::MessageRole::Assistant,
+                content: format!("Answer {index}"),
+                timestamp: index as u64 + 1,
+                message_kind: "normal".to_string(),
+                ..Default::default()
+            })
+            .collect(),
+        created_at: 1,
+        updated_at: 1,
+        ..Default::default()
+    };
+    let question = || ClientEvent::OperatorQuestion {
+        question_id: "oq-1".to_string(),
+        content: "Which event?\nA - Meta\nB - other".to_string(),
+        options: vec!["A".to_string(), "B".to_string()],
+        session_id: None,
+        thread_id: Some("thread-1".to_string()),
+    };
+    model.chat.reduce(chat::ChatAction::ThreadCreated {
+        thread_id: "thread-1".to_string(),
+        title: "Thread".to_string(),
+    });
+    model
+        .chat
+        .reduce(chat::ChatAction::SelectThread("thread-1".to_string()));
+
+    for _ in 0..2 {
+        model.handle_client_event(ClientEvent::ThreadDetail(Some(wire_thread())));
+        model.handle_client_event(question());
+    }
+
+    let thread = model.chat.active_thread().expect("thread should exist");
+    let questions = thread
+        .messages
+        .iter()
+        .filter(|message| message.operator_question_id.as_deref() == Some("oq-1"))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        questions.len(),
+        1,
+        "the daemon replays unanswered questions on every thread load, so the TUI must dedupe them"
+    );
+    assert_eq!(
+        questions[0].actions.len(),
+        2,
+        "the replayed question must stay answerable"
+    );
+}

@@ -359,10 +359,13 @@ impl TuiModel {
             return;
         };
 
+        let chat_area = self.pane_layout().chat;
         let near_loaded_top = self
             .chat_scrollbar_layout()
             .map(|layout| layout.max_scroll.saturating_sub(layout.scroll) <= 3)
-            .unwrap_or_else(|| self.chat.scroll_offset() > 0);
+            .unwrap_or_else(|| {
+                self.chat.scroll_offset() > 0 || (chat_area.width > 0 && chat_area.height > 0)
+            });
         if !near_loaded_top {
             return;
         };
@@ -418,7 +421,14 @@ impl TuiModel {
         }
         if self.chat.active_thread().is_some_and(|thread| {
             thread.history_window_expanded && thread.collapse_deadline_tick.is_none()
-        }) {
+        }) && widgets::chat::latest_messages_overflow_viewport(
+            self.pane_layout().chat,
+            &self.chat,
+            &self.theme,
+            self.tick_counter,
+            self.retry_wait_start_selected,
+            self.chat.history_page_size(),
+        ) {
             self.chat.schedule_history_collapse(
                 self.tick_counter,
                 chat::CHAT_HISTORY_COLLAPSE_DELAY_TICKS,

@@ -78,6 +78,7 @@ pub(crate) async fn run_openai_chat_completions(
     let mut body =
         build_openai_chat_completions_body(provider, config, system_prompt, messages, tools)?;
     apply_openrouter_session_id(provider, opencode_session_id, &mut body);
+    apply_kojo_prompt_cache_key(provider, opencode_session_id, &mut body);
 
     let req = apply_xai_conv_id_header(
         apply_openrouter_session_header(
@@ -245,6 +246,25 @@ pub(crate) fn apply_xai_conv_id_header(
     req.header("x-grok-conv-id", session_id)
 }
 
+pub(crate) fn apply_kojo_prompt_cache_key(
+    provider: &str,
+    session_id: Option<&str>,
+    body: &mut serde_json::Value,
+) {
+    if provider != zorai_shared::providers::PROVIDER_ID_KOJO {
+        return;
+    }
+    let Some(session_id) = normalized_openrouter_session_id(session_id) else {
+        return;
+    };
+    if let Some(object) = body.as_object_mut() {
+        object.insert(
+            "prompt_cache_key".to_string(),
+            serde_json::Value::String(session_id),
+        );
+    }
+}
+
 pub(crate) fn build_openai_chat_completions_body(
     provider: &str,
     config: &ProviderConfig,
@@ -339,11 +359,13 @@ fn behaves_as_deepseek_for_reasoning(provider: &str, model: &str) -> bool {
 
 fn chat_completions_replays_tool_reasoning_content(provider: &str, model: &str) -> bool {
     provider == zorai_shared::providers::PROVIDER_ID_OPENROUTER
+        || provider == zorai_shared::providers::PROVIDER_ID_KOJO
         || behaves_as_deepseek_for_reasoning(provider, model)
 }
 
 fn chat_completions_replays_non_tool_reasoning_content(provider: &str) -> bool {
     provider == zorai_shared::providers::PROVIDER_ID_OPENROUTER
+        || provider == zorai_shared::providers::PROVIDER_ID_KOJO
 }
 
 fn chat_completions_replays_non_tool_reasoning_content_after_tool_call(

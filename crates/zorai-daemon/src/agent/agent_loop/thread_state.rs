@@ -84,6 +84,9 @@ impl AgentEngine {
             thread.updated_at = now_millis();
         }
         drop(threads);
+        if let Err(error) = self.history.clear_thread_response_ids(thread_id).await {
+            tracing::warn!(thread_id = %thread_id, %error, "failed to clear persisted response ids");
+        }
         self.persist_thread_by_id(thread_id).await;
     }
 

@@ -31,7 +31,7 @@ fn create_file_tool_row_uses_filename_when_path_is_missing() {
         .expect("tool row should be rendered");
     let text = rendered_line_plain_text(tool_line);
 
-    assert!(text.contains("create_file"));
+    assert!(text.contains("Create File"));
     assert!(
         text.contains("[types.rs]"),
         "expected filename chip, got: {text}"
@@ -73,7 +73,7 @@ fn apply_file_patch_tool_row_uses_filename_chip() {
         .expect("tool row should be rendered");
     let text = rendered_line_plain_text(tool_line);
 
-    assert!(text.contains("apply_file_patch"));
+    assert!(text.contains("Apply File Patch"));
     assert!(text.contains("[demo.txt]"));
     assert!(!text.contains("[/tmp/demo.txt]"));
 }
@@ -98,7 +98,7 @@ fn invalid_tool_arguments_do_not_create_file_chip() {
         .expect("tool row should be rendered");
     let text = rendered_line_plain_text(tool_line);
 
-    assert!(text.contains("read_file"));
+    assert!(text.contains("Read File"));
     assert!(!text.contains("[/tmp/demo.txt]"));
 }
 

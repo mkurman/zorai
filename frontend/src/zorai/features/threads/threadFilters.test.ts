@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AgentThread, SubAgentDefinition } from "@/lib/agentStore";
-import { buildThreadFilterTabs, daemonAgentFilterForThreadTab, DEFAULT_THREAD_DATE_FILTER, filterThreads, mergeLocalDraftThreads, normalizeEpochMs, overlayStoreThreadTitles, resolveThreadCreationAgent, resolveThreadListSource } from "./threadFilterModel";
+import { buildThreadFilterTabs, daemonAgentFilterForThreadTab, DEFAULT_THREAD_DATE_FILTER, filterThreads, mergeLocalDraftThreads, normalizeEpochMs, overlayStoreThreadTitles, resolveThreadCreationAgent, resolveThreadListSource, threadDeletionTarget } from "./threadFilterModel";
 
 function thread(overrides: Partial<AgentThread>): AgentThread {
   return {
@@ -330,3 +330,34 @@ describe("thread filters", () => {
   });
 });
 
+
+describe("threadDeletionTarget", () => {
+  it("deletes daemon-filtered rows on the daemon even though the store never saw their local id", () => {
+    const listed = thread({ id: "local-from-filter-fetch", daemonThreadId: "fork-thread-1" });
+
+    expect(threadDeletionTarget(listed, [thread({ id: "other", daemonThreadId: "other" })])).toEqual({
+      storeThreadId: null,
+      daemonThreadId: "fork-thread-1",
+    });
+  });
+
+  it("routes through the store thread with the same daemon id so the daemon delete is sent once", () => {
+    const listed = thread({ id: "local-from-filter-fetch", daemonThreadId: "fork-thread-1" });
+    const stored = thread({ id: "local-in-store", daemonThreadId: "fork-thread-1" });
+
+    expect(threadDeletionTarget(listed, [stored])).toEqual({
+      storeThreadId: "local-in-store",
+      daemonThreadId: null,
+    });
+  });
+
+  it("still deletes on the daemon when the matching store row has no daemon id", () => {
+    const listed = thread({ id: "draft", daemonThreadId: "fork-thread-1" });
+    const stored = thread({ id: "draft", daemonThreadId: null });
+
+    expect(threadDeletionTarget(listed, [stored])).toEqual({
+      storeThreadId: "draft",
+      daemonThreadId: "fork-thread-1",
+    });
+  });
+});

@@ -113,6 +113,8 @@ export interface AgentSettings {
   gemini: AgentProviderConfig;
   xai: AgentProviderConfig;
   muse: AgentProviderConfig;
+  kojo: AgentProviderConfig;
+  liquid: AgentProviderConfig;
   "azure-openai": AgentProviderConfig;
   "github-copilot": AgentProviderConfig;
   "hermes-agent-api": AgentProviderConfig;
@@ -274,6 +276,8 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   gemini: { base_url: "https://generativelanguage.googleapis.com/v1beta", model: "gemini-3.8-flash", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "chat_completions", auth_source: "api_key", context_window_tokens: null },
   xai: { base_url: "https://api.x.ai/v1", model: "grok-4.7", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "responses", auth_source: "api_key", context_window_tokens: null },
   muse: { base_url: "https://api.meta.ai/v1", model: "muse-spark-1.3", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "responses", auth_source: "api_key", context_window_tokens: null },
+  kojo: { base_url: "https://api.kojo.sh/v1", model: "kojo", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "chat_completions", auth_source: "api_key", context_window_tokens: null },
+  liquid: { base_url: "https://api.liquid.ai/openai/v1", model: "lfm3-1.7b", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "chat_completions", auth_source: "api_key", context_window_tokens: null },
   "azure-openai": { base_url: "https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1", model: "", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "responses", auth_source: "api_key", context_window_tokens: null },
   "github-copilot": { base_url: "https://api.githubcopilot.com", model: "gpt-5.4", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "responses", auth_source: "github_copilot", context_window_tokens: null },
   "hermes-agent-api": { base_url: "http://localhost:8642/v1", model: "hermes-agent", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "chat_completions", auth_source: "api_key", context_window_tokens: null },
@@ -844,6 +848,8 @@ export function normalizeAgentSettingsFromSource(source: DiskAgentSettings): Age
     gemini: providerConfigFromRaw("gemini", source),
     xai: providerConfigFromRaw("xai", source),
     muse: providerConfigFromRaw("muse", source),
+    kojo: providerConfigFromRaw("kojo", source),
+    liquid: providerConfigFromRaw("liquid", source),
     "azure-openai": providerConfigFromRaw("azure-openai", source),
     "github-copilot": providerConfigFromRaw("github-copilot", source),
     "hermes-agent-api": providerConfigFromRaw("hermes-agent-api", source),

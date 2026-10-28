@@ -209,6 +209,16 @@ pub(crate) async fn dispatch_part4(
                         .await?;
                 }
             }
+            for event in agent
+                .pending_operator_question_events_for_thread(&thread_id)
+                .await
+            {
+                if let Some((json, _)) = cap_agent_event_for_ipc(&event) {
+                    framed
+                        .send(DaemonMessage::AgentEvent { event_json: json })
+                        .await?;
+                }
+            }
         }
 
         ClientMessage::AgentDeleteThread { thread_id } => {

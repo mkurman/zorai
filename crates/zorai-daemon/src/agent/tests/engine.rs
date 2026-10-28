@@ -1353,6 +1353,57 @@ async fn ask_operator_question_waits_for_selected_answer_and_broadcasts_events()
 }
 
 #[tokio::test]
+async fn pending_operator_question_is_replayable_for_clients_that_subscribe_late() {
+    let (engine, _temp_dir) = make_test_engine(AgentConfig::default()).await;
+    let mut events = engine.event_tx.subscribe();
+
+    let engine_for_task = engine.clone();
+    let pending = tokio::spawn(async move {
+        engine_for_task
+            .ask_operator_question(
+                "Pick one:\nA. Alpha\nB. Beta",
+                vec!["A".to_string(), "B".to_string()],
+                None,
+                Some("thread-1".to_string()),
+            )
+            .await
+    });
+    let question_id = match events.recv().await.expect("question event") {
+        AgentEvent::OperatorQuestion { question_id, .. } => question_id,
+        other => panic!("expected operator question event, got {other:?}"),
+    };
+
+    let replay = engine
+        .pending_operator_question_events_for_thread("thread-1")
+        .await;
+    assert!(
+        matches!(
+            replay.as_slice(),
+            [AgentEvent::OperatorQuestion { question_id: replayed, options, .. }]
+                if *replayed == question_id && options.len() == 2
+        ),
+        "a client that opens the thread after the broadcast never saw the question and must be able to answer it: {replay:?}"
+    );
+    assert!(engine
+        .pending_operator_question_events_for_thread("thread-2")
+        .await
+        .is_empty());
+
+    engine
+        .answer_operator_question(&question_id, "A")
+        .await
+        .expect("answer should resolve pending question");
+    let _ = pending.await;
+    assert!(
+        engine
+            .pending_operator_question_events_for_thread("thread-1")
+            .await
+            .is_empty(),
+        "answered questions must not be replayed"
+    );
+}
+
+#[tokio::test]
 async fn ask_operator_question_rejects_non_compact_button_tokens() {
     let (engine, _temp_dir) = make_test_engine(AgentConfig::default()).await;
 

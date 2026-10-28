@@ -64,6 +64,25 @@ impl AgentEngine {
             .collect()
     }
 
+    pub(crate) async fn pending_operator_question_events_for_thread(
+        &self,
+        thread_id: &str,
+    ) -> Vec<AgentEvent> {
+        self.pending_operator_questions
+            .lock()
+            .await
+            .values()
+            .filter(|state| state.question.thread_id.as_deref() == Some(thread_id))
+            .map(|state| AgentEvent::OperatorQuestion {
+                question_id: state.question.question_id.clone(),
+                content: state.question.content.clone(),
+                options: state.question.options.clone(),
+                session_id: state.question.session_id.clone(),
+                thread_id: state.question.thread_id.clone(),
+            })
+            .collect()
+    }
+
     pub async fn ask_operator_question(
         &self,
         content: &str,

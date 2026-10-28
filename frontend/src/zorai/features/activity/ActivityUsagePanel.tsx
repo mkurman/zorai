@@ -69,6 +69,7 @@ export function UsagePanel({ stats }: { stats: UsageStats }) {
       const incoming = (result ?? null) as ZoraiAgentStatisticsSnapshot | null;
       if (!incoming) {
         setSnapshot(null);
+        setError("Daemon statistics are unavailable (request failed or timed out).");
         return;
       }
       setSnapshot((current) => {

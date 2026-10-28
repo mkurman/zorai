@@ -280,7 +280,7 @@ fn tool_message_shows_action_icon() {
     assert_eq!(lines.len(), 1);
     let plain = plain_lines(&lines).join("");
     assert!(
-        plain.contains("web"),
+        plain.contains("Web Search"),
         "expected action-specific web icon label, got: {plain}"
     );
 }

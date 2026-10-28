@@ -9,8 +9,8 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use tempfile::tempdir;
 use zorai_shared::providers::{
-    PROVIDER_ID_GITHUB_COPILOT, PROVIDER_ID_KIMI_CODING_PLAN, PROVIDER_ID_OPENAI,
-    PROVIDER_ID_OPENCODE_GO, PROVIDER_ID_OPENROUTER, PROVIDER_ID_XAI,
+    PROVIDER_ID_GITHUB_COPILOT, PROVIDER_ID_KIMI_CODING_PLAN, PROVIDER_ID_KOJO, PROVIDER_ID_LIQUID,
+    PROVIDER_ID_OPENAI, PROVIDER_ID_OPENCODE_GO, PROVIDER_ID_OPENROUTER, PROVIDER_ID_XAI,
 };
 
 #[test]
@@ -578,6 +578,98 @@ fn openrouter_chat_request_pins_prompt_cache_to_the_thread_session() {
             .and_then(|value| value.to_str().ok()),
         Some("thread-1")
     );
+}
+
+#[test]
+fn liquid_chat_request_omits_top_p() {
+    let mut config = responses_test_config(
+        "https://api.liquid.ai/openai/v1".to_string(),
+        AuthSource::ApiKey,
+    );
+    config.model = "lfm3-1.7b".to_string();
+    config.top_p = Some(0.9);
+    let body = build_openai_chat_completions_body(
+        PROVIDER_ID_LIQUID,
+        &config,
+        "system prompt",
+        &[ApiMessage {
+            role: "user".to_string(),
+            content: ApiContent::Text("Hello".to_string()),
+            reasoning: None,
+            tool_call_id: None,
+            name: None,
+            tool_calls: None,
+        }],
+        &[],
+    )
+    .expect("body should build");
+
+    assert_eq!(body["model"], "lfm3-1.7b");
+    assert!(
+        body.get("top_p").is_none(),
+        "Liquid chat completions reject top_p with HTTP 400"
+    );
+}
+
+#[test]
+fn kojo_chat_request_keeps_reasoning_and_pins_the_prompt_cache() {
+    let mut config =
+        responses_test_config("https://api.kojo.sh/v1".to_string(), AuthSource::ApiKey);
+    config.model = "kojo".to_string();
+    let body = build_openai_chat_completions_body(
+        PROVIDER_ID_KOJO,
+        &config,
+        "system prompt",
+        &[
+            ApiMessage {
+                role: "assistant".to_string(),
+                content: ApiContent::Text("The date is Tuesday.".to_string()),
+                reasoning: Some("Check the calendar first.".to_string()),
+                tool_call_id: None,
+                name: None,
+                tool_calls: None,
+            },
+            ApiMessage {
+                role: "assistant".to_string(),
+                content: ApiContent::Text(String::new()),
+                reasoning: Some("Need the date before calling weather.".to_string()),
+                tool_call_id: None,
+                name: None,
+                tool_calls: Some(vec![ApiToolCall {
+                    id: "call_1".to_string(),
+                    call_type: "function".to_string(),
+                    function: ApiToolCallFunction {
+                        name: "get_date".to_string(),
+                        arguments: "{}".to_string(),
+                    },
+                }]),
+            },
+        ],
+        &[],
+    )
+    .expect("body should build");
+
+    assert_eq!(
+        body["messages"][1]["reasoning_content"], "Check the calendar first.",
+        "Kojo prefix caching needs the prior answer's reasoning_content left intact"
+    );
+    assert_eq!(
+        body["messages"][2]["reasoning_content"],
+        "Need the date before calling weather."
+    );
+    assert!(body.get("prompt_cache_key").is_none());
+
+    let mut pinned = body;
+    apply_kojo_prompt_cache_key(PROVIDER_ID_KOJO, Some("thread-1"), &mut pinned);
+    assert_eq!(
+        pinned["prompt_cache_key"].as_str(),
+        Some("thread-1"),
+        "the same thread id keeps later Kojo turns on one prompt cache"
+    );
+
+    let mut other = serde_json::json!({});
+    apply_kojo_prompt_cache_key(PROVIDER_ID_OPENAI, Some("thread-1"), &mut other);
+    assert!(other.get("prompt_cache_key").is_none());
 }
 
 #[test]

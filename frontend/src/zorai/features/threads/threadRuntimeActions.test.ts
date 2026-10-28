@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAgentStore, type AgentThread } from "@/lib/agentStore";
 import { clearThreadRuntimeOverlay } from "@/lib/agentStore/threadProfileMerge";
-import { applyThreadProviderModel } from "./threadRuntimeActions";
+import { applyThreadProviderModel, threadProviderIds } from "./threadRuntimeActions";
 
 const agentGetThreadExecutionProfile = vi.fn();
 const agentSetThreadExecutionProfile = vi.fn();
@@ -135,5 +135,18 @@ describe("thread runtime actions", () => {
       profileProvider: "openrouter",
       profileModel: "model-thread-a",
     });
+  });
+});
+
+describe("threadProviderIds", () => {
+  it("keeps a thread's custom-catalog provider selectable when it has no settings entry", () => {
+    const ids = threadProviderIds("kojo-internal");
+    expect(ids[0]).toBe("kojo-internal");
+    expect(ids.filter((id) => id === "kojo-internal")).toHaveLength(1);
+  });
+
+  it("does not duplicate a provider that already has settings", () => {
+    const [configured] = threadProviderIds();
+    expect(threadProviderIds(configured).filter((id) => id === configured)).toHaveLength(1);
   });
 });

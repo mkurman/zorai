@@ -625,6 +625,11 @@ impl<'a> SendMessageRunner<'a> {
                                 }
                             }
                             if let Some(structured) = structured_failure.as_ref() {
+                                if prepared_request.previous_response_id.is_some() {
+                                    self.attempted_recovery_signatures.remove(
+                                        crate::agent::agent_loop::recovery::MISSING_PREVIOUS_RESPONSE_SIGNATURE,
+                                    );
+                                }
                                 let recovery = self
                                     .engine
                                     .maybe_recover_fixable_upstream_failure(

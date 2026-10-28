@@ -13,6 +13,24 @@ const MESSAGE_PADDING_Y: usize = 1;
 const TOGGLE_BUTTON_HIT_WIDTH: usize = 2;
 const SCROLLBAR_WIDTH: u16 = 1;
 
+fn message_padding_y(
+    msg: &crate::state::chat::AgentMessage,
+    mode: crate::state::chat::TranscriptMode,
+) -> usize {
+    if mode == crate::state::chat::TranscriptMode::Compact
+        && msg.role == crate::state::chat::MessageRole::Tool
+        && msg.tool_name.is_some()
+    {
+        0
+    } else {
+        MESSAGE_PADDING_Y
+    }
+}
+
+fn message_margin_y(msg: &crate::state::chat::AgentMessage) -> usize {
+    usize::from(msg.role == crate::state::chat::MessageRole::User)
+}
+
 #[cfg(test)]
 thread_local! {
     static BUILD_RENDERED_LINES_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };

@@ -191,11 +191,7 @@ fn animated_placeholder(tick: u64) -> String {
         "Ask me to explain any code file",
     ];
     let placeholder = placeholders[((tick / 80) as usize) % placeholders.len()];
-    let ticks_in_cycle = (tick % 80) as usize;
-    let chars_to_show =
-        (ticks_in_cycle * placeholder.chars().count() / 40).min(placeholder.chars().count());
-    let visible: String = placeholder.chars().take(chars_to_show).collect();
-    format!("▶ {}", visible)
+    format!("▶ {}", placeholder)
 }
 
 fn input_placeholder(

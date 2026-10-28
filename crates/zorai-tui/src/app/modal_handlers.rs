@@ -1874,6 +1874,7 @@ impl TuiModel {
             {
                 let tab = self.modal.thread_picker_tab();
                 self.refresh_threads_for_picker_tab(&tab);
+                self.send_daemon_command(DaemonCommand::ListSubAgents);
                 self.status_line = "Refreshing threads…".to_string();
             }
             KeyCode::Delete if kind == modal::ModalKind::ThreadPicker => {

@@ -366,7 +366,7 @@ const ThreadReasoningChrome = memo(function ThreadReasoningChrome({
 
   return (
     <>
-      <ThoughtMark active={streaming} />
+      <span className="zorai-message__reasoning-mark"><ThoughtMark active={streaming} /></span>
       <span className={streaming ? "zorai-message__reasoning-label zorai-message__reasoning-label--streaming" : "zorai-message__reasoning-label"}>
         Thought for {durationText || "a moment"}
         {streaming ? (

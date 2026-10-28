@@ -115,6 +115,40 @@ pub const MULTIMODAL: &[Modality] = &[
     Modality::Audio,
 ];
 
+pub const LIQUID_MODELS: &[ModelDefinition] = &[
+    ModelDefinition {
+        id: "lfm3-1.7b",
+        name: "LFM3 1.7B",
+        context_window: 262_144,
+        modalities: TEXT_ONLY,
+    },
+    ModelDefinition {
+        id: "lfm3-vl-2b",
+        name: "LFM3 VL 2B",
+        context_window: 32_768,
+        modalities: TEXT_IMAGE,
+    },
+    ModelDefinition {
+        id: "lfm3-audio-2b",
+        name: "LFM3 Audio 2B",
+        context_window: 32_768,
+        modalities: TEXT_AUDIO,
+    },
+    ModelDefinition {
+        id: "lfm3-omni-2b",
+        name: "LFM3 Omni 2B",
+        context_window: 32_768,
+        modalities: TEXT_IMAGE_AUDIO,
+    },
+];
+
+pub const KOJO_MODELS: &[ModelDefinition] = &[ModelDefinition {
+    id: "kojo",
+    name: "Kojo",
+    context_window: 1_000_000,
+    modalities: TEXT_IMAGE,
+}];
+
 pub const MUSE_MODELS: &[ModelDefinition] = &[
     ModelDefinition {
         id: "muse-spark-1.3",
