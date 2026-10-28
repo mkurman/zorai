@@ -19,8 +19,8 @@ export function ThreadRuntimeBar({ thread }: { thread: AgentThread }) {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const pendingApplyRef = useRef<(() => Promise<void>) | null>(null);
-  const providers = useMemo(() => threadProviderIds(), [agentSettings]);
   const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig);
+  const providers = useMemo(() => threadProviderIds(profile.provider), [agentSettings, profile.provider]);
   const ownerId = profile.ownerId;
   const providerId = (profile.provider || providers[0] || "") as AgentProviderId;
   const providerConfig = agentSettings[providerId] as {

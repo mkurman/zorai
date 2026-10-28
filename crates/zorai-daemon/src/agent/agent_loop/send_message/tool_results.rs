@@ -592,6 +592,7 @@ impl<'a> SendMessageRunner<'a> {
                 });
             }
         }
+        self.engine.persist_thread_by_id(&self.tid).await;
         self.emit_context_window_update_for_current_thread().await;
 
         let current_tokens = {

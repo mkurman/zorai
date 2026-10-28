@@ -77,7 +77,7 @@ export const conciergeReasoningEffortOptions: Array<{ value: AgentSettings["reas
   { value: "xhigh", label: "xhigh" },
   { value: "max", label: "max" },
 ];
-const APP_VERSION = "1.0.20";
+const APP_VERSION = "1.0.21";
 const APP_AUTHOR = "Mariusz Kurman";
 const APP_GITHUB = "mkurman/zorai";
 const APP_HOMEPAGE = "zorai.app";
@@ -369,36 +369,61 @@ function AuthPanel() {
         <RefreshButton label="Refresh auth status" onClick={() => void refreshAuth()} />
         {authStates.length > 0 ? <input className="zorai-input" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search providers" aria-label="Search providers" /> : null}
         {authStates.length > 0 && visibleAuthStates.length === 0 ? <p className="zorai-empty-state">No providers match "{query.trim()}".</p> : null}
-        {authStates.length === 0 ? <p className="zorai-empty-state">No provider auth status has been reported by the daemon yet.</p> : visibleAuthStates.map((state) => {
-          const providerValidation = validationResult[state.provider_id];
-          const isTestingProvider = providerValidation?.state === "testing";
-
-          const usesCursorSubscription = state.provider_id === "cursor";
-          const usesLocalCliAuth = state.provider_id === "claude-code-cli" || usesCursorSubscription;
-
+        {authStates.length === 0 ? <p className="zorai-empty-state">No provider auth status has been reported by the daemon yet.</p> : (
+          <p className="zorai-auth-summary">{authStates.filter((state) => state.authenticated).length} of {authStates.length} providers connected</p>
+        )}
+        {([["Connected", true], ["Not connected", false]] as const).map(([groupLabel, connected]) => {
+          const groupStates = visibleAuthStates.filter((state) => state.authenticated === connected);
+          if (groupStates.length === 0) return null;
           return (
-            <div key={`${state.provider_id}-${state.auth_source}`} className="zorai-setting-row">
-              <div><strong>{state.authenticated ? "●" : "○"} {state.provider_name}</strong><span>{state.model ? `${state.model} / ` : ""}{state.auth_source}</span>{providerValidation ? <span>{providerValidation.message}</span> : null}</div>
-              <div className="zorai-card-actions">
-                {usesCursorSubscription && !state.authenticated ? (
-                  <button type="button" className="zorai-ghost-button" onClick={() => void loginProvider(state.provider_id, "", state.base_url)}>Subscription</button>
-                ) : null}
-                {usesLocalCliAuth ? null : (
-                  <button type="button" className="zorai-ghost-button" onClick={() => {
-                    setLoginTarget(loginTarget === state.provider_id ? null : state.provider_id);
-                    setLoginKey("");
-                  }}>API Key</button>
-                )}
-                {state.authenticated ? <button type="button" className="zorai-ghost-button" onClick={() => void logoutProvider(state.provider_id)}>Logout</button> : null}
-                <button type="button" className="zorai-ghost-button" disabled={isTestingProvider} onClick={() => void runTest(state.provider_id, state.base_url, state.auth_source)}>{getProviderValidationButtonLabel(validationResult, state.provider_id)}</button>
-              </div>
-              {!usesLocalCliAuth && loginTarget === state.provider_id ? (
-                <div className="zorai-setting-row">
-                  <div><strong>API Key</strong><span>Stored by the daemon provider auth store.</span></div>
-                  <input className="zorai-input" type="password" value={loginKey} onChange={(event) => setLoginKey(event.target.value)} />
-                  <button type="button" className="zorai-primary-button" disabled={!loginKey.trim()} onClick={() => void loginProvider(state.provider_id, loginKey, state.base_url).then(() => { setLoginKey(""); setLoginTarget(null); })}>Save</button>
-                </div>
-              ) : null}
+            <div key={groupLabel} className="zorai-auth-group">
+              <div className="zorai-auth-group__label">{groupLabel} · {groupStates.length}</div>
+              {groupStates.map((state) => {
+                const providerValidation = validationResult[state.provider_id];
+                const isTestingProvider = providerValidation?.state === "testing";
+
+                const usesCursorSubscription = state.provider_id === "cursor";
+                const usesLocalCliAuth = state.provider_id === "claude-code-cli" || usesCursorSubscription;
+                const editingKey = !usesLocalCliAuth && loginTarget === state.provider_id;
+                const saveKey = () => {
+                  if (!loginKey.trim()) return;
+                  void loginProvider(state.provider_id, loginKey, state.base_url).then(() => { setLoginKey(""); setLoginTarget(null); });
+                };
+
+                return (
+                  <div key={`${state.provider_id}-${state.auth_source}`} className={["zorai-auth-row", state.authenticated ? "zorai-auth-row--connected" : ""].filter(Boolean).join(" ")}>
+                    <span className="zorai-auth-row__dot" aria-hidden="true" />
+                    <div className="zorai-auth-row__main">
+                      <strong>{state.provider_name}</strong>
+                      <span>{state.model ? `${state.model} · ` : ""}{state.auth_source}</span>
+                    </div>
+                    {providerValidation && providerValidation.state !== "testing" ? (
+                      <span className={`zorai-auth-row__result zorai-auth-row__result--${providerValidation.state}`} title={providerValidation.message}>{providerValidation.state === "success" ? "Test passed" : providerValidation.message}</span>
+                    ) : null}
+                    <div className="zorai-auth-row__actions">
+                      {usesCursorSubscription && !state.authenticated ? (
+                        <button type="button" className="zorai-ghost-button" onClick={() => void loginProvider(state.provider_id, "", state.base_url)}>Subscription</button>
+                      ) : null}
+                      {usesLocalCliAuth ? null : (
+                        <button type="button" className={["zorai-ghost-button", editingKey ? "zorai-button--active" : ""].filter(Boolean).join(" ")} onClick={() => {
+                          setLoginTarget(editingKey ? null : state.provider_id);
+                          setLoginKey("");
+                        }}>{state.authenticated ? "Replace key" : "Add key"}</button>
+                      )}
+                      <button type="button" className="zorai-ghost-button" disabled={isTestingProvider} onClick={() => void runTest(state.provider_id, state.base_url, state.auth_source)}>{getProviderValidationButtonLabel(validationResult, state.provider_id)}</button>
+                      {state.authenticated ? <button type="button" className="zorai-ghost-button zorai-auth-row__logout" onClick={() => void logoutProvider(state.provider_id)}>Logout</button> : null}
+                    </div>
+                    {editingKey ? (
+                      <form className="zorai-auth-row__editor" onSubmit={(event) => { event.preventDefault(); saveKey(); }}>
+                        <input className="zorai-input" type="password" autoFocus value={loginKey} onChange={(event) => setLoginKey(event.target.value)} placeholder={`${state.provider_name} API key`} aria-label={`${state.provider_name} API key`} />
+                        <button type="submit" className="zorai-primary-button" disabled={!loginKey.trim()}>Save</button>
+                        <button type="button" className="zorai-ghost-button" onClick={() => { setLoginKey(""); setLoginTarget(null); }}>Cancel</button>
+                        <span>Stored by the daemon provider auth store.</span>
+                      </form>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
           );
         })}

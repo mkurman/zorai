@@ -252,7 +252,48 @@ impl WorkspaceThreadIndex {
     }
 }
 
-pub(super) fn thread_picker_layout(inner: Rect) -> [Rect; 5] {
+pub(super) const THREAD_PICKER_SIDEBAR_WIDTH: u16 = 24;
+pub(super) const THREAD_PICKER_SIDEBAR_MIN_INNER_WIDTH: u16 = 76;
+
+pub(super) struct ThreadPickerLayout {
+    pub(super) sidebar: Option<Rect>,
+    pub(super) divider: Option<Rect>,
+    pub(super) tabs: Option<Rect>,
+    pub(super) search: Rect,
+    pub(super) separator: Rect,
+    pub(super) list: Rect,
+    pub(super) hints: Rect,
+}
+
+pub(super) fn thread_picker_layout(inner: Rect) -> ThreadPickerLayout {
+    if inner.width >= THREAD_PICKER_SIDEBAR_MIN_INNER_WIDTH {
+        let columns = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Length(THREAD_PICKER_SIDEBAR_WIDTH),
+                Constraint::Length(1),
+                Constraint::Min(1),
+            ])
+            .split(inner);
+        let right = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Min(1),
+                Constraint::Length(1),
+            ])
+            .split(columns[2]);
+        return ThreadPickerLayout {
+            sidebar: Some(columns[0]),
+            divider: Some(columns[1]),
+            tabs: None,
+            search: right[0],
+            separator: right[1],
+            list: right[2],
+            hints: right[3],
+        };
+    }
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -263,7 +304,75 @@ pub(super) fn thread_picker_layout(inner: Rect) -> [Rect; 5] {
             Constraint::Length(1),
         ])
         .split(inner);
-    [chunks[0], chunks[1], chunks[2], chunks[3], chunks[4]]
+    ThreadPickerLayout {
+        sidebar: None,
+        divider: None,
+        tabs: Some(chunks[0]),
+        search: chunks[1],
+        separator: chunks[2],
+        list: chunks[3],
+        hints: chunks[4],
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum ThreadPickerSidebarRow {
+    Blank,
+    Group(&'static str),
+    Tab(ThreadPickerTab, String),
+}
+
+fn sidebar_group(tab: &ThreadPickerTab) -> &'static str {
+    match tab {
+        ThreadPickerTab::Swarog | ThreadPickerTab::Rarog | ThreadPickerTab::Weles => "AGENTS",
+        ThreadPickerTab::Agent(_) => "SUB-AGENTS",
+        ThreadPickerTab::Goals
+        | ThreadPickerTab::Workspace
+        | ThreadPickerTab::Playgrounds
+        | ThreadPickerTab::Internal
+        | ThreadPickerTab::Gateway => "SOURCES",
+    }
+}
+
+pub(super) fn sidebar_rows(specs: Vec<ThreadPickerTabSpec>) -> Vec<ThreadPickerSidebarRow> {
+    let mut rows = Vec::new();
+    let mut current_group = None;
+    for spec in specs {
+        let group = sidebar_group(&spec.tab);
+        if current_group != Some(group) {
+            if current_group.is_some() {
+                rows.push(ThreadPickerSidebarRow::Blank);
+            }
+            rows.push(ThreadPickerSidebarRow::Group(group));
+            current_group = Some(group);
+        }
+        let label = spec
+            .label
+            .strip_prefix('[')
+            .and_then(|label| label.strip_suffix(']'))
+            .unwrap_or(&spec.label)
+            .to_string();
+        rows.push(ThreadPickerSidebarRow::Tab(spec.tab, label));
+    }
+    rows
+}
+
+pub(super) fn sidebar_scroll(
+    height: u16,
+    rows: &[ThreadPickerSidebarRow],
+    selected: &ThreadPickerTab,
+) -> usize {
+    let height = height as usize;
+    if height == 0 || rows.len() <= height {
+        return 0;
+    }
+    let selected_row = rows
+        .iter()
+        .position(|row| matches!(row, ThreadPickerSidebarRow::Tab(tab, _) if tab == selected))
+        .unwrap_or(0);
+    selected_row
+        .saturating_sub(height.saturating_sub(1))
+        .min(rows.len() - height)
 }
 
 pub(super) fn fixed_tab_specs() -> Vec<ThreadPickerTabSpec> {

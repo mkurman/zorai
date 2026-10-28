@@ -132,6 +132,35 @@ pub(crate) fn scrollbar_layout(
     scrollbar_layout_from_metrics(area, metrics.total_lines, scroll)
 }
 
+pub(crate) fn latest_messages_overflow_viewport(
+    area: Rect,
+    chat: &ChatState,
+    theme: &ThemeTokens,
+    current_tick: u64,
+    retry_wait_start_selected: bool,
+    keep_messages: usize,
+) -> bool {
+    if area.width <= SCROLLBAR_WIDTH || area.height == 0 {
+        return true;
+    }
+
+    let metrics = build_transcript_metrics(
+        chat,
+        theme,
+        area.width as usize,
+        current_tick,
+        retry_wait_start_selected,
+    );
+    let kept_start = metrics
+        .message_line_ranges
+        .len()
+        .checked_sub(keep_messages)
+        .and_then(|index| metrics.message_line_ranges.get(index))
+        .map_or(0, |(start, _)| *start);
+
+    metrics.total_lines.saturating_sub(kept_start) > area.height as usize
+}
+
 pub(crate) fn scrollbar_layout_from_cached_snapshot(
     snapshot: &CachedSelectionSnapshot,
     chat: &ChatState,

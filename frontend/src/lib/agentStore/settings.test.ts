@@ -6,6 +6,22 @@ import {
   normalizeAgentSettingsFromSource,
 } from "./settings";
 
+test("Liquid defaults use the OpenAI-compatible chat API", () => {
+  expect(DEFAULT_AGENT_SETTINGS.liquid).toMatchObject({
+    base_url: "https://api.liquid.ai/openai/v1",
+    model: "lfm3-1.7b",
+    api_transport: "chat_completions",
+  });
+});
+
+test("Kojo defaults use the chat completions API", () => {
+  expect(DEFAULT_AGENT_SETTINGS.kojo).toMatchObject({
+    base_url: "https://api.kojo.sh/v1",
+    model: "kojo",
+    api_transport: "chat_completions",
+  });
+});
+
 test("Muse defaults use Model API settings", () => {
   expect(DEFAULT_AGENT_SETTINGS.muse).toMatchObject({
     base_url: "https://api.meta.ai/v1",

@@ -924,6 +924,125 @@ fn locally_deleted_thread_reload_required_does_not_reload_from_db() {
 }
 
 #[test]
+fn short_loaded_thread_with_older_history_requests_older_page_without_scrolling() {
+    let (_daemon_tx, daemon_rx) = mpsc::channel();
+    let (cmd_tx, mut cmd_rx) = unbounded_channel();
+    let mut model = TuiModel::new(daemon_rx, cmd_tx);
+    model.width = 120;
+    model.height = 60;
+    model
+        .chat
+        .reduce(chat::ChatAction::ThreadDetailReceived(chat::AgentThread {
+            id: "thread-1".to_string(),
+            title: "Thread".to_string(),
+            total_message_count: 2,
+            loaded_message_start: 1,
+            loaded_message_end: 2,
+            messages: vec![chat::AgentMessage {
+                id: Some("m1".to_string()),
+                role: chat::MessageRole::Assistant,
+                content: "Latest visible".to_string(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }));
+    model
+        .chat
+        .reduce(chat::ChatAction::SelectThread("thread-1".to_string()));
+
+    model.on_tick();
+    match cmd_rx
+        .try_recv()
+        .expect("a loaded tail that leaves the chat half empty cannot be scrolled, so older history must load on its own")
+    {
+        DaemonCommand::RequestThread {
+            thread_id,
+            message_offset,
+            ..
+        } => {
+            assert_eq!(thread_id, "thread-1");
+            assert_eq!(message_offset, Some(1));
+        }
+        other => panic!("expected older history request, got {other:?}"),
+    }
+}
+
+fn expanded_thread_model(lines_per_message: usize) -> TuiModel {
+    let (_daemon_tx, daemon_rx) = mpsc::channel();
+    let (cmd_tx, _cmd_rx) = unbounded_channel();
+    let mut model = TuiModel::new(daemon_rx, cmd_tx);
+    model.width = 120;
+    model.height = 60;
+    model
+        .chat
+        .reduce(chat::ChatAction::ThreadDetailReceived(chat::AgentThread {
+            id: "thread-1".to_string(),
+            title: "Thread".to_string(),
+            total_message_count: 6,
+            loaded_message_start: 0,
+            loaded_message_end: 6,
+            messages: (0..6)
+                .map(|index| chat::AgentMessage {
+                    id: Some(format!("m{index}")),
+                    role: chat::MessageRole::Assistant,
+                    content: vec![format!("Answer {index}"); lines_per_message].join("\n\n"),
+                    ..Default::default()
+                })
+                .collect(),
+            ..Default::default()
+        }));
+    model
+        .chat
+        .reduce(chat::ChatAction::SelectThread("thread-1".to_string()));
+    model
+        .chat
+        .active_thread_mut()
+        .expect("thread selected")
+        .history_window_expanded = true;
+    model.chat.set_history_page_size(2);
+    assert_eq!(
+        model
+            .chat
+            .active_thread()
+            .map(|thread| thread.messages.len()),
+        Some(6)
+    );
+    model
+}
+
+#[test]
+fn expanded_history_stays_loaded_when_latest_page_would_not_fill_chat() {
+    let mut model = expanded_thread_model(1);
+
+    model.maybe_schedule_chat_history_collapse();
+
+    assert_eq!(
+        model
+            .chat
+            .active_thread()
+            .and_then(|thread| thread.collapse_deadline_tick),
+        None,
+        "collapsing to a tail that fits on screen would immediately re-request the same older page"
+    );
+}
+
+#[test]
+fn expanded_history_collapses_when_latest_page_still_fills_chat() {
+    let mut model = expanded_thread_model(40);
+
+    model.maybe_schedule_chat_history_collapse();
+
+    assert!(
+        model
+            .chat
+            .active_thread()
+            .and_then(|thread| thread.collapse_deadline_tick)
+            .is_some(),
+        "a tail that still overflows the chat should keep the bounded-memory collapse"
+    );
+}
+
+#[test]
 fn scrolling_after_delete_backfill_uses_advanced_older_cursor() {
     let (_daemon_tx, daemon_rx) = mpsc::channel();
     let (cmd_tx, mut cmd_rx) = unbounded_channel();

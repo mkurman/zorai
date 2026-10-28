@@ -29,13 +29,31 @@ pub fn hit_test_for_workspace(
     if inner.height < 5 {
         return None;
     }
-    let [tabs_row, _, _, list_row, _] = thread_picker_layout(inner);
+    let layout = thread_picker_layout(inner);
+    let list_row = layout.list;
     let goal_index = GoalThreadIndex::from_tasks(tasks);
     let workspace_index = WorkspaceThreadIndex::from_workspace(workspace, tasks);
+    let selected_tab = modal.thread_picker_tab();
 
-    if tabs_row.contains(mouse) {
+    if let Some(sidebar) = layout.sidebar.filter(|sidebar| sidebar.contains(mouse)) {
+        let rows = sidebar_rows(tab_specs_inner(
+            chat,
+            subagents,
+            Some(&goal_index),
+            Some(&workspace_index),
+        ));
+        let row = mouse.y.saturating_sub(sidebar.y) as usize
+            + sidebar_scroll(sidebar.height, &rows, &selected_tab);
+        return match rows.get(row) {
+            Some(ThreadPickerSidebarRow::Tab(tab, _)) => {
+                Some(ThreadPickerHitTarget::Tab(tab.clone()))
+            }
+            _ => None,
+        };
+    }
+
+    if let Some(tabs_row) = layout.tabs.filter(|tabs_row| tabs_row.contains(mouse)) {
         let tab_cells = tab_cells_inner(chat, subagents, Some(&goal_index), Some(&workspace_index));
-        let selected_tab = modal.thread_picker_tab();
         let tab_scroll = tab_scroll_offset(tabs_row.width, &tab_cells, &selected_tab);
         for (tab, rect, _) in visible_tab_cells(tabs_row, &tab_cells, tab_scroll) {
             if rect.contains(mouse) {

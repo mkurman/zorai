@@ -28,14 +28,15 @@ export function clampContextWindowTokens(tokens: number): number {
   return Math.min(MAX_CONTEXT_WINDOW_TOKENS, Math.max(MIN_CONTEXT_WINDOW_TOKENS, Math.trunc(tokens)));
 }
 
-export function threadProviderIds(): string[] {
+export function threadProviderIds(currentProvider?: string): string[] {
   const settings = useAgentStore.getState().agentSettings;
-  return Object.keys(settings)
+  const ids = Object.keys(settings)
     .filter((key) => {
       const value = settings[key];
       return value && typeof value === "object" && "model" in value && "base_url" in value;
     })
     .sort();
+  return currentProvider && !ids.includes(currentProvider) ? [currentProvider, ...ids] : ids;
 }
 
 export function modelForThreadProviderChange(providerId: string, fallbackModel: string): string {

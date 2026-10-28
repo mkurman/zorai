@@ -1388,6 +1388,17 @@ impl HistoryStore {
         Ok(())
     }
 
+    pub async fn clear_thread_response_ids(&self, thread_id: &str) -> Result<()> {
+        let thread_id_owned = thread_id.to_string();
+        self.conn_db
+            .execute(
+                "UPDATE agent_messages SET metadata_json = json_remove(metadata_json, '$.response_id') WHERE thread_id = ?1 AND json_valid(metadata_json) AND json_extract(metadata_json, '$.response_id') IS NOT NULL",
+                db::db_params![thread_id_owned],
+            )
+            .await?;
+        Ok(())
+    }
+
     pub async fn update_thread_metadata_json(
         &self,
         id: &str,

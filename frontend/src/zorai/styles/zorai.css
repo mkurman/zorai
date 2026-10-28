@@ -1337,7 +1337,7 @@
   user-select: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   color: var(--zorai-muted);
   font-size: var(--text-sm);
   padding: 0;
@@ -1396,6 +1396,15 @@
   .zorai-message__reasoning-shine {
     display: none;
   }
+}
+
+.zorai-message__reasoning-mark {
+  display: inline-flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  width: 1ch;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm-plus);
 }
 
 .zorai-thought-mark {

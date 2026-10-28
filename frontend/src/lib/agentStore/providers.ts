@@ -65,6 +65,17 @@ const OPENAI_CHATGPT_SUBSCRIPTION_MODELS: ModelDefinition[] = [
   { id: "gpt-5.1-codex-mini", name: "GPT-5.1 Codex Mini", contextWindow: 400_000, modalities: M_TI },
 ];
 
+const KOJO_MODELS: ModelDefinition[] = [
+  { id: "kojo", name: "Kojo", contextWindow: 1_000_000, modalities: M_TI },
+];
+
+const LIQUID_MODELS: ModelDefinition[] = [
+  { id: "lfm3-1.7b", name: "LFM3 1.7B", contextWindow: 262_144 },
+  { id: "lfm3-vl-2b", name: "LFM3 VL 2B", contextWindow: 32_768, modalities: M_TI },
+  { id: "lfm3-audio-2b", name: "LFM3 Audio 2B", contextWindow: 32_768, modalities: M_TA },
+  { id: "lfm3-omni-2b", name: "LFM3 Omni 2B", contextWindow: 32_768, modalities: ["text", "image", "audio"] },
+];
+
 const MUSE_MODELS: ModelDefinition[] = [
   { id: "muse-spark-1.3", name: "Muse Spark 1.3", contextWindow: 1_048_576, modalities: M_MULTI },
   { id: "muse-wonder-1.0", name: "Muse Wonder 1.0", contextWindow: 1_048_576, modalities: M_MULTI },
@@ -480,6 +491,8 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
   { id: "gemini", name: "Gemini", defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta", defaultModel: "gemini-3.8-flash", apiType: "gemini", authMethod: "x-goog-api-key", models: GEMINI_MODELS, supportsModelFetch: false, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
   { id: "xai", name: "xAI", defaultBaseUrl: "https://api.x.ai/v1", defaultModel: "grok-4.7", apiType: "openai", authMethod: "bearer", models: XAI_MODELS, supportsModelFetch: true, supportedTransports: RESPONSES_AND_CHAT_TRANSPORTS, defaultTransport: "responses", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
   { id: "muse", name: "Muse", defaultBaseUrl: "https://api.meta.ai/v1", defaultModel: "muse-spark-1.3", apiType: "openai", authMethod: "bearer", models: MUSE_MODELS, supportsModelFetch: true, supportedTransports: RESPONSES_AND_CHAT_TRANSPORTS, defaultTransport: "responses", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
+  { id: "kojo", name: "Kojo", defaultBaseUrl: "https://api.kojo.sh/v1", defaultModel: "kojo", apiType: "openai", authMethod: "bearer", models: KOJO_MODELS, supportsModelFetch: true, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: false },
+  { id: "liquid", name: "Liquid", defaultBaseUrl: "https://api.liquid.ai/openai/v1", defaultModel: "lfm3-1.7b", apiType: "openai", authMethod: "bearer", models: LIQUID_MODELS, supportsModelFetch: true, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: false },
   { id: "elevenlabs", name: "ElevenLabs", defaultBaseUrl: "https://api.elevenlabs.io", defaultModel: "scribe_v2", apiType: "openai", authMethod: "xi-api-key", models: ELEVENLABS_MODELS, supportsModelFetch: false, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: false },
   { id: "azure-openai", name: "Azure OpenAI", defaultBaseUrl: "https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1", defaultModel: "", apiType: "openai", authMethod: "bearer", models: EMPTY_MODELS, supportsModelFetch: true, supportedTransports: RESPONSES_AND_CHAT_TRANSPORTS, defaultTransport: "responses", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
   { id: "github-copilot", name: "GitHub Copilot", defaultBaseUrl: "https://api.githubcopilot.com", defaultModel: "gpt-5.4", apiType: "openai", authMethod: "bearer", models: GITHUB_COPILOT_MODELS, supportsModelFetch: true, supportedTransports: RESPONSES_CHAT_AND_ANTHROPIC_TRANSPORTS, defaultTransport: "responses", supportedAuthSources: GITHUB_COPILOT_AUTH_SOURCES, defaultAuthSource: "github_copilot", supportsResponseContinuity: true },

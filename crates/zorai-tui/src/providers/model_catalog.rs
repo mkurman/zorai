@@ -137,6 +137,13 @@ pub(super) fn known_models_for_provider_auth(
             ("grok-4", "Grok 4", 256_000),
             ("grok-code-fast-1", "Grok Code Fast 1", 256_000),
         ],
+        PROVIDER_ID_KOJO => &[("kojo", "Kojo", 1_000_000)],
+        PROVIDER_ID_LIQUID => &[
+            ("lfm3-1.7b", "LFM3 1.7B", 262_144),
+            ("lfm3-vl-2b", "LFM3 VL 2B", 32_768),
+            ("lfm3-audio-2b", "LFM3 Audio 2B", 32_768),
+            ("lfm3-omni-2b", "LFM3 Omni 2B", 32_768),
+        ],
         PROVIDER_ID_MUSE => &[
             ("muse-spark-1.3", "Muse Spark 1.3", 1_048_576),
             ("muse-wonder-1.0", "Muse Wonder 1.0", 1_048_576),

@@ -3,15 +3,15 @@ use crate::providers::context::is_known_default_url;
 use zorai_shared::providers::{
     MINIMAX_PROVIDER, PROVIDER_ID_ALIBABA_CODING_PLAN, PROVIDER_ID_ANTHROPIC, PROVIDER_ID_ARCEE,
     PROVIDER_ID_CHUTES, PROVIDER_ID_DEEPSEEK, PROVIDER_ID_ELEVENLABS, PROVIDER_ID_GITHUB_COPILOT,
-    PROVIDER_ID_HERMES_AGENT_API, PROVIDER_ID_KIMI, PROVIDER_ID_KIMI_CODING_PLAN,
-    PROVIDER_ID_MINIMAX_CODING_PLAN, PROVIDER_ID_MUSE, PROVIDER_ID_NVIDIA, PROVIDER_ID_OPENAI,
-    PROVIDER_ID_POOLSIDE, PROVIDER_ID_XAI, PROVIDER_ID_Z_AI, PROVIDER_ID_Z_AI_CODING_PLAN,
-    QWEN_PROVIDER,
+    PROVIDER_ID_HERMES_AGENT_API, PROVIDER_ID_KIMI, PROVIDER_ID_KIMI_CODING_PLAN, PROVIDER_ID_KOJO,
+    PROVIDER_ID_LIQUID, PROVIDER_ID_MINIMAX_CODING_PLAN, PROVIDER_ID_MUSE, PROVIDER_ID_NVIDIA,
+    PROVIDER_ID_OPENAI, PROVIDER_ID_POOLSIDE, PROVIDER_ID_XAI, PROVIDER_ID_Z_AI,
+    PROVIDER_ID_Z_AI_CODING_PLAN, QWEN_PROVIDER,
 };
 
 #[test]
 fn provider_count_matches_builtin_catalog() {
-    assert_eq!(PROVIDERS.len(), 36);
+    assert_eq!(PROVIDERS.len(), 38);
 }
 
 #[test]
@@ -170,6 +170,49 @@ fn xai_static_catalog_uses_current_grok_defaults() {
     assert!(models.iter().any(|model| model.id == "grok-4"));
     assert!(models.iter().any(|model| model.id == "grok-build-0.1"));
     assert!(models.iter().any(|model| model.id == "grok-code-fast-1"));
+}
+
+#[test]
+fn liquid_static_catalog_uses_openai_chat_defaults() {
+    let provider = find_by_id(PROVIDER_ID_LIQUID).unwrap();
+    assert_eq!(provider.name, "Liquid");
+    assert_eq!(provider.default_base_url, "https://api.liquid.ai/openai/v1");
+    assert_eq!(provider.default_model, "lfm3-1.7b");
+    assert_eq!(provider.default_transport, "chat_completions");
+    assert_eq!(
+        default_model_for_provider_auth(PROVIDER_ID_LIQUID, "api_key"),
+        "lfm3-1.7b"
+    );
+    let models = known_models_for_provider(PROVIDER_ID_LIQUID);
+    assert_eq!(
+        models.first().map(|model| model.id.as_str()),
+        Some("lfm3-1.7b")
+    );
+    assert_eq!(
+        known_context_window_for(PROVIDER_ID_LIQUID, "lfm3-1.7b"),
+        Some(262_144)
+    );
+    assert!(models.iter().any(|model| model.id == "lfm3-audio-2b"));
+    assert!(models.iter().any(|model| model.id == "lfm3-omni-2b"));
+}
+
+#[test]
+fn kojo_static_catalog_uses_chat_completions_defaults() {
+    let provider = find_by_id(PROVIDER_ID_KOJO).unwrap();
+    assert_eq!(provider.name, "Kojo");
+    assert_eq!(provider.default_base_url, "https://api.kojo.sh/v1");
+    assert_eq!(provider.default_model, "kojo");
+    assert_eq!(provider.default_transport, "chat_completions");
+    assert_eq!(
+        default_model_for_provider_auth(PROVIDER_ID_KOJO, "api_key"),
+        "kojo"
+    );
+    let models = known_models_for_provider(PROVIDER_ID_KOJO);
+    assert_eq!(models.first().map(|model| model.id.as_str()), Some("kojo"));
+    assert_eq!(
+        known_context_window_for(PROVIDER_ID_KOJO, "kojo"),
+        Some(1_000_000)
+    );
 }
 
 #[test]

@@ -970,6 +970,10 @@ impl ChatState {
         self.bump_render_revision();
     }
 
+    pub fn history_page_size(&self) -> usize {
+        self.history_page_size
+    }
+
     pub fn active_thread_id(&self) -> Option<&str> {
         self.active_thread_id.as_deref()
     }

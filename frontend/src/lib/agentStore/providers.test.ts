@@ -146,6 +146,52 @@ describe("frontend Muse provider catalog", () => {
   });
 });
 
+describe("frontend Kojo provider catalog", () => {
+  it("registers Kojo with chat completions and a cached-prompt context window", () => {
+    const kojo = getProviderDefinition("kojo");
+
+    expect(kojo).toBeDefined();
+    expect(kojo?.defaultBaseUrl).toBe("https://api.kojo.sh/v1");
+    expect(kojo?.defaultModel).toBe("kojo");
+    expect(kojo?.models.map((model) => [model.id, model.contextWindow])).toEqual([
+      ["kojo", 1_000_000],
+    ]);
+    expect(kojo?.supportsModelFetch).toBe(true);
+    expect(kojo?.defaultTransport).toBe("chat_completions");
+    expect(kojo?.supportsResponseContinuity).toBe(false);
+  });
+
+  it("recognizes Kojo as a valid provider id", () => {
+    expect(normalizeAgentProviderId("kojo")).toBe("kojo");
+    expect(getDefaultModelForProvider("kojo")).toBe("kojo");
+  });
+});
+
+describe("frontend Liquid provider catalog", () => {
+  it("registers Liquid chat completions at the OpenAI-compatible base URL", () => {
+    const liquid = getProviderDefinition("liquid");
+
+    expect(liquid).toBeDefined();
+    expect(liquid?.defaultBaseUrl).toBe("https://api.liquid.ai/openai/v1");
+    expect(liquid?.defaultModel).toBe("lfm3-1.7b");
+    expect(liquid?.models.map((model) => model.id)).toEqual([
+      "lfm3-1.7b",
+      "lfm3-vl-2b",
+      "lfm3-audio-2b",
+      "lfm3-omni-2b",
+    ]);
+    expect(liquid?.models[0]?.contextWindow).toBe(262_144);
+    expect(liquid?.supportsModelFetch).toBe(true);
+    expect(liquid?.defaultTransport).toBe("chat_completions");
+    expect(liquid?.supportsResponseContinuity).toBe(false);
+  });
+
+  it("recognizes Liquid as a valid provider id", () => {
+    expect(normalizeAgentProviderId("liquid")).toBe("liquid");
+    expect(getDefaultModelForProvider("liquid")).toBe("lfm3-1.7b");
+  });
+});
+
 describe("frontend MiniMax provider catalog", () => {
   it("registers current MiniMax models with remote fetch support", () => {
     for (const providerId of ["minimax", "minimax-coding-plan"] as const) {

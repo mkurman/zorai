@@ -70,7 +70,14 @@ pub(crate) fn build_rendered_lines(
             }
 
             let block_style = message_block_style(msg, theme);
-            for _ in 0..MESSAGE_PADDING_Y {
+            for _ in 0..message_margin_y(msg) {
+                all_lines.push(RenderedChatLine {
+                    line: blank_message_line(inner_width, Style::default()),
+                    message_index: Some(idx),
+                    kind: RenderedLineKind::Padding,
+                });
+            }
+            for _ in 0..message_padding_y(msg, mode) {
                 all_lines.push(RenderedChatLine {
                     line: blank_message_line(inner_width, block_style),
                     message_index: Some(idx),
@@ -118,13 +125,20 @@ pub(crate) fn build_rendered_lines(
                     kind: RenderedLineKind::Padding,
                 });
             } else {
-                for _ in 0..MESSAGE_PADDING_Y {
+                for _ in 0..message_padding_y(msg, mode) {
                     all_lines.push(RenderedChatLine {
                         line: blank_message_line(inner_width, block_style),
                         message_index: Some(idx),
                         kind: RenderedLineKind::Padding,
                     });
                 }
+            }
+            for _ in 0..message_margin_y(msg) {
+                all_lines.push(RenderedChatLine {
+                    line: blank_message_line(inner_width, Style::default()),
+                    message_index: Some(idx),
+                    kind: RenderedLineKind::Padding,
+                });
             }
             let end = all_lines.len();
             message_line_ranges.push((start, end));
@@ -371,11 +385,18 @@ pub(crate) fn estimated_message_block_line_count(
         return 0;
     }
 
-    MESSAGE_PADDING_Y
+    let inline_action_lines = selected_inline_action_line_count(chat, msg, msg_index);
+    let trailing_lines = if inline_action_lines > 0 {
+        inline_action_lines.saturating_add(1)
+    } else {
+        message_padding_y(msg, mode)
+    };
+    message_margin_y(msg)
+        .saturating_mul(2)
+        .saturating_add(message_padding_y(msg, mode))
         .saturating_add(usize::from(has_responder_label))
         .saturating_add(message_lines)
-        .saturating_add(MESSAGE_PADDING_Y)
-        .saturating_add(selected_inline_action_line_count(chat, msg, msg_index))
+        .saturating_add(trailing_lines)
 }
 
 pub(crate) fn selected_message_shows_inline_actions(
@@ -776,7 +797,14 @@ pub(crate) fn render_message_block_lines(
     }
 
     let block_style = message_block_style(msg, theme);
-    for _ in 0..MESSAGE_PADDING_Y {
+    for _ in 0..message_margin_y(msg) {
+        block.push(RenderedChatLine {
+            line: blank_message_line(inner_width, Style::default()),
+            message_index: Some(msg_index),
+            kind: RenderedLineKind::Padding,
+        });
+    }
+    for _ in 0..message_padding_y(msg, mode) {
         block.push(RenderedChatLine {
             line: blank_message_line(inner_width, block_style),
             message_index: Some(msg_index),
@@ -824,13 +852,20 @@ pub(crate) fn render_message_block_lines(
             kind: RenderedLineKind::Padding,
         });
     } else {
-        for _ in 0..MESSAGE_PADDING_Y {
+        for _ in 0..message_padding_y(msg, mode) {
             block.push(RenderedChatLine {
                 line: blank_message_line(inner_width, block_style),
                 message_index: Some(msg_index),
                 kind: RenderedLineKind::Padding,
             });
         }
+    }
+    for _ in 0..message_margin_y(msg) {
+        block.push(RenderedChatLine {
+            line: blank_message_line(inner_width, Style::default()),
+            message_index: Some(msg_index),
+            kind: RenderedLineKind::Padding,
+        });
     }
 
     block

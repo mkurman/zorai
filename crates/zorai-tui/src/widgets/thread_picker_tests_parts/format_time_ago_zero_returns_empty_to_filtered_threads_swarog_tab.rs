@@ -496,7 +496,9 @@ fn thread_picker_hit_test_tracks_scrolled_tab_positions() {
         .borders(Borders::ALL)
         .border_type(BorderType::Double)
         .inner(area);
-    let [tabs_row, _, _, _, _] = thread_picker_layout(inner);
+    let tabs_row = thread_picker_layout(inner)
+        .tabs
+        .expect("narrow picker keeps the tab strip");
     let cells = tab_cells(&chat, &subagents);
     let scroll = tab_scroll_offset(tabs_row.width, &cells, &selected);
     let (_, selected_rect, _) = visible_tab_cells(tabs_row, &cells, scroll)
@@ -508,6 +510,76 @@ fn thread_picker_hit_test_tracks_scrolled_tab_positions() {
     let hit = hit_test(area, &chat, &modal, &subagents, mouse);
 
     assert_eq!(hit, Some(ThreadPickerHitTarget::Tab(selected)));
+}
+
+#[test]
+fn wide_thread_picker_sidebar_lists_every_subagent_that_the_tab_strip_would_scroll_away() {
+    let chat = make_chat(Vec::new());
+    let subagents = make_subagents(vec![
+        sample_subagent("claudus-maximus", "claudus-maximus", false),
+        sample_subagent("coder", "coder", false),
+        sample_subagent("dazhbog", "Dazhbog", false),
+        sample_subagent("deepseekorrr-baby", "Deepseekorrr-baby", false),
+        sample_subagent("kojo-test", "kojo-test", false),
+    ]);
+    let mut modal = ModalState::new();
+    modal.set_thread_picker_tab(ThreadPickerTab::Swarog);
+    let area = Rect::new(0, 0, 120, 40);
+    let inner = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Double)
+        .inner(area);
+    let sidebar = thread_picker_layout(inner)
+        .sidebar
+        .expect("wide picker uses the sidebar");
+    let rows = sidebar_rows(tab_specs(&chat, &subagents));
+
+    let kojo_row = rows
+        .iter()
+        .position(|row| {
+            matches!(row, ThreadPickerSidebarRow::Tab(ThreadPickerTab::Agent(id), label)
+                if id == "kojo-test" && label == "kojo-test")
+        })
+        .expect("kojo-test must have its own sidebar row");
+    assert!(kojo_row < sidebar.height as usize);
+    let groups = rows
+        .iter()
+        .filter_map(|row| match row {
+            ThreadPickerSidebarRow::Group(title) => Some(*title),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(groups, vec!["AGENTS", "SOURCES", "SUB-AGENTS"]);
+
+    let hit = hit_test(
+        area,
+        &chat,
+        &modal,
+        &subagents,
+        Position::new(sidebar.x + 4, sidebar.y + kojo_row as u16),
+    );
+    assert_eq!(
+        hit,
+        Some(ThreadPickerHitTarget::Tab(ThreadPickerTab::Agent(
+            "kojo-test".to_string()
+        )))
+    );
+}
+
+#[test]
+fn thread_picker_sidebar_order_matches_left_right_navigation_order() {
+    let chat = make_chat(Vec::new());
+    let subagents = make_subagents(vec![sample_subagent("coder", "coder", false)]);
+    let specs = tab_specs(&chat, &subagents);
+    let sidebar_tabs = sidebar_rows(specs.clone())
+        .into_iter()
+        .filter_map(|row| match row {
+            ThreadPickerSidebarRow::Tab(tab, _) => Some(tab),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let navigation_tabs = specs.into_iter().map(|spec| spec.tab).collect::<Vec<_>>();
+    assert_eq!(sidebar_tabs, navigation_tabs);
 }
 
 #[test]

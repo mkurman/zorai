@@ -821,3 +821,152 @@ fn render_draws_highlight_for_mouse_selection() {
         "mouse selection should paint a visible highlight in the buffer"
     );
 }
+
+fn compact_tool_run_messages() -> Vec<AgentMessage> {
+    let tool = |name: &str, status: &str| AgentMessage {
+        role: MessageRole::Tool,
+        tool_name: Some(name.into()),
+        tool_status: Some(status.into()),
+        content: "ok".into(),
+        ..Default::default()
+    };
+    vec![
+        AgentMessage {
+            role: MessageRole::Assistant,
+            content: "Working on it.".into(),
+            ..Default::default()
+        },
+        tool("python", "done"),
+        tool("bash_command", "done"),
+        tool("read_file", "error"),
+        AgentMessage {
+            role: MessageRole::Assistant,
+            content: "Done.".into(),
+            ..Default::default()
+        },
+    ]
+}
+
+#[test]
+fn consecutive_tool_rows_render_as_a_dense_list_without_blank_gaps() {
+    let chat = chat_with_messages(compact_tool_run_messages());
+
+    let (lines, ranges) = build_rendered_lines(&chat, &ThemeTokens::default(), 80, 0, false);
+
+    for index in 1..=3 {
+        let (start, end) = ranges[index];
+        assert_eq!(
+            end - start,
+            1,
+            "tool message {index} should be a single row"
+        );
+        assert!(matches!(lines[start].kind, RenderedLineKind::ToolToggle));
+    }
+    assert_eq!(ranges[1].1, ranges[2].0);
+    assert_eq!(ranges[2].1, ranges[3].0);
+    assert!(
+        matches!(lines[ranges[0].1 - 1].kind, RenderedLineKind::Padding),
+        "assistant text keeps its padding so the tool run stays visually separated"
+    );
+    assert!(matches!(lines[ranges[4].0].kind, RenderedLineKind::Padding));
+}
+
+#[test]
+fn dense_tool_rows_keep_transcript_metrics_in_sync_with_rendering() {
+    for selected in [None, Some(2usize)] {
+        let mut chat = chat_with_messages(compact_tool_run_messages());
+        chat.select_message(selected);
+
+        let (_, rendered) = build_rendered_lines(&chat, &ThemeTokens::default(), 80, 0, false);
+        let metrics = build_transcript_metrics(&chat, &ThemeTokens::default(), 80, 0, false);
+
+        assert_eq!(
+            metrics.message_line_ranges, rendered,
+            "scroll metrics must match rendered rows (selected: {selected:?})"
+        );
+    }
+}
+
+#[test]
+fn compact_tool_row_shows_status_icon_without_routine_review_noise() {
+    let review = |weles_reviewed: bool, verdict: &str| crate::state::chat::WelesReviewMetaVm {
+        weles_reviewed,
+        verdict: verdict.into(),
+        reasons: Vec::new(),
+        security_override_mode: None,
+        audit_id: None,
+    };
+    let mut flagged = compact_tool_run_messages()[1].clone();
+    flagged.weles_review = Some(review(true, "flag_only"));
+    let mut unreviewed = compact_tool_run_messages()[1].clone();
+    unreviewed.weles_review = Some(review(false, "allow"));
+    let chat = chat_with_messages(vec![unreviewed, flagged]);
+
+    let (lines, ranges) = build_rendered_lines(&chat, &ThemeTokens::default(), 80, 0, false);
+    let unreviewed_row = rendered_line_plain_text(&lines[ranges[0].0]);
+    let flagged_row = rendered_line_plain_text(&lines[ranges[1].0]);
+
+    assert!(
+        unreviewed_row.contains("Python \u{2713}"),
+        "got: {unreviewed_row}"
+    );
+    assert!(!unreviewed_row.contains("done"), "got: {unreviewed_row}");
+    assert!(
+        !unreviewed_row.contains("unreviewed"),
+        "got: {unreviewed_row}"
+    );
+    assert!(
+        flagged_row.contains("flagged"),
+        "flagged reviews must stay visible, got: {flagged_row}"
+    );
+}
+
+#[test]
+fn user_message_between_tool_rows_gets_unstyled_margins() {
+    let tool = |name: &str| AgentMessage {
+        role: MessageRole::Tool,
+        tool_name: Some(name.into()),
+        tool_status: Some("done".into()),
+        content: "ok".into(),
+        ..Default::default()
+    };
+    let messages = vec![
+        tool("retry_subagent"),
+        AgentMessage {
+            role: MessageRole::User,
+            content: "wait, I'm providing fix".into(),
+            ..Default::default()
+        },
+        tool("cancel_task"),
+    ];
+    let chat = chat_with_messages(messages);
+    let theme = ThemeTokens::default();
+
+    let (lines, ranges) = build_rendered_lines(&chat, &theme, 80, 0, false);
+    let (start, end) = ranges[1];
+    let background = |index: usize| {
+        lines[index]
+            .line
+            .spans
+            .first()
+            .and_then(|span| span.style.bg)
+    };
+
+    assert_eq!(ranges[0].1, start);
+    assert_eq!(ranges[2].0, end);
+    assert!(matches!(lines[start].kind, RenderedLineKind::Padding));
+    assert!(matches!(lines[end - 1].kind, RenderedLineKind::Padding));
+    assert_eq!(
+        (background(start), background(end - 1)),
+        (None, None),
+        "the user block must be separated from dense tool rows by plain rows, not by its own background"
+    );
+    assert_eq!(
+        background(start + 1),
+        message_block_style(&chat.active_thread().unwrap().messages[1], &theme).bg,
+        "the user block itself keeps its background padding"
+    );
+
+    let metrics = build_transcript_metrics(&chat, &theme, 80, 0, false);
+    assert_eq!(metrics.message_line_ranges, ranges);
+}

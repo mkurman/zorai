@@ -31,6 +31,19 @@ export function resolveThreadListSource<T>(
   return daemonFilteredThreads ?? fallbackThreads;
 }
 
+export function threadDeletionTarget(
+  thread: AgentThread,
+  storeThreads: AgentThread[],
+): { storeThreadId: string | null; daemonThreadId: string | null } {
+  const daemonThreadId = thread.daemonThreadId ?? null;
+  const storeThread = storeThreads.find((candidate) => candidate.id === thread.id
+    || (daemonThreadId !== null && candidate.daemonThreadId === daemonThreadId));
+  return {
+    storeThreadId: storeThread?.id ?? null,
+    daemonThreadId: storeThread?.daemonThreadId ? null : daemonThreadId,
+  };
+}
+
 export function mergeLocalDraftThreads(
   daemonThreads: AgentThread[],
   storeThreads: AgentThread[],
