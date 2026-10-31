@@ -299,6 +299,7 @@ pub struct ConfigState {
     pub tui_chat_history_page_size: u32,
     pub participant_observer_restore_window_hours: u32,
     pub max_tool_loops: u32,
+    pub max_subagent_budget_extensions: u32,
     pub max_retries: u32,
     pub auto_refresh_interval_secs: u32,
     pub retry_delay_ms: u32,

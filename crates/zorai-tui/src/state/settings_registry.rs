@@ -450,6 +450,7 @@ const EXECUTION_PAGE: SettingsPageSpec = SettingsPageSpec {
             "Tool loop",
             [
                 field!(Number, "max_tool_loops", "Max tool loops", c => c.max_tool_loops.to_string()),
+                field!(Number, "max_subagent_budget_extensions", "Subagent extensions", c => if c.max_subagent_budget_extensions == 0 { "unlimited".to_string() } else { c.max_subagent_budget_extensions.to_string() }),
                 field!(Number, "tool_call_delay_ms", "Tool call gap (ms)", c => c.tool_call_delay_ms.to_string()),
                 field!(Number, "message_loop_delay_ms", "Message loop (ms)", c => c.message_loop_delay_ms.to_string()),
             ]

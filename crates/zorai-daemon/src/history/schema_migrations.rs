@@ -1476,7 +1476,17 @@ pub(super) async fn apply_schema_migrations<E: super::db::DbExecutor + ?Sized>(
             created_at INTEGER NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_prompt_queue_thread_pos
-            ON thread_prompt_queue(thread_id, position, created_at);",
+            ON thread_prompt_queue(thread_id, position, created_at);
+
+        CREATE TABLE IF NOT EXISTS pending_operator_questions (
+            question_id TEXT PRIMARY KEY,
+            thread_id TEXT NOT NULL,
+            tool_call_id TEXT NOT NULL,
+            session_id TEXT,
+            content TEXT NOT NULL,
+            options_json TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        );",
     )
     .await?;
     ensure_agent_message_fts(&mut *exec).await?;

@@ -86,6 +86,23 @@ export function useDaemonPromptQueue(daemonThreadId: string | null | undefined) 
   const queuedMessages = usePromptQueueStore((state) => selectThreadPromptQueue(state, daemonThreadId));
   const [editingId, setEditingId] = useState<string | null>(null);
   const daemonEventRevisionRef = useRef(0);
+  const isEditing = editingId !== null;
+
+  useEffect(() => {
+    if (!daemonThreadId || !isEditing) return;
+    const bridge = getBridge();
+    if (!bridge?.agentSetPromptQueueHold) return;
+    const setHold = (held: boolean) => {
+      void bridge.agentSetPromptQueueHold?.({ threadId: daemonThreadId, held }).then((raw) => {
+        const parsed = readPromptQueueResponse(raw);
+        if (parsed.error) pushToast(parsed.error);
+      }).catch((error: unknown) => {
+        pushToast(error instanceof Error ? error.message : "Failed to update queued message hold.");
+      });
+    };
+    setHold(true);
+    return () => setHold(false);
+  }, [daemonThreadId, isEditing]);
 
   useEffect(() => {
     setEditingId(null);

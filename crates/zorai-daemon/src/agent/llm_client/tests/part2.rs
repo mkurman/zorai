@@ -1948,6 +1948,56 @@ async fn temporary_upstream_responses_503_is_classified_temporary_upstream() {
 }
 
 #[tokio::test]
+async fn durable_goal_requests_keep_retrying_when_openai_auth_backend_is_overloaded() {
+    let request_paths = Arc::new(Mutex::new(VecDeque::new()));
+    let chat_requests = Arc::new(AtomicUsize::new(0));
+    let base_url = spawn_responses_error_server(
+        "401 Unauthorized",
+        r#"{"error":{"message":"authentication failed (status=503): {\"error\":\"Too many concurrent requests\"}","type":"authentication_error","param":null,"code":null}}"#
+            .to_string(),
+        None,
+        request_paths,
+        chat_requests,
+    )
+    .await;
+
+    let mut stream = send_completion_request(
+        &reqwest::Client::new(),
+        "openai",
+        &responses_test_config(base_url, AuthSource::ApiKey),
+        "system",
+        &[ApiMessage {
+            role: "user".to_string(),
+            content: ApiContent::Text("hello".to_string()),
+            reasoning: None,
+            tool_call_id: None,
+            name: None,
+            tool_calls: None,
+        }],
+        &[],
+        ApiTransport::Responses,
+        None,
+        None,
+        RetryStrategy::DurableRateLimited,
+    );
+
+    let first = tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        futures::StreamExt::next(&mut stream),
+    )
+    .await
+    .expect("first chunk should arrive")
+    .expect("stream should yield a chunk")
+    .expect("chunk should be ok");
+    match first {
+        CompletionChunk::Retry { failure_class, .. } => assert_eq!(failure_class, "upstream"),
+        other => panic!(
+            "a goal run must wait out a temporary upstream outage instead of failing the step: {other:?}"
+        ),
+    }
+}
+
+#[tokio::test]
 async fn rate_limit_responses_429_uses_retry_after_delay_from_body() {
     let request_paths = Arc::new(Mutex::new(VecDeque::new()));
     let chat_requests = Arc::new(AtomicUsize::new(0));

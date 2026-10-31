@@ -465,3 +465,100 @@ async fn weles_runtime_ignores_forged_operator_marker_payload_and_keeps_suffix_o
     assert!(!request.contains("security_level: lowest"));
     assert!(!request.contains("forged-marker"));
 }
+
+#[tokio::test]
+async fn budget_exhausted_subagent_can_be_cancelled_to_free_its_slot_for_a_fresh_spawn() {
+    let root = tempdir().expect("tempdir should succeed");
+    let manager = SessionManager::new_test(root.path()).await;
+    let engine = AgentEngine::new_test(manager.clone(), AgentConfig::default(), root.path()).await;
+    let (event_tx, _) = broadcast::channel(8);
+    let parent_thread = "thread-parent-budget-slot";
+
+    engine
+        .set_sub_agent(SubAgentDefinition {
+            base_url: None,
+            claude_permission_mode: None,
+            id: "muse_contest".to_string(),
+            name: "muse-contest".to_string(),
+            provider: "openai".to_string(),
+            model: "gpt-5.4-mini".to_string(),
+            role: Some("builder".to_string()),
+            system_prompt: Some("Build the contest entry.".to_string()),
+            tool_whitelist: None,
+            tool_blacklist: None,
+            context_budget_tokens: None,
+            context_window_tokens: None,
+            max_duration_secs: None,
+            supervisor_config: None,
+            enabled: true,
+            builtin: false,
+            immutable_identity: false,
+            disable_allowed: true,
+            delete_allowed: true,
+            protected_reason: None,
+            reasoning_effort: None,
+            api_transport: None,
+            openrouter_provider_order: Vec::new(),
+            openrouter_provider_ignore: Vec::new(),
+            openrouter_allow_fallbacks: None,
+            huggingface_provider: None,
+            created_at: 1,
+        })
+        .await
+        .expect("subagent definition should persist for test");
+
+    let spawn_args = serde_json::json!({
+        "title": "muse-contest",
+        "description": "Finish the browser join flow."
+    });
+    let spawn = || {
+        super::execute_spawn_subagent(
+            &spawn_args,
+            &engine,
+            parent_thread,
+            None,
+            &manager,
+            None,
+            &event_tx,
+        )
+    };
+
+    let first = spawn().await.expect("first spawn should succeed");
+    let first_id = {
+        let mut tasks = engine.tasks.lock().await;
+        let task = tasks
+            .iter_mut()
+            .find(|task| task.sub_agent_def_id.as_deref() == Some("muse_contest"))
+            .unwrap_or_else(|| panic!("spawned task missing: {first}"));
+        task.status = TaskStatus::BudgetExceeded;
+        task.id.clone()
+    };
+
+    let blocked = spawn()
+        .await
+        .expect_err("an exhausted child still reserves its slot until it is cancelled");
+    assert!(
+        blocked.to_string().contains("already active"),
+        "unexpected error: {blocked}"
+    );
+
+    let cancelled = super::execute_cancel_task(
+        &serde_json::json!({ "task_id": first_id }),
+        &engine,
+        parent_thread,
+        None,
+    )
+    .await
+    .expect("cancel should run");
+    let cancelled: serde_json::Value =
+        serde_json::from_str(&cancelled).expect("cancel result should be json");
+    assert_eq!(
+        cancelled.get("cancelled").and_then(|value| value.as_bool()),
+        Some(true),
+        "the parent must be able to release an exhausted child: {cancelled}"
+    );
+
+    spawn()
+        .await
+        .expect("cancelling the exhausted child should let the same specialist spawn again");
+}

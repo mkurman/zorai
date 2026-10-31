@@ -587,6 +587,10 @@ pub(super) enum AgentBridgeCommand {
         thread_id: String,
         prompt_id: String,
     },
+    SetPromptQueueHold {
+        thread_id: String,
+        held: bool,
+    },
     GetThreadExecutionProfile {
         thread_id: String,
     },

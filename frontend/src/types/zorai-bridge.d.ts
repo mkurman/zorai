@@ -747,6 +747,10 @@ declare global {
             threadId: string;
             promptId: string;
         }) => Promise<{ thread_id?: string | null; prompts?: unknown[]; error?: string } | unknown>;
+        agentSetPromptQueueHold?: (payload: {
+            threadId: string;
+            held: boolean;
+        }) => Promise<{ thread_id?: string | null; prompts?: unknown[]; error?: string } | unknown>;
         agentInternalDelegate?: (threadId: string | null, targetAgentId: string, content: string, sessionId?: string | null) => Promise<{ ok?: boolean; error?: string } | unknown>;
         agentThreadParticipantCommand?: (payload: {
             threadId: string;

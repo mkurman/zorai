@@ -20,6 +20,10 @@ impl TuiModel {
             "max_tool_loops" => self
                 .settings
                 .start_editing("max_tool_loops", &self.config.max_tool_loops.to_string()),
+            "max_subagent_budget_extensions" => self.settings.start_editing(
+                "max_subagent_budget_extensions",
+                &self.config.max_subagent_budget_extensions.to_string(),
+            ),
             "max_retries" => self
                 .settings
                 .start_editing("max_retries", &self.config.max_retries.to_string()),

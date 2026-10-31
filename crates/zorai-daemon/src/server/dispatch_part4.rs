@@ -234,19 +234,20 @@ pub(crate) async fn dispatch_part4(
         }
 
         ClientMessage::DataQuery { request_json } => {
-            let response = match serde_json::from_str::<crate::data_query::DataQueryRequest>(
-                &request_json,
-            ) {
-                Ok(request) => crate::data_query::run_data_query(request).await,
-                Err(error) => crate::data_query::DataQueryResponse {
-                    request_id: serde_json::from_str::<serde_json::Value>(&request_json)
-                        .ok()
-                        .and_then(|value| value.get("request_id")?.as_str().map(str::to_string)),
-                    ok: false,
-                    error: Some(format!("invalid data query request: {error}")),
-                    ..Default::default()
-                },
-            };
+            let response =
+                match serde_json::from_str::<crate::data_query::DataQueryRequest>(&request_json) {
+                    Ok(request) => crate::data_query::run_data_query(request).await,
+                    Err(error) => crate::data_query::DataQueryResponse {
+                        request_id: serde_json::from_str::<serde_json::Value>(&request_json)
+                            .ok()
+                            .and_then(|value| {
+                                value.get("request_id")?.as_str().map(str::to_string)
+                            }),
+                        ok: false,
+                        error: Some(format!("invalid data query request: {error}")),
+                        ..Default::default()
+                    },
+                };
             let result_json = serde_json::to_string(&response).unwrap_or_default();
             framed
                 .send(DaemonMessage::DataQueryResult { result_json })
@@ -691,8 +692,9 @@ pub(crate) async fn dispatch_part4(
             context_json,
         } => {
             client_agent_threads.insert(thread_id.clone());
-            let parsed =
-                serde_json::from_str::<Option<crate::agent::types::ThreadWorkspaceContext>>(&context_json);
+            let parsed = serde_json::from_str::<Option<crate::agent::types::ThreadWorkspaceContext>>(
+                &context_json,
+            );
             match parsed {
                 Ok(context) => {
                     let updated = agent
@@ -991,7 +993,9 @@ pub(crate) async fn dispatch_part4(
         ClientMessage::AgentListGatewayChats => match agent.list_gateway_chats().await {
             Ok(chats) => {
                 let chats_json = serde_json::to_string(&chats).unwrap_or_else(|_| "[]".into());
-                framed.send(DaemonMessage::AgentGatewayChats { chats_json }).await?;
+                framed
+                    .send(DaemonMessage::AgentGatewayChats { chats_json })
+                    .await?;
             }
             Err(error) => {
                 framed
@@ -1003,7 +1007,10 @@ pub(crate) async fn dispatch_part4(
         },
 
         ClientMessage::AgentSearchThreads { query, limit } => {
-            match agent.search_threads(&query, limit.unwrap_or(50).min(200)).await {
+            match agent
+                .search_threads(&query, limit.unwrap_or(50).min(200))
+                .await
+            {
                 Ok(response) => {
                     let results_json = serde_json::to_string(&response)?;
                     framed
@@ -1030,7 +1037,9 @@ pub(crate) async fn dispatch_part4(
             match (linked, agent.list_gateway_chats().await) {
                 (Ok(()), Ok(chats)) => {
                     let chats_json = serde_json::to_string(&chats).unwrap_or_else(|_| "[]".into());
-                    framed.send(DaemonMessage::AgentGatewayChats { chats_json }).await?;
+                    framed
+                        .send(DaemonMessage::AgentGatewayChats { chats_json })
+                        .await?;
                 }
                 (Err(error), _) | (Ok(()), Err(error)) => {
                     framed

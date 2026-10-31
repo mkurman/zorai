@@ -37,6 +37,7 @@ pub(crate) struct CustomProviderClientMetadata {
     pub(crate) supported_auth_sources: &'static [AuthSource],
     pub(crate) default_auth_source: AuthSource,
     pub(crate) api_key: &'static str,
+    pub(crate) models_url: Option<&'static str>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -94,6 +95,8 @@ struct CustomProviderYaml {
     pub(crate) models: Vec<CustomModelYaml>,
     #[serde(default)]
     pub(crate) supports_model_fetch: bool,
+    #[serde(default, deserialize_with = "deserialize_optional_scalar_string")]
+    pub(crate) models_url: Option<String>,
     #[serde(default)]
     pub(crate) anthropic_base_url: Option<String>,
     #[serde(default)]
@@ -204,6 +207,17 @@ pub fn custom_provider_definitions() -> Vec<&'static ProviderDefinition> {
         .unwrap_or_else(|poisoned| poisoned.into_inner())
         .providers
         .clone()
+}
+
+pub fn custom_provider_models_url(id: &str) -> Option<String> {
+    custom_provider_catalog_cell()
+        .read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .client_metadata
+        .iter()
+        .find(|metadata| metadata.id == id)
+        .and_then(|metadata| metadata.models_url)
+        .map(str::to_string)
 }
 
 pub fn custom_provider_load_report() -> CustomProviderLoadReport {
@@ -324,6 +338,10 @@ fn hydrate_custom_provider(
     }
 
     let models = hydrate_custom_models(path, &id, provider.models, diagnostics)?;
+    let models_url = provider
+        .models_url
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
 
     let leaked_id = leak_str(id);
     let definition = leak_provider_definition(ProviderDefinition {
@@ -334,7 +352,7 @@ fn hydrate_custom_provider(
         api_type: provider.api_type.unwrap_or(ApiType::OpenAI),
         auth_method: provider.auth_method.unwrap_or(AuthMethod::Bearer),
         models,
-        supports_model_fetch: provider.supports_model_fetch,
+        supports_model_fetch: provider.supports_model_fetch || models_url.is_some(),
         anthropic_base_url: provider.anthropic_base_url.map(leak_str),
         supported_transports: leak_vec(supported_transports),
         default_transport,
@@ -353,6 +371,7 @@ fn hydrate_custom_provider(
             provider.api_key_env,
             diagnostics,
         )),
+        models_url: models_url.map(leak_str),
     };
 
     Some((definition, client_metadata))

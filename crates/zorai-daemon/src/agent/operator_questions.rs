@@ -6,6 +6,7 @@ use super::*;
 pub(super) struct PendingOperatorQuestionState {
     question: PendingOperatorQuestion,
     response_tx: Option<tokio::sync::oneshot::Sender<String>>,
+    tool_call_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -83,12 +84,51 @@ impl AgentEngine {
             .collect()
     }
 
+    pub(super) async fn restore_pending_operator_questions(&self) {
+        let persisted = match self.history.list_pending_operator_questions().await {
+            Ok(persisted) => persisted,
+            Err(error) => {
+                tracing::warn!("failed to load pending operator questions from sqlite: {error}");
+                return;
+            }
+        };
+        let mut pending_questions = self.pending_operator_questions.lock().await;
+        for persisted in persisted {
+            pending_questions.insert(
+                persisted.question_id.clone(),
+                PendingOperatorQuestionState {
+                    question: PendingOperatorQuestion {
+                        question_id: persisted.question_id,
+                        content: persisted.content,
+                        options: persisted.options,
+                        session_id: persisted.session_id,
+                        thread_id: Some(persisted.thread_id),
+                    },
+                    response_tx: None,
+                    tool_call_id: Some(persisted.tool_call_id),
+                },
+            );
+        }
+    }
+
     pub async fn ask_operator_question(
         &self,
         content: &str,
         options: Vec<String>,
         session_id: Option<String>,
         thread_id: Option<String>,
+    ) -> Result<(String, String)> {
+        self.ask_operator_question_for_tool_call(content, options, session_id, thread_id, None)
+            .await
+    }
+
+    pub(crate) async fn ask_operator_question_for_tool_call(
+        &self,
+        content: &str,
+        options: Vec<String>,
+        session_id: Option<String>,
+        thread_id: Option<String>,
+        tool_call_id: Option<String>,
     ) -> Result<(String, String)> {
         let content = validate_question_content(content)?;
         let options = validate_question_options(options)?;
@@ -111,8 +151,27 @@ impl AgentEngine {
             PendingOperatorQuestionState {
                 question: question.clone(),
                 response_tx: Some(response_tx),
+                tool_call_id: tool_call_id.clone(),
             },
         );
+        if let (Some(thread_id), Some(tool_call_id)) = (question.thread_id.clone(), tool_call_id) {
+            if let Err(error) = self
+                .history
+                .insert_pending_operator_question(
+                    &crate::history::operator_questions::PersistedOperatorQuestion {
+                        question_id: question_id.clone(),
+                        thread_id,
+                        tool_call_id,
+                        session_id: question.session_id.clone(),
+                        content: content.clone(),
+                        options: options.clone(),
+                    },
+                )
+                .await
+            {
+                tracing::warn!(question_id = %question_id, "failed to persist operator question: {error}");
+            }
+        }
 
         let _ = self.event_tx.send(AgentEvent::OperatorQuestion {
             question_id: question_id.clone(),
@@ -128,7 +187,11 @@ impl AgentEngine {
         Ok((question_id, answer))
     }
 
-    pub async fn answer_operator_question(&self, question_id: &str, answer: &str) -> Result<()> {
+    pub async fn answer_operator_question(
+        self: &Arc<Self>,
+        question_id: &str,
+        answer: &str,
+    ) -> Result<()> {
         let normalized_answer = answer.trim();
         if normalized_answer.is_empty() {
             anyhow::bail!("answer must not be empty");
@@ -136,30 +199,101 @@ impl AgentEngine {
 
         let pending = {
             let mut pending_questions = self.pending_operator_questions.lock().await;
-            let state = pending_questions
-                .get(question_id)
-                .ok_or_else(|| anyhow::anyhow!("unknown operator question: {question_id}"))?;
-            if !state
-                .question
-                .options
-                .iter()
-                .any(|option| option == normalized_answer)
-            {
-                anyhow::bail!("answer must match one of the advertised compact option tokens");
-            }
             pending_questions
                 .remove(question_id)
-                .expect("pending operator question should still exist")
+                .ok_or_else(|| anyhow::anyhow!("unknown operator question: {question_id}"))?
         };
 
-        if let Some(response_tx) = pending.response_tx {
-            let _ = response_tx.send(normalized_answer.to_string());
+        if let Err(error) = self
+            .history
+            .delete_pending_operator_question(question_id)
+            .await
+        {
+            tracing::warn!(
+                question_id,
+                "failed to delete persisted operator question: {error}"
+            );
         }
+
+        let tool_answer = if pending
+            .question
+            .options
+            .iter()
+            .any(|option| option == normalized_answer)
+        {
+            normalized_answer.to_string()
+        } else {
+            format!(
+                "The operator chose none of the options and answered in their own words: {normalized_answer}"
+            )
+        };
+        let undelivered = match pending.response_tx {
+            Some(response_tx) => response_tx.send(tool_answer).err(),
+            None => Some(tool_answer),
+        };
+        let resumed = match (
+            undelivered,
+            pending.question.thread_id.as_deref(),
+            pending.tool_call_id.as_deref(),
+        ) {
+            (Some(tool_answer), Some(thread_id), Some(tool_call_id)) => {
+                self.resume_turn_with_operator_answer(thread_id, tool_call_id, tool_answer)
+                    .await
+            }
+            _ => Ok(()),
+        };
 
         let _ = self.event_tx.send(AgentEvent::OperatorQuestionResolved {
             question_id: question_id.to_string(),
             answer: normalized_answer.to_string(),
             thread_id: pending.question.thread_id,
+        });
+        resumed
+    }
+
+    async fn resume_turn_with_operator_answer(
+        self: &Arc<Self>,
+        thread_id: &str,
+        tool_call_id: &str,
+        tool_answer: String,
+    ) -> Result<()> {
+        self.ensure_thread_messages_loaded(thread_id).await;
+        {
+            let mut threads = self.threads.write().await;
+            let awaiting_call = threads
+                .get(thread_id)
+                .and_then(|thread| thread.messages.last())
+                .and_then(|message| message.tool_calls.as_ref())
+                .and_then(|calls| calls.iter().find(|call| call.id == tool_call_id))
+                .cloned();
+            let (Some(thread), Some(call)) = (threads.get_mut(thread_id), awaiting_call) else {
+                anyhow::bail!(
+                    "this question expired: the conversation moved on after it was asked"
+                );
+            };
+            let mut message = AgentMessage::user(tool_answer, now_millis());
+            message.role = MessageRole::Tool;
+            message.tool_call_id = Some(call.id);
+            message.tool_name = Some(call.function.name);
+            message.tool_arguments = Some(call.function.arguments);
+            message.tool_status = Some("done".to_string());
+            thread.messages.push(message);
+            thread.updated_at = now_millis();
+        }
+        self.persist_thread_by_id(thread_id).await;
+        let _ = self.event_tx.send(AgentEvent::ThreadReloadRequired {
+            thread_id: thread_id.to_string(),
+        });
+
+        let engine = self.clone();
+        let thread_id = thread_id.to_string();
+        tokio::spawn(async move {
+            if let Err(error) = engine
+                .continue_existing_user_message_without_queue_drain(&thread_id, "")
+                .await
+            {
+                tracing::warn!(thread_id = %thread_id, "failed to resume turn after operator answer: {error}");
+            }
         });
         Ok(())
     }

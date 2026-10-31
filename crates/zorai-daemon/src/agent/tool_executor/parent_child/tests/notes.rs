@@ -129,3 +129,65 @@ async fn notes_added_after_the_cap_are_still_injected() {
         "new guidance after the cap was dropped, got: {injected}"
     );
 }
+
+#[tokio::test]
+async fn note_to_a_budget_exhausted_child_says_it_waits_for_an_extension() {
+    let (_root, engine) = setup().await;
+    let mut child = spawn_child(&engine).await;
+    child.status = TaskStatus::BudgetExceeded;
+    {
+        let mut tasks = engine.tasks.lock().await;
+        if let Some(task) = tasks.iter_mut().find(|task| task.id == child.id) {
+            *task = child.clone();
+        }
+    }
+    engine
+        .history
+        .upsert_agent_task(&child)
+        .await
+        .expect("persist exhausted child");
+
+    let result = execute_note_to_child(
+        &serde_json::json!({
+            "child_task_id": child.id,
+            "note": "API is live; finish the frontend",
+        }),
+        &engine,
+        "thread-parent",
+        None,
+    )
+    .await
+    .expect("note accepted");
+    let result: serde_json::Value = serde_json::from_str(&result).expect("json result");
+
+    assert_eq!(
+        result["delivered"], false,
+        "a bare ok made the parent believe the stopped child would pick the note up: {result}"
+    );
+    assert!(
+        result["next_step"]
+            .as_str()
+            .is_some_and(|step| step.contains("extend_subagent_budget")),
+        "the parent must be told which call actually resumes the child: {result}"
+    );
+}
+
+#[tokio::test]
+async fn note_to_a_running_child_has_no_resume_warning() {
+    let (_root, engine) = setup().await;
+    let child = spawn_child(&engine).await;
+
+    let result = execute_note_to_child(
+        &serde_json::json!({ "child_task_id": child.id, "note": "keep going" }),
+        &engine,
+        "thread-parent",
+        None,
+    )
+    .await
+    .expect("note accepted");
+    let result: serde_json::Value = serde_json::from_str(&result).expect("json result");
+    assert!(
+        result.get("next_step").is_none(),
+        "unexpected warning: {result}"
+    );
+}

@@ -77,7 +77,7 @@ export const conciergeReasoningEffortOptions: Array<{ value: AgentSettings["reas
   { value: "xhigh", label: "xhigh" },
   { value: "max", label: "max" },
 ];
-const APP_VERSION = "1.0.21";
+const APP_VERSION = "1.0.22";
 const APP_AUTHOR = "Mariusz Kurman";
 const APP_GITHUB = "mkurman/zorai";
 const APP_HOMEPAGE = "zorai.app";
@@ -1170,6 +1170,7 @@ function ExecutionPanel() {
     <SettingsGrid>
       <Panel section="Execution" title="Tool loop">
         <NumberRow label="Max Tool Loops" description="Upper bound for tool-call cycles in one response." value={agentSettings.max_tool_loops} onChange={(value) => updateAgentSetting("max_tool_loops", value)} min={0} max={50} />
+        <NumberRow label="Subagent Budget Extensions" description="How many times a child's token budget can be extended. 0 = unlimited." value={agentSettings.max_subagent_budget_extensions} onChange={(value) => updateAgentSetting("max_subagent_budget_extensions", value)} min={0} max={1000} />
         <NumberRow label="Tool Call Gap (ms)" description="Delay between tool calls." value={agentSettings.tool_call_delay_ms} onChange={(value) => updateAgentSetting("tool_call_delay_ms", value)} min={0} max={60000} />
         <NumberRow label="Message Loop (ms)" description="Delay between message loop iterations." value={agentSettings.message_loop_delay_ms} onChange={(value) => updateAgentSetting("message_loop_delay_ms", value)} min={0} max={60000} />
       </Panel>

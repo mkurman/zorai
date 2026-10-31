@@ -1353,6 +1353,48 @@ async fn ask_operator_question_waits_for_selected_answer_and_broadcasts_events()
 }
 
 #[tokio::test]
+async fn operator_can_answer_a_question_in_their_own_words() {
+    let (engine, _temp_dir) = make_test_engine(AgentConfig::default()).await;
+    let mut events = engine.event_tx.subscribe();
+
+    let engine_for_task = engine.clone();
+    let pending = tokio::spawn(async move {
+        engine_for_task
+            .ask_operator_question(
+                "Pick one:\nA. Alpha\nB. Beta",
+                vec!["A".to_string(), "B".to_string()],
+                None,
+                Some("thread-1".to_string()),
+            )
+            .await
+    });
+    let question_id = match events.recv().await.expect("question event") {
+        AgentEvent::OperatorQuestion { question_id, .. } => question_id,
+        other => panic!("expected operator question event, got {other:?}"),
+    };
+
+    engine
+        .answer_operator_question(&question_id, "  neither, use Gamma  ")
+        .await
+        .expect("a typed answer must resolve the question instead of being rejected");
+
+    match events.recv().await.expect("resolved event") {
+        AgentEvent::OperatorQuestionResolved { answer, .. } => {
+            assert_eq!(answer, "neither, use Gamma");
+        }
+        other => panic!("expected operator question resolved event, got {other:?}"),
+    }
+    let (_, tool_answer) = pending
+        .await
+        .expect("question task should finish")
+        .expect("question should resolve successfully");
+    assert!(
+        tool_answer.contains("none of the options") && tool_answer.ends_with("neither, use Gamma"),
+        "the agent must be told the answer is free text, not an option token: {tool_answer}"
+    );
+}
+
+#[tokio::test]
 async fn pending_operator_question_is_replayable_for_clients_that_subscribe_late() {
     let (engine, _temp_dir) = make_test_engine(AgentConfig::default()).await;
     let mut events = engine.event_tx.subscribe();

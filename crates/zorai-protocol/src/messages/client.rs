@@ -334,4 +334,5 @@ pub enum ClientMessage {
         limit: Option<usize>,
     },
     AgentSearchThreads { query: String, limit: Option<usize> },
+    AgentSetPromptQueueHold { thread_id: String, held: bool },
 }

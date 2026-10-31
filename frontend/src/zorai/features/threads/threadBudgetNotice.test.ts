@@ -60,4 +60,20 @@ describe("threadBudgetNotice", () => {
       "Spawned thread `thread-child` exhausted its execution budget and reported back.",
     )).toBe(false);
   });
+
+  it("clears once the daemon extends the budget, and returns if the child runs out again", () => {
+    const threadId = "thread-child";
+    const exceeded = {
+      role: "system" as const,
+      content: `Task budget exceeded for this thread.\n\nThread \`${threadId}\` exhausted its execution budget and is now locked for further operator messages.`,
+    };
+    const extended = {
+      role: "system" as const,
+      content: "Execution budget extended by 18000 visible output tokens.\n\nReason: finish the frontend\nNew ceiling: 36000 tokens.",
+    };
+
+    expect(activeThreadBudgetExceededNotice(threadId, [exceeded, extended], null)).toBeNull();
+    expect(activeThreadBudgetExceededNotice(threadId, [exceeded, extended, exceeded], null))
+      .toBe(formatThreadBudgetExceededNotice(threadId));
+  });
 });

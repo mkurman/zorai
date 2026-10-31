@@ -186,6 +186,7 @@ export function buildDaemonAgentConfig(
       agentSettings.participant_observer_restore_window_hours,
     auto_refresh_interval_secs: agentSettings.auto_refresh_interval_secs,
     max_tool_loops: agentSettings.max_tool_loops,
+    max_subagent_budget_extensions: agentSettings.max_subagent_budget_extensions,
     max_retries: agentSettings.max_retries,
     retry_delay_ms: agentSettings.retry_delay_ms,
     message_loop_delay_ms: agentSettings.message_loop_delay_ms,

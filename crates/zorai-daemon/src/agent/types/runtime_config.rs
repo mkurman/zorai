@@ -96,6 +96,9 @@ pub(crate) fn default_max_tool_loops() -> u32 {
     // without an iteration cap unless the operator opted in.
     64
 }
+pub(crate) fn default_max_subagent_budget_extensions() -> u32 {
+    5
+}
 pub(crate) fn default_pty_channel_capacity() -> usize {
     1024
 }
@@ -214,6 +217,7 @@ impl Default for AgentConfig {
             system_prompt: default_system_prompt(),
             agent_aliases: std::collections::BTreeMap::new(),
             max_tool_loops: default_max_tool_loops(),
+            max_subagent_budget_extensions: default_max_subagent_budget_extensions(),
             max_retries: default_max_retries(),
             retry_delay_ms: default_retry_delay_ms(),
             message_loop_delay_ms: default_message_loop_delay_ms(),

@@ -396,6 +396,14 @@ impl TuiModel {
 
         if code == KeyCode::Esc
             && self.modal.top().is_none()
+            && self.cancel_operator_question_other()
+        {
+            self.clear_pending_stop();
+            return false;
+        }
+
+        if code == KeyCode::Esc
+            && self.modal.top().is_none()
             && matches!(self.main_pane_view, MainPaneView::GoalComposer)
             && self.cancel_goal_mission_control()
         {

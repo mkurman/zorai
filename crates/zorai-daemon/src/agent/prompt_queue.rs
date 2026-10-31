@@ -44,6 +44,35 @@ impl AgentEngine {
         let _ = self.prompt_queue_wake_tx.send(thread_id.to_string());
     }
 
+    pub(crate) fn is_prompt_queue_held(&self, thread_id: &str) -> bool {
+        self.held_prompt_queues
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .contains(thread_id)
+    }
+
+    pub(crate) async fn set_prompt_queue_hold(
+        &self,
+        thread_id: &str,
+        held: bool,
+    ) -> Result<Vec<QueuedPromptRecord>> {
+        {
+            let mut held_queues = self
+                .held_prompt_queues
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            if held {
+                held_queues.insert(thread_id.to_string());
+            } else {
+                held_queues.remove(thread_id);
+            }
+        }
+        if !held {
+            self.wake_prompt_queue(thread_id);
+        }
+        self.list_prompt_queue(Some(thread_id)).await
+    }
+
     pub(crate) async fn is_thread_streaming(&self, thread_id: &str) -> bool {
         self.stream_cancellations
             .lock()
@@ -172,7 +201,7 @@ impl AgentEngine {
             .get(thread_id)
             .and_then(|thread| thread.messages.last())
             .is_some_and(|message| message.role == MessageRole::Tool);
-        if !last_is_tool_result {
+        if !last_is_tool_result || self.is_prompt_queue_held(thread_id) {
             return Vec::new();
         }
         let mut delivered = Vec::new();
@@ -231,7 +260,7 @@ impl AgentEngine {
     }
 
     pub(crate) async fn dispatch_next_queued_prompt(&self, thread_id: &str) -> Result<()> {
-        if self.is_thread_streaming(thread_id).await {
+        if self.is_thread_streaming(thread_id).await || self.is_prompt_queue_held(thread_id) {
             return Ok(());
         }
         let Some(prompt) = self.history.dequeue_next_prompt(thread_id).await? else {
@@ -338,6 +367,62 @@ mod tests {
             }
         }
         assert!(saw_delivery_event, "the UI needs an event to show the delivered prompt mid-turn");
+    }
+
+    #[tokio::test]
+    async fn held_queue_is_not_sent_while_the_operator_edits_a_prompt() {
+        use crate::agent::*;
+        let thread_id = "thread-queue-held";
+        let mut tool_result = AgentMessage::user("file contents", 2);
+        tool_result.role = MessageRole::Tool;
+        tool_result.tool_call_id = Some("call-1".to_string());
+        let engine = engine_with_last_message(thread_id, tool_result).await;
+        engine
+            .enqueue_prompt(thread_id, "draft being edited", None, None)
+            .await
+            .expect("enqueue should succeed");
+        engine
+            .set_prompt_queue_hold(thread_id, true)
+            .await
+            .expect("hold should succeed");
+
+        let delivered = engine
+            .deliver_queued_prompts_after_tool_results(thread_id)
+            .await;
+        engine
+            .dispatch_next_queued_prompt(thread_id)
+            .await
+            .expect("dispatch should succeed");
+
+        assert!(
+            delivered.is_empty(),
+            "a prompt open in the editor must not be injected mid-turn"
+        );
+        assert_eq!(
+            engine
+                .list_prompt_queue(Some(thread_id))
+                .await
+                .expect("list should succeed")
+                .len(),
+            1,
+            "a held prompt must not be dispatched when the turn ends"
+        );
+
+        engine
+            .set_prompt_queue_hold(thread_id, false)
+            .await
+            .expect("release should succeed");
+        engine
+            .deliver_queued_prompts_after_tool_results(thread_id)
+            .await;
+        assert!(
+            engine
+                .list_prompt_queue(Some(thread_id))
+                .await
+                .expect("list should succeed")
+                .is_empty(),
+            "releasing the hold resumes delivery"
+        );
     }
 
     #[tokio::test]

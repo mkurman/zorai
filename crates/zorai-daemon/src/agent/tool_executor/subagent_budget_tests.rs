@@ -388,3 +388,110 @@ async fn usable_report_from_a_failed_child_completes_it_and_tells_the_parent_aga
         "the parent's visible history must show the new outcome, not only the old failure: {parent_notices:?}"
     );
 }
+
+async fn running_child_with_parent(engine: &Arc<AgentEngine>) -> (AgentTask, AgentTask) {
+    let parent = engine
+        .enqueue_task(
+            "Parent".into(),
+            "coord".into(),
+            "normal",
+            None,
+            None,
+            Vec::new(),
+            None,
+            "user",
+            None,
+            None,
+            None,
+            None,
+        )
+        .await;
+    let mut child = engine
+        .enqueue_task(
+            "Child".into(),
+            "work".into(),
+            "normal",
+            None,
+            None,
+            Vec::new(),
+            None,
+            "subagent",
+            None,
+            Some(parent.id.clone()),
+            Some("thread-parent".into()),
+            None,
+        )
+        .await;
+    child.thread_id = Some("thread-child".into());
+    child.context_budget_tokens = Some(1_000);
+    child.status = TaskStatus::InProgress;
+    persist_task_update(engine, &child, None)
+        .await
+        .expect("persist child");
+    (parent, child)
+}
+
+async fn extend_child_once(
+    engine: &Arc<AgentEngine>,
+    parent: &AgentTask,
+    child: &AgentTask,
+) -> Result<String> {
+    execute_extend_subagent_budget(
+        &serde_json::json!({
+            "child_task_id": child.id,
+            "additional_tokens": 512,
+            "reason": "keep the same child and its context"
+        }),
+        engine,
+        "thread-parent",
+        Some(&parent.id),
+    )
+    .await
+}
+
+#[tokio::test]
+async fn parent_gets_five_budget_extensions_by_default_before_the_cap_applies() {
+    let (_root, engine) = setup().await;
+    let (parent, child) = running_child_with_parent(&engine).await;
+
+    for attempt in 1..=5 {
+        extend_child_once(&engine, &parent, &child)
+            .await
+            .unwrap_or_else(|error| panic!("extension {attempt} of 5 should succeed: {error}"));
+    }
+    let error = extend_child_once(&engine, &parent, &child)
+        .await
+        .expect_err("a sixth extension must hit the default cap so a runaway child stays bounded");
+    assert!(
+        error
+            .to_string()
+            .contains("already used 5 budget extensions"),
+        "unexpected error: {error}"
+    );
+}
+
+#[tokio::test]
+async fn zero_extension_cap_lets_the_parent_keep_extending_the_same_child() {
+    let (_root, engine) = setup().await;
+    engine.config.write().await.max_subagent_budget_extensions = 0;
+    let (parent, child) = running_child_with_parent(&engine).await;
+
+    for attempt in 1..=8 {
+        extend_child_once(&engine, &parent, &child)
+            .await
+            .unwrap_or_else(|error| {
+                panic!("unlimited cap must accept extension {attempt}: {error}")
+            });
+    }
+    let stored = task_by_id_for_tool_scope(&engine, &child.id)
+        .await
+        .expect("child exists");
+    assert_eq!(stored.context_budget_tokens, Some(1_000 + 8 * 512));
+    assert!(
+        stored
+            .logs
+            .iter()
+            .any(|log| log.message.contains("(8 of unlimited)")),
+        "the task log should say the cap is unlimited rather than show a stale number"
+    );
+}

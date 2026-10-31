@@ -1018,7 +1018,10 @@ fn spawned_thread_keeps_back_to_parent_link_after_closing_a_preview() {
     let mut model = build_model();
     model.connected = true;
     model.agent_config_loaded = true;
-    for (thread_id, title) in [("thread-root", "Root Thread"), ("thread-child", "Child Thread")] {
+    for (thread_id, title) in [
+        ("thread-root", "Root Thread"),
+        ("thread-child", "Child Thread"),
+    ] {
         model.chat.reduce(chat::ChatAction::ThreadCreated {
             thread_id: thread_id.to_string(),
             title: title.to_string(),

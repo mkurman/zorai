@@ -614,6 +614,7 @@ impl AgentEngine {
                     | TaskStatus::Blocked
                     | TaskStatus::FailedAnalyzing
                     | TaskStatus::AwaitingApproval
+                    | TaskStatus::BudgetExceeded
             ) {
                 let thread_to_stop = task.thread_id.clone();
                 let session_to_interrupt = task.session_id.clone();
@@ -696,6 +697,7 @@ impl AgentEngine {
                 | TaskStatus::Blocked
                 | TaskStatus::FailedAnalyzing
                 | TaskStatus::AwaitingApproval
+                | TaskStatus::BudgetExceeded
         ) {
             return false;
         }

@@ -75,7 +75,9 @@ fn slash_effort_changes_only_the_active_thread_profile() {
         }
     }
     assert!(
-        !saved_paths.keys().any(|key| key.ends_with("reasoning_effort")),
+        !saved_paths
+            .keys()
+            .any(|key| key.ends_with("reasoning_effort")),
         "/effort is a thread command and must not rewrite the global Svarog effort"
     );
     assert_eq!(model.config.reasoning_effort, "high");

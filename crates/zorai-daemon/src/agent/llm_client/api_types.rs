@@ -106,10 +106,16 @@ pub(crate) fn classify_http_failure_with_retry_after(
     let transport_incompatible_like = lower.contains("not supported")
         || lower.contains("does not support")
         || lower.contains("incompatible");
+    let nested_upstream_overload_like = lower.contains("too many concurrent requests")
+        || ["status=500", "status=502", "status=503", "status=504"]
+            .iter()
+            .any(|marker| lower.contains(marker));
     let class = if matches!(upstream_error_type.as_deref(), Some("rate_limit_error"))
         || status == reqwest::StatusCode::TOO_MANY_REQUESTS
     {
         UpstreamFailureClass::RateLimit
+    } else if nested_upstream_overload_like {
+        UpstreamFailureClass::TemporaryUpstream
     } else if matches!(
         upstream_error_type.as_deref(),
         Some("authentication_error" | "billing_error" | "permission_error")

@@ -144,6 +144,8 @@ pub struct AgentConfig {
     pub agent_aliases: std::collections::BTreeMap<String, String>,
     #[serde(default = "default_max_tool_loops")]
     pub max_tool_loops: u32,
+    #[serde(default = "default_max_subagent_budget_extensions")]
+    pub max_subagent_budget_extensions: u32,
     #[serde(default = "default_max_retries")]
     pub max_retries: u32,
     #[serde(default = "default_retry_delay_ms")]

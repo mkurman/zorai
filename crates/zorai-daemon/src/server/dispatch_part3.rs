@@ -678,9 +678,10 @@ pub(crate) async fn dispatch_part3(
             agent.mark_operator_present("send_message").await;
             let effective_thread_id =
                 thread_id.or_else(|| Some(format!("thread_{}", uuid::Uuid::new_v4())));
-            if let (Some(thread_id), Some(json)) =
-                (effective_thread_id.as_ref(), workspace_context_json.as_deref())
-            {
+            if let (Some(thread_id), Some(json)) = (
+                effective_thread_id.as_ref(),
+                workspace_context_json.as_deref(),
+            ) {
                 match serde_json::from_str::<crate::agent::types::ThreadWorkspaceContext>(json) {
                     Ok(context) => {
                         if !agent

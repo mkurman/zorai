@@ -112,6 +112,7 @@ impl ConfigState {
             tui_chat_history_page_size: 100,
             participant_observer_restore_window_hours: 24,
             max_tool_loops: 25,
+            max_subagent_budget_extensions: 5,
             max_retries: 3,
             auto_refresh_interval_secs: 300,
             retry_delay_ms: 5_000,

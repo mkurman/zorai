@@ -179,6 +179,32 @@ impl TuiModel {
         }
     }
 
+    pub(crate) fn cancel_operator_question_other(&mut self) -> bool {
+        if self.pending_operator_question_other.take().is_some() {
+            self.status_line = "Cancelled typed answer".to_string();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn submit_operator_question_other(&mut self, text: String) -> bool {
+        let Some(question_id) = self.pending_operator_question_other.take() else {
+            return false;
+        };
+        let answer = text.trim().to_string();
+        if answer.is_empty() || self.chat.operator_question_answered(&question_id) {
+            return false;
+        }
+        self.chat
+            .resolve_operator_question_answer(&question_id, answer.clone());
+        self.send_daemon_command(DaemonCommand::AnswerOperatorQuestion {
+            question_id,
+            answer,
+        });
+        true
+    }
+
     pub(crate) fn execute_concierge_message_action(
         &mut self,
         message_index: usize,
@@ -201,6 +227,21 @@ impl TuiModel {
     }
 
     pub(crate) fn run_concierge_action(&mut self, action: crate::state::ConciergeActionVm) {
+        if let Some(question_id) = action.action_type.strip_prefix("operator_question_other:") {
+            if self.chat.operator_question_answered(question_id) {
+                return;
+            }
+            self.pending_operator_question_other = Some(question_id.to_string());
+            self.focus = FocusArea::Input;
+            self.status_line = "Type your own answer, then press Enter".to_string();
+            self.show_input_notice(
+                "Type your own answer and press Enter (Esc to cancel)".to_string(),
+                InputNoticeKind::Success,
+                240,
+                true,
+            );
+            return;
+        }
         if let Some((question_id, answer)) = action
             .action_type
             .strip_prefix("operator_question_answer:")

@@ -8,7 +8,6 @@ use crate::history::AgentTaskListQuery;
 
 const MIN_EXTENSION_TOKENS: u32 = 256;
 const MAX_EXTENSION_TOKENS: u32 = 32_768;
-const MAX_BUDGET_EXTENSIONS: u32 = 3;
 const MIN_EXTENSION_WALL_SECS: u64 = 30;
 const MAX_EXTENSION_WALL_SECS: u64 = 1_800;
 
@@ -157,9 +156,10 @@ pub(crate) async fn execute_extend_subagent_budget(
     let mut child = resolve_target_spawned_task(agent, args, thread_id, task_id).await?;
     authorize_budget_extension(agent, &child, thread_id, task_id).await?;
     let extension_count = budget_extension_count(&child);
-    if extension_count >= MAX_BUDGET_EXTENSIONS {
+    let max_extensions = agent.config.read().await.max_subagent_budget_extensions;
+    if max_extensions > 0 && extension_count >= max_extensions {
         anyhow::bail!(
-            "spawned thread `{}` already used {MAX_BUDGET_EXTENSIONS} budget extensions",
+            "spawned thread `{}` already used {max_extensions} budget extensions",
             child.thread_id.as_deref().unwrap_or(&child.id)
         );
     }
@@ -206,8 +206,13 @@ pub(crate) async fn execute_extend_subagent_budget(
         TaskLogLevel::Info,
         "budget",
         &format!(
-            "execution budget extended by {additional_tokens} tokens ({} of {MAX_BUDGET_EXTENSIONS})",
-            extension_count.saturating_add(1)
+            "execution budget extended by {additional_tokens} tokens ({} of {})",
+            extension_count.saturating_add(1),
+            if max_extensions > 0 {
+                max_extensions.to_string()
+            } else {
+                "unlimited".to_string()
+            }
         ),
         Some(reason.clone()),
     ));

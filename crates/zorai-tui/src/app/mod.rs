@@ -202,6 +202,7 @@ pub struct TuiModel {
     pending_target_agent_config: Option<PendingTargetAgentConfig>,
     pending_svarog_reasoning_effort: Option<String>,
     pending_participant_instruction_edit: Option<PendingParticipantInstructionEdit>,
+    pending_operator_question_other: Option<String>,
     participant_actions_target: Option<ParticipantActionsTarget>,
 
     thread_loading_id: Option<String>,

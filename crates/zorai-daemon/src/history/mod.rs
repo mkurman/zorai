@@ -1766,6 +1766,7 @@ mod integrity_helpers;
 mod memory_graph;
 mod metacognition;
 mod offloaded_payloads;
+pub(crate) mod operator_questions;
 mod operator_profile;
 pub(crate) mod prompt_queue;
 mod protocol_candidates;
