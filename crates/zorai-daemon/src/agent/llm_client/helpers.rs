@@ -144,6 +144,8 @@ pub(crate) fn parse_fetched_models_response(json: &serde_json::Value) -> Vec<Fet
                     let context_window = m
                         .get("context_length")
                         .or_else(|| m.get("context_window"))
+                        .or_else(|| m.get("max_model_len"))
+                        .or_else(|| m.pointer("/meta/n_ctx_train"))
                         .and_then(|c| match c {
                             serde_json::Value::Number(number) => number.as_u64(),
                             serde_json::Value::String(text) => text.trim().parse::<u64>().ok(),
@@ -246,11 +248,17 @@ async fn fetch_remote_models(
 ) -> Result<Vec<FetchedModel>> {
     let client = reqwest::Client::new();
     let trimmed_base_url = base_url.trim_end_matches('/');
-    let mut url = if def.api_type == ApiType::Anthropic && !trimmed_base_url.ends_with("/v1") {
-        format!("{trimmed_base_url}/v1/models")
-    } else {
-        format!("{trimmed_base_url}/models")
-    };
+    let mut url =
+        if let Some(models_url) = crate::agent::types::custom_provider_models_url(provider_id) {
+            reqwest::Url::parse(&format!("{trimmed_base_url}/"))
+                .and_then(|base| base.join(&models_url))
+                .map_err(|error| anyhow::anyhow!("invalid models_url `{models_url}`: {error}"))?
+                .to_string()
+        } else if def.api_type == ApiType::Anthropic && !trimmed_base_url.ends_with("/v1") {
+            format!("{trimmed_base_url}/v1/models")
+        } else {
+            format!("{trimmed_base_url}/models")
+        };
     if provider_id == zorai_shared::providers::PROVIDER_ID_OPENROUTER {
         if let Some(output_modalities) = output_modalities
             .map(str::trim)

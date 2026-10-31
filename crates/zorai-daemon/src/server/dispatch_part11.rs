@@ -32,6 +32,7 @@ pub(crate) async fn dispatch_part11(
             | ClientMessage::AgentUpdateQueuedPrompt { .. }
             | ClientMessage::AgentCancelQueuedPrompt { .. }
             | ClientMessage::AgentSendQueuedPromptNow { .. }
+            | ClientMessage::AgentSetPromptQueueHold { .. }
     ) {
         return Ok(false);
     }
@@ -104,6 +105,12 @@ pub(crate) async fn dispatch_part11(
             Ok(prompts) => send_prompt_queue(framed, Some(thread_id), prompts).await,
             Err(error) => send_queue_error(framed, error.to_string()).await,
         },
+        ClientMessage::AgentSetPromptQueueHold { thread_id, held } => {
+            match agent.set_prompt_queue_hold(&thread_id, held).await {
+                Ok(prompts) => send_prompt_queue(framed, Some(thread_id), prompts).await,
+                Err(error) => send_queue_error(framed, error.to_string()).await,
+            }
+        }
         _ => Ok(false),
     }
 }

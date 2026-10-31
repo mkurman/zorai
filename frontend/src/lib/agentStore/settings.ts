@@ -243,6 +243,7 @@ export interface AgentSettings {
   participant_observer_restore_window_hours: number;
   auto_refresh_interval_secs: number;
   max_tool_loops: number;
+  max_subagent_budget_extensions: number;
   max_retries: number;
   retry_delay_ms: number;
   message_loop_delay_ms: number;
@@ -412,6 +413,7 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   participant_observer_restore_window_hours: 24,
   auto_refresh_interval_secs: 300,
   max_tool_loops: 0,
+  max_subagent_budget_extensions: 5,
   max_retries: 3,
   retry_delay_ms: 2000,
   message_loop_delay_ms: 100,
@@ -637,6 +639,7 @@ export type DiskAgentSettings = Partial<AgentSettings> & {
   participant_observer_restore_window_hours?: number;
   auto_refresh_interval_secs?: number;
   max_tool_loops?: number;
+  max_subagent_budget_extensions?: number;
   max_retries?: number;
   retry_delay_ms?: number;
   message_loop_delay_ms?: number;
@@ -944,6 +947,8 @@ export function normalizeAgentSettingsFromSource(source: DiskAgentSettings): Age
       ?? DEFAULT_AGENT_SETTINGS.auto_refresh_interval_secs,
     ),
     max_tool_loops: source.max_tool_loops ?? DEFAULT_AGENT_SETTINGS.max_tool_loops,
+    max_subagent_budget_extensions: source.max_subagent_budget_extensions
+      ?? DEFAULT_AGENT_SETTINGS.max_subagent_budget_extensions,
     max_retries: source.max_retries ?? DEFAULT_AGENT_SETTINGS.max_retries,
     retry_delay_ms: source.retry_delay_ms ?? DEFAULT_AGENT_SETTINGS.retry_delay_ms,
     message_loop_delay_ms: source.message_loop_delay_ms ?? DEFAULT_AGENT_SETTINGS.message_loop_delay_ms,

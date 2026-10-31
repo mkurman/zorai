@@ -729,6 +729,81 @@ providers:
 }
 
 #[tokio::test]
+async fn custom_provider_models_url_fetches_from_its_own_endpoint_and_reads_local_server_context() {
+    let _lock = crate::test_support::env_test_lock();
+    let _env_guard = crate::test_support::EnvGuard::new(&["ZORAI_CUSTOM_AUTH_PATH"]);
+    let temp_dir = tempfile::tempdir().expect("tempdir");
+    let custom_auth_path = temp_dir.path().join("custom-auth.yaml");
+    std::fs::write(
+        &custom_auth_path,
+        r#"
+providers:
+  - id: completion-path-provider
+    name: Completion Path Provider
+    default_base_url: http://127.0.0.1:1/v1/completion
+    default_model: placeholder
+    models_url: /v1/models
+"#,
+    )
+    .expect("write custom auth");
+    std::env::set_var("ZORAI_CUSTOM_AUTH_PATH", &custom_auth_path);
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind models_url listener");
+    let addr = listener.local_addr().expect("listener addr");
+    let server = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.expect("accept request");
+        let mut buffer = [0_u8; 2048];
+        let read = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            tokio::io::AsyncReadExt::read(&mut stream, &mut buffer),
+        )
+        .await
+        .expect("read request timed out")
+        .expect("read request");
+        let request = String::from_utf8_lossy(&buffer[..read]).to_string();
+        let response = if request.starts_with("GET /v1/models ") {
+            let body = r#"{"data":[{"id":"vllm-model","max_model_len":32768},{"id":"llama-cpp-model","meta":{"n_ctx_train":131072}}]}"#;
+            format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            )
+        } else {
+            "HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\nconnection: close\r\n\r\n".to_string()
+        };
+        tokio::io::AsyncWriteExt::write_all(&mut stream, response.as_bytes())
+            .await
+            .expect("write response");
+        request
+    });
+
+    let models = fetch_models(
+        "completion-path-provider",
+        &format!("http://{addr}/v1/completion"),
+        "test-key",
+        None,
+    )
+    .await
+    .expect("models_url fetch should succeed");
+
+    let request = server.await.expect("server task");
+    assert!(request.starts_with("GET /v1/models "), "{request}");
+    let ids = models
+        .iter()
+        .map(|model| (model.id.as_str(), model.context_window))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        ids,
+        vec![
+            ("vllm-model", Some(32_768)),
+            ("llama-cpp-model", Some(131_072))
+        ]
+    );
+}
+
+#[tokio::test]
 async fn minimax_model_fetch_uses_anthropic_v1_models_endpoint() {
     let request = Arc::new(Mutex::new(String::new()));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")

@@ -57,3 +57,14 @@ describe("per-provider reasoning effort", () => {
     expect(diffDaemonConfigEntries(before, after).map((entry) => entry.keyPath)).not.toContain("/providers/anthropic/reasoning_effort");
   });
 });
+
+describe("subagent budget extension cap", () => {
+  it("an unlimited cap of 0 reaches the daemon and is not replaced by the default 5 on reload", () => {
+    const unlimited = { ...DEFAULT_AGENT_SETTINGS, max_subagent_budget_extensions: 0 };
+    expect(diffDaemonConfigEntries(buildDaemonAgentConfig(DEFAULT_AGENT_SETTINGS), buildDaemonAgentConfig(unlimited))).toEqual([
+      { keyPath: "/max_subagent_budget_extensions", value: 0 },
+    ]);
+    expect(reload(unlimited).max_subagent_budget_extensions).toBe(0);
+    expect(normalizeAgentSettingsFromSource({} as never).max_subagent_budget_extensions).toBe(5);
+  });
+});

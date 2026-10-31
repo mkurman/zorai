@@ -94,6 +94,37 @@ fn openai_edge_507_retry_buffer_overflow_is_retried_as_temporary_upstream() {
 }
 
 #[test]
+fn openai_401_wrapping_an_overloaded_auth_backend_is_retried_as_temporary_upstream() {
+    let err = classify_http_failure_with_retry_after(
+        reqwest::StatusCode::UNAUTHORIZED,
+        "openai",
+        r#"{"error":{"message":"authentication failed (status=503): {\"error\":\"Too many concurrent requests\"}","type":"authentication_error","param":null,"code":null}}"#,
+        None,
+    );
+
+    let failure = upstream_failure_error(&err).expect("structured upstream failure");
+    assert_eq!(failure.class, UpstreamFailureClass::TemporaryUpstream);
+    assert_eq!(
+        crate::agent::llm_client::analyze_retry_failure(&err).failure_class,
+        "upstream",
+        "the key is valid and OpenAI's auth service was only overloaded; failing the turn as a config error tells the operator to fix credentials that are fine"
+    );
+}
+
+#[test]
+fn openai_401_with_a_bad_key_stays_an_auth_configuration_error() {
+    let err = classify_http_failure_with_retry_after(
+        reqwest::StatusCode::UNAUTHORIZED,
+        "openai",
+        r#"{"error":{"message":"Incorrect API key provided: sk-xxx.","type":"invalid_request_error","param":null,"code":"invalid_api_key"}}"#,
+        None,
+    );
+
+    let failure = upstream_failure_error(&err).expect("structured upstream failure");
+    assert_eq!(failure.class, UpstreamFailureClass::AuthConfiguration);
+}
+
+#[test]
 fn anthropic_http_413_is_request_invalid_even_without_typed_body() {
     let err = classify_http_failure_with_retry_after(
         reqwest::StatusCode::PAYLOAD_TOO_LARGE,

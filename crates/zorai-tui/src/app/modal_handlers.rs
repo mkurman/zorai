@@ -575,6 +575,11 @@ impl TuiModel {
                                     self.config.max_tool_loops = n.clamp(0, 1000);
                                 }
                             }
+                            "max_subagent_budget_extensions" => {
+                                if let Ok(n) = value.parse::<u32>() {
+                                    self.config.max_subagent_budget_extensions = n.clamp(0, 1000);
+                                }
+                            }
                             "max_retries" => {
                                 if let Ok(n) = value.parse::<u32>() {
                                     self.config.max_retries = n.clamp(0, 10);

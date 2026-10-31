@@ -224,6 +224,7 @@ async fn make_test_engine(
         skill_discovery_result_tx,
         auto_thread_title_jobs,
         prompt_queue_wake_tx,
+        held_prompt_queues: std::sync::Mutex::new(std::collections::HashSet::new()),
         continuation_flush_tx,
         internal_dm_jobs_tx,
         skill_discovery_test_runner: std::sync::OnceLock::new(),

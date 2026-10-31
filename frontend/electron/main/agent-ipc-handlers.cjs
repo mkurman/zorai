@@ -421,6 +421,17 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
             return { thread_id: payload?.threadId ?? payload?.thread_id ?? null, prompts: [], error: err?.message || String(err) };
         }
     });
+    ipcMain.handle('agent-set-prompt-queue-hold', async (_event, payload) => {
+        try {
+            return await sendAgentQuery({
+                type: 'set-prompt-queue-hold',
+                thread_id: payload?.threadId ?? payload?.thread_id,
+                held: payload?.held === true,
+            }, 'prompt-queue', 15000);
+        } catch (err) {
+            return { thread_id: payload?.threadId ?? payload?.thread_id ?? null, prompts: [], error: err?.message || String(err) };
+        }
+    });
     ipcMain.handle('agent-external-runtime-migration-status', async () => sendAgentQuery({ type: 'external-runtime-migration-status' }, 'external-runtime-migration', 15000));
     ipcMain.handle('agent-external-runtime-migration-preview', async (_event, runtime, configPath) => sendAgentQuery({
         type: 'external-runtime-migration-preview',

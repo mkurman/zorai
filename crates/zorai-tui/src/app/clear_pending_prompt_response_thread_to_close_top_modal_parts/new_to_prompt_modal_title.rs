@@ -121,6 +121,7 @@ impl TuiModel {
             pending_target_agent_config: None,
             pending_svarog_reasoning_effort: None,
             pending_participant_instruction_edit: None,
+            pending_operator_question_other: None,
             participant_actions_target: None,
             thread_loading_id: None,
             missing_runtime_thread_ids: std::collections::HashSet::new(),

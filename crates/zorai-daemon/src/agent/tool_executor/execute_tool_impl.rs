@@ -1567,6 +1567,7 @@ async fn dispatch_tool_execution(
     agent_data_dir: &std::path::Path,
     http_client: &reqwest::Client,
     cancel_token: Option<CancellationToken>,
+    tool_call_id: &str,
 ) -> (Result<String>, Option<ToolPendingApproval>) {
     let args = &prepared.args;
     let dispatch_args = &prepared.dispatch_args;
@@ -2058,7 +2059,13 @@ async fn dispatch_tool_execution(
 
             match parsed {
                 Ok((content, options, session, thread)) => agent
-                    .ask_operator_question(&content, options, session, thread)
+                    .ask_operator_question_for_tool_call(
+                        &content,
+                        options,
+                        session,
+                        thread,
+                        Some(tool_call_id.to_string()),
+                    )
                     .await
                     .map(|(_, answer)| answer),
                 Err(error) => Err(error),
@@ -2270,6 +2277,7 @@ pub fn execute_tool<'a>(
             agent_data_dir,
             http_client,
             cancel_token,
+            &tool_call.id,
         ))
         .await;
 

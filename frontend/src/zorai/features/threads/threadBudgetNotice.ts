@@ -17,6 +17,10 @@ export function isThreadBudgetExceededSystemContent(content: string): boolean {
   return content.trimStart().startsWith("Task budget exceeded for this thread");
 }
 
+export function isThreadBudgetExtendedSystemContent(content: string): boolean {
+  return content.trimStart().startsWith("Execution budget extended by");
+}
+
 export function isSubagentBudgetExceededSystemContent(content: string): boolean {
   const text = content.trimStart();
   return /spawned thread/i.test(text) && /exhausted its execution budget/i.test(text);
@@ -47,9 +51,11 @@ export function activeThreadBudgetExceededNotice<T extends SpawnedAgentTreeSourc
   tree: SpawnedAgentTree<T> | null,
 ): string | null {
   if (!daemonThreadId) return null;
-  const lockedByMessage = messages.some(
-    (message) => message.role === "system" && isThreadBudgetExceededSystemContent(message.content),
+  const latestBudgetMessage = [...messages].reverse().find(
+    (message) => message.role === "system"
+      && (isThreadBudgetExceededSystemContent(message.content) || isThreadBudgetExtendedSystemContent(message.content)),
   );
+  const lockedByMessage = Boolean(latestBudgetMessage && isThreadBudgetExceededSystemContent(latestBudgetMessage.content));
   if (!lockedByMessage && !spawnedTreeLocksThread(daemonThreadId, tree)) {
     return null;
   }

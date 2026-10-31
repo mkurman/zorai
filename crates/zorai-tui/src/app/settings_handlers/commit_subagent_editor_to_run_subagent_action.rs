@@ -424,7 +424,13 @@ impl TuiModel {
     }
 
     pub(crate) fn run_auth_tab_action(&mut self) {
-        let Some(entry) = self.auth.visible_entries().get(self.auth.selected).copied().cloned() else {
+        let Some(entry) = self
+            .auth
+            .visible_entries()
+            .get(self.auth.selected)
+            .copied()
+            .cloned()
+        else {
             return;
         };
 

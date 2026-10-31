@@ -18,6 +18,7 @@ import { useComposerDraftStore } from "./composerDraftStore";
 import { useComposerInputHistory } from "./composerInputHistory";
 import { applyComposerTextareaSize } from "./composerTextareaSize";
 import { ThreadComposerQueue } from "./ThreadComposerQueue";
+import { OperatorQuestionDock } from "@/components/OperatorQuestionDock";
 import { useDaemonPromptQueue } from "./useDaemonPromptQueue";
 import { getBridge } from "@/lib/bridge";
 import { pushToast } from "@/lib/toastStore";
@@ -437,6 +438,8 @@ export function ThreadComposer({
       {budgetNotice ? (
         <p className="zorai-composer-budget-notice" role="alert">{budgetNotice}</p>
       ) : null}
+
+      <OperatorQuestionDock inline threadId={runtime.activeThread?.daemonThreadId ?? null} />
 
       <ThreadComposerQueue
         items={queue.queuedMessages}

@@ -635,6 +635,7 @@ impl AgentEngine {
             Ok(_) => {}
             Err(e) => tracing::warn!("failed to load agent wakeups from sqlite: {e}"),
         }
+        self.restore_pending_operator_questions().await;
 
         let todos_path = self.data_dir.join("todos.json");
         if todos_path.exists() {

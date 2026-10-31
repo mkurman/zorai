@@ -229,9 +229,10 @@ fn operator_question_event_does_not_replace_existing_modal() {
         message.content,
         "Approve this slice?\nA - proceed\nB - revise"
     );
-    assert_eq!(message.actions.len(), 2);
+    assert_eq!(message.actions.len(), 3);
     assert_eq!(message.actions[0].label, "A");
     assert_eq!(message.actions[1].label, "B");
+    assert_eq!(message.actions[2].label, "Other");
     assert_eq!(model.modal.top(), Some(modal::ModalKind::CommandPalette));
     model.modal.reduce(modal::ModalAction::Pop);
     assert_eq!(model.modal.top(), None);
@@ -612,7 +613,7 @@ fn replayed_operator_question_after_each_thread_load_shows_once() {
     );
     assert_eq!(
         questions[0].actions.len(),
-        2,
+        3,
         "the replayed question must stay answerable"
     );
 }

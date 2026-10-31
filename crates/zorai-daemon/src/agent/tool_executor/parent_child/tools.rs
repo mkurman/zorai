@@ -286,13 +286,20 @@ pub(crate) async fn execute_note_to_child(
     ));
     persist_task_update(agent, &updated, Some("Parent sent guidance note".into())).await?;
 
-    Ok(serde_json::json!({
+    let mut result = serde_json::json!({
         "ok": true,
         "stored_notes": notes.len(),
         "oldest_evicted": evicted,
         "status_changed": false,
-    })
-    .to_string())
+    });
+    if child.status == TaskStatus::BudgetExceeded {
+        result["child_status"] = serde_json::json!("budget_exceeded");
+        result["delivered"] = serde_json::json!(false);
+        result["next_step"] = serde_json::json!(format!(
+            "child `{child_task_id}` is stopped after exhausting its execution budget and will not run another turn on its own; call `extend_subagent_budget` with this child_task_id to resume it and deliver this note"
+        ));
+    }
+    Ok(result.to_string())
 }
 
 pub(crate) async fn execute_retry_subagent(

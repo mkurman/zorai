@@ -470,6 +470,11 @@ impl TuiModel {
                             action_type: format!("operator_question_answer:{question_id}:{option}"),
                             thread_id: Some(target_thread_id.clone()),
                         })
+                        .chain(std::iter::once(chat::MessageAction {
+                            label: "Other".to_string(),
+                            action_type: format!("operator_question_other:{question_id}"),
+                            thread_id: Some(target_thread_id.clone()),
+                        }))
                         .collect(),
                     ..Default::default()
                 },

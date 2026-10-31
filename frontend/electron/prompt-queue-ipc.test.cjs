@@ -17,6 +17,7 @@ test("Electron registers prompt queue query handlers", () => {
         "agent-update-queued-prompt",
         "agent-cancel-queued-prompt",
         "agent-send-queued-prompt-now",
+        "agent-set-prompt-queue-hold",
     ]) {
         assert.match(handlers, new RegExp(`ipcMain\\.handle\\('${channel}'`));
         assert.match(preload, new RegExp(`ipcRenderer\\.invoke\\('${channel}'`));

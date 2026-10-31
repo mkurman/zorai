@@ -16,6 +16,7 @@ mod part5;
 mod part6;
 mod part7;
 mod part8;
+mod part9;
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))

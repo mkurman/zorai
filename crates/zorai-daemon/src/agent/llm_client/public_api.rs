@@ -466,7 +466,11 @@ pub(crate) fn send_completion_request_with_options(
                                 }
                                 continue;
                             }
-                            RetryStrategy::DurableRateLimited if analysis.is_rate_limited => {
+                            RetryStrategy::DurableRateLimited
+                                if analysis.is_rate_limited
+                                    || analysis.is_temporary_upstream
+                                    || analysis.is_transient_transport =>
+                            {
                                 retry_attempt = retry_attempt.saturating_add(1);
                                 let delay_ms = analysis.retry_after_ms.unwrap_or_else(|| {
                                     compute_retry_delay_ms_for_attempt(5_000, retry_attempt)

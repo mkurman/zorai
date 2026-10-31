@@ -164,6 +164,8 @@ impl TuiModel {
         patch["participant_observer_restore_window_hours"] =
             serde_json::Value::from(self.config.participant_observer_restore_window_hours);
         patch["max_tool_loops"] = serde_json::Value::from(self.config.max_tool_loops);
+        patch["max_subagent_budget_extensions"] =
+            serde_json::Value::from(self.config.max_subagent_budget_extensions);
         patch["max_retries"] = serde_json::Value::from(self.config.max_retries);
         patch["auto_refresh_interval_secs"] =
             serde_json::Value::from(self.config.auto_refresh_interval_secs);

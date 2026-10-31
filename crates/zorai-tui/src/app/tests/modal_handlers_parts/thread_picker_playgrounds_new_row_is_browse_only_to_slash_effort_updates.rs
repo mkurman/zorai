@@ -761,7 +761,10 @@ fn settings_svarog_model_change_does_not_retarget_active_non_svarog_thread() {
     model.handle_modal_enter(modal::ModalKind::ModelPicker);
 
     assert_eq!(model.config.model, next_model);
-    let thread = model.chat.active_thread().expect("weles thread stays active");
+    let thread = model
+        .chat
+        .active_thread()
+        .expect("weles thread stays active");
     assert_eq!(thread.profile_model.as_deref(), Some("gpt-5.4"));
     while let Ok(command) = daemon_rx.try_recv() {
         assert!(
@@ -801,7 +804,10 @@ fn settings_rarog_provider_edits_rarog_not_active_thread_owner() {
     );
     assert!(model.pending_target_agent_config.is_none());
     model.handle_modal_enter(modal::ModalKind::ProviderPicker);
-    assert_eq!(model.concierge.provider.as_deref(), Some(PROVIDER_ID_OPENAI));
+    assert_eq!(
+        model.concierge.provider.as_deref(),
+        Some(PROVIDER_ID_OPENAI)
+    );
     while let Ok(command) = daemon_rx.try_recv() {
         assert!(
             !matches!(

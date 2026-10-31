@@ -225,6 +225,7 @@ fn client_message_variant_name(msg: &ClientMessage) -> &'static str {
         AgentUpdateQueuedPrompt { .. } => "AgentUpdateQueuedPrompt",
         AgentCancelQueuedPrompt { .. } => "AgentCancelQueuedPrompt",
         AgentSendQueuedPromptNow { .. } => "AgentSendQueuedPromptNow",
+        AgentSetPromptQueueHold { .. } => "AgentSetPromptQueueHold",
         AgentGetGatewayConfig => "AgentGetGatewayConfig",
         AgentGetEffectiveConfigState => "AgentGetEffectiveConfigState",
         AgentGetProviderCatalog => "AgentGetProviderCatalog",

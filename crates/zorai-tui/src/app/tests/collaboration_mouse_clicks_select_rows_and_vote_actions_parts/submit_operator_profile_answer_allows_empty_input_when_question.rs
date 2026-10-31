@@ -586,6 +586,70 @@ fn clicking_bottom_action_bar_submits_operator_question_answer() {
 }
 
 #[test]
+fn operator_question_other_sends_the_typed_text_as_the_answer() {
+    let (_daemon_tx, daemon_rx) = mpsc::channel();
+    let (cmd_tx, mut cmd_rx) = unbounded_channel();
+    let mut model = TuiModel::new(daemon_rx, cmd_tx);
+    model.connected = true;
+    model.chat.reduce(chat::ChatAction::ThreadCreated {
+        thread_id: "thread-1".to_string(),
+        title: "Thread".to_string(),
+    });
+    model
+        .chat
+        .reduce(chat::ChatAction::SelectThread("thread-1".to_string()));
+    model.handle_client_event(ClientEvent::OperatorQuestion {
+        question_id: "oq-1".to_string(),
+        content: "Approve this slice?\nA - proceed\nB - revise".to_string(),
+        options: vec!["A".to_string(), "B".to_string()],
+        session_id: None,
+        thread_id: Some("thread-1".to_string()),
+    });
+    let labels = model
+        .chat
+        .active_thread()
+        .and_then(|thread| thread.messages.last())
+        .map(|message| {
+            message
+                .actions
+                .iter()
+                .map(|action| action.label.clone())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    assert_eq!(labels, vec!["A", "B", "Other"]);
+
+    model.execute_concierge_message_action(0, 2);
+    assert!(
+        cmd_rx.try_recv().is_err(),
+        "choosing Other must wait for the typed answer"
+    );
+    model.submit_prompt("neither, split it first".to_string());
+
+    match cmd_rx.try_recv().expect("typed answer should be sent") {
+        DaemonCommand::AnswerOperatorQuestion {
+            question_id,
+            answer,
+        } => {
+            assert_eq!(question_id, "oq-1");
+            assert_eq!(answer, "neither, split it first");
+        }
+        other => {
+            panic!("the typed text must answer the question, not start a new prompt: {other:?}")
+        }
+    }
+    let message = model
+        .chat
+        .active_thread()
+        .and_then(|thread| thread.messages.last())
+        .expect("question message should exist");
+    assert_eq!(
+        message.operator_question_answer.as_deref(),
+        Some("neither, split it first")
+    );
+}
+
+#[test]
 fn tab_completes_active_file_reference_instead_of_changing_focus() {
     let mut model = build_model();
     let cwd = make_temp_dir();

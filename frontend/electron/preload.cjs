@@ -312,6 +312,7 @@ const bridgeApi = {
     agentUpdateQueuedPrompt: (payload) => ipcRenderer.invoke('agent-update-queued-prompt', payload),
     agentCancelQueuedPrompt: (payload) => ipcRenderer.invoke('agent-cancel-queued-prompt', payload),
     agentSendQueuedPromptNow: (payload) => ipcRenderer.invoke('agent-send-queued-prompt-now', payload),
+    agentSetPromptQueueHold: (payload) => ipcRenderer.invoke('agent-set-prompt-queue-hold', payload),
     agentInternalDelegate: (threadId, targetAgentId, content, sessionId) => ipcRenderer.invoke('agent-internal-delegate', threadId, targetAgentId, content, sessionId),
     agentThreadParticipantCommand: (payload) => ipcRenderer.invoke('agent-thread-participant-command', payload),
     agentHandoffThread: (payload) => ipcRenderer.invoke('agent-handoff-thread', payload),

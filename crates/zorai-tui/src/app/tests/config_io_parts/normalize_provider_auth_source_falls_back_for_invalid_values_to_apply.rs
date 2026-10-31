@@ -133,6 +133,7 @@ fn build_config_patch_value_covers_all_daemon_backed_tabs() {
     model.config.max_context_messages = 123;
     model.config.tui_chat_history_page_size = 222;
     model.config.max_tool_loops = 44;
+    model.config.max_subagent_budget_extensions = 0;
     model.config.max_retries = 7;
     model.config.retry_delay_ms = 9_000;
     model.config.message_loop_delay_ms = 250;
@@ -200,6 +201,7 @@ fn build_config_patch_value_covers_all_daemon_backed_tabs() {
     assert_eq!(json["max_context_messages"], 123);
     assert_eq!(json["tui_chat_history_page_size"], 222);
     assert_eq!(json["max_tool_loops"], 44);
+    assert_eq!(json["max_subagent_budget_extensions"], 0);
     assert_eq!(json["max_retries"], 7);
     assert_eq!(json["retry_delay_ms"], 9000);
     assert_eq!(json["message_loop_delay_ms"], 250);

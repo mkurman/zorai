@@ -270,9 +270,10 @@ fn operator_question_event_appends_inline_message_and_actions_without_modal() {
         message.content,
         "Approve this slice?\nA - proceed\nB - revise"
     );
-    assert_eq!(message.actions.len(), 2);
+    assert_eq!(message.actions.len(), 3);
     assert_eq!(message.actions[0].label, "A");
     assert_eq!(message.actions[1].label, "B");
+    assert_eq!(message.actions[2].label, "Other");
     assert_eq!(model.modal.top(), None);
     assert_ne!(
         model.modal.top(),

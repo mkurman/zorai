@@ -1145,6 +1145,11 @@ where
                 })
                 .await?;
         }
+        AgentBridgeCommand::SetPromptQueueHold { thread_id, held } => {
+            framed
+                .send(ClientMessage::AgentSetPromptQueueHold { thread_id, held })
+                .await?;
+        }
         AgentBridgeCommand::GetThreadExecutionProfile { thread_id } => {
             framed
                 .send(ClientMessage::AgentGetThreadExecutionProfile { thread_id })

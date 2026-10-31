@@ -304,6 +304,12 @@ impl TuiModel {
         )
         .clamp(0, 24 * 30);
         self.config.max_tool_loops = config_u32(json, "max_tool_loops", "max_tool_loops", 25);
+        self.config.max_subagent_budget_extensions = config_u32(
+            json,
+            "max_subagent_budget_extensions",
+            "max_subagent_budget_extensions",
+            5,
+        );
         self.config.max_retries = config_u32(json, "max_retries", "max_retries", 3);
         self.config.auto_refresh_interval_secs = config_u32(
             json,

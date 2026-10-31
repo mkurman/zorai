@@ -236,6 +236,7 @@ pub struct AgentEngine {
     pub(super) auto_thread_title_jobs:
         mpsc::UnboundedSender<super::thread_title::AutoThreadTitleJob>,
     pub(super) prompt_queue_wake_tx: mpsc::UnboundedSender<String>,
+    pub(super) held_prompt_queues: std::sync::Mutex<HashSet<String>>,
     pub(super) continuation_flush_tx: mpsc::UnboundedSender<String>,
     pub(super) internal_dm_jobs_tx: mpsc::UnboundedSender<super::messaging::InternalDmJob>,
     #[cfg(test)]
@@ -502,6 +503,7 @@ impl AgentEngine {
             skill_discovery_result_tx,
             auto_thread_title_jobs,
             prompt_queue_wake_tx,
+            held_prompt_queues: std::sync::Mutex::new(HashSet::new()),
             continuation_flush_tx,
             internal_dm_jobs_tx,
             #[cfg(test)]
