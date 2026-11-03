@@ -155,6 +155,15 @@ pub(crate) fn convert_message(m: crate::wire::AgentMessage) -> chat::AgentMessag
                     data_url,
                     mime_type,
                 },
+                crate::wire::AgentContentBlock::Video {
+                    url,
+                    data_url,
+                    mime_type,
+                } => chat::AgentContentBlock::Video {
+                    url,
+                    data_url,
+                    mime_type,
+                },
             })
             .collect(),
         reasoning: m.reasoning,

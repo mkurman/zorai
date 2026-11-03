@@ -765,6 +765,7 @@ fn agent_content_blocks_to_api_blocks(
                     "input_audio": input_audio,
                 }))
             }
+            crate::agent::types::AgentContentBlock::Video { .. } => None,
         })
         .collect()
 }

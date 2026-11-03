@@ -13,14 +13,21 @@ fn page_tabs() -> Vec<SettingsTab> {
 }
 
 fn configs() -> Vec<ConfigState> {
-    ["none", "duckduckgo", "firecrawl", "exa", "tavily"]
-        .into_iter()
-        .map(|provider| {
-            let mut config = ConfigState::new();
-            config.search_provider = provider.to_string();
-            config
-        })
-        .collect()
+    [
+        "none",
+        "duckduckgo",
+        "firecrawl",
+        "exa",
+        "tavily",
+        "keenable",
+    ]
+    .into_iter()
+    .map(|provider| {
+        let mut config = ConfigState::new();
+        config.search_provider = provider.to_string();
+        config
+    })
+    .collect()
 }
 
 #[test]
@@ -77,14 +84,20 @@ fn web_page_shows_only_the_selected_providers_settings() {
             .iter()
             .map(|spec| spec.name)
             .collect::<Vec<_>>();
-        let keys = ["firecrawl_api_key", "exa_api_key", "tavily_api_key"]
-            .into_iter()
-            .filter(|name| names.contains(name))
-            .collect::<Vec<_>>();
+        let keys = [
+            "firecrawl_api_key",
+            "exa_api_key",
+            "tavily_api_key",
+            "keenable_api_key",
+        ]
+        .into_iter()
+        .filter(|name| names.contains(name))
+        .collect::<Vec<_>>();
         match config.search_provider.as_str() {
             "firecrawl" => assert_eq!(keys, vec!["firecrawl_api_key"]),
             "exa" => assert_eq!(keys, vec!["exa_api_key"]),
             "tavily" => assert_eq!(keys, vec!["tavily_api_key"]),
+            "keenable" => assert_eq!(keys, vec!["keenable_api_key"]),
             _ => assert!(keys.is_empty(), "{}: {keys:?}", config.search_provider),
         }
         assert_eq!(

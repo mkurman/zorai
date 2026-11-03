@@ -177,6 +177,7 @@ impl TuiModel {
             "provider"
                 | "model"
                 | "image"
+                | "video"
                 | "tools"
                 | "effort"
                 | "context"
@@ -253,6 +254,11 @@ impl TuiModel {
                 self.input.set_text("/image ");
                 self.focus = FocusArea::Input;
                 self.status_line = "Describe the image and press Enter".to_string();
+            }
+            "video" => {
+                self.input.set_text("/video ");
+                self.focus = FocusArea::Input;
+                self.status_line = "Describe the video and press Enter".to_string();
             }
             "tools" => {
                 self.open_settings_tab(SettingsTab::Tools);
@@ -524,6 +530,35 @@ impl TuiModel {
         self.focus = FocusArea::Chat;
         self.input.set_mode(input::InputMode::Insert);
         self.status_line = "Generating image...".to_string();
+        self.error_active = false;
+    }
+
+    pub(crate) fn submit_video_prompt(&mut self, prompt: String) {
+        if !self.connected {
+            self.status_line = "Not connected to daemon".to_string();
+            return;
+        }
+
+        let trimmed = prompt.trim();
+        if trimmed.is_empty() {
+            self.execute_command("video");
+            return;
+        }
+
+        self.cleanup_concierge_on_navigate();
+        self.attachments.clear();
+
+        let args_json = serde_json::json!({
+            "thread_id": self.chat.active_thread_id().map(str::to_string),
+            "prompt": trimmed,
+        })
+        .to_string();
+        self.send_daemon_command(DaemonCommand::GenerateVideo { args_json });
+
+        self.main_pane_view = MainPaneView::Conversation;
+        self.focus = FocusArea::Chat;
+        self.input.set_mode(input::InputMode::Insert);
+        self.status_line = "Generating video...".to_string();
         self.error_active = false;
     }
 }

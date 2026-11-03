@@ -390,6 +390,22 @@ export function filterFetchedModelsForImageGeneration(
   return models.filter((model) => modelMetadataContainsImage(model));
 }
 
+function modelMetadataOutputsVideo(model: FetchedRemoteModel): boolean {
+  const record = modelMetadataRecord(model);
+  if (!record) {
+    return false;
+  }
+  const architecture = objectRecord(record.architecture);
+
+  return jsonArrayContainsModality(architecture?.output_modalities ?? record.output_modalities, "video");
+}
+
+export function filterFetchedModelsForVideoGeneration(
+  models: FetchedRemoteModel[],
+): FetchedRemoteModel[] {
+  return models.filter((model) => modelMetadataOutputsVideo(model));
+}
+
 function fetchedModelEmbeddingNameOverride(model: FetchedRemoteModel): boolean {
   const haystack = `${model.id} ${model.name}`.toLowerCase();
   return haystack.includes("embedding")

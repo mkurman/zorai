@@ -93,6 +93,8 @@ pub(crate) enum SettingsPickerTarget {
     AudioTtsModel,
     ImageGenerationProvider,
     ImageGenerationModel,
+    VideoGenerationProvider,
+    VideoGenerationModel,
     EmbeddingProvider,
     EmbeddingModel,
     BuiltinPersonaProvider,

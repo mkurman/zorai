@@ -712,6 +712,7 @@ pub(crate) async fn execute_web_search(
     exa_api_key: &str,
     tavily_api_key: &str,
     firecrawl_api_key: &str,
+    keenable_api_key: &str,
     duckduckgo_region: &str,
     duckduckgo_safe_search: &str,
 ) -> Result<String> {
@@ -747,6 +748,15 @@ pub(crate) async fn execute_web_search(
                         &request.query,
                         request.max_results,
                         tavily_api_key,
+                    )
+                    .await
+                }
+                "keenable" => {
+                    execute_keenable_search(
+                        http_client,
+                        &request.query,
+                        request.max_results,
+                        keenable_api_key,
                     )
                     .await
                 }
@@ -794,6 +804,7 @@ where
         "exa" if !exa_api_key.is_empty() => "exa",
         "tavily" if !tavily_api_key.is_empty() => "tavily",
         "firecrawl" if !firecrawl_api_key.is_empty() => "firecrawl",
+        "keenable" => "keenable",
         "duckduckgo" | "ddg" => "duckduckgo",
         _ => "ddg",
     };
@@ -943,6 +954,73 @@ async fn execute_tavily_search(
             "Web results for \"{query}\":\n\n{}",
             results.join("\n\n")
         ))
+    }
+}
+
+pub(crate) fn keenable_search_url(api_key: &str) -> &'static str {
+    if api_key.trim().is_empty() {
+        "https://api.keenable.ai/v1/search/public"
+    } else {
+        "https://api.keenable.ai/v1/search"
+    }
+}
+
+async fn execute_keenable_search(
+    http_client: &reqwest::Client,
+    query: &str,
+    max_results: u64,
+    api_key: &str,
+) -> Result<String> {
+    let api_key = api_key.trim();
+    let body = serde_json::json!({ "query": query, "max_results": max_results });
+
+    let mut req = http_client
+        .post(keenable_search_url(api_key))
+        .header("Content-Type", "application/json")
+        .header("X-Keenable-Title", "Zorai");
+    if !api_key.is_empty() {
+        req = req.header("X-API-Key", api_key);
+    }
+    let resp = req.json(&body).send().await?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        anyhow::bail!(
+            "Keenable API returned {status}: {}",
+            safe_text_excerpt(&text, 200)
+        );
+    }
+
+    let json: serde_json::Value = resp.json().await?;
+    Ok(format_keenable_search_results(query, &json))
+}
+
+pub(crate) fn format_keenable_search_results(query: &str, json: &serde_json::Value) -> String {
+    let results = json["results"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter(|r| r["url"].as_str().is_some_and(|u| !u.is_empty()))
+                .map(|r| {
+                    let title = r["title"].as_str().unwrap_or("(no title)");
+                    let url = r["url"].as_str().unwrap_or("");
+                    let text = r["description"]
+                        .as_str()
+                        .filter(|d| !d.trim().is_empty())
+                        .or_else(|| r["snippet"].as_str())
+                        .unwrap_or("");
+                    let snippet = safe_snippet_preview(text, 300);
+                    format_result_with_metadata(title, url, &snippet, r["published_at"].as_str())
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    if results.is_empty() {
+        format!("No web results found for: {query}")
+    } else {
+        format!("Web results for \"{query}\":\n\n{}", results.join("\n\n"))
     }
 }
 

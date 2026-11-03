@@ -10,7 +10,8 @@ use crate::state::modal::ModalState;
 use crate::theme::ThemeTokens;
 use zorai_shared::providers::{
     provider_supports_audio_tool, AudioToolKind, PROVIDER_ID_AZURE_OPENAI, PROVIDER_ID_CUSTOM,
-    PROVIDER_ID_OPENAI, PROVIDER_ID_OPENROUTER,
+    PROVIDER_ID_GEMINI, PROVIDER_ID_MINIMAX, PROVIDER_ID_OPENAI, PROVIDER_ID_OPENROUTER,
+    PROVIDER_ID_QWEN,
 };
 
 pub fn available_provider_defs(auth: &AuthState) -> Vec<&'static ProviderDef> {
@@ -71,6 +72,21 @@ pub fn available_embedding_provider_defs(auth: &AuthState) -> Vec<&'static Provi
         .collect()
 }
 
+pub fn available_video_generation_provider_defs(auth: &AuthState) -> Vec<&'static ProviderDef> {
+    available_provider_defs(auth)
+        .into_iter()
+        .filter(|provider| {
+            matches!(
+                provider.id,
+                PROVIDER_ID_MINIMAX
+                    | PROVIDER_ID_QWEN
+                    | PROVIDER_ID_GEMINI
+                    | PROVIDER_ID_OPENROUTER
+            )
+        })
+        .collect()
+}
+
 pub fn filtered_provider_defs(
     providers: Vec<&'static ProviderDef>,
     query: &str,
@@ -103,6 +119,7 @@ pub fn render(
     auth: &AuthState,
     audio_tool_kind: Option<AudioToolKind>,
     embedding_only: bool,
+    video_generation_only: bool,
     theme: &ThemeTokens,
 ) {
     let block = Block::default()
@@ -127,6 +144,8 @@ pub fn render(
     let active_provider = config.provider();
     let providers = if embedding_only {
         available_embedding_provider_defs(auth)
+    } else if video_generation_only {
+        available_video_generation_provider_defs(auth)
     } else {
         audio_tool_kind
             .map(|kind| available_audio_provider_defs(auth, kind))
@@ -221,6 +240,7 @@ mod tests {
                     config,
                     auth,
                     None,
+                    false,
                     false,
                     &theme,
                 );

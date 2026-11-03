@@ -5,7 +5,7 @@ import { getBridge } from "@/lib/bridge";
 
 export type AttachmentTileModel = {
   id: string;
-  kind: "image" | "audio" | "text" | "file";
+  kind: "image" | "audio" | "video" | "text" | "file";
   name: string;
   previewUrl?: string;
   inventoryPath?: string;
@@ -41,6 +41,7 @@ export function AttachmentTiles({
 
 function AttachmentTile({ item, onRemove }: { item: AttachmentTileModel; onRemove?: (id: string) => void }) {
   const imageUrl = useAttachmentImageUrl(item);
+  const videoUrl = item.kind === "video" ? item.previewUrl : undefined;
   const [previewOpen, setPreviewOpen] = useState(false);
   return (
     <div className="zorai-attachment-tile">
@@ -53,6 +54,16 @@ function AttachmentTile({ item, onRemove }: { item: AttachmentTileModel; onRemov
           onClick={() => setPreviewOpen(true)}
         >
           <img src={imageUrl} alt="" />
+        </button>
+      ) : videoUrl ? (
+        <button
+          type="button"
+          className="zorai-attachment-tile__preview zorai-attachment-tile__preview--button"
+          title={`Play ${item.name}`}
+          aria-label={`Play ${item.name}`}
+          onClick={() => setPreviewOpen(true)}
+        >
+          <AttachmentKindIcon kind={item.kind} />
         </button>
       ) : (
         <span className="zorai-attachment-tile__preview zorai-attachment-tile__preview--icon" aria-hidden="true">
@@ -73,6 +84,9 @@ function AttachmentTile({ item, onRemove }: { item: AttachmentTileModel; onRemov
       ) : null}
       {previewOpen && imageUrl ? (
         <AttachmentImagePreview src={imageUrl} name={item.name} onClose={() => setPreviewOpen(false)} />
+      ) : null}
+      {previewOpen && videoUrl ? (
+        <AttachmentImagePreview src={videoUrl} name={item.name} video onClose={() => setPreviewOpen(false)} />
       ) : null}
     </div>
   );
@@ -101,7 +115,7 @@ function useAttachmentImageUrl(item: AttachmentTileModel): string | undefined {
   return item.previewUrl ?? inventoryUrl;
 }
 
-function AttachmentImagePreview({ src, name, onClose }: { src: string; name: string; onClose: () => void }) {
+function AttachmentImagePreview({ src, name, video, onClose }: { src: string; name: string; video?: boolean; onClose: () => void }) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -113,19 +127,31 @@ function AttachmentImagePreview({ src, name, onClose }: { src: string; name: str
   }, [onClose]);
   return createPortal(
     <div className="zorai-image-preview" role="dialog" aria-modal="true" aria-label={name} onClick={onClose}>
-      <img src={src} alt={name} />
+      {video ? (
+        <video src={src} controls autoPlay preload="metadata" onClick={(event) => event.stopPropagation()} />
+      ) : (
+        <img src={src} alt={name} />
+      )}
     </div>,
     document.body,
   );
 }
 
-function AttachmentKindIcon({ kind }: { kind: "image" | "audio" | "text" | "file" }) {
+function AttachmentKindIcon({ kind }: { kind: AttachmentTileModel["kind"] }) {
   if (kind === "audio") {
     return (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M9 18V5l12-2v13" />
         <circle cx="6" cy="18" r="3" />
         <circle cx="18" cy="16" r="3" />
+      </svg>
+    );
+  }
+  if (kind === "video") {
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="5" width="14" height="14" rx="2" />
+        <polygon points="22 7 16 12 22 17 22 7" />
       </svg>
     );
   }

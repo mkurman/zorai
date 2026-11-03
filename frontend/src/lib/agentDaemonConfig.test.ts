@@ -13,6 +13,7 @@ describe("daemon agent config audio wiring", () => {
       firecrawl_api_key: "fc-key",
       exa_api_key: "exa-key",
       tavily_api_key: "tavily-key",
+      keenable_api_key: "keenable-key",
       search_max_results: 12,
       search_timeout_secs: 45,
     });
@@ -24,6 +25,7 @@ describe("daemon agent config audio wiring", () => {
     expect(daemonConfig.firecrawl_api_key).toBe("fc-key");
     expect(daemonConfig.exa_api_key).toBe("exa-key");
     expect(daemonConfig.tavily_api_key).toBe("tavily-key");
+    expect(daemonConfig.keenable_api_key).toBe("keenable-key");
     expect(daemonConfig.search_max_results).toBe(12);
     expect(daemonConfig.search_timeout_secs).toBe(45);
   });
@@ -132,5 +134,32 @@ describe("daemon agent config audio wiring", () => {
       base_url: DEFAULT_AGENT_SETTINGS.xai.base_url,
       model: "grok-imagine-image",
     });
+  });
+
+  it("serializes nested video generation settings and includes the video provider credentials", () => {
+    const daemonConfig = buildDaemonAgentConfig({
+      ...DEFAULT_AGENT_SETTINGS,
+      active_provider: "openai",
+      video_generation_provider: "minimax",
+      video_generation_model: "MiniMax-Hailuo-2.3",
+      minimax: {
+        ...DEFAULT_AGENT_SETTINGS.minimax,
+        api_key: "sk-video",
+      },
+    } as any);
+
+    expect(daemonConfig.video).toEqual({
+      generation: {
+        provider: "minimax",
+        model: "MiniMax-Hailuo-2.3",
+      },
+    });
+    expect(daemonConfig.providers?.minimax).toBeDefined();
+  });
+
+  it("leaves video generation unset by default so the daemon keeps the video tool hidden", () => {
+    const daemonConfig = buildDaemonAgentConfig(DEFAULT_AGENT_SETTINGS);
+
+    expect(daemonConfig.video).toEqual({ generation: { provider: "", model: "" } });
   });
 });

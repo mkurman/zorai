@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getDaemonOwnedAuthCapability, getProviderAuthSupportOptions } from "@/lib/agentDaemonConfig";
 import { getBridge } from "@/lib/bridge";
 import { PRIMARY_AGENT_NAME } from "@/lib/agentNames";
-import { filterFetchedModelsForAudio, filterFetchedModelsForEmbeddings, filterFetchedModelsForImageGeneration } from "@/lib/providerModels";
+import { filterFetchedModelsForAudio, filterFetchedModelsForEmbeddings, filterFetchedModelsForImageGeneration, filterFetchedModelsForVideoGeneration } from "@/lib/providerModels";
 import type { AgentProviderConfig, AgentProviderId, AgentSettings } from "../../lib/agentStore";
 import { DEFAULT_CUSTOM_MODEL_CONTEXT_WINDOW, getDefaultApiTransport, getDefaultAuthSource, getDefaultModelForProvider, getEffectiveContextWindow, getProviderApiType, getProviderDefinition, getProviderModels, getSupportedApiTransports, getSupportedAuthSources, modelUsesContextWindowOverride, normalizeAuthSource, providerUsesConfigurableBaseUrl, resolveProviderModelDefinition } from "../../lib/agentStore";
 import { useAgentStore } from "../../lib/agentStore";
@@ -15,12 +15,16 @@ import {
     filterAudioProviderOptions,
     filterEmbeddingProviderOptions,
     filterImageGenerationProviderOptions,
+    filterVideoGenerationProviderOptions,
     embeddingModelOptions,
     imageGenerationModelOptions,
     imageRemoteModelFetchOutputModalities,
+    videoGenerationModelOptions,
+    videoRemoteModelFetchOutputModalities,
     normalizeEmbeddingModelForProviderChange,
     normalizeAudioModelForProviderChange,
     normalizeImageGenerationModelForProviderChange,
+    normalizeVideoGenerationModelForProviderChange,
     normalizeLlmStreamTimeoutInput,
     type ProviderOption,
 } from "./agentTabHelpers";
@@ -113,12 +117,14 @@ export function AgentTab({
     const audioSttProviderOptions = filterAudioProviderOptions(providerOptions, "stt");
     const audioTtsProviderOptions = filterAudioProviderOptions(providerOptions, "tts");
     const imageGenerationProviderOptions = filterImageGenerationProviderOptions(providerOptions);
+    const videoGenerationProviderOptions = filterVideoGenerationProviderOptions(providerOptions);
     const embeddingProviderOptions = filterEmbeddingProviderOptions(providerOptions);
 
     const providerConfig = settings[settings.active_provider] as AgentProviderConfig;
     const audioSttProviderConfig = settings[settings.audio_stt_provider] as AgentProviderConfig;
     const audioTtsProviderConfig = settings[settings.audio_tts_provider] as AgentProviderConfig;
     const imageGenerationProviderConfig = settings[settings.image_generation_provider] as AgentProviderConfig;
+    const videoGenerationProviderConfig = settings[settings.video_generation_provider] as AgentProviderConfig | undefined;
     const embeddingProviderConfig = settings[settings.semantic_embedding_provider] as AgentProviderConfig;
     const authCapability = getDaemonOwnedAuthCapability(settings.agent_backend);
     const authSupportOptions = getProviderAuthSupportOptions(settings.agent_backend);
@@ -471,6 +477,43 @@ export function AgentTab({
                         fetchOutputModalities={imageRemoteModelFetchOutputModalities(settings.image_generation_provider)}
                     />
                 </SettingRow>
+            </Section>
+
+            <Section title="Video Generation">
+                <SettingRow label="Video Provider">
+                    <SelectInput
+                        value={settings.video_generation_provider}
+                        options={["", ...videoGenerationProviderOptions.map((provider) => provider.id)]}
+                        onChange={(value) => {
+                            const providerId = value as AgentProviderId;
+                            updateSetting("video_generation_provider", providerId);
+                            updateSetting(
+                                "video_generation_model",
+                                normalizeVideoGenerationModelForProviderChange(
+                                    providerId,
+                                    settings.video_generation_model,
+                                ),
+                            );
+                        }}
+                    />
+                </SettingRow>
+                {videoGenerationProviderConfig && (
+                    <SettingRow label="Video Model">
+                        <ModelSelector
+                            providerId={settings.video_generation_provider}
+                            value={settings.video_generation_model}
+                            customName={videoGenerationProviderConfig.custom_model_name}
+                            onChange={(value) => updateSetting("video_generation_model", value)}
+                            base_url={videoGenerationProviderConfig.base_url}
+                            api_key={videoGenerationProviderConfig.api_key}
+                            auth_source={videoGenerationProviderConfig.auth_source}
+                            allowProviderAuthFetch={providerHasDaemonAuth(settings.video_generation_provider)}
+                            modelOptions={videoGenerationModelOptions(settings.video_generation_provider)}
+                            remoteModelFilter={(model) => filterFetchedModelsForVideoGeneration([model]).length > 0}
+                            fetchOutputModalities={videoRemoteModelFetchOutputModalities(settings.video_generation_provider)}
+                        />
+                    </SettingRow>
+                )}
             </Section>
 
             <Section title="Semantic Search">
@@ -923,8 +966,8 @@ export function AgentTab({
                         <SettingRow label="Search Provider">
                             <SelectInput
                                 value={settings.search_provider}
-                                options={["none", "firecrawl", "exa", "tavily"]}
-                                onChange={(value) => updateSetting("search_provider", value as "none" | "firecrawl" | "exa" | "tavily")}
+                                options={["none", "firecrawl", "exa", "tavily", "keenable"]}
+                                onChange={(value) => updateSetting("search_provider", value as "none" | "firecrawl" | "exa" | "tavily" | "keenable")}
                             />
                         </SettingRow>
                         <SettingRow label="Firecrawl API Key">
@@ -935,6 +978,9 @@ export function AgentTab({
                         </SettingRow>
                         <SettingRow label="Tavily API Key">
                             <PasswordInput value={settings.tavily_api_key} onChange={(value) => updateSetting("tavily_api_key", value)} placeholder="tvly-..." />
+                        </SettingRow>
+                        <SettingRow label="Keenable API Key">
+                            <PasswordInput value={settings.keenable_api_key} onChange={(value) => updateSetting("keenable_api_key", value)} placeholder="optional" />
                         </SettingRow>
                         <SettingRow label="Search Max Results">
                             <NumberInput value={settings.search_max_results} min={1} max={20}

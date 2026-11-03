@@ -25,6 +25,7 @@ pub(crate) async fn dispatch_part6(
             | ClientMessage::AgentSpeechToText { .. }
             | ClientMessage::AgentTextToSpeech { .. }
             | ClientMessage::AgentGenerateImage { .. }
+            | ClientMessage::AgentGenerateVideo { .. }
             | ClientMessage::AgentGetCollaborationSessions { .. }
             | ClientMessage::AgentGetDivergentSession { .. }
             | ClientMessage::AgentListGeneratedTools
@@ -445,6 +446,39 @@ pub(crate) async fn dispatch_part6(
                     framed
                         .send(DaemonMessage::AgentError {
                             message: format!("invalid generate_image arguments: {error}"),
+                        })
+                        .await
+                        .ok();
+                }
+            }
+        }
+
+        ClientMessage::AgentGenerateVideo { args_json } => {
+            match serde_json::from_str::<serde_json::Value>(&args_json) {
+                Ok(args) => {
+                    match crate::agent::tool_executor::execute_generate_video_for_ipc(&args, &agent)
+                        .await
+                    {
+                        Ok(content) => {
+                            framed
+                                .send(DaemonMessage::AgentGenerateVideoResult { content })
+                                .await
+                                .ok();
+                        }
+                        Err(error) => {
+                            framed
+                                .send(DaemonMessage::AgentError {
+                                    message: format!("failed to execute generate_video: {error}"),
+                                })
+                                .await
+                                .ok();
+                        }
+                    }
+                }
+                Err(error) => {
+                    framed
+                        .send(DaemonMessage::AgentError {
+                            message: format!("invalid generate_video arguments: {error}"),
                         })
                         .await
                         .ok();

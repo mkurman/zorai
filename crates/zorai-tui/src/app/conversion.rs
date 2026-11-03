@@ -68,6 +68,47 @@ mod tests {
     }
 
     #[test]
+    fn thread_with_generated_video_block_deserializes_and_converts() {
+        let wire_thread: crate::wire::AgentThread = serde_json::from_str(
+            r#"{
+                "id": "thread-video",
+                "title": "Video",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "drone shot"
+                    },
+                    {
+                        "role": "assistant",
+                        "content": "Generated video.",
+                        "content_blocks": [
+                            {
+                                "type": "video",
+                                "url": "file:///tmp/media/video-1.mp4",
+                                "mime_type": "video/mp4"
+                            }
+                        ]
+                    }
+                ]
+            }"#,
+        )
+        .expect("thread with a video content block should deserialize");
+
+        let converted = convert_thread(wire_thread);
+        let message = &converted.messages[1];
+
+        assert_eq!(message.content, "Generated video.");
+        assert!(matches!(
+            message.content_blocks.first(),
+            Some(chat::AgentContentBlock::Video {
+                url: Some(url),
+                data_url: None,
+                mime_type: Some(mime_type),
+            }) if url == "file:///tmp/media/video-1.mp4" && mime_type == "video/mp4"
+        ));
+    }
+
+    #[test]
     fn thread_handoff_state_wire_conversion_preserves_full_ordered_state() {
         let wire_thread: crate::wire::AgentThread = serde_json::from_str(
             r#"{

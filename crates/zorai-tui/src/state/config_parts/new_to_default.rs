@@ -3,7 +3,7 @@ use zorai_shared::providers::PROVIDER_ID_OPENAI;
 
 use super::json_u32_to_from_config::{
     embedding_dimensions_from_fetched_model, provider_supports_audio, provider_supports_embeddings,
-    provider_supports_image_generation,
+    provider_supports_image_generation, provider_supports_video_generation,
 };
 use super::{ConfigAction, ConfigState, FetchedModel};
 
@@ -48,6 +48,7 @@ impl ConfigState {
             firecrawl_api_key: String::new(),
             exa_api_key: String::new(),
             tavily_api_key: String::new(),
+            keenable_api_key: String::new(),
             search_max_results: 8,
             search_timeout_secs: 20,
             browse_provider: "auto".to_string(),
@@ -293,6 +294,29 @@ impl ConfigState {
             })
     }
 
+    fn get_video_generation_field(
+        &self,
+        field: &str,
+        legacy_flat_key: &str,
+    ) -> Option<&serde_json::Value> {
+        self.agent_config_raw
+            .as_ref()
+            .and_then(|raw| raw.get("video"))
+            .and_then(|video| video.get("generation"))
+            .and_then(|generation| generation.get(field))
+            .or_else(|| {
+                self.agent_config_raw
+                    .as_ref()
+                    .and_then(|raw| raw.get(legacy_flat_key))
+            })
+            .or_else(|| {
+                self.agent_config_raw
+                    .as_ref()
+                    .and_then(|raw| raw.get("extra"))
+                    .and_then(|extra| extra.get(legacy_flat_key))
+            })
+    }
+
     fn get_audio_bool(&self, group: &str, nested_field: &str, legacy_flat_key: &str) -> bool {
         self.get_audio_field(group, nested_field, legacy_flat_key)
             .and_then(|v| v.as_bool())
@@ -350,6 +374,23 @@ impl ConfigState {
 
     pub fn image_generation_model(&self) -> String {
         self.get_image_generation_field("model", "image_generation_model")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .to_string()
+    }
+
+    pub fn video_generation_provider(&self) -> String {
+        self.get_video_generation_field("provider", "video_generation_provider")
+            .and_then(|value| value.as_str())
+            .or_else(|| {
+                provider_supports_video_generation(&self.provider).then_some(self.provider.as_str())
+            })
+            .unwrap_or("")
+            .to_string()
+    }
+
+    pub fn video_generation_model(&self) -> String {
+        self.get_video_generation_field("model", "video_generation_model")
             .and_then(|value| value.as_str())
             .unwrap_or("")
             .to_string()

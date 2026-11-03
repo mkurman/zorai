@@ -654,6 +654,7 @@ fn every_field_on_the_new_settings_pages_reacts_to_its_key() {
             ("firecrawl", "custom_model"),
             ("exa", "heuristic"),
             ("tavily", "heuristic"),
+            ("keenable", "heuristic"),
         ] {
             let mut visible_config = crate::state::config::ConfigState::new();
             visible_config.search_provider = provider.to_string();

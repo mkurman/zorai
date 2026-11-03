@@ -493,6 +493,58 @@ async fn web_search_runtime_routes_firecrawl_only_when_its_key_is_set() {
     }
 }
 
+#[tokio::test]
+async fn web_search_runtime_routes_keenable_without_a_key() {
+    let args = serde_json::json!({ "query": "keenable" });
+    let provider = execute_web_search_with_runner(
+        &args,
+        "keenable",
+        "",
+        "",
+        "",
+        |_request: super::WebSearchRequest, provider| async move {
+            Ok::<String, anyhow::Error>(provider.to_string())
+        },
+    )
+    .await
+    .expect("search");
+    assert_eq!(provider, "keenable");
+}
+
+#[test]
+fn keenable_uses_the_keyed_endpoint_only_when_a_config_key_is_set() {
+    assert_eq!(
+        super::keenable_search_url(""),
+        "https://api.keenable.ai/v1/search/public"
+    );
+    assert_eq!(
+        super::keenable_search_url("   "),
+        "https://api.keenable.ai/v1/search/public"
+    );
+    assert_eq!(
+        super::keenable_search_url("kn-key"),
+        "https://api.keenable.ai/v1/search"
+    );
+}
+
+#[test]
+fn keenable_results_prefer_description_over_snippet() {
+    let text = super::format_keenable_search_results(
+        "rust async",
+        &serde_json::json!({
+            "results": [
+                { "title": "A", "url": "https://a.example", "description": "short", "snippet": "long body" },
+                { "title": "B", "url": "https://b.example", "description": "", "snippet": "fallback" },
+                { "title": "C", "url": "" }
+            ]
+        }),
+    );
+    assert!(text.contains("short"));
+    assert!(!text.contains("long body"));
+    assert!(text.contains("fallback"));
+    assert!(!text.contains("(no title)"));
+}
+
 #[test]
 fn firecrawl_v2_web_results_are_formatted_like_other_providers() {
     let text = super::format_firecrawl_search_results(

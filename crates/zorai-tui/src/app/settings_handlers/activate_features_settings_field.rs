@@ -8,6 +8,7 @@ impl TuiModel {
                     "firecrawl" => "duckduckgo",
                     "duckduckgo" | "ddg" => "exa",
                     "exa" => "tavily",
+                    "tavily" => "keenable",
                     _ => "none",
                 };
                 self.config.search_provider = next.to_string();
@@ -35,6 +36,9 @@ impl TuiModel {
             "tavily_api_key" => self
                 .settings
                 .start_editing("tavily_api_key", &self.config.tavily_api_key.clone()),
+            "keenable_api_key" => self
+                .settings
+                .start_editing("keenable_api_key", &self.config.keenable_api_key.clone()),
             "search_max_results" => self.settings.start_editing(
                 "search_max_results",
                 &self.config.search_max_results.to_string(),

@@ -38,6 +38,56 @@ fn image_generation_result_refreshes_thread_and_work_context() {
 }
 
 #[test]
+fn video_generation_result_refreshes_thread_and_work_context() {
+    let (mut model, mut daemon_rx) = make_model_with_daemon_rx();
+    model.chat.reduce(chat::ChatAction::ThreadListReceived(vec![
+        chat::AgentThread {
+            id: "thread-1".to_string(),
+            title: "Thread".to_string(),
+            ..Default::default()
+        },
+    ]));
+    model
+        .chat
+        .reduce(chat::ChatAction::SelectThread("thread-1".to_string()));
+
+    model.handle_client_event(ClientEvent::GenerateVideoResult {
+        content: r#"{"ok":true,"thread_id":"thread-1","path":"/tmp/video-1.mp4","mime_type":"video/mp4"}"#
+            .to_string(),
+    });
+
+    assert_eq!(
+        next_thread_request(&mut daemon_rx),
+        Some((
+            "thread-1".to_string(),
+            Some(model.chat_history_delete_backfill_target_size()),
+            Some(0),
+        ))
+    );
+    assert!(matches!(
+        daemon_rx.try_recv(),
+        Ok(DaemonCommand::RequestThreadWorkContext(thread_id)) if thread_id == "thread-1"
+    ));
+    assert_eq!(model.status_line, "Video generated: /tmp/video-1.mp4");
+}
+
+#[test]
+fn video_generation_error_result_surfaces_failure_without_refreshing_thread() {
+    let (mut model, mut daemon_rx) = make_model_with_daemon_rx();
+
+    model.handle_client_event(ClientEvent::GenerateVideoResult {
+        content: r#"{"error":"provider rejected prompt"}"#.to_string(),
+    });
+
+    assert!(daemon_rx.try_recv().is_err());
+    assert!(model.error_active);
+    assert_eq!(
+        model.status_line,
+        "Video generation failed: provider rejected prompt"
+    );
+}
+
+#[test]
 fn late_tool_result_after_done_does_not_restore_footer_activity() {
     let mut model = make_model();
     model.chat.reduce(chat::ChatAction::ThreadCreated {

@@ -843,6 +843,16 @@ where
                 .send(ClientMessage::AgentTextToSpeech { args_json })
                 .await?;
         }
+        AgentBridgeCommand::GenerateImage { args_json } => {
+            framed
+                .send(ClientMessage::AgentGenerateImage { args_json })
+                .await?;
+        }
+        AgentBridgeCommand::GenerateVideo { args_json } => {
+            framed
+                .send(ClientMessage::AgentGenerateVideo { args_json })
+                .await?;
+        }
         AgentBridgeCommand::PromoteGeneratedTool { tool_name } => {
             framed
                 .send(ClientMessage::AgentPromoteGeneratedTool { tool_name })

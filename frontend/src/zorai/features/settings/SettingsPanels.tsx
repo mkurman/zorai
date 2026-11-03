@@ -10,11 +10,15 @@ import {
   filterAudioProviderOptions,
   filterEmbeddingProviderOptions,
   filterImageGenerationProviderOptions,
+  filterVideoGenerationProviderOptions,
   imageGenerationModelOptions,
   imageRemoteModelFetchOutputModalities,
   normalizeAudioModelForProviderChange,
   normalizeEmbeddingModelForProviderChange,
   normalizeImageGenerationModelForProviderChange,
+  normalizeVideoGenerationModelForProviderChange,
+  videoGenerationModelOptions,
+  videoRemoteModelFetchOutputModalities,
   type ProviderOption,
 } from "@/components/settings-panel/agentTabHelpers";
 import {
@@ -40,7 +44,7 @@ import {
 import type { AgentProviderConfig, AgentProviderId, ApiTransportMode, AuthSource } from "@/lib/agentStore/types";
 import { getBridge } from "@/lib/bridge";
 import { useAgentDisplayName } from "@/lib/useAgentDisplayName";
-import { filterFetchedModelsForAudio, filterFetchedModelsForEmbeddings, filterFetchedModelsForImageGeneration } from "@/lib/providerModels";
+import { filterFetchedModelsForAudio, filterFetchedModelsForEmbeddings, filterFetchedModelsForImageGeneration, filterFetchedModelsForVideoGeneration } from "@/lib/providerModels";
 import { usePluginStore } from "@/lib/pluginStore";
 import { useSettingsStore } from "@/lib/settingsStore";
 import { getWorkspaceSettings, setWorkspaceRepoMonitor } from "@/lib/workspaceBoard";
@@ -77,7 +81,7 @@ export const conciergeReasoningEffortOptions: Array<{ value: AgentSettings["reas
   { value: "xhigh", label: "xhigh" },
   { value: "max", label: "max" },
 ];
-const APP_VERSION = "1.0.22";
+const APP_VERSION = "1.0.23";
 const APP_AUTHOR = "Mariusz Kurman";
 const APP_GITHUB = "mkurman/zorai";
 const APP_HOMEPAGE = "zorai.app";
@@ -461,6 +465,7 @@ function SearchPanel() {
         {provider === "firecrawl" ? <SecretRow label="Firecrawl Key" description="API key for Firecrawl search." value={agentSettings.firecrawl_api_key} onChange={(value) => updateAgentSetting("firecrawl_api_key", value)} /> : null}
         {provider === "exa" ? <SecretRow label="Exa Key" description="API key for Exa search." value={agentSettings.exa_api_key} onChange={(value) => updateAgentSetting("exa_api_key", value)} /> : null}
         {provider === "tavily" ? <SecretRow label="Tavily Key" description="API key for Tavily search." value={agentSettings.tavily_api_key} onChange={(value) => updateAgentSetting("tavily_api_key", value)} /> : null}
+        {provider === "keenable" ? <SecretRow label="Keenable Key" description="Optional API key for Keenable search. Leave empty to use the free public endpoint." value={agentSettings.keenable_api_key} onChange={(value) => updateAgentSetting("keenable_api_key", value)} /> : null}
         <NumberRow label="Max Results" description="Maximum search results." value={agentSettings.search_max_results} onChange={(value) => updateAgentSetting("search_max_results", value)} min={1} max={50} />
         <NumberRow label="Timeout" description="Search timeout in seconds." value={agentSettings.search_timeout_secs} onChange={(value) => updateAgentSetting("search_timeout_secs", value)} min={1} max={120} />
       </Panel>
@@ -798,9 +803,11 @@ function MediaPanel() {
   const audioSttProviderOptions = filterAudioProviderOptions(providerOptions, "stt");
   const audioTtsProviderOptions = filterAudioProviderOptions(providerOptions, "tts");
   const imageGenerationProviderOptions = filterImageGenerationProviderOptions(providerOptions);
+  const videoGenerationProviderOptions = filterVideoGenerationProviderOptions(providerOptions);
   const audioSttProviderConfig = getProviderConfig(agentSettings, agentSettings.audio_stt_provider);
   const audioTtsProviderConfig = getProviderConfig(agentSettings, agentSettings.audio_tts_provider);
   const imageGenerationProviderConfig = getProviderConfig(agentSettings, agentSettings.image_generation_provider);
+  const videoGenerationProviderConfig = getProviderConfig(agentSettings, agentSettings.video_generation_provider);
   const providerHasDaemonAuth = (providerId: AgentProviderId) => providerAuthStates.some((state) => state.provider_id === providerId && state.authenticated);
 
   return (
@@ -895,6 +902,36 @@ function MediaPanel() {
             fetchOutputModalities={imageRemoteModelFetchOutputModalities(agentSettings.image_generation_provider)}
           />
         </SettingRow>
+      </Panel>
+      <Panel section="Video" title="Video generation">
+        <SettingRow label="Video Provider" description="Video generation provider. None keeps the video tool disabled.">
+          <ProviderSelect
+            value={agentSettings.video_generation_provider}
+            options={[{ id: "", label: "None" }, ...videoGenerationProviderOptions]}
+            fallbackOptions={providerIds}
+            onChange={(providerId) => {
+              updateAgentSetting("video_generation_provider", providerId);
+              updateAgentSetting("video_generation_model", normalizeVideoGenerationModelForProviderChange(providerId, agentSettings.video_generation_model));
+            }}
+          />
+        </SettingRow>
+        {agentSettings.video_generation_provider && (
+          <SettingRow label="Video Model" description="Video generation model.">
+            <ModelSelector
+              providerId={agentSettings.video_generation_provider}
+              value={agentSettings.video_generation_model}
+              customName={videoGenerationProviderConfig.custom_model_name}
+              onChange={(value) => updateAgentSetting("video_generation_model", value)}
+              base_url={videoGenerationProviderConfig.base_url}
+              api_key={videoGenerationProviderConfig.api_key}
+              auth_source={videoGenerationProviderConfig.auth_source}
+              allowProviderAuthFetch={providerHasDaemonAuth(agentSettings.video_generation_provider)}
+              modelOptions={videoGenerationModelOptions(agentSettings.video_generation_provider)}
+              remoteModelFilter={(model) => filterFetchedModelsForVideoGeneration([model]).length > 0}
+              fetchOutputModalities={videoRemoteModelFetchOutputModalities(agentSettings.video_generation_provider)}
+            />
+          </SettingRow>
+        )}
       </Panel>
     </SettingsGrid>
   );

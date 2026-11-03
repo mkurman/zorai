@@ -73,6 +73,7 @@ impl TuiModel {
             serde_json::Value::String(self.config.firecrawl_api_key.clone());
         patch["exa_api_key"] = serde_json::Value::String(self.config.exa_api_key.clone());
         patch["tavily_api_key"] = serde_json::Value::String(self.config.tavily_api_key.clone());
+        patch["keenable_api_key"] = serde_json::Value::String(self.config.keenable_api_key.clone());
         patch["search_max_results"] = serde_json::Value::from(self.config.search_max_results);
         patch["search_timeout_secs"] = serde_json::Value::from(self.config.search_timeout_secs);
         patch["browse_provider"] = serde_json::Value::String(self.config.browse_provider.clone());

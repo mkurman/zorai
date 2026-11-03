@@ -33,7 +33,7 @@ pub(crate) fn tool_file_chip(message: &AgentMessage) -> Option<ToolFileChip> {
             tool_name: tool_name.to_string(),
         });
     }
-    if tool_name == tool_names::GENERATE_IMAGE {
+    if tool_name == tool_names::GENERATE_IMAGE || tool_name == tool_names::GENERATE_VIDEO {
         let path = generated_image_preview_path(message)?;
         let label = file_name_label(&path);
         return Some(ToolFileChip {

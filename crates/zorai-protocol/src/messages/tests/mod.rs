@@ -2371,3 +2371,55 @@ fn mlflow_tracing_protocol_variants_round_trip_at_append_only_tail() {
         );
     }
 }
+
+#[test]
+fn client_message_agent_generate_video_is_appended_after_existing_wire_discriminants() {
+    let previous_last = ClientMessage::AgentSetPromptQueueHold {
+        thread_id: "thread-video".to_string(),
+        held: false,
+    };
+    let msg = ClientMessage::AgentGenerateVideo {
+        args_json: serde_json::json!({
+            "thread_id": "thread-video",
+            "prompt": "drone shot over a foggy forest"
+        })
+        .to_string(),
+    };
+    assert_bincode_variant_index(&msg, bincode_variant_index(&previous_last) + 1);
+    let bytes = bincode::serialize(&msg).unwrap();
+    let decoded: ClientMessage = bincode::deserialize(&bytes).unwrap();
+    match decoded {
+        ClientMessage::AgentGenerateVideo { args_json } => {
+            let payload: serde_json::Value = serde_json::from_str(&args_json).unwrap();
+            assert_eq!(payload["thread_id"], "thread-video");
+            assert_eq!(payload["prompt"], "drone shot over a foggy forest");
+        }
+        other => panic!("unexpected variant: {:?}", other),
+    }
+}
+
+#[test]
+fn daemon_message_agent_generate_video_result_is_appended_after_existing_wire_discriminants() {
+    let previous_last = DaemonMessage::AgentThreadSearchResults {
+        results_json: "[]".to_string(),
+    };
+    let msg = DaemonMessage::AgentGenerateVideoResult {
+        content: serde_json::json!({
+            "thread_id": "thread-video",
+            "path": "/tmp/thread-video/video.mp4",
+            "mime_type": "video/mp4"
+        })
+        .to_string(),
+    };
+    assert_bincode_variant_index(&msg, bincode_variant_index(&previous_last) + 1);
+    let bytes = bincode::serialize(&msg).unwrap();
+    let decoded: DaemonMessage = bincode::deserialize(&bytes).unwrap();
+    match decoded {
+        DaemonMessage::AgentGenerateVideoResult { content } => {
+            let payload: serde_json::Value = serde_json::from_str(&content).unwrap();
+            assert_eq!(payload["path"], "/tmp/thread-video/video.mp4");
+            assert_eq!(payload["mime_type"], "video/mp4");
+        }
+        other => panic!("unexpected variant: {:?}", other),
+    }
+}

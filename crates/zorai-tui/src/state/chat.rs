@@ -352,6 +352,18 @@ fn content_blocks_match(left: &[AgentContentBlock], right: &[AgentContentBlock])
                     data_url: right_data_url,
                     mime_type: right_mime_type,
                 },
+            )
+            | (
+                AgentContentBlock::Video {
+                    url: left_url,
+                    data_url: left_data_url,
+                    mime_type: left_mime_type,
+                },
+                AgentContentBlock::Video {
+                    url: right_url,
+                    data_url: right_data_url,
+                    mime_type: right_mime_type,
+                },
             ) => {
                 left_url == right_url
                     && left_data_url == right_data_url

@@ -19,12 +19,12 @@ type PendingBuiltinAgentSetup = BuiltinAgentSetupState & {
   threadId: string | null;
 };
 
-function parseImageGenerationPrompt(text: string): string | null {
-  const match = text.trim().match(/^\/image(?:\s+([\s\S]*))?$/);
+export function parseMediaGenerationCommand(text: string): { kind: "image" | "video"; prompt: string } | null {
+  const match = text.trim().match(/^\/(image|video)(?:\s+([\s\S]*))?$/);
   if (!match) {
     return null;
   }
-  return (match[1] ?? "").trim();
+  return { kind: match[1] as "image" | "video", prompt: (match[2] ?? "").trim() };
 }
 
 export function useDaemonAgentActions({
@@ -248,15 +248,18 @@ export function useDaemonAgentActions({
         ? payload.localContentBlocks
         : undefined;
       const currentThreadId = daemonLocalThreadRef.current ?? activeThreadId;
-      const imagePrompt = parseImageGenerationPrompt(text);
+      const mediaCommand = parseMediaGenerationCommand(text);
 
-      if (imagePrompt !== null) {
-        if (!zorai?.agentGenerateImage) {
-          appendDaemonSystemMessage("Image generation is not available in this runtime.", currentThreadId);
+      if (mediaCommand !== null) {
+        const { kind: mediaKind, prompt: mediaPrompt } = mediaCommand;
+        const mediaLabel = mediaKind === "video" ? "Video" : "Image";
+        const generateMedia = mediaKind === "video" ? zorai?.agentGenerateVideo : zorai?.agentGenerateImage;
+        if (!generateMedia) {
+          appendDaemonSystemMessage(`${mediaLabel} generation is not available in this runtime.`, currentThreadId);
           return;
         }
-        if (!imagePrompt) {
-          appendDaemonSystemMessage("Usage: /image <prompt>", currentThreadId);
+        if (!mediaPrompt) {
+          appendDaemonSystemMessage(`Usage: /${mediaKind} <prompt>`, currentThreadId);
           return;
         }
 
@@ -266,7 +269,7 @@ export function useDaemonAgentActions({
             workspaceId: activeWorkspace?.id ?? null,
             surfaceId: activeWorkspace?.surfaces?.[0]?.id ?? null,
             paneId: activePaneId ?? null,
-            title: imagePrompt.slice(0, 50) || "Image Prompt",
+            title: mediaPrompt.slice(0, 50) || `${mediaLabel} Prompt`,
           });
           setActiveThread(localThreadId);
           setView("chat");
@@ -276,7 +279,7 @@ export function useDaemonAgentActions({
           daemonLocalThreadRef.current = localThreadId;
           addMessage(localThreadId, {
             role: "user",
-            content: `🖼 ${imagePrompt}`,
+            content: `${mediaKind === "video" ? "🎬" : "🖼"} ${mediaPrompt}`,
             inputTokens: 0,
             outputTokens: 0,
             totalTokens: 0,
@@ -290,13 +293,13 @@ export function useDaemonAgentActions({
         const requestedDaemonThreadId = localThread?.daemonThreadId ?? null;
 
         try {
-          const response = await zorai.agentGenerateImage(
-            imagePrompt,
+          const response = await generateMedia(
+            mediaPrompt,
             requestedDaemonThreadId ? { thread_id: requestedDaemonThreadId } : undefined,
           );
           const result = normalizeBridgePayload(response);
           if (result?.ok === false && typeof result?.error === "string") {
-            appendDaemonSystemMessage(`Failed to generate image: ${result.error}`, localThreadId);
+            appendDaemonSystemMessage(`Failed to generate ${mediaKind}: ${result.error}`, localThreadId);
             return;
           }
 
@@ -328,11 +331,11 @@ export function useDaemonAgentActions({
                 ? result.url
                 : null;
           if (generatedTarget) {
-            appendDaemonSystemMessage(`Image generated: ${generatedTarget}`, localThreadId);
+            appendDaemonSystemMessage(`${mediaLabel} generated: ${generatedTarget}`, localThreadId);
           }
         } catch (error) {
           appendDaemonSystemMessage(
-            `Failed to generate image: ${error instanceof Error ? error.message : "unknown error"}`,
+            `Failed to generate ${mediaKind}: ${error instanceof Error ? error.message : "unknown error"}`,
             localThreadId,
           );
         }

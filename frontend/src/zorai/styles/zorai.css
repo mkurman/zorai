@@ -1213,6 +1213,9 @@
 }
 
 .zorai-message--user .zorai-message__content {
+  justify-self: end;
+  max-width: 100%;
+  box-sizing: border-box;
   background: var(--zorai-bg-active);
   border-color: var(--zorai-border-strong);
   border-radius: 20px;
@@ -2805,7 +2808,8 @@
   cursor: zoom-out;
 }
 
-.zorai-image-preview img {
+.zorai-image-preview img,
+.zorai-image-preview video {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;

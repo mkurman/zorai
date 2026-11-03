@@ -3,6 +3,7 @@ import {
   filterFetchedModelsForAudio,
   filterFetchedModelsForEmbeddings,
   filterFetchedModelsForImageGeneration,
+  filterFetchedModelsForVideoGeneration,
   formatRemoteModelPricingSubtitle,
   normalizeFetchedRemoteModel,
 } from "./providerModels";
@@ -222,6 +223,36 @@ test("filterFetchedModelsForImageGeneration keeps image-capable models only", ()
 
   expect(filterFetchedModelsForImageGeneration(models).map((model) => model.id)).toEqual([
     "openai/gpt-image-1",
+  ]);
+});
+
+test("filterFetchedModelsForVideoGeneration keeps models that output video, not ones that only read it", () => {
+  const models = [
+    normalizeFetchedRemoteModel({
+      id: "vendor/video-gen",
+      architecture: {
+        input_modalities: ["text"],
+        output_modalities: ["video"],
+      },
+    }),
+    normalizeFetchedRemoteModel({
+      id: "vendor/video-understanding",
+      architecture: {
+        input_modalities: ["text", "video"],
+        output_modalities: ["text"],
+      },
+    }),
+    normalizeFetchedRemoteModel({
+      id: "openai/gpt-image-1",
+      architecture: {
+        input_modalities: ["text"],
+        output_modalities: ["image"],
+      },
+    }),
+  ];
+
+  expect(filterFetchedModelsForVideoGeneration(models).map((model) => model.id)).toEqual([
+    "vendor/video-gen",
   ]);
 });
 

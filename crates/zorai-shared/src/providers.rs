@@ -15,6 +15,7 @@ pub struct ModelFeatureCapabilities {
     pub stt: bool,
     pub tts: bool,
     pub image_generation: bool,
+    pub video_generation: bool,
 }
 
 pub const PROVIDER_ID_ALIBABA_CODING_PLAN: &str = "alibaba-coding-plan";
@@ -184,6 +185,14 @@ fn model_id_has_image_generation_heuristic(model_id: &str) -> bool {
         .any(|needle| normalized.contains(needle))
 }
 
+fn model_id_has_video_generation_heuristic(model_id: &str) -> bool {
+    let normalized = model_id.trim().to_ascii_lowercase();
+    !normalized.is_empty()
+        && ["sora", "veo", "hailuo", "t2v", "i2v", "kling", "seedance"]
+            .iter()
+            .any(|needle| normalized.contains(needle))
+}
+
 pub fn derive_model_feature_capabilities(
     _provider_id: &str,
     model_id: &str,
@@ -204,12 +213,16 @@ pub fn derive_model_feature_capabilities(
         || modality_side_has_term(modality, "output", "image")
         || pricing_image
         || model_id_has_image_generation_heuristic(model_id);
+    let video_generation = json_array_contains(output_modalities, "video")
+        || modality_side_has_term(modality, "output", "video")
+        || model_id_has_video_generation_heuristic(model_id);
 
     ModelFeatureCapabilities {
         vision,
         stt,
         tts,
         image_generation,
+        video_generation,
     }
 }
 
@@ -373,8 +386,46 @@ mod tests {
         );
 
         assert!(features.image_generation);
+        assert!(!features.video_generation);
         assert!(!features.stt);
         assert!(!features.tts);
+    }
+
+    #[test]
+    fn derive_model_feature_capabilities_detects_video_generation_without_treating_vision_input_as_output() {
+        let metadata = serde_json::json!({
+            "architecture": {
+                "input_modalities": ["text", "video"],
+                "output_modalities": ["text"],
+            }
+        });
+        let video_understanding = derive_model_feature_capabilities(
+            PROVIDER_ID_OPENROUTER,
+            "google/gemini-3-pro",
+            Some(&metadata),
+            false,
+        );
+        assert!(!video_understanding.video_generation);
+
+        let metadata = serde_json::json!({
+            "architecture": { "output_modalities": ["video"] }
+        });
+        let video_output = derive_model_feature_capabilities(
+            PROVIDER_ID_OPENROUTER,
+            "acme/frames-1",
+            Some(&metadata),
+            false,
+        );
+        assert!(video_output.video_generation);
+        assert!(!video_output.image_generation);
+
+        for model in ["sora-2", "veo-3.1-generate-preview", "MiniMax-Hailuo-02", "wan2.5-t2v-preview"] {
+            assert!(
+                derive_model_feature_capabilities(PROVIDER_ID_OPENAI, model, None, false)
+                    .video_generation,
+                "{model} should be recognized as a video generation model"
+            );
+        }
     }
 
     #[test]
