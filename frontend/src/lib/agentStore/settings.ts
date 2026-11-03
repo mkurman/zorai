@@ -152,7 +152,7 @@ export interface AgentSettings {
   enable_web_browsing_tool: boolean;
   bash_timeout_seconds: number;
   enable_web_search_tool: boolean;
-  search_provider: "none" | "firecrawl" | "duckduckgo" | "exa" | "tavily";
+  search_provider: "none" | "firecrawl" | "duckduckgo" | "exa" | "tavily" | "keenable";
   duckduckgo_region: string;
   duckduckgo_safe_search: "off" | "moderate" | "strict";
   firecrawl_api_key: string;

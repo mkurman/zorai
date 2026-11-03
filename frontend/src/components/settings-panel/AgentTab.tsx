@@ -923,8 +923,8 @@ export function AgentTab({
                         <SettingRow label="Search Provider">
                             <SelectInput
                                 value={settings.search_provider}
-                                options={["none", "firecrawl", "exa", "tavily"]}
-                                onChange={(value) => updateSetting("search_provider", value as "none" | "firecrawl" | "exa" | "tavily")}
+                                options={["none", "firecrawl", "exa", "tavily", "keenable"]}
+                                onChange={(value) => updateSetting("search_provider", value as "none" | "firecrawl" | "exa" | "tavily" | "keenable")}
                             />
                         </SettingRow>
                         <SettingRow label="Firecrawl API Key">
