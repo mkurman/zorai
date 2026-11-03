@@ -18,6 +18,21 @@ describe("splitMessageAttachments", () => {
     }]);
   });
 
+  it("surfaces generated video blocks as video tiles that carry the playable url", () => {
+    const result = splitMessageAttachments("Generated video.", [{
+      type: "video",
+      url: "file:///tmp/media/video-1.mp4",
+      mime_type: "video/mp4",
+    }]);
+
+    expect(result.tiles).toEqual([{
+      id: "block:video:0",
+      kind: "video",
+      name: "video.mp4",
+      previewUrl: "file:///tmp/media/video-1.mp4",
+    }]);
+  });
+
   it("turns inlined attached_file wrappers into file tiles and hides the raw markup", () => {
     const content = `<attached_file name="notes.txt">\nhello\n</attached_file>\n\nlook at this`;
     const result = splitMessageAttachments(content);

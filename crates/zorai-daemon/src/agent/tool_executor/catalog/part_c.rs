@@ -22,6 +22,25 @@ fn configured_image_generation_setting<'a>(
         })
 }
 
+fn configured_video_generation_model(config: &AgentConfig) -> Option<&str> {
+    config
+        .extra
+        .get("video")
+        .and_then(|value| value.get("generation"))
+        .and_then(|value| value.get("model"))
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            config
+                .extra
+                .get("video_generation_model")
+                .and_then(|value| value.as_str())
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+        })
+}
+
 fn configured_image_generation_provider(config: &AgentConfig) -> Option<&str> {
     configured_image_generation_setting(config, "provider")
 }
@@ -217,6 +236,28 @@ pub(crate) fn add_available_tools_part_c(
                     "background": { "type": "string", "description": "Optional background hint supported by the provider" },
                     "output_format": { "type": "string", "description": "Desired image format for saved bytes, e.g. png, jpg, webp" },
                     "timeout_seconds": { "type": "integer", "minimum": 0, "maximum": 600, "description": "Max time to wait for completion (default: 600, max: 600)" }
+                },
+                "required": ["prompt"]
+            }),
+        ));
+    }
+
+    if configured_video_generation_model(config).is_some() {
+        tools.push(tool_def(
+            tool_names::GENERATE_VIDEO,
+            "Generate a short video clip from a text prompt with the configured video model (MiniMax Hailuo, Alibaba Wan, Gemini Omni, or OpenRouter). Generation usually takes one to several minutes. The finished video is saved into the thread and shown to the operator, so do not repeat the file path afterwards.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "prompt": { "type": "string", "description": "Video generation prompt describing subject, motion, camera and style" },
+                    "provider": { "type": "string", "description": "Optional provider override, only when the operator explicitly specifies it" },
+                    "model": { "type": "string", "description": "Optional model override, only when the operator explicitly specifies it" },
+                    "duration_seconds": { "type": "integer", "minimum": 1, "description": "Optional clip length in seconds; providers accept only specific lengths and some ignore it" },
+                    "resolution": { "type": "string", "description": "Optional resolution such as 720p or 1080p" },
+                    "aspect_ratio": { "type": "string", "description": "Optional aspect ratio such as 16:9, 9:16, or 1:1" },
+                    "size": { "type": "string", "description": "Optional exact size such as 1280x720, for providers that take sizes instead of resolution and aspect ratio" },
+                    "negative_prompt": { "type": "string", "description": "Optional content to avoid, for providers that support it" },
+                    "timeout_seconds": { "type": "integer", "minimum": 0, "maximum": 600, "description": "Max time to wait for the clip (default: 600, max: 600)" }
                 },
                 "required": ["prompt"]
             }),

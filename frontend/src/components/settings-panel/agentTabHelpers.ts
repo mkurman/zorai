@@ -76,6 +76,26 @@ const MINIMAX_IMAGE_MODELS: ModelDefinition[] = [
   { id: "image-01", name: "MiniMax Image 01", contextWindow: 0, modalities: ["image"] },
 ];
 
+const MINIMAX_VIDEO_MODELS: ModelDefinition[] = [
+  { id: "MiniMax-Hailuo-2.3", name: "MiniMax Hailuo 2.3", contextWindow: 0, modalities: ["video"] },
+  { id: "MiniMax-Hailuo-02", name: "MiniMax Hailuo 02", contextWindow: 0, modalities: ["video"] },
+  { id: "T2V-01-Director", name: "MiniMax T2V 01 Director", contextWindow: 0, modalities: ["video"] },
+  { id: "T2V-01", name: "MiniMax T2V 01", contextWindow: 0, modalities: ["video"] },
+];
+
+const QWEN_VIDEO_MODELS: ModelDefinition[] = [
+  { id: "wan2.7-t2v", name: "Wan 2.7 T2V", contextWindow: 0, modalities: ["video"] },
+  { id: "wan2.6-t2v", name: "Wan 2.6 T2V", contextWindow: 0, modalities: ["video"] },
+  { id: "wan2.5-t2v-preview", name: "Wan 2.5 T2V Preview", contextWindow: 0, modalities: ["video"] },
+  { id: "wan2.2-t2v-plus", name: "Wan 2.2 T2V Plus", contextWindow: 0, modalities: ["video"] },
+];
+
+const GEMINI_VIDEO_MODELS: ModelDefinition[] = [
+  { id: "gemini-omni-1.1-flash", name: "Gemini Omni 1.1 Flash", contextWindow: 0, modalities: ["video"] },
+];
+
+const VIDEO_GENERATION_PROVIDER_IDS: AgentProviderId[] = ["minimax", "qwen", "gemini", "openrouter"];
+
 export type ProviderOption = {
   id: AgentProviderId;
   label: string;
@@ -201,6 +221,23 @@ export function imageGenerationModelOptions(providerId: AgentProviderId): ModelD
   return [];
 }
 
+export function videoRemoteModelFetchOutputModalities(providerId: AgentProviderId): string | undefined {
+  return providerId === "openrouter" ? "video" : undefined;
+}
+
+export function videoGenerationModelOptions(providerId: AgentProviderId): ModelDefinition[] {
+  if (providerId === "minimax") {
+    return MINIMAX_VIDEO_MODELS;
+  }
+  if (providerId === "qwen") {
+    return QWEN_VIDEO_MODELS;
+  }
+  if (providerId === "gemini") {
+    return GEMINI_VIDEO_MODELS;
+  }
+  return [];
+}
+
 export function embeddingModelOptions(providerId: AgentProviderId): ModelDefinition[] {
   if (providerId === "openai" || providerId === "azure-openai" || providerId === "custom") {
     return [
@@ -261,6 +298,27 @@ export function normalizeImageGenerationModelForProviderChange(
 export function filterImageGenerationProviderOptions(providerOptions: ProviderOption[]): ProviderOption[] {
   return providerOptions.filter((provider) =>
     provider.id === "custom" || imageGenerationModelOptions(provider.id).length > 0);
+}
+
+export function normalizeVideoGenerationModelForProviderChange(
+  providerId: AgentProviderId,
+  currentModel: string,
+): string {
+  const normalizedCurrentModel = currentModel.trim();
+  const knownVideoModels = videoGenerationModelOptions(providerId);
+  if (knownVideoModels.length > 0) {
+    return knownVideoModels.some((model) => model.id === normalizedCurrentModel)
+      ? normalizedCurrentModel
+      : knownVideoModels[0]?.id ?? "";
+  }
+  if (providerId === "openrouter") {
+    return normalizedCurrentModel;
+  }
+  return "";
+}
+
+export function filterVideoGenerationProviderOptions(providerOptions: ProviderOption[]): ProviderOption[] {
+  return providerOptions.filter((provider) => VIDEO_GENERATION_PROVIDER_IDS.includes(provider.id));
 }
 
 export function normalizeLlmStreamTimeoutInput(value: string): number | null {

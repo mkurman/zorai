@@ -103,4 +103,28 @@ describe("MessageBubble participant authorship", () => {
     expect(html).toContain("Strategy: custom model generated");
     expect(html).toContain("Expand");
   });
+
+  it("renders generated video blocks as playable video elements pointing at the saved file", () => {
+    const html = renderToStaticMarkup(
+      <MessageBubble
+        message={{
+          id: "msg-video-1",
+          threadId: "thread-1",
+          createdAt: 1,
+          role: "assistant",
+          content: "Generated video.",
+          contentBlocks: [{ type: "video", url: "file:///tmp/media/video-1.mp4", mime_type: "video/mp4" }],
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+          isCompactionSummary: false,
+          isStreaming: false,
+        }}
+      />,
+    );
+
+    expect(html).toMatch(/<video[^>]*src="file:\/\/\/tmp\/media\/video-1\.mp4"/);
+    expect(html).toMatch(/<video[^>]*controls/);
+    expect(html).toContain("Video attachment · video/mp4");
+  });
 });

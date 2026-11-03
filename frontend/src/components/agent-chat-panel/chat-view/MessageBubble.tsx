@@ -142,7 +142,7 @@ export function MessageBubble({
     return message.content.slice(markerIndex + marker.length).trim();
   })();
   const mediaBlocks = Array.isArray(message.contentBlocks)
-    ? message.contentBlocks.filter((block) => block.type === "image" || block.type === "audio")
+    ? message.contentBlocks.filter((block) => block.type === "image" || block.type === "audio" || block.type === "video")
     : [];
 
   const handleCopy = () => {
@@ -318,6 +318,13 @@ export function MessageBubble({
                       />
                       <figcaption className="acp-media__caption">
                         Image attachment{block.mime_type ? ` · ${block.mime_type}` : ""}
+                      </figcaption>
+                    </figure>
+                  ) : block.type === "video" ? (
+                    <figure key={`${message.id}:media:${index}`} className="acp-media__figure">
+                      <video controls preload="metadata" src={source} className="acp-media__img" />
+                      <figcaption className="acp-media__caption">
+                        Video attachment{block.mime_type ? ` · ${block.mime_type}` : ""}
                       </figcaption>
                     </figure>
                   ) : (

@@ -48,6 +48,19 @@ describe("loadFilePreviewSection", () => {
     expect(section?.text).toBe("<svg/>");
   });
 
+  it("previews generated mp4 files as playable video from a file url instead of the binary notice", async () => {
+    const section = await loadFilePreviewSection("/root/threads/t1/artifacts/media/video 1.mp4");
+
+    expect(section).toEqual({
+      title: "Video preview",
+      kind: "video",
+      text: "file:///root/threads/t1/artifacts/media/video%201.mp4",
+      path: "/root/threads/t1/artifacts/media/video 1.mp4",
+    });
+    expect(mocks.fetchFilePreview).not.toHaveBeenCalled();
+    expect(mocks.agentReadImageFile).not.toHaveBeenCalled();
+  });
+
   it("does not try the image reader for text files", async () => {
     mocks.fetchFilePreview.mockResolvedValue({ path: "/work/a.ts", content: "x", truncated: false, isText: true });
 

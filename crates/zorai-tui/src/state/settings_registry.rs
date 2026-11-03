@@ -216,6 +216,7 @@ const WEB_PAGE: SettingsPageSpec = SettingsPageSpec {
                 field!(Secret, "firecrawl_api_key", "Firecrawl key", c => c.firecrawl_api_key.as_str(), if c => c.search_provider == "firecrawl"),
                 field!(Secret, "exa_api_key", "Exa key", c => c.exa_api_key.as_str(), if c => c.search_provider == "exa"),
                 field!(Secret, "tavily_api_key", "Tavily key", c => c.tavily_api_key.as_str(), if c => c.search_provider == "tavily"),
+                field!(Secret, "keenable_api_key", "Keenable key", c => c.keenable_api_key.as_str(), if c => c.search_provider == "keenable"),
                 field!(Number, "search_max_results", "Max results", c => c.search_max_results.to_string()),
                 field!(Number, "search_timeout", "Timeout (s)", c => c.search_timeout_secs.to_string()),
             ]
@@ -274,7 +275,7 @@ const SKILLS_PAGE: SettingsPageSpec = SettingsPageSpec {
 
 const MEDIA_PAGE: SettingsPageSpec = SettingsPageSpec {
     title: "Audio & Images",
-    description: "Speech-to-text, text-to-speech, and image generation.",
+    description: "Speech-to-text, text-to-speech, image and video generation.",
     sections: &[
         section!("Speech-to-text", note _c => Some("Hotkeys: Ctrl+L record | Ctrl+P speak / pause-resume | Ctrl+S stop playback".to_string()), [
             field!(Toggle, "feat_audio_stt_enabled", "Speech-to-text", c => c.audio_stt_enabled()),
@@ -297,6 +298,13 @@ const MEDIA_PAGE: SettingsPageSpec = SettingsPageSpec {
             [
                 field!(Picker, "feat_image_generation_provider", "Provider", c => or_default(c.image_generation_provider(), "openai")),
                 field!(Picker, "feat_image_generation_model", "Model", c => or_default(c.image_generation_model(), "gpt-image-1")),
+            ]
+        ),
+        section!(
+            "Video generation",
+            [
+                field!(Picker, "feat_video_generation_provider", "Provider", c => or_default(c.video_generation_provider(), "minimax")),
+                field!(Picker, "feat_video_generation_model", "Model", c => or_default(c.video_generation_model(), "MiniMax-Hailuo-2.3")),
             ]
         ),
     ],

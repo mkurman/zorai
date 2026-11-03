@@ -333,6 +333,14 @@ impl DaemonClient {
                 )
                 .await;
             }
+            DaemonMessage::AgentGenerateVideoResult { content } => {
+                dispatch_client_event(
+                    event_tx,
+                    ClientEvent::GenerateVideoResult { content },
+                    "generate_video_result",
+                )
+                .await;
+            }
             DaemonMessage::AgentOperatorProfileSessionCompleted {
                 session_id,
                 updated_fields,

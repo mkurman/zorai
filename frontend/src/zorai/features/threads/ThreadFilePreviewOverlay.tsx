@@ -21,13 +21,14 @@ import { dataEngineAvailable, isEngineDataPath, isEngineOnlyDataPath } from "@/c
 
 type PreviewSection = {
   title: string;
-  kind: "git-diff" | "file-preview" | "image" | "data";
+  kind: "git-diff" | "file-preview" | "image" | "video" | "data";
   text: string;
   path?: string;
   truncated?: boolean;
 };
 
 const IMAGE_PREVIEW_PATTERN = /\.(png|jpe?g|gif|webp|bmp|svg)$/i;
+const VIDEO_PREVIEW_PATTERN = /\.(mp4|webm|mov|m4v)$/i;
 const MARKDOWN_PREVIEW_PATTERN = /\.(md|markdown|mdx)$/i;
 const MERMAID_PREVIEW_PATTERN = /\.(mmd|mermaid)$/i;
 const TRUNCATION_SUFFIX = "\n\n[Preview truncated]";
@@ -54,6 +55,9 @@ export async function loadFilePreviewSection(path: string): Promise<PreviewSecti
       return { title: "Image preview", kind: "image", text: dataUrl, path };
     }
   }
+  if (VIDEO_PREVIEW_PATTERN.test(path)) {
+    return { title: "Video preview", kind: "video", text: fileUrlForPath(path), path };
+  }
   if (isEngineOnlyDataPath(path) && dataEngineAvailable()) {
     return { title: "Data preview", kind: "data", text: "", path };
   }
@@ -69,6 +73,12 @@ export async function loadFilePreviewSection(path: string): Promise<PreviewSecti
   return preview.isText && preview.truncated
     ? { title: "File preview", kind: "file-preview", text, path, truncated: true }
     : { title: "File preview", kind: "file-preview", text, path };
+}
+
+function fileUrlForPath(path: string): string {
+  const normalized = path.replace(/\\/g, "/");
+  const absolute = normalized.startsWith("/") ? normalized : `/${normalized}`;
+  return `file://${encodeURI(absolute).replace(/\?/g, "%3F").replace(/#/g, "%23")}`;
 }
 
 export function ThreadFilePreviewOverlay() {
@@ -224,6 +234,9 @@ function PreviewSectionView({ section }: { section: PreviewSection }) {
 function PreviewText({ text, kind, path }: { text: string; kind: PreviewSection["kind"]; path?: string }) {
   if (kind === "image") {
     return <img className="zorai-file-preview-overlay__image" src={text} alt={path ?? ""} />;
+  }
+  if (kind === "video") {
+    return <video className="zorai-file-preview-overlay__image" src={text} controls preload="metadata" />;
   }
   if (text === "Binary file preview is not available.") {
     return <pre className="zorai-file-preview-overlay__pre">{text}</pre>;

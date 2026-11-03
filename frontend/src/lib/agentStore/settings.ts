@@ -158,6 +158,7 @@ export interface AgentSettings {
   firecrawl_api_key: string;
   exa_api_key: string;
   tavily_api_key: string;
+  keenable_api_key: string;
   search_max_results: number;
   search_timeout_secs: number;
   browse_provider: "auto" | "lightpanda" | "chrome" | "none";
@@ -228,6 +229,8 @@ export interface AgentSettings {
   audio_tts_auto_speak: boolean;
   image_generation_provider: AgentProviderId;
   image_generation_model: string;
+  video_generation_provider: AgentProviderId;
+  video_generation_model: string;
   semantic_embedding_enabled: boolean;
   semantic_embedding_provider: AgentProviderId;
   semantic_embedding_model: string;
@@ -322,6 +325,7 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   firecrawl_api_key: "",
   exa_api_key: "",
   tavily_api_key: "",
+  keenable_api_key: "",
   search_max_results: 8,
   search_timeout_secs: 20,
   browse_provider: "auto",
@@ -398,6 +402,8 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   audio_tts_auto_speak: false,
   image_generation_provider: "openai",
   image_generation_model: "gpt-image-1",
+  video_generation_provider: "",
+  video_generation_model: "",
   semantic_embedding_enabled: false,
   semantic_embedding_provider: "openai",
   semantic_embedding_model: "text-embedding-3-small",
@@ -612,6 +618,12 @@ export type DiskAgentSettings = Partial<AgentSettings> & {
       model?: string;
     };
   };
+  video?: {
+    generation?: {
+      provider?: AgentProviderId | string;
+      model?: string;
+    };
+  };
   semantic?: {
     embedding?: {
       enabled?: boolean;
@@ -624,6 +636,8 @@ export type DiskAgentSettings = Partial<AgentSettings> & {
   };
   image_generation_provider?: AgentProviderId | string;
   image_generation_model?: string;
+  video_generation_provider?: AgentProviderId | string;
+  video_generation_model?: string;
   system_prompt?: string;
   agent_aliases?: Record<string, unknown>;
   managed_sandbox_enabled?: boolean;
@@ -908,6 +922,14 @@ export function normalizeAgentSettingsFromSource(source: DiskAgentSettings): Age
         DEFAULT_AGENT_SETTINGS.image_generation_model,
         "openai/gpt-image-1",
       ),
+    video_generation_provider:
+      source.video?.generation?.provider
+      ?? source.video_generation_provider
+      ?? DEFAULT_AGENT_SETTINGS.video_generation_provider,
+    video_generation_model:
+      source.video?.generation?.model
+      ?? source.video_generation_model
+      ?? DEFAULT_AGENT_SETTINGS.video_generation_model,
     semantic_embedding_enabled:
       source.semantic?.embedding?.enabled ?? DEFAULT_AGENT_SETTINGS.semantic_embedding_enabled,
     semantic_embedding_provider,

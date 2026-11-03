@@ -515,6 +515,7 @@ impl TuiModel {
                             "firecrawl_api_key" => self.config.firecrawl_api_key = value,
                             "exa_api_key" => self.config.exa_api_key = value,
                             "tavily_api_key" => self.config.tavily_api_key = value,
+                            "keenable_api_key" => self.config.keenable_api_key = value,
                             "search_max_results" => {
                                 if let Ok(n) = value.parse::<u32>() {
                                     self.config.search_max_results = n.clamp(1, 20);
@@ -1028,6 +1029,12 @@ impl TuiModel {
                                     raw["image"]["generation"]["model"] =
                                         serde_json::Value::String(value);
                                 }
+                            }
+                            "feat_video_generation_provider" => {
+                                self.set_video_generation_config_string("provider", value);
+                            }
+                            "feat_video_generation_model" => {
+                                self.set_video_generation_config_string("model", value);
                             }
                             "feat_embedding_model" => {
                                 self.send_daemon_command(DaemonCommand::SetConfigItem {

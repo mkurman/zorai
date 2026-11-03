@@ -39,7 +39,7 @@ export function splitMessageAttachments(
   return { displayText, tiles };
 }
 
-function mediaBlockName(kind: "image" | "audio", mimeType: string | undefined, index: number): string {
+function mediaBlockName(kind: "image" | "audio" | "video", mimeType: string | undefined, index: number): string {
   const subtype = mimeType?.split("/")[1]?.split(";")[0];
   if (subtype) {
     return `${kind}.${subtype}`;

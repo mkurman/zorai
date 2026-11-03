@@ -244,6 +244,7 @@ impl TuiModel {
                 zorai_protocol::tool_names::READ_FILE
                     | zorai_protocol::tool_names::READ_SKILL
                     | zorai_protocol::tool_names::GENERATE_IMAGE
+                    | zorai_protocol::tool_names::GENERATE_VIDEO
             );
         let repo_root = if show_plain_preview {
             None

@@ -399,6 +399,9 @@ pub enum ClientEvent {
     GenerateImageResult {
         content: String,
     },
+    GenerateVideoResult {
+        content: String,
+    },
     OperatorProfileSessionCompleted {
         session_id: String,
         updated_fields: Vec<String>,

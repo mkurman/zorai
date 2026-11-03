@@ -512,6 +512,22 @@ async fn web_search_runtime_routes_keenable_without_a_key() {
 }
 
 #[test]
+fn keenable_uses_the_keyed_endpoint_only_when_a_config_key_is_set() {
+    assert_eq!(
+        super::keenable_search_url(""),
+        "https://api.keenable.ai/v1/search/public"
+    );
+    assert_eq!(
+        super::keenable_search_url("   "),
+        "https://api.keenable.ai/v1/search/public"
+    );
+    assert_eq!(
+        super::keenable_search_url("kn-key"),
+        "https://api.keenable.ai/v1/search"
+    );
+}
+
+#[test]
 fn keenable_results_prefer_description_over_snippet() {
     let text = super::format_keenable_search_results(
         "rust async",

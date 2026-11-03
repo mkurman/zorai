@@ -1884,6 +1884,9 @@ async fn dispatch_tool_execution(
         tool_names::GENERATE_IMAGE => {
             execute_generate_image(args, agent, http_client, Some(thread_id)).await
         }
+        tool_names::GENERATE_VIDEO => {
+            execute_generate_video(args, agent, http_client, Some(thread_id)).await
+        }
         tool_names::SPEECH_TO_TEXT => execute_speech_to_text(args, agent, http_client).await,
         tool_names::TEXT_TO_SPEECH => execute_text_to_speech(args, agent, http_client).await,
         tool_names::LIST_FILES => execute_list_files(args, session_manager, session_id).await,
@@ -2123,6 +2126,12 @@ async fn dispatch_tool_execution(
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
+            let keenable_api_key = config
+                .extra
+                .get("keenable_api_key")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             let duckduckgo_region = config
                 .extra
                 .get("duckduckgo_region")
@@ -2143,6 +2152,7 @@ async fn dispatch_tool_execution(
                 &exa_api_key,
                 &tavily_api_key,
                 &firecrawl_api_key,
+                &keenable_api_key,
                 &duckduckgo_region,
                 &duckduckgo_safe_search,
             )

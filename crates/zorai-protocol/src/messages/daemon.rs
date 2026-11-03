@@ -212,4 +212,5 @@ pub enum DaemonMessage {
     DataQueryResult { result_json: String },
     AgentFileOperationBefore { result_json: String },
     AgentThreadSearchResults { results_json: String },
+    AgentGenerateVideoResult { content: String },
 }

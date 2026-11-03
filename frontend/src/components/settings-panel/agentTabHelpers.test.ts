@@ -8,6 +8,10 @@ import {
   imageRemoteModelFetchOutputModalities,
   normalizeImageGenerationModelForProviderChange,
   normalizeAudioModelForProviderChange,
+  filterVideoGenerationProviderOptions,
+  normalizeVideoGenerationModelForProviderChange,
+  videoGenerationModelOptions,
+  videoRemoteModelFetchOutputModalities,
 } from "./agentTabHelpers";
 
 test("image generation provider changes normalize unsupported models", () => {
@@ -110,4 +114,49 @@ test("remote model fetches request TUI modality filters for OpenRouter audio and
   expect(audioRemoteModelFetchOutputModalities("tts", "openai")).toBeUndefined();
   expect(imageRemoteModelFetchOutputModalities("openrouter")).toBe("image");
   expect(imageRemoteModelFetchOutputModalities("openai")).toBeUndefined();
+});
+
+test("video generation catalogs list only daemon-supported models with the daemon default first", () => {
+  expect(videoGenerationModelOptions("minimax").map((model) => model.id)).toEqual([
+    "MiniMax-Hailuo-2.3",
+    "MiniMax-Hailuo-02",
+    "T2V-01-Director",
+    "T2V-01",
+  ]);
+  expect(videoGenerationModelOptions("qwen").map((model) => model.id)).toEqual([
+    "wan2.7-t2v",
+    "wan2.6-t2v",
+    "wan2.5-t2v-preview",
+    "wan2.2-t2v-plus",
+  ]);
+  expect(videoGenerationModelOptions("gemini").map((model) => model.id)).toEqual(["gemini-omni-1.1-flash"]);
+  expect(videoGenerationModelOptions("openai")).toEqual([]);
+  expect(videoGenerationModelOptions("openrouter")).toEqual([]);
+});
+
+test("video generation provider options exclude providers the daemon cannot generate video with", () => {
+  expect(
+    filterVideoGenerationProviderOptions([
+      { id: "openai", label: "OpenAI" },
+      { id: "minimax", label: "MiniMax" },
+      { id: "qwen", label: "Qwen" },
+      { id: "gemini", label: "Gemini" },
+      { id: "openrouter", label: "OpenRouter" },
+      { id: "custom", label: "Custom" },
+      { id: "xai", label: "xAI" },
+    ]).map((provider) => provider.id),
+  ).toEqual(["minimax", "qwen", "gemini", "openrouter"]);
+});
+
+test("video generation provider changes pick a valid catalog model and keep openrouter custom ids", () => {
+  expect(normalizeVideoGenerationModelForProviderChange("minimax", "")).toBe("MiniMax-Hailuo-2.3");
+  expect(normalizeVideoGenerationModelForProviderChange("qwen", "MiniMax-Hailuo-2.3")).toBe("wan2.7-t2v");
+  expect(normalizeVideoGenerationModelForProviderChange("qwen", "wan2.6-t2v")).toBe("wan2.6-t2v");
+  expect(normalizeVideoGenerationModelForProviderChange("openrouter", "vendor/video-model")).toBe("vendor/video-model");
+  expect(normalizeVideoGenerationModelForProviderChange("", "MiniMax-Hailuo-2.3")).toBe("");
+});
+
+test("video remote model fetch asks openrouter for video output models only", () => {
+  expect(videoRemoteModelFetchOutputModalities("openrouter")).toBe("video");
+  expect(videoRemoteModelFetchOutputModalities("minimax")).toBeUndefined();
 });

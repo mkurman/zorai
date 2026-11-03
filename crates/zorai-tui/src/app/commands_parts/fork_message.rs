@@ -352,6 +352,16 @@ fn content_blocks_json(blocks: &[chat::AgentContentBlock]) -> Vec<serde_json::Va
                 "data_url": data_url,
                 "mime_type": mime_type,
             }),
+            chat::AgentContentBlock::Video {
+                url,
+                data_url,
+                mime_type,
+            } => json!({
+                "type": "video",
+                "url": url,
+                "data_url": data_url,
+                "mime_type": mime_type,
+            }),
         })
         .collect()
 }

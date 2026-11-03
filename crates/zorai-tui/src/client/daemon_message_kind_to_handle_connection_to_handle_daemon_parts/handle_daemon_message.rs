@@ -99,6 +99,7 @@ impl DaemonClient {
             | DaemonMessage::AgentSpeechToTextResult { .. }
             | DaemonMessage::AgentTextToSpeechResult { .. }
             | DaemonMessage::AgentGenerateImageResult { .. }
+            | DaemonMessage::AgentGenerateVideoResult { .. }
             | DaemonMessage::AgentOperatorProfileSessionCompleted { .. }
             | DaemonMessage::AgentError { .. }
             | DaemonMessage::AgentTierChanged { .. }

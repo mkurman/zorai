@@ -600,6 +600,26 @@ pub(super) fn handle_modal_enter(model: &mut TuiModel, kind: modal::ModalKind) {
                         model.status_line = format!("Image provider: {}", def.name);
                         return;
                     }
+                    SettingsPickerTarget::VideoGenerationProvider => {
+                        let current_model = model.config.video_generation_model();
+                        let known_models = TuiModel::video_generation_catalog_models(def.id);
+                        let next_model = if current_model.trim().is_empty()
+                            || (!known_models.is_empty()
+                                && !known_models.iter().any(|entry| entry.id == current_model))
+                        {
+                            TuiModel::default_video_generation_model_for(def.id)
+                        } else {
+                            current_model
+                        };
+                        model.set_video_generation_config_string("provider", def.id.to_string());
+                        if !next_model.trim().is_empty() {
+                            model.set_video_generation_config_string("model", next_model);
+                        }
+                        model.close_top_modal();
+                        model.open_video_generation_model_picker();
+                        model.status_line = format!("Video provider: {}", def.name);
+                        return;
+                    }
                     SettingsPickerTarget::EmbeddingProvider => {
                         let current_model = model.config.semantic_embedding_model();
                         let known_models = TuiModel::embedding_catalog_models(def.id);
@@ -761,6 +781,7 @@ pub(super) fn handle_modal_enter(model: &mut TuiModel, kind: modal::ModalKind) {
                     | SettingsPickerTarget::AudioSttModel
                     | SettingsPickerTarget::AudioTtsModel
                     | SettingsPickerTarget::ImageGenerationModel
+                    | SettingsPickerTarget::VideoGenerationModel
                     | SettingsPickerTarget::EmbeddingModel
                     | SettingsPickerTarget::BuiltinPersonaModel
                     | SettingsPickerTarget::CompactionWelesModel
@@ -959,6 +980,10 @@ pub(super) fn handle_modal_enter(model: &mut TuiModel, kind: modal::ModalKind) {
                         model.set_image_generation_config_string("model", model_id.clone());
                         model.status_line = format!("Image model: {}", model_id);
                     }
+                    SettingsPickerTarget::VideoGenerationModel => {
+                        model.set_video_generation_config_string("model", model_id.clone());
+                        model.status_line = format!("Video model: {}", model_id);
+                    }
                     SettingsPickerTarget::EmbeddingModel => {
                         let embedding_dimensions =
                             embedding_dimensions_from_fetched_model(model_entry);
@@ -1089,6 +1114,7 @@ pub(super) fn handle_modal_enter(model: &mut TuiModel, kind: modal::ModalKind) {
                     | SettingsPickerTarget::AudioSttProvider
                     | SettingsPickerTarget::AudioTtsProvider
                     | SettingsPickerTarget::ImageGenerationProvider
+                    | SettingsPickerTarget::VideoGenerationProvider
                     | SettingsPickerTarget::EmbeddingProvider
                     | SettingsPickerTarget::BuiltinPersonaProvider
                     | SettingsPickerTarget::CompactionWelesProvider

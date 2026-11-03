@@ -1,14 +1,22 @@
 use super::*;
 use zorai_shared::providers::{
-    PROVIDER_ID_AZURE_OPENAI, PROVIDER_ID_CUSTOM, PROVIDER_ID_ELEVENLABS, PROVIDER_ID_GROQ,
-    PROVIDER_ID_MINIMAX, PROVIDER_ID_MINIMAX_CODING_PLAN, PROVIDER_ID_OPENAI,
-    PROVIDER_ID_OPENROUTER, PROVIDER_ID_XAI, PROVIDER_ID_XIAOMI_MIMO,
+    PROVIDER_ID_AZURE_OPENAI, PROVIDER_ID_CUSTOM, PROVIDER_ID_ELEVENLABS, PROVIDER_ID_GEMINI,
+    PROVIDER_ID_GROQ, PROVIDER_ID_MINIMAX, PROVIDER_ID_MINIMAX_CODING_PLAN, PROVIDER_ID_OPENAI,
+    PROVIDER_ID_OPENROUTER, PROVIDER_ID_QWEN, PROVIDER_ID_XAI, PROVIDER_ID_XIAOMI_MIMO,
     PROVIDER_ID_XIAOMI_MIMO_TOKEN_PLAN,
 };
 impl TuiModel {
     fn image_remote_model_fetch_output_modalities(provider_id: &str) -> Option<String> {
         if provider_id == PROVIDER_ID_OPENROUTER {
             Some("image".to_string())
+        } else {
+            None
+        }
+    }
+
+    fn video_remote_model_fetch_output_modalities(provider_id: &str) -> Option<String> {
+        if provider_id == PROVIDER_ID_OPENROUTER {
+            Some("video".to_string())
         } else {
             None
         }
@@ -166,6 +174,42 @@ impl TuiModel {
             .unwrap_or_default()
     }
 
+    pub(crate) fn video_generation_catalog_models(
+        provider_id: &str,
+    ) -> Vec<crate::state::config::FetchedModel> {
+        let model = |id: &str, name: &str| crate::state::config::FetchedModel {
+            id: id.to_string(),
+            name: Some(name.to_string()),
+            context_window: None,
+            pricing: None,
+            metadata: None,
+        };
+        match provider_id {
+            PROVIDER_ID_MINIMAX => vec![
+                model("MiniMax-Hailuo-2.3", "MiniMax Hailuo 2.3"),
+                model("MiniMax-Hailuo-02", "MiniMax Hailuo 02"),
+                model("T2V-01-Director", "MiniMax T2V 01 Director"),
+                model("T2V-01", "MiniMax T2V 01"),
+            ],
+            PROVIDER_ID_QWEN => vec![
+                model("wan2.7-t2v", "Wan 2.7 T2V"),
+                model("wan2.6-t2v", "Wan 2.6 T2V"),
+                model("wan2.5-t2v-preview", "Wan 2.5 T2V Preview"),
+                model("wan2.2-t2v-plus", "Wan 2.2 T2V Plus"),
+            ],
+            PROVIDER_ID_GEMINI => vec![model("gemini-omni-1.1-flash", "Gemini Omni 1.1 Flash")],
+            _ => Vec::new(),
+        }
+    }
+
+    pub(crate) fn default_video_generation_model_for(provider_id: &str) -> String {
+        Self::video_generation_catalog_models(provider_id)
+            .into_iter()
+            .next()
+            .map(|model| model.id)
+            .unwrap_or_default()
+    }
+
     pub(crate) fn embedding_catalog_models(
         provider_id: &str,
     ) -> Vec<crate::state::config::FetchedModel> {
@@ -248,6 +292,22 @@ impl TuiModel {
                 raw["image"]["generation"] = serde_json::json!({});
             }
             raw["image"]["generation"][field] = serde_json::Value::String(value);
+        }
+    }
+
+    pub(crate) fn set_video_generation_config_string(&mut self, field: &str, value: String) {
+        self.send_daemon_command(DaemonCommand::SetConfigItem {
+            key_path: format!("/video/generation/{field}"),
+            value_json: serde_json::Value::String(value.clone()).to_string(),
+        });
+        if let Some(ref mut raw) = self.config.agent_config_raw {
+            if raw.get("video").is_none() {
+                raw["video"] = serde_json::json!({});
+            }
+            if raw["video"].get("generation").is_none() {
+                raw["video"]["generation"] = serde_json::json!({});
+            }
+            raw["video"]["generation"][field] = serde_json::Value::String(value);
         }
     }
 
@@ -334,6 +394,34 @@ impl TuiModel {
             });
         }
         self.settings_picker_target = Some(SettingsPickerTarget::ImageGenerationModel);
+        self.modal
+            .reduce(modal::ModalAction::Push(modal::ModalKind::ModelPicker));
+        self.sync_model_picker_item_count();
+    }
+
+    pub(crate) fn open_video_generation_model_picker(&mut self) {
+        let provider_id = {
+            let provider = self.config.video_generation_provider();
+            if provider.trim().is_empty() {
+                PROVIDER_ID_MINIMAX.to_string()
+            } else {
+                provider
+            }
+        };
+        let (base_url, api_key, auth_source) = self.provider_auth_snapshot(&provider_id);
+        let models = Self::video_generation_catalog_models(&provider_id);
+        self.config
+            .reduce(config::ConfigAction::ModelsFetched(models));
+        if self.should_fetch_remote_models(&provider_id, &auth_source) {
+            let output_modalities = Self::video_remote_model_fetch_output_modalities(&provider_id);
+            self.send_daemon_command(DaemonCommand::FetchModels {
+                provider_id,
+                base_url,
+                api_key,
+                output_modalities,
+            });
+        }
+        self.settings_picker_target = Some(SettingsPickerTarget::VideoGenerationModel);
         self.modal
             .reduce(modal::ModalAction::Push(modal::ModalKind::ModelPicker));
         self.sync_model_picker_item_count();

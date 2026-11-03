@@ -56,6 +56,7 @@ export const TOOL_NAMES = {
   findSymbol: "find_symbol",
   generateImage: "generate_image",
   generateSoc2Artifact: "generate_soc2_artifact",
+  generateVideo: "generate_video",
   getBackgroundTaskStatus: "get_background_task_status",
   getCausalTraceReport: "get_causal_trace_report",
   getCollaborationSessions: "get_collaboration_sessions",

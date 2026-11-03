@@ -143,6 +143,11 @@ pub enum AgentContentBlock {
         data_url: Option<String>,
         mime_type: Option<String>,
     },
+    Video {
+        url: Option<String>,
+        data_url: Option<String>,
+        mime_type: Option<String>,
+    },
 }
 
 impl Default for AgentContentBlock {

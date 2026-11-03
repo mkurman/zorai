@@ -541,6 +541,12 @@ pub(super) enum AgentBridgeCommand {
     TextToSpeech {
         args_json: String,
     },
+    GenerateImage {
+        args_json: String,
+    },
+    GenerateVideo {
+        args_json: String,
+    },
     PromoteGeneratedTool {
         tool_name: String,
     },

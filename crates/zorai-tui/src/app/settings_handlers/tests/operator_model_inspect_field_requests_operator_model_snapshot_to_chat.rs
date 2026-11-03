@@ -101,6 +101,19 @@ fn websearch_provider_cycle_includes_duckduckgo() {
 }
 
 #[test]
+fn websearch_provider_cycle_reaches_keenable_and_keeps_going() {
+    let (mut model, _daemon_rx) = make_model();
+    focus_settings_field(&mut model, SettingsTab::WebSearch, "search_provider");
+    model.config.search_provider = "tavily".to_string();
+
+    model.activate_settings_field();
+    assert_eq!(model.config.search_provider, "keenable");
+
+    model.activate_settings_field();
+    assert_eq!(model.config.search_provider, "none");
+}
+
+#[test]
 fn websearch_duckduckgo_safe_search_cycle_is_editable() {
     let (mut model, _daemon_rx) = make_model();
     model.config.search_provider = "duckduckgo".to_string();

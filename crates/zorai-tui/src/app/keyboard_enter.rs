@@ -157,6 +157,10 @@ impl TuiModel {
             self.submit_image_prompt(args.to_string());
             return true;
         }
+        if cmd == "video" {
+            self.submit_video_prompt(args.to_string());
+            return true;
+        }
         if cmd == "prompt" {
             let requested_agent = if args.trim().is_empty() {
                 None

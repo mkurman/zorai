@@ -154,6 +154,9 @@ impl TuiModel {
             SettingsPickerTarget::ImageGenerationModel => {
                 (self.config.image_generation_model(), None)
             }
+            SettingsPickerTarget::VideoGenerationModel => {
+                (self.config.video_generation_model(), None)
+            }
             SettingsPickerTarget::EmbeddingModel => (self.config.semantic_embedding_model(), None),
             SettingsPickerTarget::CompactionWelesModel => {
                 (self.config.compaction_weles_model.clone(), None)
@@ -233,6 +236,7 @@ impl TuiModel {
             SettingsPickerTarget::AudioSttModel
             | SettingsPickerTarget::AudioTtsModel
             | SettingsPickerTarget::ImageGenerationModel
+            | SettingsPickerTarget::VideoGenerationModel
             | SettingsPickerTarget::EmbeddingModel => {
                 let (endpoint, provider_id) = match self
                     .settings_picker_target
@@ -247,6 +251,9 @@ impl TuiModel {
                     SettingsPickerTarget::ImageGenerationModel => {
                         ("image_generation", self.config.image_generation_provider())
                     }
+                    SettingsPickerTarget::VideoGenerationModel => {
+                        ("video_generation", self.config.video_generation_provider())
+                    }
                     SettingsPickerTarget::EmbeddingModel => {
                         ("embedding", self.config.semantic_embedding_provider())
                     }
@@ -254,6 +261,7 @@ impl TuiModel {
                 };
                 let mut models = match endpoint {
                     "image_generation" => Self::image_generation_catalog_models(&provider_id),
+                    "video_generation" => Self::video_generation_catalog_models(&provider_id),
                     "embedding" => Self::embedding_catalog_models(&provider_id),
                     _ => Self::audio_catalog_models(endpoint, &provider_id),
                 };
@@ -272,6 +280,15 @@ impl TuiModel {
                                 pricing_image,
                             )
                             .image_generation
+                        }
+                        "video_generation" => {
+                            zorai_shared::providers::derive_model_feature_capabilities(
+                                &provider_id,
+                                &model.id,
+                                model.metadata.as_ref(),
+                                false,
+                            )
+                            .video_generation
                         }
                         "embedding" => {
                             model.id.to_ascii_lowercase().contains("embedding")
@@ -330,6 +347,9 @@ impl TuiModel {
             }
             Some(SettingsPickerTarget::EmbeddingProvider) => {
                 widgets::provider_picker::available_embedding_provider_defs(&self.auth)
+            }
+            Some(SettingsPickerTarget::VideoGenerationProvider) => {
+                widgets::provider_picker::available_video_generation_provider_defs(&self.auth)
             }
             _ => widgets::provider_picker::available_provider_defs(&self.auth),
         }
@@ -429,6 +449,18 @@ impl TuiModel {
                     &self.config.image_generation_model(),
                 );
                 self.status_line = "Enter image generation model ID".to_string();
+            }
+            SettingsPickerTarget::VideoGenerationModel => {
+                if self.modal.top() != Some(modal::ModalKind::Settings) {
+                    self.modal
+                        .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
+                }
+                self.focus_settings_page_field("feat_video_generation_model");
+                self.settings.start_editing(
+                    "feat_video_generation_model",
+                    &self.config.video_generation_model(),
+                );
+                self.status_line = "Enter video generation model ID".to_string();
             }
             SettingsPickerTarget::EmbeddingModel => {
                 if self.modal.top() != Some(modal::ModalKind::Settings) {

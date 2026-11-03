@@ -346,6 +346,14 @@ pub enum AgentContentBlock {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         mime_type: Option<String>,
     },
+    Video {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        url: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        data_url: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mime_type: Option<String>,
+    },
 }
 
 impl AgentContentBlock {
@@ -373,6 +381,14 @@ pub fn content_blocks_text_projection(blocks: &[AgentContentBlock]) -> String {
             )),
             AgentContentBlock::Audio { mime_type, .. } => Some(format!(
                 "[Audio attachment{}]",
+                mime_type
+                    .as_deref()
+                    .filter(|value| !value.trim().is_empty())
+                    .map(|value| format!(": {value}"))
+                    .unwrap_or_default()
+            )),
+            AgentContentBlock::Video { mime_type, .. } => Some(format!(
+                "[Video attachment{}]",
                 mime_type
                     .as_deref()
                     .filter(|value| !value.trim().is_empty())

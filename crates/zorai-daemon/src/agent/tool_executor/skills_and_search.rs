@@ -712,6 +712,7 @@ pub(crate) async fn execute_web_search(
     exa_api_key: &str,
     tavily_api_key: &str,
     firecrawl_api_key: &str,
+    keenable_api_key: &str,
     duckduckgo_region: &str,
     duckduckgo_safe_search: &str,
 ) -> Result<String> {
@@ -751,7 +752,13 @@ pub(crate) async fn execute_web_search(
                     .await
                 }
                 "keenable" => {
-                    execute_keenable_search(http_client, &request.query, request.max_results).await
+                    execute_keenable_search(
+                        http_client,
+                        &request.query,
+                        request.max_results,
+                        keenable_api_key,
+                    )
+                    .await
                 }
                 "duckduckgo" => {
                     execute_ddg_search(
@@ -797,7 +804,6 @@ where
         "exa" if !exa_api_key.is_empty() => "exa",
         "tavily" if !tavily_api_key.is_empty() => "tavily",
         "firecrawl" if !firecrawl_api_key.is_empty() => "firecrawl",
-        // Keenable has a free public endpoint, so it needs no key.
         "keenable" => "keenable",
         "duckduckgo" | "ddg" => "duckduckgo",
         _ => "ddg",
@@ -951,30 +957,29 @@ async fn execute_tavily_search(
     }
 }
 
-/// Keenable web search. Uses the keyed endpoint when `KEENABLE_API_KEY` is set,
-/// otherwise the free public endpoint.
+pub(crate) fn keenable_search_url(api_key: &str) -> &'static str {
+    if api_key.trim().is_empty() {
+        "https://api.keenable.ai/v1/search/public"
+    } else {
+        "https://api.keenable.ai/v1/search"
+    }
+}
+
 async fn execute_keenable_search(
     http_client: &reqwest::Client,
     query: &str,
     max_results: u64,
+    api_key: &str,
 ) -> Result<String> {
-    let api_key = std::env::var("KEENABLE_API_KEY")
-        .ok()
-        .map(|k| k.trim().to_string())
-        .filter(|k| !k.is_empty());
-    let url = if api_key.is_some() {
-        "https://api.keenable.ai/v1/search"
-    } else {
-        "https://api.keenable.ai/v1/search/public"
-    };
+    let api_key = api_key.trim();
     let body = serde_json::json!({ "query": query, "max_results": max_results });
 
     let mut req = http_client
-        .post(url)
+        .post(keenable_search_url(api_key))
         .header("Content-Type", "application/json")
         .header("X-Keenable-Title", "Zorai");
-    if let Some(key) = api_key.as_deref() {
-        req = req.header("X-API-Key", key);
+    if !api_key.is_empty() {
+        req = req.header("X-API-Key", api_key);
     }
     let resp = req.json(&body).send().await?;
 
@@ -1000,7 +1005,6 @@ pub(crate) fn format_keenable_search_results(query: &str, json: &serde_json::Val
                 .map(|r| {
                     let title = r["title"].as_str().unwrap_or("(no title)");
                     let url = r["url"].as_str().unwrap_or("");
-                    // Prefer the short description; fall back to the (possibly long) snippet.
                     let text = r["description"]
                         .as_str()
                         .filter(|d| !d.trim().is_empty())

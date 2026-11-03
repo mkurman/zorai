@@ -60,6 +60,10 @@ pub(super) fn provider_supports_image_generation(provider: &str) -> bool {
     provider == "openrouter"
 }
 
+pub(super) fn provider_supports_video_generation(provider: &str) -> bool {
+    matches!(provider, "minimax" | "qwen" | "gemini" | "openrouter")
+}
+
 pub(super) fn provider_supports_embeddings(provider: &str) -> bool {
     provider == "openrouter"
 }
@@ -230,6 +234,7 @@ pub struct ConfigState {
     pub firecrawl_api_key: String,
     pub exa_api_key: String,
     pub tavily_api_key: String,
+    pub keenable_api_key: String,
     pub search_max_results: u32,
     pub search_timeout_secs: u32,
 

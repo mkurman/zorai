@@ -176,6 +176,12 @@ pub(crate) fn tool_icon_for(name: &str, arguments: Option<&str>) -> ToolIcon {
             label: "image",
         };
     }
+    if is_video_tool(&normalized_name) {
+        return ToolIcon {
+            marker: "🎬",
+            label: "video",
+        };
+    }
     if is_system_tool(&normalized_name) {
         return ToolIcon {
             marker: "⚙",
@@ -341,6 +347,10 @@ pub(crate) fn is_audio_tool(normalized_name: &str) -> bool {
 
 pub(crate) fn is_image_tool(normalized_name: &str) -> bool {
     tool_names::IMAGE_TOOLS.contains(&normalized_name)
+}
+
+pub(crate) fn is_video_tool(normalized_name: &str) -> bool {
+    tool_names::VIDEO_TOOLS.contains(&normalized_name)
 }
 
 pub(crate) fn is_system_tool(normalized_name: &str) -> bool {

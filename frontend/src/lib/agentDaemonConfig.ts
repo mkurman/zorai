@@ -117,6 +117,7 @@ export function buildDaemonAgentConfig(
     agentSettings.audio_stt_provider,
     agentSettings.audio_tts_provider,
     agentSettings.image_generation_provider,
+    agentSettings.video_generation_provider,
     agentSettings.semantic_embedding_provider,
   ]));
   const providerConfigs = Object.fromEntries(
@@ -205,6 +206,7 @@ export function buildDaemonAgentConfig(
     firecrawl_api_key: agentSettings.firecrawl_api_key,
     exa_api_key: agentSettings.exa_api_key,
     tavily_api_key: agentSettings.tavily_api_key,
+    keenable_api_key: agentSettings.keenable_api_key,
     search_max_results: agentSettings.search_max_results,
     search_timeout_secs: agentSettings.search_timeout_secs,
     browse_provider: agentSettings.browse_provider,
@@ -287,6 +289,12 @@ export function buildDaemonAgentConfig(
       generation: {
         provider: agentSettings.image_generation_provider,
         model: agentSettings.image_generation_model,
+      },
+    },
+    video: {
+      generation: {
+        provider: agentSettings.video_generation_provider,
+        model: agentSettings.video_generation_model,
       },
     },
     semantic: {

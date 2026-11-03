@@ -522,6 +522,23 @@ fn speech_bridge_commands_deserialize() {
 }
 
 #[test]
+fn media_generation_bridge_commands_deserialize_from_the_gui_command_names() {
+    let cmd: AgentBridgeCommand =
+        serde_json::from_str(r#"{"type":"generate-image","args_json":"{\"prompt\":\"cat\"}"}"#)
+            .expect("generate-image must deserialize");
+    assert!(
+        matches!(cmd, AgentBridgeCommand::GenerateImage { ref args_json } if args_json == r#"{"prompt":"cat"}"#)
+    );
+
+    let cmd: AgentBridgeCommand =
+        serde_json::from_str(r#"{"type":"generate-video","args_json":"{\"prompt\":\"cat\"}"}"#)
+            .expect("generate-video must deserialize");
+    assert!(
+        matches!(cmd, AgentBridgeCommand::GenerateVideo { ref args_json } if args_json == r#"{"prompt":"cat"}"#)
+    );
+}
+
+#[test]
 fn agent_protocol_codex_auth_bridge_commands_deserialize() {
     fn parse(json: &str) -> AgentBridgeCommand {
         serde_json::from_str(json).expect("codex auth command must deserialize")

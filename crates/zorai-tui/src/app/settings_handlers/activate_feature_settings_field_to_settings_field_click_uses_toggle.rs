@@ -217,6 +217,14 @@ impl TuiModel {
                 self.open_image_generation_model_picker();
                 true
             }
+            "feat_video_generation_provider" => {
+                self.open_provider_picker(SettingsPickerTarget::VideoGenerationProvider);
+                true
+            }
+            "feat_video_generation_model" => {
+                self.open_video_generation_model_picker();
+                true
+            }
             "feat_embedding_provider" => {
                 self.open_provider_picker(SettingsPickerTarget::EmbeddingProvider);
                 true

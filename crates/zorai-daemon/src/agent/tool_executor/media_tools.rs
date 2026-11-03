@@ -2,6 +2,9 @@ use futures::StreamExt;
 
 use super::*;
 
+mod video_generation;
+pub(crate) use video_generation::*;
+
 const DEFAULT_IMAGE_ANALYSIS_PROMPT: &str = "Analyze this image in detail.";
 const DEFAULT_IMAGE_GENERATION_MODEL: &str = "gpt-image-1";
 const DEFAULT_STT_MODEL: &str = "whisper-1";
@@ -78,6 +81,7 @@ enum MediaInputSource {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum MediaEndpoint {
     ImageGeneration,
+    VideoGeneration,
     SpeechToText,
     TextToSpeech,
 }
@@ -86,6 +90,7 @@ impl MediaEndpoint {
     fn default_model(self) -> &'static str {
         match self {
             Self::ImageGeneration => DEFAULT_IMAGE_GENERATION_MODEL,
+            Self::VideoGeneration => "",
             Self::SpeechToText => DEFAULT_STT_MODEL,
             Self::TextToSpeech => DEFAULT_TTS_MODEL,
         }
@@ -94,13 +99,14 @@ impl MediaEndpoint {
     fn nested_root(self) -> &'static str {
         match self {
             Self::ImageGeneration => "image",
+            Self::VideoGeneration => "video",
             Self::SpeechToText | Self::TextToSpeech => "audio",
         }
     }
 
     fn nested_group(self) -> &'static [&'static str] {
         match self {
-            Self::ImageGeneration => &["generation"],
+            Self::ImageGeneration | Self::VideoGeneration => &["generation"],
             Self::SpeechToText => &["stt"],
             Self::TextToSpeech => &["tts"],
         }
@@ -109,6 +115,7 @@ impl MediaEndpoint {
     fn legacy_prefix(self) -> &'static str {
         match self {
             Self::ImageGeneration => "image_generation",
+            Self::VideoGeneration => "video_generation",
             Self::SpeechToText => "audio_stt",
             Self::TextToSpeech => "audio_tts",
         }
@@ -177,6 +184,9 @@ fn file_extension_for_generated_mime(mime_type: &str, fallback: &str) -> String 
         "audio/flac" => "flac",
         "audio/mp4" => "m4a",
         "audio/webm" => "webm",
+        "video/mp4" => "mp4",
+        "video/webm" => "webm",
+        "video/quicktime" => "mov",
         _ => fallback,
     }
     .to_string()
@@ -478,8 +488,11 @@ fn provider_specific_default_media_model(
         return match endpoint {
             MediaEndpoint::TextToSpeech => Some("openai/gpt-4o-mini-tts"),
             MediaEndpoint::SpeechToText => Some("openai/whisper-1"),
-            MediaEndpoint::ImageGeneration => None,
+            MediaEndpoint::ImageGeneration | MediaEndpoint::VideoGeneration => None,
         };
+    }
+    if endpoint == MediaEndpoint::VideoGeneration {
+        return video_generation::provider_specific_default_video_model(provider_id);
     }
     None
 }

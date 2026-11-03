@@ -13,6 +13,7 @@ pub(super) fn is_sensitive_config_key(key: &str) -> bool {
             | "firecrawl_api_key"
             | "exa_api_key"
             | "tavily_api_key"
+            | "keenable_api_key"
             | "honcho_api_key"
             | "client_secret"
             | "access_token"

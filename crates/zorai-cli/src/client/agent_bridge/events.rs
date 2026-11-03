@@ -139,6 +139,16 @@ fn bridge_event_from_daemon_message(message: &DaemonMessage) -> Option<serde_jso
             "data": serde_json::from_str::<serde_json::Value>(content)
                 .unwrap_or_else(|_| serde_json::Value::String(content.clone())),
         })),
+        DaemonMessage::AgentGenerateImageResult { content } => Some(serde_json::json!({
+            "type": "image-generation-result",
+            "data": serde_json::from_str::<serde_json::Value>(content)
+                .unwrap_or_else(|_| serde_json::Value::String(content.clone())),
+        })),
+        DaemonMessage::AgentGenerateVideoResult { content } => Some(serde_json::json!({
+            "type": "video-generation-result",
+            "data": serde_json::from_str::<serde_json::Value>(content)
+                .unwrap_or_else(|_| serde_json::Value::String(content.clone())),
+        })),
         DaemonMessage::AgentOpenAICodexAuthStatus { status_json } => Some(serde_json::json!({
             "type": "openai-codex-auth-status",
             "data": serde_json::from_str::<serde_json::Value>(status_json).unwrap_or_default(),
@@ -1165,6 +1175,33 @@ mod tests {
                         "status": "active"
                     }
                 }
+            })
+        );
+    }
+
+    #[test]
+    fn translates_media_generation_results_into_the_events_the_gui_waits_for() {
+        let image = bridge_event_from_daemon_message(&DaemonMessage::AgentGenerateImageResult {
+            content: serde_json::json!({ "path": "/tmp/image.png" }).to_string(),
+        })
+        .expect("image generation result should translate");
+        assert_eq!(
+            image,
+            serde_json::json!({
+                "type": "image-generation-result",
+                "data": { "path": "/tmp/image.png" }
+            })
+        );
+
+        let video = bridge_event_from_daemon_message(&DaemonMessage::AgentGenerateVideoResult {
+            content: serde_json::json!({ "path": "/tmp/video.mp4" }).to_string(),
+        })
+        .expect("video generation result should translate");
+        assert_eq!(
+            video,
+            serde_json::json!({
+                "type": "video-generation-result",
+                "data": { "path": "/tmp/video.mp4" }
             })
         );
     }

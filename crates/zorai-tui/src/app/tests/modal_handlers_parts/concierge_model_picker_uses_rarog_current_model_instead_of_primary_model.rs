@@ -571,6 +571,58 @@ fn slash_image_prompt_dispatches_generate_image_for_active_thread() {
 }
 
 #[test]
+fn slash_video_prompt_dispatches_generate_video_for_active_thread() {
+    let (mut model, mut daemon_rx) = make_model();
+    model.connected = true;
+    model.chat.reduce(chat::ChatAction::ThreadCreated {
+        thread_id: "thread-1".to_string(),
+        title: "Thread".to_string(),
+    });
+    model
+        .chat
+        .reduce(chat::ChatAction::SelectThread("thread-1".to_string()));
+
+    assert!(model.execute_slash_command_line("/video drone shot over a foggy forest"));
+
+    loop {
+        match daemon_rx.try_recv() {
+            Ok(DaemonCommand::DismissConciergeWelcome) => {}
+            Ok(DaemonCommand::GenerateVideo { args_json }) => {
+                let payload: serde_json::Value =
+                    serde_json::from_str(&args_json).expect("video payload should parse");
+                assert_eq!(
+                    payload.get("thread_id").and_then(|v| v.as_str()),
+                    Some("thread-1")
+                );
+                assert_eq!(
+                    payload.get("prompt").and_then(|v| v.as_str()),
+                    Some("drone shot over a foggy forest")
+                );
+                break;
+            }
+            other => panic!("expected generate-video command, got {:?}", other),
+        }
+    }
+    assert_eq!(model.status_line, "Generating video...");
+}
+
+#[test]
+fn slash_video_without_prompt_prefills_composer_instead_of_dispatching() {
+    let (mut model, mut daemon_rx) = make_model();
+    model.connected = true;
+
+    assert!(model.execute_slash_command_line("/video"));
+
+    while let Ok(command) = daemon_rx.try_recv() {
+        assert!(
+            !matches!(command, DaemonCommand::GenerateVideo { .. }),
+            "empty /video must not start a generation"
+        );
+    }
+    assert_eq!(model.input.buffer(), "/video ");
+}
+
+#[test]
 fn thread_picker_delete_requires_confirmation_before_sending_delete_thread() {
     let (mut model, mut daemon_rx) = make_model();
     model.chat.reduce(chat::ChatAction::ThreadListReceived(vec![

@@ -121,6 +121,14 @@ pub enum AgentContentBlock {
         #[serde(default)]
         mime_type: Option<String>,
     },
+    Video {
+        #[serde(default)]
+        url: Option<String>,
+        #[serde(default)]
+        data_url: Option<String>,
+        #[serde(default)]
+        mime_type: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

@@ -129,6 +129,41 @@ test("image generation settings prefer nested daemon config over legacy flat key
   expect(normalized.image_generation_model).toBe("gpt-image-1");
 });
 
+test("video generation defaults to unset so the agent tool stays hidden until a model is picked", () => {
+  const normalized = normalizeAgentSettingsFromSource({ active_provider: "openrouter" } as any);
+
+  expect(DEFAULT_AGENT_SETTINGS.video_generation_provider).toBe("");
+  expect(DEFAULT_AGENT_SETTINGS.video_generation_model).toBe("");
+  expect(normalized.video_generation_provider).toBe("");
+  expect(normalized.video_generation_model).toBe("");
+});
+
+test("video generation settings prefer nested daemon config over legacy flat keys", () => {
+  const normalized = normalizeAgentSettingsFromSource({
+    video: {
+      generation: {
+        provider: "qwen",
+        model: "wan2.7-t2v",
+      },
+    },
+    video_generation_provider: "minimax",
+    video_generation_model: "T2V-01",
+  } as any);
+
+  expect(normalized.video_generation_provider).toBe("qwen");
+  expect(normalized.video_generation_model).toBe("wan2.7-t2v");
+});
+
+test("video generation settings fall back to legacy flat keys", () => {
+  const normalized = normalizeAgentSettingsFromSource({
+    video_generation_provider: "minimax",
+    video_generation_model: "T2V-01",
+  } as any);
+
+  expect(normalized.video_generation_provider).toBe("minimax");
+  expect(normalized.video_generation_model).toBe("T2V-01");
+});
+
 test("participant observer restore window defaults and preserves disabled sentinel", () => {
   expect(DEFAULT_AGENT_SETTINGS.participant_observer_restore_window_hours).toBe(24);
 

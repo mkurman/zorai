@@ -1379,6 +1379,9 @@ fn start_daemon_bridge(
                             DaemonCommand::GenerateImage { args_json } => {
                                 let _ = client.generate_image(args_json);
                             }
+                            DaemonCommand::GenerateVideo { args_json } => {
+                                let _ = client.generate_video(args_json);
+                            }
                             DaemonCommand::SetOperatorProfileConsent {
                                 consent_key,
                                 granted,
