@@ -6,6 +6,7 @@ export const searchProviderOptions: AgentSettings["search_provider"][] = [
   "duckduckgo",
   "exa",
   "tavily",
+  "keenable",
 ];
 
 export const duckDuckGoSafeSearchOptions: AgentSettings["duckduckgo_safe_search"][] = [
