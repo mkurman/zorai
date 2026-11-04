@@ -4403,3 +4403,185 @@ async fn send_message_does_not_wait_for_background_skill_discovery_completion() 
     );
     assert!(!completed_state.discovery_pending);
 }
+
+#[tokio::test]
+async fn concierge_chat_runs_only_safe_lookup_tools_and_answers_from_their_results() {
+    let recorded_requests = Arc::new(StdMutex::new(VecDeque::new()));
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind concierge tool server");
+    let addr = listener.local_addr().expect("concierge tool server addr");
+
+    tokio::spawn({
+        let recorded_requests = recorded_requests.clone();
+        async move {
+            loop {
+                let Ok((mut socket, _)) = listener.accept().await else {
+                    break;
+                };
+                let recorded_requests = recorded_requests.clone();
+                tokio::spawn(async move {
+                    let request = read_http_request(&mut socket, "concierge tool request").await;
+                    recorded_requests
+                        .lock()
+                        .expect("lock concierge tool requests")
+                        .push_back(request.clone());
+                    let response = if request_body(&request).contains("\"role\":\"tool\"") {
+                        concat!(
+                            "HTTP/1.1 200 OK\r\n",
+                            "content-type: text/event-stream\r\n",
+                            "cache-control: no-cache\r\n",
+                            "connection: close\r\n",
+                            "\r\n",
+                            "data: {\"choices\":[{\"delta\":{\"content\":\"Found your video session.\"}}]}\n\n",
+                            "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":3}}\n\n",
+                            "data: [DONE]\n\n"
+                        )
+                    } else {
+                        concat!(
+                            "HTTP/1.1 200 OK\r\n",
+                            "content-type: text/event-stream\r\n",
+                            "cache-control: no-cache\r\n",
+                            "connection: close\r\n",
+                            "\r\n",
+                            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_history_1\",\"function\":{\"name\":\"search_history\",\"arguments\":\"{\\\"query\\\":\\\"video\\\"}\"}},{\"index\":1,\"id\":\"call_bash_1\",\"function\":{\"name\":\"bash\",\"arguments\":\"{\\\"command\\\":\\\"echo hi\\\"}\"}}]}}],\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":3}}\n\n",
+                            "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":3}}\n\n",
+                            "data: [DONE]\n\n"
+                        )
+                    };
+                    socket
+                        .write_all(response.as_bytes())
+                        .await
+                        .expect("write concierge tool response");
+                });
+            }
+        }
+    });
+
+    let root = tempdir().unwrap();
+    let manager = SessionManager::new_test(root.path()).await;
+    let mut config = AgentConfig::default();
+    config.provider = PROVIDER_ID_CUSTOM.to_string();
+    config.base_url = format!("http://{addr}/v1");
+    config.model = "concierge-model".to_string();
+    config.api_key = "test-key".to_string();
+    config.api_transport = ApiTransport::ChatCompletions;
+    config.auto_retry = false;
+    config.max_retries = 0;
+    config.providers.insert(
+        PROVIDER_ID_CUSTOM.to_string(),
+        ProviderConfig {
+            base_url: format!("http://{addr}/v1"),
+            model: "concierge-model".to_string(),
+            api_key: "test-key".to_string(),
+            assistant_id: String::new(),
+            auth_source: AuthSource::ApiKey,
+            api_transport: ApiTransport::ChatCompletions,
+            reasoning_effort: "medium".to_string(),
+            context_window_tokens: 0,
+            response_schema: None,
+            stop_sequences: None,
+            temperature: None,
+            top_p: None,
+            top_k: None,
+            metadata: None,
+            service_tier: None,
+            container: None,
+            inference_geo: None,
+            cache_control: None,
+            max_tokens: None,
+            anthropic_tool_choice: None,
+            output_effort: None,
+            openrouter_provider_order: Vec::new(),
+            openrouter_provider_ignore: Vec::new(),
+            openrouter_allow_fallbacks: None,
+            openrouter_response_cache_enabled: false,
+            huggingface_provider: None,
+        },
+    );
+    config.concierge.provider = Some(PROVIDER_ID_CUSTOM.to_string());
+    config.concierge.model = Some("concierge-model".to_string());
+
+    let engine = AgentEngine::new_test(manager, config, root.path()).await;
+    engine
+        .send_concierge_message_on_thread(
+            crate::agent::concierge::CONCIERGE_THREAD_ID,
+            "Search history for: video",
+            None,
+            false,
+            false,
+        )
+        .await
+        .expect("concierge reply should complete");
+
+    let recorded = recorded_requests
+        .lock()
+        .expect("lock concierge tool requests")
+        .iter()
+        .filter(|request| request.contains("POST /v1/chat/completions"))
+        .map(|request| request_body(request))
+        .collect::<Vec<_>>();
+    assert_eq!(recorded.len(), 2, "one tool round, then the answer");
+
+    let first: serde_json::Value = serde_json::from_str(&recorded[0]).expect("first body json");
+    let offered = first["tools"]
+        .as_array()
+        .expect("concierge must be offered tools")
+        .iter()
+        .filter_map(|tool| tool["function"]["name"].as_str())
+        .collect::<Vec<_>>();
+    assert!(offered.contains(&"search_history"), "{offered:?}");
+    assert!(offered.contains(&"session_search"), "{offered:?}");
+    for unsafe_tool in [
+        "bash",
+        "python",
+        "execute_command",
+        "write_file",
+        "message_agent",
+    ] {
+        assert!(
+            !offered.contains(&unsafe_tool),
+            "{unsafe_tool} offered: {offered:?}"
+        );
+    }
+
+    let second: serde_json::Value = serde_json::from_str(&recorded[1]).expect("second body json");
+    let tool_results = second["messages"]
+        .as_array()
+        .expect("messages")
+        .iter()
+        .filter(|message| message["role"] == "tool")
+        .map(|message| {
+            (
+                message["tool_call_id"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string(),
+                message["content"].as_str().unwrap_or_default().to_string(),
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(tool_results.len(), 2, "{tool_results:?}");
+    assert_eq!(tool_results[0].0, "call_history_1");
+    assert!(
+        !tool_results[0].1.contains("not available"),
+        "{tool_results:?}"
+    );
+    assert_eq!(tool_results[1].0, "call_bash_1");
+    assert_eq!(
+        tool_results[1].1,
+        "Tool 'bash' is not available to the concierge."
+    );
+
+    let threads = engine.threads.read().await;
+    let thread = threads
+        .get(crate::agent::concierge::CONCIERGE_THREAD_ID)
+        .expect("concierge thread");
+    assert_eq!(
+        thread
+            .messages
+            .last()
+            .map(|message| message.content.as_str()),
+        Some("Found your video session.")
+    );
+}

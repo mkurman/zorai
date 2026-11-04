@@ -380,47 +380,49 @@ export function ThreadComposer({
     >
       {workspaceContext ? (
         <div className="zorai-composer-workspace-context">
-          <button type="button" className="zorai-composer-context-chip" onClick={() => setContextPreviewOpen((open) => !open)} title={workspaceContext.root}>
-            Workspace · {workspaceContext.root.split(/[\\/]/).slice(-1)[0]}
-          </button>
-          <button
-            type="button"
-            className="zorai-composer-context-chip"
-            aria-label="Unpin workspace from thread"
-            title="Unpin workspace from thread"
-            onClick={() => {
-              if (!activeThreadId) return;
-              clearWorkspaceRoot(activeThreadId);
-              setContextPreviewOpen(false);
-              const daemonThreadId = runtime.activeThread?.daemonThreadId;
-              if (daemonThreadId) void window.zorai?.agentSetThreadWorkspaceContext?.(daemonThreadId, null);
-            }}
-          >×</button>
-          <button
-            type="button"
-            className="zorai-composer-context-chip"
-            aria-label="Change workspace"
-            title="Change workspace"
-            onClick={() => void pickWorkspaceRoot()}
-          ><ComposerIcon kind="edit" /></button>
-          {workspaceContext.activeFile ? <span className="zorai-composer-context-chip">Active · {workspaceContext.activeFile}</span> : null}
-          {workspaceContext.selection && workspaceContext.activeFile ? <span className="zorai-composer-context-chip">Lines {workspaceContext.selection.startLine}-{workspaceContext.selection.endLine}</span> : null}
-          {workspaceContext.attachedFiles.map((filePath) => (
-            <span key={filePath} className="zorai-composer-context-chip zorai-composer-context-chip--attached">
-              {filePath}
-              <button type="button" aria-label={`Detach ${filePath}`} onClick={() => activeThreadId && toggleAttachedFile(activeThreadId, filePath)}>×</button>
-            </span>
-          ))}
-          {contextPreviewOpen ? (
-            <div className="zorai-composer-context-preview">
-              <strong>Effective daemon workspace context</strong>
-              <code>Workspace: {workspaceContext.root}</code>
-              {workspaceContext.activeFile ? <code>Active file: {workspaceContext.activeFile}</code> : null}
-              {workspaceContext.selection && workspaceContext.activeFile ? <code>Selection: {workspaceContext.activeFile}:{workspaceContext.selection.startLine}-{workspaceContext.selection.endLine}</code> : null}
-              {workspaceContext.attachedFiles.length > 0 ? <code>Explicit attachments: {workspaceContext.attachedFiles.join(", ")}</code> : null}
-              <span>File contents are read from disk by tools on demand; they are not injected automatically.</span>
+          <div className="zorai-composer-workspace-context-header">
+            <button type="button" className="zorai-composer-context-chip" onClick={() => setContextPreviewOpen((open) => !open)} title={workspaceContext.root}>
+              {workspaceContext.root.split(/[\\/]/).slice(-1)[0]}
+            </button>
+            <button
+              type="button"
+              className="zorai-composer-context-chip"
+              aria-label="Change workspace"
+              title="Change workspace"
+              onClick={() => void pickWorkspaceRoot()}
+            ><ComposerIcon kind="edit" /></button>
+            <button
+              type="button"
+              className="zorai-composer-context-chip"
+              aria-label="Unpin workspace from thread"
+              title="Unpin workspace from thread"
+              onClick={() => {
+                if (!activeThreadId) return;
+                clearWorkspaceRoot(activeThreadId);
+                setContextPreviewOpen(false);
+                const daemonThreadId = runtime.activeThread?.daemonThreadId;
+                if (daemonThreadId) void window.zorai?.agentSetThreadWorkspaceContext?.(daemonThreadId, null);
+              }}
+            ><ComposerIcon kind="cancel" /></button>
             </div>
-          ) : null}
+            {workspaceContext.activeFile ? <span className="zorai-composer-context-chip">Active · {workspaceContext.activeFile}</span> : null}
+            {workspaceContext.selection && workspaceContext.activeFile ? <span className="zorai-composer-context-chip">Lines {workspaceContext.selection.startLine}-{workspaceContext.selection.endLine}</span> : null}
+            {workspaceContext.attachedFiles.map((filePath) => (
+              <span key={filePath} className="zorai-composer-context-chip zorai-composer-context-chip--attached">
+                {filePath}
+                <button type="button" aria-label={`Detach ${filePath}`} onClick={() => activeThreadId && toggleAttachedFile(activeThreadId, filePath)}>×</button>
+              </span>
+            ))}
+            {contextPreviewOpen ? (
+              <div className="zorai-composer-context-preview">
+                <strong>Effective daemon workspace context</strong>
+                <code>Workspace: {workspaceContext.root}</code>
+                {workspaceContext.activeFile ? <code>Active file: {workspaceContext.activeFile}</code> : null}
+                {workspaceContext.selection && workspaceContext.activeFile ? <code>Selection: {workspaceContext.activeFile}:{workspaceContext.selection.startLine}-{workspaceContext.selection.endLine}</code> : null}
+                {workspaceContext.attachedFiles.length > 0 ? <code>Explicit attachments: {workspaceContext.attachedFiles.join(", ")}</code> : null}
+                <span>File contents are read from disk by tools on demand; they are not injected automatically.</span>
+              </div>
+            ) : null}
         </div>
       ) : activeThreadId ? (
         <div className="zorai-composer-workspace-context">

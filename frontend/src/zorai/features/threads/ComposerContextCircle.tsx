@@ -6,11 +6,18 @@ import { pushToast } from "@/lib/toastStore";
 import { requestManualCompaction, useThreadCompaction } from "./threadCompactionStatus";
 import { summarizeSessionUsage } from "@/components/agent-chat-panel/chat-view/helpers";
 import { resolveThreadOwnerRuntimeProfile } from "./threadOwnerRuntime";
+import { contextBreakdownRows, contextBreakdownUsedTokens, useThreadContextBreakdown } from "./threadContextBreakdown";
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
   if (n >= 1_000) return `${Math.round(n / 1000)}k`;
   return `${n}`;
+}
+
+function formatShare(share: number): string {
+  const pct = share * 100;
+  if (pct > 0 && pct < 0.1) return "<0.1%";
+  return `${pct.toFixed(1)}%`;
 }
 
 function formatCost(cost: number | undefined): string {
@@ -51,16 +58,22 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
   const [autoBusy, setAutoBusy] = useState(false);
   const compactionStatus = useThreadCompaction(thread?.daemonThreadId);
   const compacting = Boolean(compactionStatus);
+  const breakdown = useThreadContextBreakdown(thread?.daemonThreadId);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const btnRef = useRef<HTMLButtonElement | null>(null);
 
   const contextWindowTokens = useMemo(() => {
+    if (breakdown && breakdown.context_window_tokens > 0) return breakdown.context_window_tokens;
     if (!thread) return Math.max(1, Math.trunc((agentSettings as unknown as Record<string, unknown>).context_window_tokens as number || 256000));
     const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig);
     return profile.contextWindowTokens;
-  }, [thread, subAgents, agentSettings, conciergeConfig]);
+  }, [breakdown, thread, subAgents, agentSettings, conciergeConfig]);
 
-  const used = useMemo(() => currentContextTokens(thread ?? null, messages), [messages, thread]);
+  const used = useMemo(
+    () => (breakdown ? contextBreakdownUsedTokens(breakdown) : currentContextTokens(thread ?? null, messages)),
+    [breakdown, messages, thread],
+  );
+  const breakdownRows = useMemo(() => (breakdown ? contextBreakdownRows(breakdown) : []), [breakdown]);
   const pct = contextWindowTokens > 0 ? Math.min(100, Math.round((used / contextWindowTokens) * 100)) : 0;
   const tone: "ok" | "warn" | "danger" = pct >= 90 ? "danger" : pct >= 75 ? "warn" : "ok";
   const autoCompact = (agentSettings as unknown as Record<string, unknown>).auto_compact_context === true;
@@ -178,12 +191,43 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
             <strong>Context</strong>
             <span className={`zorai-composer-context-circle__pct is-${tone}`}>{pct}% · {formatTokens(used)} / {formatTokens(contextWindowTokens)}</span>
           </div>
-          <div className="zorai-context-window-meter zorai-composer-context-circle__bar" aria-hidden="true">
-            <span style={{ width: `${pct}%` }} className={`is-${tone}`} />
-          </div>
+          {breakdown ? (
+            <>
+              <div className="zorai-composer-context-circle__segments" aria-hidden="true">
+                {breakdownRows.map((row) => (
+                  <span key={row.key} className={`is-${row.key}`} style={{ flexGrow: row.share }} />
+                ))}
+              </div>
+              <ul className="zorai-composer-context-circle__rows">
+                {breakdownRows.map((row) => (
+                  <li key={row.key}>
+                    <span className={`zorai-composer-context-circle__swatch is-${row.key}`} aria-hidden="true" />
+                    <span>{row.label}{row.key === "tools" && breakdown.deferred_tools_count > 0 ? ` (+${breakdown.deferred_tools_count} deferred)` : ""}</span>
+                    <span>{formatTokens(row.tokens)}</span>
+                    <span>{formatShare(row.share)}</span>
+                  </li>
+                ))}
+              </ul>
+              <strong className="zorai-composer-context-circle__section">This thread</strong>
+            </>
+          ) : (
+            <div className="zorai-context-window-meter zorai-composer-context-circle__bar" aria-hidden="true">
+              <span style={{ width: `${pct}%` }} className={`is-${tone}`} />
+            </div>
+          )}
           <dl className="zorai-composer-context-circle__facts">
-            <div><dt>Window</dt><dd>{formatTokens(contextWindowTokens)} tok</dd></div>
-            <div><dt>Used</dt><dd>{formatTokens(used)} tok ({pct}%)</dd></div>
+            {breakdown ? (
+              <>
+                <div><dt>Input</dt><dd>{formatTokens(breakdown.input_tokens)} tok</dd></div>
+                <div><dt>Output</dt><dd>{formatTokens(breakdown.output_tokens)} tok</dd></div>
+                <div><dt>Cached</dt><dd>{formatTokens(breakdown.cached_input_tokens)} tok</dd></div>
+              </>
+            ) : (
+              <>
+                <div><dt>Window</dt><dd>{formatTokens(contextWindowTokens)} tok</dd></div>
+                <div><dt>Used</dt><dd>{formatTokens(used)} tok ({pct}%)</dd></div>
+              </>
+            )}
             <div><dt>Cost</dt><dd>{sessionHasCost ? `${formatCost(sessionCost)} this thread` : "no info"}</dd></div>
             {typeof sessionAvgTps === "number" ? <div><dt>Avg TPS</dt><dd>{sessionAvgTps.toFixed(1)} tok/s</dd></div> : null}
           </dl>

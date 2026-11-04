@@ -95,6 +95,8 @@ impl AgentEngine {
             .as_deref()
             .unwrap_or(&config.provider)
             .to_string();
+        let safe_tools =
+            crate::agent::concierge::concierge_chat_safe_tools(&config, self.data_dir.as_path());
         drop(config);
 
         let memory_paths = memory_paths_for_scope(&self.data_dir, MAIN_AGENT_ID);
@@ -109,6 +111,11 @@ impl AgentEngine {
             memory_paths.soul_path.display(),
             memory_paths.user_path.display(),
         );
+        if !safe_tools.is_empty() {
+            system_prompt.push_str(
+                "\n\nYou may call the provided read-only tools to search past sessions and history, look up memory, skills and guidelines, and search the web. Use them instead of guessing about prior context. Only call tools through the tool interface; never write tool calls as text. You have no other tools.",
+            );
+        }
         system_prompt.push_str("\n\n");
         system_prompt.push_str(&build_concierge_runtime_identity_prompt(
             &provider_id,
@@ -132,7 +139,7 @@ impl AgentEngine {
             );
         }
 
-        let messages = {
+        let mut messages = {
             let threads = self.threads.read().await;
             let history = threads
                 .get(thread_id)
@@ -144,46 +151,118 @@ impl AgentEngine {
             super::llm_client::messages_to_api_format(&history)
         };
 
-        let stream = send_completion_request(
-            &self.http_client,
-            &provider_id,
-            &provider_config,
-            &system_prompt,
-            &messages,
-            &[],
-            provider_config.api_transport,
-            None,
-            None,
-            RetryStrategy::Bounded {
-                max_retries: 1,
-                retry_delay_ms: 500,
-            },
-        );
+        let max_rounds = crate::agent::concierge::CONCIERGE_CHAT_MAX_TOOL_ROUNDS;
         let mut full_content = String::new();
         let mut full_reasoning = String::new();
-        let mut stream = std::pin::pin!(stream);
-        while let Some(chunk) = stream.next().await {
-            match chunk {
-                Ok(CompletionChunk::Delta { content, reasoning }) => {
-                    full_content.push_str(&content);
-                    if let Some(reasoning) = reasoning {
-                        full_reasoning.push_str(&reasoning);
+        for tool_round in 0..=max_rounds {
+            let tools: &[ToolDefinition] = if tool_round < max_rounds {
+                &safe_tools
+            } else {
+                &[]
+            };
+            let stream = send_completion_request(
+                &self.http_client,
+                &provider_id,
+                &provider_config,
+                &system_prompt,
+                &messages,
+                tools,
+                provider_config.api_transport,
+                None,
+                None,
+                RetryStrategy::Bounded {
+                    max_retries: 1,
+                    retry_delay_ms: 500,
+                },
+            );
+            full_content.clear();
+            full_reasoning.clear();
+            let mut requested_tool_calls: Option<(Vec<ToolCall>, String)> = None;
+            let mut stream = std::pin::pin!(stream);
+            while let Some(chunk) = stream.next().await {
+                match chunk {
+                    Ok(CompletionChunk::Delta { content, reasoning }) => {
+                        full_content.push_str(&content);
+                        if let Some(reasoning) = reasoning {
+                            full_reasoning.push_str(&reasoning);
+                        }
                     }
+                    Ok(CompletionChunk::Done {
+                        content, reasoning, ..
+                    }) => {
+                        if !content.is_empty() {
+                            full_content = content;
+                        }
+                        if let Some(reasoning) = reasoning.filter(|value| !value.is_empty()) {
+                            full_reasoning = reasoning;
+                        }
+                        break;
+                    }
+                    Ok(CompletionChunk::ToolCalls {
+                        tool_calls,
+                        content,
+                        ..
+                    }) => {
+                        requested_tool_calls =
+                            Some((tool_calls, content.unwrap_or_else(|| full_content.clone())));
+                        break;
+                    }
+                    Ok(CompletionChunk::Error { message }) => anyhow::bail!(message),
+                    Err(error) => return Err(error),
+                    Ok(_) => {}
                 }
-                Ok(CompletionChunk::Done {
-                    content, reasoning, ..
-                }) => {
-                    if !content.is_empty() {
-                        full_content = content;
-                    }
-                    if let Some(reasoning) = reasoning.filter(|value| !value.is_empty()) {
-                        full_reasoning = reasoning;
-                    }
-                    break;
-                }
-                Ok(CompletionChunk::Error { message }) => anyhow::bail!(message),
-                Err(error) => return Err(error),
-                Ok(_) => {}
+            }
+
+            let Some((tool_calls, assistant_content)) = requested_tool_calls else {
+                break;
+            };
+            messages.push(super::llm_client::ApiMessage {
+                role: "assistant".into(),
+                content: super::llm_client::ApiContent::Text(assistant_content),
+                reasoning: None,
+                tool_call_id: None,
+                name: None,
+                tool_calls: Some(crate::agent::concierge::api_tool_calls_from_tool_calls(
+                    &tool_calls,
+                )),
+            });
+            for tool_call in tool_calls {
+                let (tool_call_id, name, content) =
+                    if crate::agent::concierge::concierge_chat_tool_allowed(
+                        &tool_call.function.name,
+                    ) {
+                        let result = crate::agent::execute_tool(
+                            &tool_call,
+                            self,
+                            thread_id,
+                            None,
+                            &self.session_manager,
+                            None,
+                            &self.event_tx,
+                            &self.data_dir,
+                            &self.http_client,
+                            None,
+                        )
+                        .await;
+                        (result.tool_call_id, result.name, result.content)
+                    } else {
+                        (
+                            tool_call.id.clone(),
+                            tool_call.function.name.clone(),
+                            format!(
+                                "Tool '{}' is not available to the concierge.",
+                                tool_call.function.name
+                            ),
+                        )
+                    };
+                messages.push(super::llm_client::ApiMessage {
+                    role: "tool".into(),
+                    content: super::llm_client::ApiContent::Text(content),
+                    reasoning: None,
+                    tool_call_id: Some(tool_call_id),
+                    name: Some(name),
+                    tool_calls: None,
+                });
             }
         }
         let reasoning =

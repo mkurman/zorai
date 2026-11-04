@@ -20,6 +20,7 @@ import {
   trimFollowedThreadToHistoryWindow,
 } from "./daemonHelpers";
 import { getThreadCompaction, handleCompactionWorkflowNotice } from "@/zorai/features/threads/threadCompactionStatus";
+import { handleContextWindowUpdateEvent } from "@/zorai/features/threads/threadContextBreakdown";
 import {
   handleDivergentStartEvent,
   handleGatewayIncomingEvent,
@@ -537,6 +538,10 @@ export function useDaemonAgentEvents({
             setThreadTodos,
             setView,
           });
+          break;
+        }
+        case "context_window_update": {
+          handleContextWindowUpdateEvent(event);
           break;
         }
         case "thread_title_updated": {

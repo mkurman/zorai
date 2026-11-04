@@ -346,7 +346,25 @@ pub(super) fn gateway_triage_safe_tools(
         .collect()
 }
 
-fn api_tool_calls_from_tool_calls(tool_calls: &[ToolCall]) -> Vec<ApiToolCall> {
+pub(in crate::agent) fn concierge_chat_tool_allowed(name: &str) -> bool {
+    gateway_triage_tool_allowed(name)
+        && name != zorai_protocol::tool_names::FETCH_GATEWAY_HISTORY
+        && name != zorai_protocol::tool_names::MESSAGE_AGENT
+}
+
+pub(in crate::agent) fn concierge_chat_safe_tools(
+    config: &AgentConfig,
+    agent_data_dir: &std::path::Path,
+) -> Vec<ToolDefinition> {
+    gateway_triage_safe_tools(config, agent_data_dir, false)
+        .into_iter()
+        .filter(|tool| concierge_chat_tool_allowed(&tool.function.name))
+        .collect()
+}
+
+pub(in crate::agent) fn api_tool_calls_from_tool_calls(
+    tool_calls: &[ToolCall],
+) -> Vec<ApiToolCall> {
     tool_calls
         .iter()
         .map(|tool_call| ApiToolCall {

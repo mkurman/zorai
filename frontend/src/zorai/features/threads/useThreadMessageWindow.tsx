@@ -5,6 +5,7 @@ import {
   resolveThreadMessageWindow,
   stackedThreadMessageHeight,
   threadMessageItemKey,
+  threadMessageScrollCompensation,
   THREAD_MESSAGE_ESTIMATED_HEIGHT_PX,
   THREAD_MESSAGE_ROW_GAP_PX,
   type ThreadMessageWindow,
@@ -107,21 +108,30 @@ export function useThreadMessageWindow(options: {
       if (followBottomRef.current) {
         scroller.scrollTop = scroller.scrollHeight;
       } else {
-        const above = stackedThreadMessageHeight(
-          itemKeysRef.current.map((itemKey) => heightsRef.current[itemKey]),
-          0,
+        scroller.scrollTop += threadMessageScrollCompensation({
+          heights: itemKeysRef.current.map((itemKey) => heightsRef.current[itemKey]),
           index,
-          THREAD_MESSAGE_ROW_GAP_PX,
-          THREAD_MESSAGE_ESTIMATED_HEIGHT_PX,
-        );
-        if (above + previous <= scroller.scrollTop + 1) {
-          scroller.scrollTop += height - previous;
-        }
+          previous,
+          height,
+          scrollTop: scroller.scrollTop,
+        });
       }
       setScrollTop(scroller.scrollTop);
     } else if (scroller && followBottomRef.current && previous == null) {
       scroller.scrollTop = scroller.scrollHeight;
       setScrollTop(scroller.scrollTop);
+    } else if (scroller && index >= 0 && previous == null) {
+      const delta = threadMessageScrollCompensation({
+        heights: itemKeysRef.current.map((itemKey) => heightsRef.current[itemKey]),
+        index,
+        previous,
+        height,
+        scrollTop: scroller.scrollTop,
+      });
+      if (delta !== 0) {
+        scroller.scrollTop += delta;
+        setScrollTop(scroller.scrollTop);
+      }
     }
     setHeights((current) => {
       if (current[key] != null && Math.abs(current[key] - height) < 1) return current;

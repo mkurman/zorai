@@ -101,6 +101,8 @@ pub enum AgentEvent {
         active_context_window_start: usize,
         active_context_window_end: usize,
         active_context_window_tokens: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        context_breakdown: Option<ContextBreakdown>,
     },
     ParticipantSuggestion {
         thread_id: String,
@@ -411,4 +413,22 @@ pub enum AgentEvent {
         message_id: String,
         prompt: zorai_protocol::QueuedPromptRecord,
     },
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContextBreakdown {
+    pub context_window_tokens: u64,
+    pub compaction_threshold_tokens: u64,
+    pub messages_tokens: u64,
+    pub compaction_summary_tokens: u64,
+    pub system_prompt_tokens: u64,
+    pub memory_tokens: u64,
+    pub skills_tokens: u64,
+    pub session_state_tokens: u64,
+    pub tools_tokens: u64,
+    pub tools_count: u64,
+    pub deferred_tools_count: u64,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cached_input_tokens: u64,
 }
