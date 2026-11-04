@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveThreadMessageWindow, stackedThreadMessageHeight } from "./threadMessageWindow";
+import {
+  resolveThreadMessageWindow,
+  stackedThreadMessageHeight,
+  threadMessageScrollCompensation,
+} from "./threadMessageWindow";
 
 const heights = Array.from({ length: 12 }, () => 100);
 
@@ -83,5 +87,43 @@ describe("resolveThreadMessageWindow", () => {
     });
 
     expect(window).toEqual({ start: 0, end: 2, topSpacer: 0, bottomSpacer: 0 });
+  });
+});
+
+describe("threadMessageScrollCompensation", () => {
+  it("keeps the view still when an older message first mounts above it taller than estimated", () => {
+    expect(threadMessageScrollCompensation({
+      heights: [undefined, undefined, 100, 100],
+      index: 1,
+      previous: undefined,
+      height: 1500,
+      scrollTop: 400,
+      gap: 0,
+      estimatedHeight: 160,
+    })).toBe(1340);
+  });
+
+  it("keeps compensating re-measured rows above the viewport", () => {
+    expect(threadMessageScrollCompensation({
+      heights: [100, 300, 100],
+      index: 1,
+      previous: 300,
+      height: 250,
+      scrollTop: 450,
+      gap: 0,
+      estimatedHeight: 160,
+    })).toBe(-50);
+  });
+
+  it("leaves the scroll alone for a row that reaches into the viewport", () => {
+    expect(threadMessageScrollCompensation({
+      heights: [100, undefined, 100],
+      index: 1,
+      previous: undefined,
+      height: 1500,
+      scrollTop: 200,
+      gap: 0,
+      estimatedHeight: 160,
+    })).toBe(0);
   });
 });

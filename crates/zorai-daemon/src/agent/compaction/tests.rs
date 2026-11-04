@@ -413,6 +413,7 @@ async fn persisted_compaction_broadcasts_post_compaction_context_window_update()
             active_context_window_start,
             active_context_window_end,
             active_context_window_tokens,
+            ..
         } => {
             let thread = {
                 let threads = engine.threads.read().await;
@@ -4184,4 +4185,80 @@ async fn coding_compaction_payload_includes_memory_graph_neighbors() {
         .structural_refs
         .iter()
         .any(|node_id| node_id == "node:package:cargo:demo"));
+}
+
+#[test]
+fn context_breakdown_attributes_prompt_sections_and_counts_only_the_active_window() {
+    let system_prompt = format!(
+        "{}\n\n## Persistent Memory\n{}\n\n## Local Skills Workflow\n{}\n\n## Thread Workspace Context\n{}\n\n## Recall and Memory Maintenance\n{}",
+        "b".repeat(400),
+        "m".repeat(800),
+        "s".repeat(1200),
+        "w".repeat(1600),
+        "r".repeat(400),
+    );
+    let tools = vec![crate::agent::tool_executor::tool_def(
+        "read_file",
+        "Read a file.",
+        serde_json::json!({ "type": "object" }),
+    )];
+    let mut before_summary = sample_message(&"x".repeat(4000));
+    before_summary.input_tokens = 100;
+    let summary = sample_message(&format!("[Compacted earlier context]\n{}", "c".repeat(400)));
+    let mut reply = AgentMessage::user(&"y".repeat(40), 2);
+    reply.input_tokens = 900;
+    reply.output_tokens = 50;
+    reply.provider_final_result = Some(CompletionProviderFinalResult::OpenAiChatCompletions(
+        CompletionOpenAiChatCompletionsFinalResult {
+            cache_read_input_tokens: Some(700),
+            ..Default::default()
+        },
+    ));
+
+    let breakdown = context_breakdown(
+        &system_prompt,
+        &tools,
+        3,
+        &[before_summary, summary.clone(), reply.clone()],
+        200_000,
+        160_000,
+    );
+
+    assert!((200..=210).contains(&breakdown.memory_tokens));
+    assert!((300..=310).contains(&breakdown.skills_tokens));
+    assert!((400..=410).contains(&breakdown.session_state_tokens));
+    assert!(
+        (200..=230).contains(&breakdown.system_prompt_tokens),
+        "base prompt and memory guidance stay in the system prompt row, got {}",
+        breakdown.system_prompt_tokens
+    );
+    assert_eq!(
+        breakdown.compaction_summary_tokens,
+        estimate_single_message_tokens(&summary) as u64
+    );
+    assert_eq!(
+        breakdown.messages_tokens,
+        estimate_single_message_tokens(&reply) as u64,
+        "messages replaced by the compaction summary are no longer in the request"
+    );
+    assert_eq!(
+        (breakdown.tools_count, breakdown.deferred_tools_count),
+        (1, 3)
+    );
+    assert!(breakdown.tools_tokens > 0);
+    assert_eq!(
+        (
+            breakdown.input_tokens,
+            breakdown.output_tokens,
+            breakdown.cached_input_tokens
+        ),
+        (1000, 50, 700)
+    );
+    assert_eq!(
+        (
+            breakdown.context_window_tokens,
+            breakdown.compaction_threshold_tokens
+        ),
+        (200_000, 160_000)
+    );
 }

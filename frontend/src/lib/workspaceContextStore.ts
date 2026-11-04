@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useAgentStore, type AgentThread } from "./agentStore";
 import { readPersistedJson, scheduleJsonWrite } from "./persistence";
 
 const WORKSPACE_CONTEXT_FILE = "thread-workspace-context.json";
@@ -57,8 +58,59 @@ export function toDaemonWorkspaceContext(context: ThreadWorkspaceContext) {
   };
 }
 
+let unmatchedByDaemonThreadId: Record<string, ThreadWorkspaceContext> = {};
+let lastPersisted = "";
+let unsubscribeThreads: (() => void) | null = null;
+
+function daemonThreadIdsByThreadId(threads: AgentThread[]): Map<string, string> {
+  const ids = new Map<string, string>();
+  for (const thread of threads) {
+    const daemonThreadId = thread.daemonThreadId?.trim();
+    if (daemonThreadId) ids.set(thread.id, daemonThreadId);
+  }
+  return ids;
+}
+
+function contextsByDaemonThreadId(byThreadId: Record<string, ThreadWorkspaceContext>) {
+  const daemonThreadIds = daemonThreadIdsByThreadId(useAgentStore.getState().threads);
+  const byDaemonThreadId = { ...unmatchedByDaemonThreadId };
+  for (const [threadId, context] of Object.entries(byThreadId)) {
+    const daemonThreadId = daemonThreadIds.get(threadId);
+    if (daemonThreadId) byDaemonThreadId[daemonThreadId] = context;
+  }
+  return byDaemonThreadId;
+}
+
 function persist(byThreadId: Record<string, ThreadWorkspaceContext>) {
-  scheduleJsonWrite(WORKSPACE_CONTEXT_FILE, { byThreadId }, 150);
+  const byDaemonThreadId = contextsByDaemonThreadId(byThreadId);
+  lastPersisted = JSON.stringify(byDaemonThreadId);
+  scheduleJsonWrite(WORKSPACE_CONTEXT_FILE, { byDaemonThreadId }, 150);
+}
+
+function attachSavedContexts(threads: AgentThread[]) {
+  const attached: Record<string, ThreadWorkspaceContext> = {};
+  for (const [threadId, daemonThreadId] of daemonThreadIdsByThreadId(threads)) {
+    const saved = unmatchedByDaemonThreadId[daemonThreadId];
+    if (!saved) continue;
+    attached[threadId] = saved;
+    const { [daemonThreadId]: _matched, ...rest } = unmatchedByDaemonThreadId;
+    unmatchedByDaemonThreadId = rest;
+  }
+  if (Object.keys(attached).length === 0) return;
+  useWorkspaceContextStore.setState((state) => {
+    const byThreadId = { ...state.byThreadId };
+    for (const [threadId, saved] of Object.entries(attached)) {
+      const current = byThreadId[threadId];
+      byThreadId[threadId] = current && current.updatedAt > saved.updatedAt ? current : saved;
+    }
+    return { byThreadId };
+  });
+}
+
+function syncWithThreads(threads: AgentThread[]) {
+  attachSavedContexts(threads);
+  const { byThreadId } = useWorkspaceContextStore.getState();
+  if (JSON.stringify(contextsByDaemonThreadId(byThreadId)) !== lastPersisted) persist(byThreadId);
 }
 
 function updateContext(
@@ -78,14 +130,19 @@ export const useWorkspaceContextStore = create<WorkspaceContextState>((set, get)
   byThreadId: {},
   hydrate: async () => {
     if (get().hydrated) return;
-    const saved = await readPersistedJson<{ byThreadId?: Record<string, ThreadWorkspaceContext> }>(WORKSPACE_CONTEXT_FILE);
-    const byThreadId = Object.fromEntries(Object.entries(saved?.byThreadId ?? {}).map(([threadId, context]) => [threadId, {
+    const saved = await readPersistedJson<{ byDaemonThreadId?: Record<string, ThreadWorkspaceContext> }>(WORKSPACE_CONTEXT_FILE);
+    unmatchedByDaemonThreadId = Object.fromEntries(Object.entries(saved?.byDaemonThreadId ?? {}).map(([daemonThreadId, context]) => [daemonThreadId, {
       ...context,
       isolateAgentTasks: context.isolateAgentTasks ?? false,
       isolatedWorktreeStates: context.isolatedWorktreeStates ?? {},
       pinnedFiles: context.pinnedFiles ?? [],
     }]));
-    set({ hydrated: true, byThreadId });
+    lastPersisted = JSON.stringify(contextsByDaemonThreadId(get().byThreadId));
+    set({ hydrated: true });
+    syncWithThreads(useAgentStore.getState().threads);
+    unsubscribeThreads ??= useAgentStore.subscribe((state, previous) => {
+      if (state.threads !== previous.threads) syncWithThreads(state.threads);
+    });
   },
   bindRoot: (threadId, root) => set((state) => {
     const previous = state.byThreadId[threadId];

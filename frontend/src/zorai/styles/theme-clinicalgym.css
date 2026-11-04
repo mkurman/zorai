@@ -43,8 +43,7 @@
 }
 
 :root[data-theme^="clinicalgym"] :focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
+  outline: 0px solid var(--accent);
 }
 
 :root[data-theme^="clinicalgym"] .zorai-composer-box textarea:focus-visible {
@@ -54,8 +53,7 @@
 :root[data-theme^="clinicalgym"] .zorai-composer-box:focus-within {
   border-color: var(--accent);
   box-shadow: none;
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
+  outline: 0px solid var(--accent);
 }
 
 :root[data-theme^="clinicalgym"] ::-webkit-scrollbar-thumb {

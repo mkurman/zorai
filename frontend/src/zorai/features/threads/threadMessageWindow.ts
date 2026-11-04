@@ -35,6 +35,22 @@ export function stackedThreadMessageHeight(
   return total;
 }
 
+export function threadMessageScrollCompensation(params: {
+  heights: readonly (number | undefined)[];
+  index: number;
+  previous: number | undefined;
+  height: number;
+  scrollTop: number;
+  gap?: number;
+  estimatedHeight?: number;
+}): number {
+  const gap = params.gap ?? THREAD_MESSAGE_ROW_GAP_PX;
+  const estimatedHeight = params.estimatedHeight ?? THREAD_MESSAGE_ESTIMATED_HEIGHT_PX;
+  const before = params.previous ?? estimatedHeight;
+  const above = stackedThreadMessageHeight(params.heights, 0, params.index, gap, estimatedHeight);
+  return above + before <= params.scrollTop + 1 ? params.height - before : 0;
+}
+
 export function resolveThreadMessageWindow(params: {
   count: number;
   heights: readonly (number | undefined)[];

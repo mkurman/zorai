@@ -44,11 +44,33 @@ impl<'a> SendMessageRunner<'a> {
             active_messages_count = active_messages.len(),
             "agent loop emitting ContextWindowUpdate"
         );
+        let context_window_tokens = crate::agent::compaction::primary_context_window_tokens(
+            &self.config,
+            &self.provider_config,
+        );
+        let compaction_threshold_tokens = if self.config.auto_compact_context {
+            crate::agent::compaction::effective_context_target_tokens(
+                &self.config,
+                &self.provider_config,
+            )
+            .min(context_window_tokens)
+        } else {
+            context_window_tokens
+        };
+        let context_breakdown = crate::agent::compaction::context_breakdown(
+            &self.system_prompt,
+            &self.tools,
+            self.deferred_tool_pool.len(),
+            messages,
+            context_window_tokens,
+            compaction_threshold_tokens,
+        );
         let _ = self.engine.event_tx.send(AgentEvent::ContextWindowUpdate {
             thread_id: self.tid.clone(),
             active_context_window_start,
             active_context_window_end: messages.len(),
             active_context_window_tokens,
+            context_breakdown: Some(context_breakdown),
         });
     }
 

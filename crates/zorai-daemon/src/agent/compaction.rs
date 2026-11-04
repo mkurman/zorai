@@ -9,6 +9,7 @@ use crate::history::MemoryGraphNeighborRow;
 use zorai_shared::providers::{PROVIDER_ID_GEMINI, PROVIDER_ID_GITHUB_COPILOT, PROVIDER_ID_OPENAI};
 
 mod artifact;
+mod breakdown;
 mod candidate;
 mod checkpoint;
 mod core;
@@ -19,6 +20,7 @@ mod rule_based;
 
 #[cfg(test)]
 pub(crate) use artifact::CompactionLlmFailureWithCapacity;
+pub(crate) use breakdown::*;
 pub(crate) use candidate::*;
 pub(crate) use checkpoint::*;
 pub(crate) use core::*;

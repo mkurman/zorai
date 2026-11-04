@@ -1,7 +1,8 @@
 import { LoadingState, ThreadListSkeleton } from "@/components/LoadingState";
 import { RefreshButton } from "@/zorai/shell/RefreshButton";
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, startTransition, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
+import type { AgentChatPanelRuntimeValue } from "@/components/agent-chat-panel/runtime/types";
 import { ACTIVE_RUN_POLL_MS, fetchAgentRuns, IDLE_RUN_POLL_MS, runListIsActive, type AgentRun } from "@/lib/agentRuns";
 import { useAgentStore, type AgentThread } from "@/lib/agentStore";
 import { getBridge } from "@/lib/bridge";
@@ -46,8 +47,49 @@ import { ZORAI_FOCUS_SEARCH_EVENT, ZORAI_THREAD_LIST_REFRESH_EVENT, consumePendi
 
 const THREAD_FILTER_FETCH_DEBOUNCE_MS = 1000;
 
+type ThreadsRailRuntime = Pick<
+  AgentChatPanelRuntimeValue,
+  | "activeThread"
+  | "activeThreadId"
+  | "activeWorkspace"
+  | "createThread"
+  | "fetchThreadList"
+  | "filteredThreads"
+  | "goalRunsForTrace"
+  | "isStreamingResponse"
+  | "searchQuery"
+  | "setChatBackView"
+  | "setSearchQuery"
+  | "setView"
+>;
+
 export function ThreadsRail() {
   const runtime = useAgentChatPanelRuntime();
+  const runtimeRef = useRef(runtime);
+  runtimeRef.current = runtime;
+  return (
+    <ThreadsRailBody
+      runtimeRef={runtimeRef}
+      activeThread={runtime.activeThread}
+      activeThreadId={runtime.activeThreadId}
+      activeWorkspace={runtime.activeWorkspace}
+      createThread={runtime.createThread}
+      fetchThreadList={runtime.fetchThreadList}
+      filteredThreads={runtime.filteredThreads}
+      goalRunsForTrace={runtime.goalRunsForTrace}
+      isStreamingResponse={runtime.isStreamingResponse}
+      searchQuery={runtime.searchQuery}
+      setChatBackView={runtime.setChatBackView}
+      setSearchQuery={runtime.setSearchQuery}
+      setView={runtime.setView}
+    />
+  );
+}
+
+const ThreadsRailBody = memo(function ThreadsRailBody({
+  runtimeRef,
+  ...runtime
+}: ThreadsRailRuntime & { runtimeRef: RefObject<AgentChatPanelRuntimeValue> }) {
   const subAgents = useAgentStore((state) => state.subAgents);
   const storeThreads = useAgentStore((state) => state.threads);
   const threadLoadingByThreadId = useThreadLoadingStore((state) => state.byThreadId);
@@ -274,7 +316,23 @@ export function ThreadsRail() {
         </button>
         <RefreshButton onClick={() => { refreshSelectedTab(); refreshGatewayThreadIds(); }} disabled={loadingTab !== null} busy={loadingTab !== null} />
       </div>
-      <input ref={searchInputRef} className="zorai-search-input" value={runtime.searchQuery} onChange={(event) => runtime.setSearchQuery(event.target.value)} placeholder="Search threads" />
+      <div className="zorai-search-field">
+        <input ref={searchInputRef} className="zorai-search-input" value={runtime.searchQuery} onChange={(event) => runtime.setSearchQuery(event.target.value)} placeholder="Search threads" />
+        {runtime.searchQuery ? (
+          <button
+            type="button"
+            className="zorai-search-field__clear"
+            title="Clear search"
+            aria-label="Clear search"
+            onClick={() => {
+              runtime.setSearchQuery("");
+              searchInputRef.current?.focus();
+            }}
+          >
+            ×
+          </button>
+        ) : null}
+      </div>
       <div className="zorai-thread-filters">
         <summary>Filters</summary>
       <div className="zorai-thread-filter-tabs" aria-label="Thread source filters">
@@ -370,7 +428,7 @@ export function ThreadsRail() {
           search={threadSearch}
           now={now}
           activeDaemonThreadId={runtime.activeThread?.daemonThreadId ?? null}
-          onOpen={(threadId) => void openThreadTarget(runtime, threadId)}
+          onOpen={(threadId) => void openThreadTarget(runtimeRef.current, threadId)}
         />
       ) : (
       <div className="zorai-thread-list" aria-busy={loadingTab !== null}>
@@ -401,7 +459,7 @@ export function ThreadsRail() {
               activity={sessionActivityLabel(thread.updatedAt, now)}
               history={threadHistoryLabel(thread)}
               editing={editingThreadId === thread.id}
-              onOpen={() => void openListedThread(runtime, thread)}
+              onOpen={() => void openListedThread(runtimeRef.current, thread)}
               onStartRename={() => setEditingThreadId(thread.id)}
               onRename={(title) => {
                 updateThreadTitle(thread.id, title);
@@ -425,7 +483,7 @@ export function ThreadsRail() {
       )}
     </div>
   );
-}
+});
 
 function ThreadSearchResults({
   query,

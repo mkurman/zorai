@@ -277,6 +277,7 @@ impl AgentEngine {
             active_context_window_start: post_compaction_window_start,
             active_context_window_end: post_compaction_window_end,
             active_context_window_tokens: post_compaction_total_tokens,
+            context_breakdown: None,
         });
         Ok(true)
     }

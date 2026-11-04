@@ -535,6 +535,40 @@
     box-shadow var(--zorai-transition);
 }
 
+.zorai-search-field {
+  position: relative;
+}
+
+.zorai-search-field .zorai-search-input {
+  padding-right: 28px;
+}
+
+.zorai-search-field__clear {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--zorai-muted);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.zorai-search-field__clear:hover,
+.zorai-search-field__clear:focus-visible {
+  outline: none;
+  background: var(--zorai-bg-active);
+  color: var(--zorai-text);
+}
+
 .zorai-search-input::placeholder {
   color: var(--zorai-muted);
 }
@@ -2400,7 +2434,7 @@
   background: transparent;
   color: var(--zorai-text);
   padding: 12px 14px 6px;
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   line-height: 1.5;
   box-sizing: border-box;
 }
@@ -4312,6 +4346,7 @@
 .zorai-workspace-change-actions button { padding: 2px 4px; border: 1px solid var(--zorai-border); border-radius: 3px; background: var(--zorai-bg-elevated); color: var(--zorai-muted); font-size: 9px; cursor: pointer; }
 
 .zorai-composer-workspace-context { position: relative; display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 7px; }
+.zorai-composer-workspace-context-header { display: flex; flex-wrap: wrap; gap: 5px; background: var(--zorai-bg-elevated); padding: 2px; border-radius: 8px; border: 1px solid var(--zorai-border); }
 .zorai-composer-context-chip { display: inline-flex; align-items: center; gap: 5px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 7px; color: var(--zorai-muted); font: 10px var(--font-mono); }
 button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-composer-context-chip--attached { border-color: color-mix(in srgb, var(--zorai-accent-secondary) 50%, var(--zorai-border)); color: var(--zorai-text); }
@@ -5180,6 +5215,34 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-composer-context-circle__hint {
   font: 9px var(--font-mono); color: var(--zorai-muted);
 }
+.zorai-composer-context-circle__segments {
+  display: flex; gap: 2px; height: 6px;
+  border-radius: 999px; overflow: hidden;
+}
+.zorai-composer-context-circle__segments > span { flex-basis: 0; min-width: 0; }
+.zorai-composer-context-circle__segments > span:not(.is-free):not(.is-buffer) { min-width: 2px; }
+.zorai-composer-context-circle__rows {
+  display: grid; gap: 5px;
+  margin: 0; padding: 0; list-style: none;
+  font: 11px var(--font-mono);
+}
+.zorai-composer-context-circle__rows > li {
+  display: grid; grid-template-columns: 10px 1fr auto 48px; align-items: center; gap: 8px;
+  color: var(--zorai-text);
+}
+.zorai-composer-context-circle__rows > li > span:nth-child(n + 3) { text-align: right; }
+.zorai-composer-context-circle__rows > li > span:last-child { color: var(--zorai-muted); }
+.zorai-composer-context-circle__swatch { width: 10px; height: 10px; border-radius: 3px; }
+.zorai-composer-context-circle__section { font: 11px var(--font-mono); }
+.zorai-composer-context-circle__popover .is-messages { background: #a571f0; }
+.zorai-composer-context-circle__popover .is-summary { background: #1fc8de; }
+.zorai-composer-context-circle__popover .is-tools { background: #f07a2c; }
+.zorai-composer-context-circle__popover .is-session { background: #95a3b8; }
+.zorai-composer-context-circle__popover .is-memory { background: #e8508f; }
+.zorai-composer-context-circle__popover .is-system { background: #3b93f2; }
+.zorai-composer-context-circle__popover .is-skills { background: #e6b422; }
+.zorai-composer-context-circle__popover .is-free { background: color-mix(in srgb, var(--zorai-border) 70%, transparent); }
+.zorai-composer-context-circle__popover .is-buffer { background: color-mix(in srgb, var(--zorai-muted) 55%, transparent); }
 .zorai-composer-context-circle__pct.is-ok { color: var(--zorai-muted); }
 .zorai-composer-context-circle__pct.is-warn { color: var(--warning); }
 .zorai-composer-context-circle__pct.is-danger { color: var(--danger, var(--danger)); }
