@@ -23,6 +23,7 @@ pub const BROWSER_NAVIGATE: &str = "browser_navigate";
 pub const BROWSER_READ_DOM: &str = "browser_read_dom";
 pub const BROWSER_RELOAD: &str = "browser_reload";
 pub const BROWSER_SCROLL: &str = "browser_scroll";
+pub const BROWSER_TABS: &str = "browser_tabs";
 pub const BROWSER_TAKE_SCREENSHOT: &str = "browser_take_screenshot";
 pub const BROWSER_TYPE: &str = "browser_type";
 pub const CANCEL_TASK: &str = "cancel_task";
@@ -230,6 +231,20 @@ pub const WORKSPACE_UPDATE_TASK: &str = "workspace_update_task";
 pub const WRITE_FILE: &str = "write_file";
 
 pub const BROWSER_TOOL_PREFIX: &str = "browser_";
+pub const BROWSER_TOOLS: &[&str] = &[
+    BROWSER_NAVIGATE,
+    BROWSER_READ_DOM,
+    BROWSER_GET_ELEMENTS,
+    BROWSER_CLICK,
+    BROWSER_TYPE,
+    BROWSER_SCROLL,
+    BROWSER_EVAL_JS,
+    BROWSER_TAKE_SCREENSHOT,
+    BROWSER_BACK,
+    BROWSER_FORWARD,
+    BROWSER_RELOAD,
+    BROWSER_TABS,
+];
 pub const GENERATED_TOOL_FRAGMENT: &str = "generated_tool";
 pub const PLUGIN_TOOL_PREFIX: &str = "plugin_";
 pub const PLUGIN_TOOL_FRAGMENT: &str = "_plugin_";

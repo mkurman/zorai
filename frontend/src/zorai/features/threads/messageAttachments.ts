@@ -2,6 +2,7 @@ import type { AgentContentBlock } from "@/lib/agentStore/types";
 import type { AttachmentTileModel } from "./attachmentTiles";
 
 const ATTACHED_FILE_PATTERN = /<attached_file name="([^"]*)">\r?\n?([\s\S]*?)\r?\n?<\/attached_file>/g;
+const MEDIA_PLACEHOLDER_LINE = /^\[(Image|Audio|Video) attachment(?:: [^\]\n]*)?\]$/;
 
 export function splitMessageAttachments(
   content: string,
@@ -35,7 +36,16 @@ export function splitMessageAttachments(
     });
   });
 
-  const displayText = content.replace(ATTACHED_FILE_PATTERN, "").trim();
+  const mediaKinds = new Set(tiles.map((tile) => tile.kind));
+  const displayText = content
+    .replace(ATTACHED_FILE_PATTERN, "")
+    .split("\n")
+    .filter((line) => {
+      const placeholder = line.trim().match(MEDIA_PLACEHOLDER_LINE);
+      return !placeholder || !mediaKinds.has(placeholder[1].toLowerCase() as AttachmentTileModel["kind"]);
+    })
+    .join("\n")
+    .trim();
   return { displayText, tiles };
 }
 

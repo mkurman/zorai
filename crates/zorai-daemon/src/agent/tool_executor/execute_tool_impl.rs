@@ -2170,6 +2170,9 @@ async fn dispatch_tool_execution(
             execute_fetch_url(args, agent, http_client, &browse_provider, thread_id).await
         }
         tool_names::SETUP_WEB_BROWSING => execute_setup_web_browsing(args, agent).await,
+        name if tool_names::BROWSER_TOOLS.contains(&name) => {
+            crate::agent::execute_browser_tool(name, args, agent, thread_id).await
+        }
         tool_names::PLUGIN_API_CALL => {
             let plugin_name = match get_string_arg(args, &["plugin_name"]) {
                 Some(name) => name.to_string(),

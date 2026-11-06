@@ -938,6 +938,7 @@ declare global {
         agentGetOperatorProfileSummary?: () => Promise<unknown>;
         agentSetOperatorProfileConsent?: (consentKey: string, granted: boolean) => Promise<{ ok?: boolean; error?: string }>;
         agentAnswerQuestion?: (questionId: string, answer: string) => Promise<{ ok?: boolean; error?: string }>;
+        agentBrowserResult?: (requestId: string, ok: boolean, resultJson: string) => Promise<{ ok?: boolean; error?: string }>;
     };
 
     interface Window {

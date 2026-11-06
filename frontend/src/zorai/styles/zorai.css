@@ -1664,6 +1664,17 @@
   color: var(--zorai-accent);
 }
 
+.zorai-composer-icon-button--has-draft::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--zorai-accent);
+}
+
 .zorai-composer-icon-button--toggled:hover:not(:disabled) {
   background: var(--accent-glow);
   color: var(--zorai-accent);
@@ -2423,6 +2434,384 @@
   box-shadow: 0 0 0 3px var(--glass-heavy);
 }
 
+.zorai-browser-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 8px;
+  overflow: hidden;
+  border: 1px solid var(--zorai-border-strong);
+  border-radius: 12px;
+  background: var(--zorai-bg-panel);
+  color: var(--zorai-text);
+}
+
+.zorai-browser-panel__tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px 0;
+  overflow-x: auto;
+}
+
+.zorai-browser-panel__tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 200px;
+  padding: 4px 6px 4px 10px;
+  border: 1px solid var(--zorai-border);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  color: var(--zorai-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.zorai-browser-panel__tab.is-active {
+  background: var(--zorai-bg-elevated);
+  color: var(--zorai-text);
+}
+
+.zorai-browser-panel__tab-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zorai-browser-panel__tab-close,
+.zorai-browser-panel__icon {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--zorai-muted);
+  cursor: pointer;
+}
+
+.zorai-browser-panel__tab-close {
+  width: 18px;
+  height: 18px;
+}
+
+.zorai-browser-panel__icon {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  font-size: 15px;
+}
+
+.zorai-browser-panel__tab-close:hover:not(:disabled),
+.zorai-browser-panel__icon:hover:not(:disabled) {
+  background: var(--zorai-bg-elevated);
+  color: var(--zorai-text);
+}
+
+.zorai-browser-panel__tab-close:disabled,
+.zorai-browser-panel__icon:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.zorai-browser-panel__hide {
+  margin-left: auto;
+}
+
+.zorai-browser-panel__spinner {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--zorai-border-strong);
+  border-top-color: var(--zorai-accent);
+  border-radius: 50%;
+  animation: zorai-browser-spin 0.8s linear infinite;
+}
+
+@keyframes zorai-browser-spin {
+  to { transform: rotate(360deg); }
+}
+
+.zorai-browser-panel__bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--zorai-border);
+  border-bottom: 1px solid var(--zorai-border);
+  background: var(--zorai-bg-elevated);
+}
+
+.zorai-browser-panel__address {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--zorai-border);
+  border-radius: 7px;
+  background: var(--zorai-bg-panel);
+  color: var(--zorai-text);
+  font: 12px var(--font-mono);
+}
+
+.zorai-browser-panel__control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--zorai-border);
+}
+
+.zorai-browser-panel__control.is-agent {
+  background: color-mix(in srgb, var(--zorai-accent) 14%, transparent);
+  color: var(--zorai-accent);
+}
+
+.zorai-browser-panel__control.is-operator {
+  color: var(--zorai-muted);
+}
+
+.zorai-browser-panel__viewport {
+  flex: 1;
+  min-height: 0;
+  background: #ffffff;
+}
+
+.zorai-thread-browser-host__tab {
+  position: fixed;
+  z-index: 30;
+  overflow: hidden;
+  border-radius: 0 0 11px 11px;
+}
+
+.zorai-thread-browser-host__tab[data-placed="false"] {
+  pointer-events: none;
+}
+
+.zorai-thread-browser-host__webview {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #ffffff;
+}
+
+.zorai-thread-browser-host__shield {
+  position: absolute;
+  inset: 0;
+  cursor: not-allowed;
+  box-shadow: inset 0 0 0 2px var(--zorai-accent);
+}
+
+.zorai-composer-icon-button--busy::after {
+  animation: zorai-browser-pulse 1s ease-in-out infinite;
+}
+
+@keyframes zorai-browser-pulse {
+  50% { opacity: 0.25; }
+}
+
+.zorai-sketchpad {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  margin-bottom: 8px;
+  overflow: hidden;
+  border: 1px solid var(--zorai-border-strong);
+  border-radius: 12px;
+  background: var(--zorai-bg-panel);
+  color: var(--zorai-text);
+}
+
+.zorai-composer-panel-resize {
+  flex: none;
+  height: 8px;
+  cursor: ns-resize;
+  touch-action: none;
+  display: grid;
+  place-items: center;
+}
+
+.zorai-composer-panel-resize::before {
+  content: "";
+  width: 36px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--zorai-border-strong);
+}
+
+.zorai-composer-panel-resize:hover::before,
+.zorai-composer-panel-resize:focus-visible::before {
+  background: var(--zorai-accent);
+}
+
+.zorai-composer-panel-resize:focus-visible {
+  outline: none;
+}
+
+.zorai-sketchpad__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--zorai-border);
+}
+
+.zorai-sketchpad__group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 6px;
+  border-right: 1px solid var(--zorai-border);
+}
+
+.zorai-sketchpad__button {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--zorai-muted);
+  cursor: pointer;
+}
+
+.zorai-sketchpad__button:hover:not(:disabled) {
+  background: var(--zorai-bg-elevated);
+  color: var(--zorai-text);
+}
+
+.zorai-sketchpad__button.is-active {
+  background: var(--accent-dim);
+  border-color: var(--border-color-strong);
+  color: var(--zorai-accent);
+}
+
+.zorai-sketchpad__button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.zorai-sketchpad__width {
+  display: block;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.zorai-sketchpad__swatch {
+  width: 18px;
+  height: 18px;
+  margin: 0 2px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px var(--zorai-border-strong);
+}
+
+.zorai-sketchpad__swatch.is-ink {
+  background: var(--zorai-text);
+}
+
+.zorai-sketchpad__swatch.is-active {
+  border-color: var(--zorai-bg-panel);
+  box-shadow: 0 0 0 2px var(--zorai-accent);
+}
+
+.zorai-sketchpad__zoom {
+  font: 10px var(--font-mono);
+  color: var(--zorai-muted);
+}
+
+
+.zorai-sketchpad__surface {
+  position: relative;
+  overflow: hidden;
+  outline: none;
+  cursor: crosshair;
+  touch-action: none;
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--zorai-muted) 35%, transparent) 1px, transparent 1.2px);
+}
+
+.zorai-sketchpad__surface.is-panning {
+  cursor: grab;
+}
+
+.zorai-sketchpad__surface.is-selecting {
+  cursor: default;
+}
+
+.zorai-sketchpad__surface.is-text {
+  cursor: text;
+}
+
+.zorai-sketchpad__text-input {
+  position: absolute;
+  z-index: 1;
+  min-width: 2ch;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: 1px dashed var(--zorai-accent);
+  outline-offset: 2px;
+  background: transparent;
+  resize: none;
+  overflow: hidden;
+  white-space: pre;
+  field-sizing: content;
+}
+
+.zorai-sketchpad__surface:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--glass-heavy);
+}
+
+.zorai-sketchpad__background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  transform-origin: 0 0;
+  pointer-events: none;
+  user-select: none;
+  box-shadow: 0 0 0 1px var(--zorai-border-strong);
+}
+
+.zorai-sketchpad__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.zorai-sketchpad__primary:not(:disabled) {
+  border-color: var(--zorai-accent);
+  color: var(--zorai-accent);
+}
+
+.zorai-sketchpad__surface canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.zorai-sketchpad__hint {
+  position: absolute;
+  inset: auto 0 12px;
+  text-align: center;
+  font: 11px var(--font-mono);
+  color: var(--zorai-muted);
+  pointer-events: none;
+}
+
 .zorai-composer-box textarea {
   width: 100%;
   min-height: calc(1.5em * 3 + 18px);
@@ -2848,6 +3237,85 @@
   max-height: 100%;
   object-fit: contain;
   border-radius: 8px;
+}
+
+.acp-md__image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 6px 0;
+  border-radius: 8px;
+  cursor: zoom-in;
+}
+
+.zorai-image-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background: color-mix(in srgb, var(--shade) 88%, transparent);
+}
+
+.zorai-image-lightbox__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px 12px;
+  color: var(--zorai-text);
+  font: 11px var(--font-mono);
+}
+
+.zorai-image-lightbox__name {
+  margin-right: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zorai-image-lightbox__meta,
+.zorai-image-lightbox__zoom {
+  color: var(--zorai-muted);
+}
+
+.zorai-image-lightbox__zoom {
+  min-width: 40px;
+  text-align: center;
+}
+
+.zorai-image-lightbox__stage {
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.zorai-image-lightbox__stage:active {
+  cursor: grabbing;
+}
+
+.zorai-image-lightbox__stage img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  transform-origin: 0 0;
+  user-select: none;
+  image-rendering: auto;
+}
+
+.zorai-attachment-tile__badge {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--zorai-accent);
+  color: var(--zorai-bg-panel);
+  font: 8px/12px var(--font-mono);
+  pointer-events: none;
 }
 
 .zorai-attachment-tile__caption {
@@ -6579,6 +7047,13 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-mermaid__canvas svg {
   max-width: none;
   height: auto;
+}
+
+.zorai-mermaid__canvas--sized svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none !important;
 }
 
 .zorai-mermaid__loading {

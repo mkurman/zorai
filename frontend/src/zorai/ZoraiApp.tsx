@@ -17,6 +17,7 @@ import { useWorkspaceContextStore } from "@/lib/workspaceContextStore";
 import { shouldAutoStartOperatorProfileFromConcierge } from "./conciergeEvents";
 import { useZoraiAppCommands } from "./shell/zoraiAppCommands";
 import { ZoraiShell } from "./shell/ZoraiShell";
+import { ThreadBrowserHost } from "./features/browser/ThreadBrowserHost";
 
 export function ZoraiApp() {
   const operatorProfileAutoStartRequested = useRef(false);
@@ -99,6 +100,7 @@ export function ZoraiApp() {
       <OperatorQuestionOverlay />
       <ConciergeToast />
       <ToastViewport />
+      <ThreadBrowserHost />
     </AgentChatPanelProvider>
   );
 }

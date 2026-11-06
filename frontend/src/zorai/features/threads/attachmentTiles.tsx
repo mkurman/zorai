@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ComposerAttachment } from "@/components/agent-chat-panel/chat-view/types";
 import { getBridge } from "@/lib/bridge";
+import { ImageLightbox } from "./ImageLightbox";
 
 export type AttachmentTileModel = {
   id: string;
@@ -9,6 +10,7 @@ export type AttachmentTileModel = {
   name: string;
   previewUrl?: string;
   inventoryPath?: string;
+  badge?: string;
 };
 
 export function composerAttachmentToTile(attachment: ComposerAttachment): AttachmentTileModel {
@@ -23,9 +25,11 @@ export function composerAttachmentToTile(attachment: ComposerAttachment): Attach
 export function AttachmentTiles({
   items,
   onRemove,
+  onAnnotate,
 }: {
   items: AttachmentTileModel[];
   onRemove?: (id: string) => void;
+  onAnnotate?: (id: string) => void;
 }) {
   if (items.length === 0) {
     return null;
@@ -33,13 +37,21 @@ export function AttachmentTiles({
   return (
     <div className="zorai-attachment-tiles">
       {items.map((item) => (
-        <AttachmentTile key={item.id} item={item} onRemove={onRemove} />
+        <AttachmentTile key={item.id} item={item} onRemove={onRemove} onAnnotate={onAnnotate} />
       ))}
     </div>
   );
 }
 
-function AttachmentTile({ item, onRemove }: { item: AttachmentTileModel; onRemove?: (id: string) => void }) {
+function AttachmentTile({
+  item,
+  onRemove,
+  onAnnotate,
+}: {
+  item: AttachmentTileModel;
+  onRemove?: (id: string) => void;
+  onAnnotate?: (id: string) => void;
+}) {
   const imageUrl = useAttachmentImageUrl(item);
   const videoUrl = item.kind === "video" ? item.previewUrl : undefined;
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -49,9 +61,9 @@ function AttachmentTile({ item, onRemove }: { item: AttachmentTileModel; onRemov
         <button
           type="button"
           className="zorai-attachment-tile__preview zorai-attachment-tile__preview--button"
-          title={`Preview ${item.name}`}
-          aria-label={`Preview ${item.name}`}
-          onClick={() => setPreviewOpen(true)}
+          title={onAnnotate ? `Draw on ${item.name}` : `Preview ${item.name}`}
+          aria-label={onAnnotate ? `Draw on ${item.name}` : `Preview ${item.name}`}
+          onClick={() => (onAnnotate ? onAnnotate(item.id) : setPreviewOpen(true))}
         >
           <img src={imageUrl} alt="" />
         </button>
@@ -71,6 +83,7 @@ function AttachmentTile({ item, onRemove }: { item: AttachmentTileModel; onRemov
         </span>
       )}
       <span className="zorai-attachment-tile__caption" title={item.name}>{item.name}</span>
+      {item.badge ? <span className="zorai-attachment-tile__badge">{item.badge}</span> : null}
       {onRemove ? (
         <button
           type="button"
@@ -83,7 +96,7 @@ function AttachmentTile({ item, onRemove }: { item: AttachmentTileModel; onRemov
         </button>
       ) : null}
       {previewOpen && imageUrl ? (
-        <AttachmentImagePreview src={imageUrl} name={item.name} onClose={() => setPreviewOpen(false)} />
+        <ImageLightbox src={imageUrl} name={item.name} onClose={() => setPreviewOpen(false)} />
       ) : null}
       {previewOpen && videoUrl ? (
         <AttachmentImagePreview src={videoUrl} name={item.name} video onClose={() => setPreviewOpen(false)} />

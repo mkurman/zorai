@@ -443,6 +443,7 @@ const bridgeApi = {
     agentGetOperatorProfileSummary: () => ipcRenderer.invoke('agent-get-operator-profile-summary'),
     agentSetOperatorProfileConsent: (consentKey, granted) => ipcRenderer.invoke('agent-set-operator-profile-consent', consentKey, granted),
     agentAnswerQuestion: (questionId, answer) => ipcRenderer.invoke('agent-answer-question', questionId, answer),
+    agentBrowserResult: (requestId, ok, resultJson) => ipcRenderer.invoke('agent-browser-result', requestId, ok, resultJson),
     onAgentEvent: (cb) => {
         const listener = (_event, data) => cb(data);
         ipcRenderer.on('agent-event', listener);
