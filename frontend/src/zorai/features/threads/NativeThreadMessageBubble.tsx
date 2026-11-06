@@ -124,7 +124,7 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
   const { displayText, tiles } = splitMessageAttachments(message.content, message.contentBlocks);
   const reasoning = visibleGeminiReasoning(message.reasoning);
   const hasVisibleContent = assistantMessageHasVisibleContent(displayText);
-  const shouldRenderContent = hasVisibleContent || !reasoning;
+  const shouldRenderContent = hasVisibleContent || (!fromUser && !reasoning && tiles.length === 0);
 
   return (
     <article id={`zorai-message-${message.id}`} className={["zorai-message", fromUser ? "zorai-message--user" : "", message.pinnedForCompaction ? "zorai-message--pinned" : ""].filter(Boolean).join(" ")}>

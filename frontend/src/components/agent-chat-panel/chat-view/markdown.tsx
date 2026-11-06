@@ -1,4 +1,4 @@
-import { memo, useContext, useEffect, useMemo, useRef } from "react";
+import { memo, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
@@ -8,6 +8,7 @@ import "katex/dist/katex.min.css";
 import { FencedDataBlock, fencedBlockKind } from "@/components/data-viewers/FencedDataBlock";
 import { MarkdownTable, hastText } from "@/components/data-viewers/MarkdownTable";
 import { ThreadFilePreviewContext } from "@/zorai/features/threads/ThreadFilePreviewContext";
+import { ImageLightbox } from "@/zorai/features/threads/ImageLightbox";
 import { getBridge } from "@/lib/bridge";
 import { useAgentStore } from "@/lib/agentStore";
 import { useWorkspaceContextStore } from "@/lib/workspaceContextStore";
@@ -123,8 +124,26 @@ function MarkdownLink({ href, children }: { href?: string; children?: ReactNode 
   );
 }
 
+function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
+  const [open, setOpen] = useState(false);
+  if (!src) return null;
+  return (
+    <>
+      <img
+        className="acp-md__image"
+        src={src}
+        alt={alt ?? ""}
+        title={alt ? `${alt} — click to enlarge` : "Click to enlarge"}
+        onClick={() => setOpen(true)}
+      />
+      {open ? <ImageLightbox src={src} name={alt || "Image"} onClose={() => setOpen(false)} /> : null}
+    </>
+  );
+}
+
 const markdownComponents: Components = {
   a: ({ href, children }) => <MarkdownLink href={href}>{children}</MarkdownLink>,
+  img: ({ src, alt }) => <MarkdownImage src={typeof src === "string" ? src : undefined} alt={alt} />,
   pre: ({ node, children }) => {
     const code = node?.children.find((child) => child.type === "element" && child.tagName === "code");
     const className = code && code.type === "element" ? code.properties.className : undefined;

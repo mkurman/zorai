@@ -539,6 +539,19 @@ fn media_generation_bridge_commands_deserialize_from_the_gui_command_names() {
 }
 
 #[test]
+fn browser_result_bridge_command_deserializes_from_the_gui_command_name() {
+    let cmd: AgentBridgeCommand = serde_json::from_str(
+        r#"{"type":"browser-result","request_id":"br_1","ok":true,"result_json":"{\"url\":\"https://example.com\"}"}"#,
+    )
+    .expect("browser-result must deserialize");
+    assert!(matches!(
+        cmd,
+        AgentBridgeCommand::BrowserResult { ref request_id, ok: true, ref result_json }
+            if request_id == "br_1" && result_json == r#"{"url":"https://example.com"}"#
+    ));
+}
+
+#[test]
 fn agent_protocol_codex_auth_bridge_commands_deserialize() {
     fn parse(json: &str) -> AgentBridgeCommand {
         serde_json::from_str(json).expect("codex auth command must deserialize")

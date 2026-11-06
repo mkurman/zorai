@@ -21,6 +21,7 @@ import {
 } from "./daemonHelpers";
 import { getThreadCompaction, handleCompactionWorkflowNotice } from "@/zorai/features/threads/threadCompactionStatus";
 import { handleContextWindowUpdateEvent } from "@/zorai/features/threads/threadContextBreakdown";
+import { handleBrowserRequestEvent } from "@/zorai/features/browser/threadBrowserAgent";
 import {
   handleDivergentStartEvent,
   handleGatewayIncomingEvent,
@@ -538,6 +539,10 @@ export function useDaemonAgentEvents({
             setThreadTodos,
             setView,
           });
+          break;
+        }
+        case "browser_request": {
+          void handleBrowserRequestEvent(event);
           break;
         }
         case "context_window_update": {

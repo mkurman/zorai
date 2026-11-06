@@ -216,6 +216,7 @@ async fn make_test_engine(
         policy_escalation_session_grants: RwLock::new(HashSet::new()),
         task_approval_rules: RwLock::new(Vec::new()),
         pending_operator_questions: Mutex::new(HashMap::new()),
+        browser: BrowserRuntime::default(),
         operator_profile_sessions: RwLock::new(HashMap::new()),
         honcho_sync: Mutex::new(HonchoSyncState::default()),
         repo_watchers: Mutex::new(HashMap::new()),

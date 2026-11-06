@@ -1,5 +1,6 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { getBridge } from "@/lib/bridge";
+import { ImageLightbox } from "@/zorai/features/threads/ImageLightbox";
 
 type MermaidModule = typeof import("mermaid")["default"];
 
@@ -58,6 +59,23 @@ function downloadBlob(blob: Blob, fileName: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function svgViewBoxSize(svg: string): { width: number; height: number } | null {
+  const root = new DOMParser().parseFromString(svg, "image/svg+xml").documentElement;
+  const viewBox = root.getAttribute("viewBox")?.trim().split(/[\s,]+/).map(Number);
+  if (root.nodeName !== "svg" || !viewBox || viewBox.length !== 4 || !(viewBox[2] > 0) || !(viewBox[3] > 0)) return null;
+  return { width: viewBox[2], height: viewBox[3] };
+}
+
+function svgWithIntrinsicSize(svg: string): string {
+  const size = svgViewBoxSize(svg);
+  if (!size) return svg;
+  const root = new DOMParser().parseFromString(svg, "image/svg+xml").documentElement;
+  root.setAttribute("width", String(size.width));
+  root.setAttribute("height", String(size.height));
+  root.style.removeProperty("max-width");
+  return new XMLSerializer().serializeToString(root);
+}
+
 function exportPng(svg: string, fileName: string) {
   const image = new Image();
   image.onload = () => {
@@ -80,7 +98,27 @@ function exportPng(svg: string, fileName: string) {
 export function MermaidDiagram({ source, fileName = "diagram" }: { source: string; fileName?: string }) {
   const { svg, error } = useMermaidSvg(source);
   const [zoom, setZoom] = useState(1);
+  const [expanded, setExpanded] = useState(false);
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const naturalSize = useMemo(() => (svg ? svgViewBoxSize(svg) : null), [svg]);
+
+  const fitToViewport = () => {
+    const viewport = viewportRef.current;
+    const diagram = canvasRef.current?.querySelector("svg");
+    if (!viewport || !diagram) return;
+    const rect = diagram.getBoundingClientRect();
+    const style = getComputedStyle(viewport);
+    const paddingX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+    const paddingY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+    const maxHeight = parseFloat(style.maxHeight);
+    const width = naturalSize?.width ?? rect.width / zoom;
+    const height = naturalSize?.height ?? rect.height / zoom;
+    if (!(width > 0) || !(height > 0)) return;
+    const widthRatio = (viewport.clientWidth - paddingX) / width;
+    const heightRatio = Number.isFinite(maxHeight) ? (maxHeight - paddingY) / height : widthRatio;
+    setZoom(Math.min(4, Math.max(0.25, Math.min(widthRatio, heightRatio))));
+  };
 
   return (
     <div className="zorai-mermaid">
@@ -89,6 +127,8 @@ export function MermaidDiagram({ source, fileName = "diagram" }: { source: strin
         <span>{Math.round(zoom * 100)}%</span>
         <button type="button" className="zorai-data-table__action" onClick={() => setZoom((value) => Math.min(4, value + 0.25))}>+</button>
         <button type="button" className="zorai-data-table__action" onClick={() => setZoom(1)}>Reset</button>
+        <button type="button" className="zorai-data-table__action" disabled={!svg} title="Scale the diagram to fit this view" onClick={fitToViewport}>Fit</button>
+        <button type="button" className="zorai-data-table__action" disabled={!svg} title="Open full screen with zoom and pan" onClick={() => setExpanded(true)}>Full screen</button>
         <span className="zorai-mermaid__spacer" />
         <button
           type="button"
@@ -125,14 +165,26 @@ export function MermaidDiagram({ source, fileName = "diagram" }: { source: strin
       >
         {svg ? (
           <div
-            className="zorai-mermaid__canvas"
-            style={{ transform: `scale(${zoom})` }}
+            ref={canvasRef}
+            className={["zorai-mermaid__canvas", naturalSize ? "zorai-mermaid__canvas--sized" : ""].filter(Boolean).join(" ")}
+            style={naturalSize
+              ? { width: naturalSize.width * zoom, height: naturalSize.height * zoom }
+              : { transform: `scale(${zoom})` }}
+            onDoubleClick={() => setExpanded(true)}
             dangerouslySetInnerHTML={{ __html: svg }}
           />
         ) : !error ? (
           <div className="zorai-mermaid__loading">Rendering diagram…</div>
         ) : null}
       </div>
+      {expanded && svg ? (
+        <ImageLightbox
+          src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgWithIntrinsicSize(svg))}`}
+          name={fileName}
+          vector
+          onClose={() => setExpanded(false)}
+        />
+      ) : null}
     </div>
   );
 }

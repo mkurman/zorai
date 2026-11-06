@@ -1051,6 +1051,19 @@ where
                 })
                 .await?;
         }
+        AgentBridgeCommand::BrowserResult {
+            request_id,
+            ok,
+            result_json,
+        } => {
+            framed
+                .send(ClientMessage::AgentBrowserResult {
+                    request_id,
+                    ok,
+                    result_json,
+                })
+                .await?;
+        }
         AgentBridgeCommand::GetOperatorProfileSummary => {
             framed
                 .send(ClientMessage::AgentGetOperatorProfileSummary)

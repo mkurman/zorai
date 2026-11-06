@@ -26,6 +26,7 @@ pub(crate) async fn dispatch_part6(
             | ClientMessage::AgentTextToSpeech { .. }
             | ClientMessage::AgentGenerateImage { .. }
             | ClientMessage::AgentGenerateVideo { .. }
+            | ClientMessage::AgentBrowserResult { .. }
             | ClientMessage::AgentGetCollaborationSessions { .. }
             | ClientMessage::AgentGetDivergentSession { .. }
             | ClientMessage::AgentListGeneratedTools
@@ -450,6 +451,19 @@ pub(crate) async fn dispatch_part6(
                         .await
                         .ok();
                 }
+            }
+        }
+
+        ClientMessage::AgentBrowserResult {
+            request_id,
+            ok,
+            result_json,
+        } => {
+            if !agent
+                .answer_browser_request(&request_id, ok, &result_json)
+                .await
+            {
+                tracing::debug!(request_id = %request_id, "browser result arrived for an unknown or expired request");
             }
         }
 

@@ -509,6 +509,12 @@ pub(super) enum AgentBridgeCommand {
         question_id: String,
         answer: String,
     },
+    #[serde(rename = "browser-result")]
+    BrowserResult {
+        request_id: String,
+        ok: bool,
+        result_json: String,
+    },
     GetOperatorProfileSummary,
     SetOperatorProfileConsent {
         consent_key: String,

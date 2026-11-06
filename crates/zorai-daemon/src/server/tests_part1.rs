@@ -111,6 +111,19 @@ fn approval_required_events_forward_to_subscribed_thread() {
 }
 
 #[test]
+fn browser_requests_reach_clients_that_do_not_follow_the_requesting_thread() {
+    let event = AgentEvent::BrowserRequest {
+        thread_id: "thread-subagent".to_string(),
+        request_id: "br_1".to_string(),
+        op: serde_json::json!({ "kind": "navigate", "url": "https://example.com" }),
+    };
+    assert!(
+        super::should_forward_agent_event(&event, &HashSet::new()),
+        "a subagent's browser request must reach the desktop app even when it is not watching that thread, or the tool call hangs until timeout"
+    );
+}
+
+#[test]
 fn prompt_queue_updates_forward_only_to_subscribed_thread() {
     let event = AgentEvent::PromptQueueUpdate {
         thread_id: "thread-queue".to_string(),

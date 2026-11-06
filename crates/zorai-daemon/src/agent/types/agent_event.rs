@@ -378,6 +378,11 @@ pub enum AgentEvent {
         threshold_usd: f64,
     },
     /// Blocking operator-facing multiple-choice question requested by a tool or workflow.
+    BrowserRequest {
+        thread_id: String,
+        request_id: String,
+        op: serde_json::Value,
+    },
     OperatorQuestion {
         question_id: String,
         content: String,

@@ -28,6 +28,9 @@ import { ThreadEffortGauge } from "./ThreadEffortGauge";
 import { ComposerContextCircle } from "./ComposerContextCircle";
 import { CodeThreadRuntimeSwitcher } from "../code/CodeThreadRuntimeSwitcher";
 import { AttachmentTiles, composerAttachmentToTile } from "./attachmentTiles";
+import { useComposerSketch } from "./useComposerSketch";
+import { ComposerBrowserPanel } from "../browser/ComposerBrowserPanel";
+import { setBrowserPanelOpen, useThreadBrowserStore } from "../browser/threadBrowserStore";
 import { buildHandoffDefaults, buildThreadAgentOptions } from "./threadHandoffModel";
 import {
   canAssignComposerOwnerDirectly,
@@ -96,6 +99,12 @@ export function ThreadComposer({
   const stopStreaming = runtime.stopStreaming;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
+  const sketch = useComposerSketch({ attachments, setAttachments, onClosed: () => inputRef.current?.focus() });
+  const browserSessionKey = runtime.activeThread
+    ? runtime.activeThread.daemonThreadId ?? `local:${runtime.activeThread.id}`
+    : null;
+  const browserSession = useThreadBrowserStore((state) => (browserSessionKey ? state.sessions[browserSessionKey] : undefined));
+  const browserAvailable = agentSettings.enable_web_browsing_tool && Boolean(browserSessionKey);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [dropActive, setDropActive] = useState(false);
@@ -183,6 +192,7 @@ export function ThreadComposer({
       history.remember(payload.text);
       setInput("");
       setAttachments([]);
+      sketch.forgetAll();
       setComposerTarget(targetAfterAcceptedDispatch(composerTarget));
       return;
     } else if (sendRoute.action === "handoff-agent") {
@@ -204,6 +214,7 @@ export function ThreadComposer({
     sendMessage(payload);
     setInput("");
     setAttachments([]);
+    sketch.forgetAll();
   };
 
   const queueCurrentInput = () => {
@@ -215,6 +226,7 @@ export function ThreadComposer({
       if (!ok) return;
       setInput("");
       setAttachments([]);
+      sketch.forgetAll();
     });
   };
 
@@ -227,6 +239,7 @@ export function ThreadComposer({
       if (!ok) return;
       setInput("");
       setAttachments([]);
+      sketch.forgetAll();
     });
   };
 
@@ -234,6 +247,7 @@ export function ThreadComposer({
     queue.startEdit(item);
     setInput(item.text);
     setAttachments([]);
+    sketch.forgetAll();
   };
 
   // Ctrl+M toggles voice recording from anywhere in the thread surface
@@ -432,8 +446,15 @@ export function ThreadComposer({
 
       {attachments.length > 0 ? (
         <AttachmentTiles
-          items={attachments.map(composerAttachmentToTile)}
-          onRemove={(id) => setAttachments((current) => current.filter((item) => item.id !== id))}
+          items={attachments.map((attachment) => ({
+            ...composerAttachmentToTile(attachment),
+            badge: sketch.tileBadge(attachment.id),
+          }))}
+          onRemove={(id) => {
+            setAttachments((current) => current.filter((item) => item.id !== id));
+            sketch.forgetAttachment(id);
+          }}
+          onAnnotate={sketch.openAnnotation}
         />
       ) : null}
 
@@ -452,6 +473,8 @@ export function ThreadComposer({
       />
 
       {targetError ? <p className="zorai-composer-budget-notice" role="alert">{targetError}</p> : null}
+      {sketch.pad}
+      {browserAvailable && browserSessionKey && browserSession?.panelOpen ? <ComposerBrowserPanel sessionKey={browserSessionKey} /> : null}
       <div className="zorai-composer-box">
         <textarea
           ref={inputRef}
@@ -488,6 +511,38 @@ export function ThreadComposer({
             >
               <ComposerIcon kind="attach" />
             </button>
+            <button
+              type="button"
+              className={[
+                "zorai-composer-icon-button",
+                sketch.sketchOpen ? "zorai-composer-icon-button--toggled" : "",
+                !sketch.sketchOpen && sketch.hasDraft ? "zorai-composer-icon-button--has-draft" : "",
+              ].filter(Boolean).join(" ")}
+              title={sketch.annotating ? "Finish the image annotation first" : sketch.sketchOpen ? "Hide sketchpad (keeps a draft)" : sketch.hasDraft ? "Open sketch draft" : "Draw a sketch"}
+              aria-label={sketch.sketchOpen ? "Hide sketchpad" : "Draw a sketch"}
+              aria-pressed={sketch.sketchOpen}
+              disabled={sketch.annotating}
+              onClick={sketch.toggleSketch}
+            >
+              <ComposerIcon kind="sketch" />
+            </button>
+            {browserAvailable && browserSessionKey ? (
+              <button
+                type="button"
+                className={[
+                  "zorai-composer-icon-button",
+                  browserSession?.panelOpen ? "zorai-composer-icon-button--toggled" : "",
+                  !browserSession?.panelOpen && browserSession?.agentUsed ? "zorai-composer-icon-button--has-draft" : "",
+                  (browserSession?.agentBusy ?? 0) > 0 ? "zorai-composer-icon-button--busy" : "",
+                ].filter(Boolean).join(" ")}
+                title={browserSession?.panelOpen ? "Hide browser" : browserSession?.agentUsed ? "Show the browser Zorai is using" : "Open browser"}
+                aria-label={browserSession?.panelOpen ? "Hide browser" : "Open browser"}
+                aria-pressed={Boolean(browserSession?.panelOpen)}
+                onClick={() => setBrowserPanelOpen(browserSessionKey, !browserSession?.panelOpen)}
+              >
+                <ComposerIcon kind="browser" />
+              </button>
+            ) : null}
             <div className="zorai-composer-mode">
               <ManagedSecurityShield />
             </div>
@@ -643,7 +698,7 @@ export function ThreadComposer({
   );
 }
 
-function ComposerIcon({ kind }: { kind: "attach" | "mic" | "send" | "stop" | "queue" | "autoplay" | "edit" | "cancel" | "accept" }) {
+function ComposerIcon({ kind }: { kind: "attach" | "sketch" | "browser" | "mic" | "send" | "stop" | "queue" | "autoplay" | "edit" | "cancel" | "accept" }) {
   const common = {
     width: 16,
     height: 16,
@@ -659,6 +714,23 @@ function ComposerIcon({ kind }: { kind: "attach" | "mic" | "send" | "stop" | "qu
     return (
       <svg {...common}>
         <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+      </svg>
+    );
+  }
+  if (kind === "sketch") {
+    return (
+      <svg {...common}>
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+      </svg>
+    );
+  }
+  if (kind === "browser") {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M3 12h18" />
+        <path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z" />
       </svg>
     );
   }

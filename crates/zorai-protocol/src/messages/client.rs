@@ -336,4 +336,5 @@ pub enum ClientMessage {
     AgentSearchThreads { query: String, limit: Option<usize> },
     AgentSetPromptQueueHold { thread_id: String, held: bool },
     AgentGenerateVideo { args_json: String },
+    AgentBrowserResult { request_id: String, ok: bool, result_json: String },
 }

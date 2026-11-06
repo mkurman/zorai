@@ -44,4 +44,18 @@ describe("splitMessageAttachments", () => {
       name: "notes.txt",
     }]);
   });
+
+  it("hides the daemon's text stand-in for media that is already shown as a tile", () => {
+    const result = splitMessageAttachments("[Image attachment: image/png]\nlook here\n[Video attachment]", [{
+      type: "image",
+      data_url: "data:image/png;base64,abc",
+      mime_type: "image/png",
+    }]);
+
+    expect(result.displayText).toBe("look here\n[Video attachment]");
+  });
+
+  it("keeps the stand-in text when the media block itself is missing, so the attachment is still mentioned", () => {
+    expect(splitMessageAttachments("[Image attachment: image/png]").displayText).toBe("[Image attachment: image/png]");
+  });
 });

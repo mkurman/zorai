@@ -86,6 +86,7 @@ pub(crate) fn add_available_tools_part_c(
                 "required": ["url"]
             }),
         ));
+        tools.extend(crate::agent::browser_tool_definitions());
     }
 
     tools.push(tool_def(
