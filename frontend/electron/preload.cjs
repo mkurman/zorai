@@ -399,6 +399,7 @@ const bridgeApi = {
     agentTextToSpeech: (text, voice, options) => ipcRenderer.invoke('agent-text-to-speech', text, voice, options),
     agentGenerateImage: (prompt, options) => ipcRenderer.invoke('agent-generate-image', prompt, options),
     agentGenerateVideo: (prompt, options) => ipcRenderer.invoke('agent-generate-video', prompt, options),
+    agentGenerateMusic: (prompt, options) => ipcRenderer.invoke('agent-generate-music', prompt, options),
     agentActivateGeneratedTool: (toolName) => ipcRenderer.invoke('agent-activate-generated-tool', toolName),
     agentPromoteGeneratedTool: (toolName) => ipcRenderer.invoke('agent-promote-generated-tool', toolName),
     agentRetireGeneratedTool: (toolName) => ipcRenderer.invoke('agent-retire-generated-tool', toolName),

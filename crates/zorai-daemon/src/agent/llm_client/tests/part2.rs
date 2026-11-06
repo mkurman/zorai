@@ -129,6 +129,35 @@ fn messages_to_api_format_preserves_assistant_reasoning() {
 }
 
 #[test]
+fn generated_audio_saved_on_disk_reaches_the_model_as_its_text_not_an_unfetchable_file_url() {
+    let mut song = AgentMessage::user("Generated music.\n\n[Verse] city lights", 42);
+    song.role = MessageRole::Assistant;
+    song.content_blocks = vec![AgentContentBlock::Audio {
+        url: Some("file:///home/user/.zorai/threads/t1/media/music-1.mp3".to_string()),
+        data_url: None,
+        mime_type: Some("audio/mpeg".to_string()),
+    }];
+    let mut recording = AgentMessage::user("", 43);
+    recording.content_blocks = vec![AgentContentBlock::Audio {
+        url: None,
+        data_url: Some("data:audio/wav;base64,UklGRg==".to_string()),
+        mime_type: Some("audio/wav".to_string()),
+    }];
+
+    let api_messages = messages_to_api_format(&[song, recording]);
+
+    assert!(
+        matches!(&api_messages[0].content, ApiContent::Text(text) if text.contains("[Verse] city lights")),
+        "{:?}",
+        api_messages[0].content
+    );
+    assert!(
+        matches!(&api_messages[1].content, ApiContent::Blocks(blocks) if !blocks.is_empty()),
+        "inline operator recordings must still be sent to the model"
+    );
+}
+
+#[test]
 fn messages_to_api_format_normalizes_invalid_tool_call_arguments() {
     let mut message = AgentMessage::user("", 42);
     message.role = MessageRole::Assistant;

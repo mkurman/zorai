@@ -96,6 +96,26 @@ const GEMINI_VIDEO_MODELS: ModelDefinition[] = [
 
 const VIDEO_GENERATION_PROVIDER_IDS: AgentProviderId[] = ["minimax", "qwen", "gemini", "openrouter"];
 
+const ELEVENLABS_MUSIC_MODELS: ModelDefinition[] = [
+  { id: "music_v2", name: "ElevenLabs Music v2", contextWindow: 0, modalities: ["audio"] },
+  { id: "music_v2_5", name: "ElevenLabs Music v2.5", contextWindow: 0, modalities: ["audio"] },
+  { id: "music_v1", name: "ElevenLabs Music v1", contextWindow: 0, modalities: ["audio"] },
+];
+
+const GEMINI_MUSIC_MODELS: ModelDefinition[] = [
+  { id: "lyria-3.5", name: "Lyria 3.5 (full songs)", contextWindow: 0, modalities: ["audio"] },
+  { id: "lyria-3-clip-preview", name: "Lyria 3 Clip (30 s)", contextWindow: 0, modalities: ["audio"] },
+];
+
+const MINIMAX_MUSIC_MODELS: ModelDefinition[] = [
+  { id: "music-3.0", name: "MiniMax Music 3.0", contextWindow: 0, modalities: ["audio"] },
+  { id: "music-2.6", name: "MiniMax Music 2.6", contextWindow: 0, modalities: ["audio"] },
+  { id: "music-3.0-free", name: "MiniMax Music 3.0 (free tier)", contextWindow: 0, modalities: ["audio"] },
+  { id: "music-2.6-free", name: "MiniMax Music 2.6 (free tier)", contextWindow: 0, modalities: ["audio"] },
+];
+
+const MUSIC_GENERATION_PROVIDER_IDS: AgentProviderId[] = ["elevenlabs", "gemini", "minimax"];
+
 export type ProviderOption = {
   id: AgentProviderId;
   label: string;
@@ -319,6 +339,25 @@ export function normalizeVideoGenerationModelForProviderChange(
 
 export function filterVideoGenerationProviderOptions(providerOptions: ProviderOption[]): ProviderOption[] {
   return providerOptions.filter((provider) => VIDEO_GENERATION_PROVIDER_IDS.includes(provider.id));
+}
+
+export function musicGenerationModelOptions(providerId: AgentProviderId): ModelDefinition[] {
+  if (providerId === "elevenlabs") return ELEVENLABS_MUSIC_MODELS;
+  if (providerId === "gemini") return GEMINI_MUSIC_MODELS;
+  if (providerId === "minimax") return MINIMAX_MUSIC_MODELS;
+  return [];
+}
+
+export function normalizeMusicGenerationModelForProviderChange(providerId: AgentProviderId, currentModel: string): string {
+  const knownMusicModels = musicGenerationModelOptions(providerId);
+  const normalizedCurrentModel = currentModel.trim();
+  return knownMusicModels.some((model) => model.id === normalizedCurrentModel)
+    ? normalizedCurrentModel
+    : knownMusicModels[0]?.id ?? "";
+}
+
+export function filterMusicGenerationProviderOptions(providerOptions: ProviderOption[]): ProviderOption[] {
+  return providerOptions.filter((provider) => MUSIC_GENERATION_PROVIDER_IDS.includes(provider.id));
 }
 
 export function normalizeLlmStreamTimeoutInput(value: string): number | null {

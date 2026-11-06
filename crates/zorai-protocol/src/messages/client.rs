@@ -337,4 +337,5 @@ pub enum ClientMessage {
     AgentSetPromptQueueHold { thread_id: String, held: bool },
     AgentGenerateVideo { args_json: String },
     AgentBrowserResult { request_id: String, ok: bool, result_json: String },
+    AgentGenerateMusic { args_json: String },
 }

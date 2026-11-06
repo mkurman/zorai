@@ -36,6 +36,14 @@ function createHandlerHarness() {
         thread_id: "thread-image",
       };
     }
+    if ([].concat(args[1]).includes("music-generation-result")) {
+      return {
+        ok: true,
+        path: "/tmp/music-1.mp3",
+        mime_type: "audio/mpeg",
+        thread_id: "thread-music",
+      };
+    }
     if ([].concat(args[1]).includes("video-generation-result")) {
       return {
         ok: true,
@@ -126,6 +134,35 @@ test("agent-generate-video waits long enough for multi-minute generations and re
     "a daemon AgentError must reject the query instead of leaving the GUI waiting for the timeout",
   );
   assert.ok(timeoutMs >= 660000, `daemon waits up to 600s, client timeout ${timeoutMs}ms must exceed it`);
+});
+
+test("agent-generate-music waits for long songs, rejects on daemon errors and returns a playable file_url", async () => {
+  const { handlers, queries } = createHandlerHarness();
+
+  const result = await handlers.get("agent-generate-music")(null, "lofi hip hop", {
+    thread_id: "thread-music",
+    instrumental: true,
+  });
+
+  assert.deepEqual(result, {
+    ok: true,
+    path: "/tmp/music-1.mp3",
+    mime_type: "audio/mpeg",
+    thread_id: "thread-music",
+    file_url: "file:///tmp/music-1.mp3",
+  });
+  const [command, responseType, timeoutMs] = queries[0];
+  assert.deepEqual(command, {
+    type: "generate-music",
+    args_json: JSON.stringify({ thread_id: "thread-music", instrumental: true, prompt: "lofi hip hop" }),
+  });
+  assert.deepEqual(responseType, ["music-generation-result", "error"]);
+  assert.ok(timeoutMs >= 660000, `daemon waits up to 600s, client timeout ${timeoutMs}ms must exceed it`);
+  assert.ok(runtime.AGENT_QUERY_RESPONSE_TYPES.includes("music-generation-result"));
+  assert.match(
+    preloadSrc,
+    /agentGenerateMusic:\s*\(prompt, options\)\s*=>\s*ipcRenderer\.invoke\('agent-generate-music', prompt, options\)/,
+  );
 });
 
 test("runtime allowlists speech query response types", () => {

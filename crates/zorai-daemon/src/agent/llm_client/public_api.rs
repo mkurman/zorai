@@ -730,8 +730,11 @@ fn agent_content_blocks_to_api_blocks(
             } => {
                 let audio_url = url
                     .as_ref()
+                    .filter(|value| !value.trim_start().starts_with("file://"))
                     .or(data_url.as_ref())
-                    .filter(|value| !value.trim().is_empty())?;
+                    .filter(|value| {
+                        !value.trim().is_empty() && !value.trim_start().starts_with("file://")
+                    })?;
                 let input_audio = if let Some(data) = audio_url.strip_prefix("data:") {
                     let (header, payload) = data.split_once(',')?;
                     if !header.contains(";base64") {

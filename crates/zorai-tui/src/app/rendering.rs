@@ -2281,6 +2281,10 @@ impl TuiModel {
                             self.settings_picker_target,
                             Some(SettingsPickerTarget::VideoGenerationProvider)
                         ),
+                        matches!(
+                            self.settings_picker_target,
+                            Some(SettingsPickerTarget::MusicGenerationProvider)
+                        ),
                         &self.theme,
                     );
                 }

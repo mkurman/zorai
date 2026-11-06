@@ -1036,6 +1036,12 @@ impl TuiModel {
                             "feat_video_generation_model" => {
                                 self.set_video_generation_config_string("model", value);
                             }
+                            "feat_music_generation_provider" => {
+                                self.set_music_generation_config_string("provider", value);
+                            }
+                            "feat_music_generation_model" => {
+                                self.set_music_generation_config_string("model", value);
+                            }
                             "feat_embedding_model" => {
                                 self.send_daemon_command(DaemonCommand::SetConfigItem {
                                     key_path: "/semantic/embedding/model".to_string(),

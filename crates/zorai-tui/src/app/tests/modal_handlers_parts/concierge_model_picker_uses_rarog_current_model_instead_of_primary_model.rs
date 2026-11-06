@@ -623,6 +623,45 @@ fn slash_video_without_prompt_prefills_composer_instead_of_dispatching() {
 }
 
 #[test]
+fn slash_music_prompt_dispatches_generate_music_for_active_thread() {
+    let (mut model, mut daemon_rx) = make_model();
+    model.connected = true;
+    model.chat.reduce(chat::ChatAction::ThreadCreated {
+        thread_id: "thread-1".to_string(),
+        title: "Thread".to_string(),
+    });
+    model
+        .chat
+        .reduce(chat::ChatAction::SelectThread("thread-1".to_string()));
+
+    assert!(model.execute_slash_command_line("/music lofi beat with rain"));
+
+    loop {
+        match daemon_rx.try_recv() {
+            Ok(DaemonCommand::DismissConciergeWelcome) => {}
+            Ok(DaemonCommand::GenerateMusic { args_json }) => {
+                let payload: serde_json::Value =
+                    serde_json::from_str(&args_json).expect("music payload should parse");
+                assert_eq!(payload["thread_id"], "thread-1");
+                assert_eq!(payload["prompt"], "lofi beat with rain");
+                break;
+            }
+            other => panic!("expected generate-music command, got {:?}", other),
+        }
+    }
+    assert_eq!(model.status_line, "Generating music...");
+
+    assert!(model.execute_slash_command_line("/music"));
+    while let Ok(command) = daemon_rx.try_recv() {
+        assert!(
+            !matches!(command, DaemonCommand::GenerateMusic { .. }),
+            "empty /music must not start a generation"
+        );
+    }
+    assert_eq!(model.input.buffer(), "/music ");
+}
+
+#[test]
 fn thread_picker_delete_requires_confirmation_before_sending_delete_thread() {
     let (mut model, mut daemon_rx) = make_model();
     model.chat.reduce(chat::ChatAction::ThreadListReceived(vec![

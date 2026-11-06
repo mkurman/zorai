@@ -341,6 +341,14 @@ impl DaemonClient {
                 )
                 .await;
             }
+            DaemonMessage::AgentGenerateMusicResult { content } => {
+                dispatch_client_event(
+                    event_tx,
+                    ClientEvent::GenerateMusicResult { content },
+                    "generate_music_result",
+                )
+                .await;
+            }
             DaemonMessage::AgentOperatorProfileSessionCompleted {
                 session_id,
                 updated_fields,

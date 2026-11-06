@@ -179,6 +179,51 @@ impl TuiModel {
                 }
                 None
             }
+            ClientEvent::GenerateMusicResult { content } => {
+                if let Ok(value) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(error) = value.get("error").and_then(|v| v.as_str()) {
+                        self.status_line = format!("Music generation failed: {error}");
+                        self.show_input_notice(
+                            "Music generation failed (see status/error)",
+                            InputNoticeKind::Warning,
+                            80,
+                            true,
+                        );
+                        self.last_error = Some(format!("Music generation failed: {error}"));
+                        self.error_active = true;
+                        self.error_tick = self.tick_counter;
+                        return None;
+                    }
+
+                    let thread_id = value
+                        .get("thread_id")
+                        .and_then(|entry| entry.as_str())
+                        .map(str::to_string);
+                    let status_target = value
+                        .get("path")
+                        .and_then(|entry| entry.as_str())
+                        .or_else(|| value.get("url").and_then(|entry| entry.as_str()))
+                        .or_else(|| value.get("file_url").and_then(|entry| entry.as_str()));
+
+                    if let Some(thread_id) = thread_id {
+                        if self.chat.active_thread_id() == Some(thread_id.as_str()) {
+                            self.request_authoritative_thread_refresh(thread_id.clone(), false);
+                        } else {
+                            self.open_thread_conversation(thread_id.clone());
+                        }
+                        self.send_daemon_command(DaemonCommand::RequestThreadWorkContext(
+                            thread_id,
+                        ));
+                    }
+
+                    self.status_line = status_target
+                        .map(|target| format!("Music generated: {target}"))
+                        .unwrap_or_else(|| "Music generated".to_string());
+                } else {
+                    self.status_line = "Music generated".to_string();
+                }
+                None
+            }
             ClientEvent::ModelsFetched(models) => {
                 self.handle_models_fetched_event(models);
                 None

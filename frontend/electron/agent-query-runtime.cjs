@@ -78,6 +78,7 @@ const AGENT_QUERY_RESPONSE_TYPES = [
   'text-to-speech-result',
   'image-generation-result',
   'video-generation-result',
+  'music-generation-result',
   'operator-model',
   'operator-model-reset',
   'operator-profile-session-started',

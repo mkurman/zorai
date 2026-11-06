@@ -213,4 +213,5 @@ pub enum DaemonMessage {
     AgentFileOperationBefore { result_json: String },
     AgentThreadSearchResults { results_json: String },
     AgentGenerateVideoResult { content: String },
+    AgentGenerateMusicResult { content: String },
 }

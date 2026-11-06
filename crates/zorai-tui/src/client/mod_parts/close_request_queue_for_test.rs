@@ -402,6 +402,9 @@ pub enum ClientEvent {
     GenerateVideoResult {
         content: String,
     },
+    GenerateMusicResult {
+        content: String,
+    },
     OperatorProfileSessionCompleted {
         session_id: String,
         updated_fields: Vec<String>,

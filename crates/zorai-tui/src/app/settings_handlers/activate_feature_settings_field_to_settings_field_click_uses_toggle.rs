@@ -225,6 +225,14 @@ impl TuiModel {
                 self.open_video_generation_model_picker();
                 true
             }
+            "feat_music_generation_provider" => {
+                self.open_provider_picker(SettingsPickerTarget::MusicGenerationProvider);
+                true
+            }
+            "feat_music_generation_model" => {
+                self.open_music_generation_model_picker();
+                true
+            }
             "feat_embedding_provider" => {
                 self.open_provider_picker(SettingsPickerTarget::EmbeddingProvider);
                 true

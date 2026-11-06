@@ -231,6 +231,8 @@ export interface AgentSettings {
   image_generation_model: string;
   video_generation_provider: AgentProviderId;
   video_generation_model: string;
+  music_generation_provider: AgentProviderId;
+  music_generation_model: string;
   semantic_embedding_enabled: boolean;
   semantic_embedding_provider: AgentProviderId;
   semantic_embedding_model: string;
@@ -404,6 +406,8 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   image_generation_model: "gpt-image-1",
   video_generation_provider: "",
   video_generation_model: "",
+  music_generation_provider: "",
+  music_generation_model: "",
   semantic_embedding_enabled: false,
   semantic_embedding_provider: "openai",
   semantic_embedding_model: "text-embedding-3-small",
@@ -624,6 +628,12 @@ export type DiskAgentSettings = Partial<AgentSettings> & {
       model?: string;
     };
   };
+  music?: {
+    generation?: {
+      provider?: AgentProviderId | string;
+      model?: string;
+    };
+  };
   semantic?: {
     embedding?: {
       enabled?: boolean;
@@ -638,6 +648,8 @@ export type DiskAgentSettings = Partial<AgentSettings> & {
   image_generation_model?: string;
   video_generation_provider?: AgentProviderId | string;
   video_generation_model?: string;
+  music_generation_provider?: AgentProviderId | string;
+  music_generation_model?: string;
   system_prompt?: string;
   agent_aliases?: Record<string, unknown>;
   managed_sandbox_enabled?: boolean;
@@ -930,6 +942,14 @@ export function normalizeAgentSettingsFromSource(source: DiskAgentSettings): Age
       source.video?.generation?.model
       ?? source.video_generation_model
       ?? DEFAULT_AGENT_SETTINGS.video_generation_model,
+    music_generation_provider:
+      source.music?.generation?.provider
+      ?? source.music_generation_provider
+      ?? DEFAULT_AGENT_SETTINGS.music_generation_provider,
+    music_generation_model:
+      source.music?.generation?.model
+      ?? source.music_generation_model
+      ?? DEFAULT_AGENT_SETTINGS.music_generation_model,
     semantic_embedding_enabled:
       source.semantic?.embedding?.enabled ?? DEFAULT_AGENT_SETTINGS.semantic_embedding_enabled,
     semantic_embedding_provider,

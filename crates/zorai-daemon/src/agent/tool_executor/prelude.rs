@@ -97,6 +97,7 @@ pub(crate) fn default_timeout_seconds_for_tool(tool_name: &str) -> u64 {
         tool_names::ANALYZE_IMAGE
         | tool_names::GENERATE_IMAGE
         | tool_names::GENERATE_VIDEO
+        | tool_names::GENERATE_MUSIC
         | tool_names::SPEECH_TO_TEXT
         | tool_names::TEXT_TO_SPEECH => 600,
         _ => DEFAULT_DAEMON_TOOL_TIMEOUT_SECS,

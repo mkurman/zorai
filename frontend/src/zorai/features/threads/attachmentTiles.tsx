@@ -55,6 +55,25 @@ function AttachmentTile({
   const imageUrl = useAttachmentImageUrl(item);
   const videoUrl = item.kind === "video" ? item.previewUrl : undefined;
   const [previewOpen, setPreviewOpen] = useState(false);
+  if (item.kind === "audio" && item.previewUrl) {
+    return (
+      <div className="zorai-attachment-audio">
+        <span className="zorai-attachment-audio__name" title={item.name}>{item.name}</span>
+        <audio controls preload="metadata" src={item.previewUrl} aria-label={`Play ${item.name}`} />
+        {onRemove ? (
+          <button
+            type="button"
+            className="zorai-attachment-tile__remove"
+            title={`Remove ${item.name}`}
+            aria-label={`Remove ${item.name}`}
+            onClick={() => onRemove(item.id)}
+          >
+            ×
+          </button>
+        ) : null}
+      </div>
+    );
+  }
   return (
     <div className="zorai-attachment-tile">
       {imageUrl ? (

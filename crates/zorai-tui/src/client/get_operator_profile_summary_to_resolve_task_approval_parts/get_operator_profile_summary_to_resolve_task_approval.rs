@@ -64,6 +64,10 @@ impl DaemonClient {
         self.send(ClientMessage::AgentGenerateVideo { args_json })
     }
 
+    pub fn generate_music(&self, args_json: String) -> Result<()> {
+        self.send(ClientMessage::AgentGenerateMusic { args_json })
+    }
+
     pub fn set_operator_profile_consent(&self, consent_key: String, granted: bool) -> Result<()> {
         self.send(ClientMessage::AgentSetOperatorProfileConsent {
             consent_key,

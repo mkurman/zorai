@@ -536,6 +536,13 @@ fn media_generation_bridge_commands_deserialize_from_the_gui_command_names() {
     assert!(
         matches!(cmd, AgentBridgeCommand::GenerateVideo { ref args_json } if args_json == r#"{"prompt":"cat"}"#)
     );
+
+    let cmd: AgentBridgeCommand =
+        serde_json::from_str(r#"{"type":"generate-music","args_json":"{\"prompt\":\"lofi\"}"}"#)
+            .expect("generate-music must deserialize");
+    assert!(
+        matches!(cmd, AgentBridgeCommand::GenerateMusic { ref args_json } if args_json == r#"{"prompt":"lofi"}"#)
+    );
 }
 
 #[test]

@@ -1382,6 +1382,9 @@ fn start_daemon_bridge(
                             DaemonCommand::GenerateVideo { args_json } => {
                                 let _ = client.generate_video(args_json);
                             }
+                            DaemonCommand::GenerateMusic { args_json } => {
+                                let _ = client.generate_music(args_json);
+                            }
                             DaemonCommand::SetOperatorProfileConsent {
                                 consent_key,
                                 granted,

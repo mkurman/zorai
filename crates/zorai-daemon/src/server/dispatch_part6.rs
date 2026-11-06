@@ -27,6 +27,7 @@ pub(crate) async fn dispatch_part6(
             | ClientMessage::AgentGenerateImage { .. }
             | ClientMessage::AgentGenerateVideo { .. }
             | ClientMessage::AgentBrowserResult { .. }
+            | ClientMessage::AgentGenerateMusic { .. }
             | ClientMessage::AgentGetCollaborationSessions { .. }
             | ClientMessage::AgentGetDivergentSession { .. }
             | ClientMessage::AgentListGeneratedTools
@@ -493,6 +494,39 @@ pub(crate) async fn dispatch_part6(
                     framed
                         .send(DaemonMessage::AgentError {
                             message: format!("invalid generate_video arguments: {error}"),
+                        })
+                        .await
+                        .ok();
+                }
+            }
+        }
+
+        ClientMessage::AgentGenerateMusic { args_json } => {
+            match serde_json::from_str::<serde_json::Value>(&args_json) {
+                Ok(args) => {
+                    match crate::agent::tool_executor::execute_generate_music_for_ipc(&args, &agent)
+                        .await
+                    {
+                        Ok(content) => {
+                            framed
+                                .send(DaemonMessage::AgentGenerateMusicResult { content })
+                                .await
+                                .ok();
+                        }
+                        Err(error) => {
+                            framed
+                                .send(DaemonMessage::AgentError {
+                                    message: format!("failed to execute generate_music: {error}"),
+                                })
+                                .await
+                                .ok();
+                        }
+                    }
+                }
+                Err(error) => {
+                    framed
+                        .send(DaemonMessage::AgentError {
+                            message: format!("invalid generate_music arguments: {error}"),
                         })
                         .await
                         .ok();

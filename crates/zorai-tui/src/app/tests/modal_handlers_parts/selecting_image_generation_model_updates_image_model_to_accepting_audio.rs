@@ -208,6 +208,67 @@ fn selecting_video_generation_provider_resets_model_to_provider_default() {
 }
 
 #[test]
+fn selecting_music_generation_provider_offers_only_music_capable_providers_and_resets_the_model() {
+    let (mut model, _daemon_rx) = make_model();
+    let entry = |provider_id: &str, name: &str| crate::state::auth::ProviderAuthEntry {
+        provider_id: provider_id.to_string(),
+        provider_name: name.to_string(),
+        authenticated: true,
+        auth_source: "api_key".to_string(),
+        model: String::new(),
+    };
+    model.auth.entries = vec![
+        entry(PROVIDER_ID_OPENAI, "OpenAI"),
+        entry(
+            zorai_shared::providers::PROVIDER_ID_ELEVENLABS,
+            "ElevenLabs",
+        ),
+        entry(zorai_shared::providers::PROVIDER_ID_GEMINI, "Gemini"),
+    ];
+    model.config.agent_config_raw = Some(serde_json::json!({
+        "music": { "generation": { "provider": "elevenlabs", "model": "music_v2_5" } }
+    }));
+
+    let music_providers =
+        widgets::provider_picker::available_music_generation_provider_defs(&model.auth);
+    assert!(!music_providers
+        .iter()
+        .any(|provider| provider.id == PROVIDER_ID_OPENAI));
+    assert_eq!(
+        TuiModel::default_music_generation_model_for(PROVIDER_ID_MINIMAX),
+        "music-3.0"
+    );
+    let target_index = music_providers
+        .iter()
+        .position(|provider| provider.id == zorai_shared::providers::PROVIDER_ID_GEMINI)
+        .expect("gemini should be offered for music generation");
+
+    model.settings_picker_target = Some(SettingsPickerTarget::MusicGenerationProvider);
+    model
+        .modal
+        .reduce(modal::ModalAction::Push(modal::ModalKind::ProviderPicker));
+    model.modal.set_picker_item_count(music_providers.len());
+    if target_index > 0 {
+        model
+            .modal
+            .reduce(modal::ModalAction::Navigate(target_index as i32));
+    }
+
+    model.handle_key_modal(
+        KeyCode::Enter,
+        KeyModifiers::NONE,
+        modal::ModalKind::ProviderPicker,
+    );
+
+    assert_eq!(model.config.music_generation_provider(), "gemini");
+    assert_eq!(model.config.music_generation_model(), "lyria-3.5");
+    assert_eq!(
+        model.settings_picker_target,
+        Some(SettingsPickerTarget::MusicGenerationModel)
+    );
+}
+
+#[test]
 fn selecting_main_image_capable_model_enables_vision() {
     let (mut model, mut daemon_rx) = make_model();
     model.config.tool_vision = false;

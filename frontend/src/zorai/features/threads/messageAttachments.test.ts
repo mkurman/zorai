@@ -28,7 +28,7 @@ describe("splitMessageAttachments", () => {
     expect(result.tiles).toEqual([{
       id: "block:video:0",
       kind: "video",
-      name: "video.mp4",
+      name: "video-1.mp4",
       previewUrl: "file:///tmp/media/video-1.mp4",
     }]);
   });
@@ -57,5 +57,16 @@ describe("splitMessageAttachments", () => {
 
   it("keeps the stand-in text when the media block itself is missing, so the attachment is still mentioned", () => {
     expect(splitMessageAttachments("[Image attachment: image/png]").displayText).toBe("[Image attachment: image/png]");
+  });
+
+  it("shows a generated song under its saved file name so several tracks in one thread can be told apart", () => {
+    const result = splitMessageAttachments("Generated music.", [{
+      type: "audio",
+      url: "file:///home/me/.zorai/threads/t1/artifacts/media/music-1793960000000.mp3",
+      mime_type: "audio/mpeg",
+    }]);
+
+    expect(result.tiles[0]).toMatchObject({ kind: "audio", name: "music-1793960000000.mp3" });
+    expect(result.displayText).toBe("Generated music.");
   });
 });

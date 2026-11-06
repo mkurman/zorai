@@ -3184,6 +3184,30 @@
   gap: 8px;
 }
 
+.zorai-attachment-audio {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  width: min(360px, 100%);
+  padding: 8px 10px;
+  border: 1px solid var(--zorai-border);
+  border-radius: 10px;
+  background: var(--zorai-bg-elevated);
+}
+
+.zorai-attachment-audio__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 11px var(--font-mono);
+  color: var(--zorai-muted);
+}
+
+.zorai-attachment-audio audio {
+  width: 100%;
+  height: 32px;
+}
+
 .zorai-thread-composer > .zorai-attachment-tiles {
   margin-bottom: 10px;
 }

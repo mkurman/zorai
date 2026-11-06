@@ -19,12 +19,20 @@ type PendingBuiltinAgentSetup = BuiltinAgentSetupState & {
   threadId: string | null;
 };
 
-export function parseMediaGenerationCommand(text: string): { kind: "image" | "video"; prompt: string } | null {
-  const match = text.trim().match(/^\/(image|video)(?:\s+([\s\S]*))?$/);
+type MediaGenerationKind = "image" | "video" | "music";
+
+const MEDIA_GENERATION_LABELS: Record<MediaGenerationKind, { label: string; icon: string }> = {
+  image: { label: "Image", icon: "🖼" },
+  video: { label: "Video", icon: "🎬" },
+  music: { label: "Music", icon: "🎵" },
+};
+
+export function parseMediaGenerationCommand(text: string): { kind: MediaGenerationKind; prompt: string } | null {
+  const match = text.trim().match(/^\/(image|video|music)(?:\s+([\s\S]*))?$/);
   if (!match) {
     return null;
   }
-  return { kind: match[1] as "image" | "video", prompt: (match[2] ?? "").trim() };
+  return { kind: match[1] as MediaGenerationKind, prompt: (match[2] ?? "").trim() };
 }
 
 export function useDaemonAgentActions({
@@ -252,8 +260,10 @@ export function useDaemonAgentActions({
 
       if (mediaCommand !== null) {
         const { kind: mediaKind, prompt: mediaPrompt } = mediaCommand;
-        const mediaLabel = mediaKind === "video" ? "Video" : "Image";
-        const generateMedia = mediaKind === "video" ? zorai?.agentGenerateVideo : zorai?.agentGenerateImage;
+        const mediaLabel = MEDIA_GENERATION_LABELS[mediaKind].label;
+        const generateMedia = mediaKind === "music"
+          ? zorai?.agentGenerateMusic
+          : mediaKind === "video" ? zorai?.agentGenerateVideo : zorai?.agentGenerateImage;
         if (!generateMedia) {
           appendDaemonSystemMessage(`${mediaLabel} generation is not available in this runtime.`, currentThreadId);
           return;
@@ -279,7 +289,7 @@ export function useDaemonAgentActions({
           daemonLocalThreadRef.current = localThreadId;
           addMessage(localThreadId, {
             role: "user",
-            content: `${mediaKind === "video" ? "🎬" : "🖼"} ${mediaPrompt}`,
+            content: `${MEDIA_GENERATION_LABELS[mediaKind].icon} ${mediaPrompt}`,
             inputTokens: 0,
             outputTokens: 0,
             totalTokens: 0,
