@@ -247,6 +247,13 @@ fn help_modal_lines(theme: &ThemeTokens) -> Vec<Line<'static>> {
             Span::styled("Generate a video into the current thread", theme.fg_dim),
         ]),
         Line::from(vec![
+            Span::styled("  /music <prompt>  ", theme.fg_active),
+            Span::styled(
+                "Generate a song or track into the current thread",
+                theme.fg_dim,
+            ),
+        ]),
+        Line::from(vec![
             Span::styled("  /view            ", theme.fg_active),
             Span::styled("Cycle transcript mode", theme.fg_dim),
         ]),

@@ -10,6 +10,11 @@ describe("parseMediaGenerationCommand", () => {
     expect(parseMediaGenerationCommand("  /video  ")).toEqual({ kind: "video", prompt: "" });
   });
 
+  it("routes /music prompts to music generation", () => {
+    expect(parseMediaGenerationCommand("/music lofi hip hop with rain sounds")).toEqual({ kind: "music", prompt: "lofi hip hop with rain sounds" });
+    expect(parseMediaGenerationCommand("/musical theatre")).toBeNull();
+  });
+
   it("keeps /image routed to image generation", () => {
     expect(parseMediaGenerationCommand("/image retro robot")).toEqual({ kind: "image", prompt: "retro robot" });
   });

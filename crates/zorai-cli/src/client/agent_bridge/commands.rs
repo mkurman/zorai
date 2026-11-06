@@ -853,6 +853,11 @@ where
                 .send(ClientMessage::AgentGenerateVideo { args_json })
                 .await?;
         }
+        AgentBridgeCommand::GenerateMusic { args_json } => {
+            framed
+                .send(ClientMessage::AgentGenerateMusic { args_json })
+                .await?;
+        }
         AgentBridgeCommand::PromoteGeneratedTool { tool_name } => {
             framed
                 .send(ClientMessage::AgentPromoteGeneratedTool { tool_name })

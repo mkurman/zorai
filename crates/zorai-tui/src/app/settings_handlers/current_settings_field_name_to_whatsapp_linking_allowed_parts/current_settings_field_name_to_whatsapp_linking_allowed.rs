@@ -157,6 +157,9 @@ impl TuiModel {
             SettingsPickerTarget::VideoGenerationModel => {
                 (self.config.video_generation_model(), None)
             }
+            SettingsPickerTarget::MusicGenerationModel => {
+                (self.config.music_generation_model(), None)
+            }
             SettingsPickerTarget::EmbeddingModel => (self.config.semantic_embedding_model(), None),
             SettingsPickerTarget::CompactionWelesModel => {
                 (self.config.compaction_weles_model.clone(), None)
@@ -237,6 +240,7 @@ impl TuiModel {
             | SettingsPickerTarget::AudioTtsModel
             | SettingsPickerTarget::ImageGenerationModel
             | SettingsPickerTarget::VideoGenerationModel
+            | SettingsPickerTarget::MusicGenerationModel
             | SettingsPickerTarget::EmbeddingModel => {
                 let (endpoint, provider_id) = match self
                     .settings_picker_target
@@ -254,6 +258,9 @@ impl TuiModel {
                     SettingsPickerTarget::VideoGenerationModel => {
                         ("video_generation", self.config.video_generation_provider())
                     }
+                    SettingsPickerTarget::MusicGenerationModel => {
+                        ("music_generation", self.config.music_generation_provider())
+                    }
                     SettingsPickerTarget::EmbeddingModel => {
                         ("embedding", self.config.semantic_embedding_provider())
                     }
@@ -262,11 +269,13 @@ impl TuiModel {
                 let mut models = match endpoint {
                     "image_generation" => Self::image_generation_catalog_models(&provider_id),
                     "video_generation" => Self::video_generation_catalog_models(&provider_id),
+                    "music_generation" => Self::music_generation_catalog_models(&provider_id),
                     "embedding" => Self::embedding_catalog_models(&provider_id),
                     _ => Self::audio_catalog_models(endpoint, &provider_id),
                 };
                 for model in self.config.fetched_models() {
                     let include = match endpoint {
+                        "music_generation" => false,
                         "image_generation" => {
                             let pricing_image = model
                                 .pricing
@@ -350,6 +359,9 @@ impl TuiModel {
             }
             Some(SettingsPickerTarget::VideoGenerationProvider) => {
                 widgets::provider_picker::available_video_generation_provider_defs(&self.auth)
+            }
+            Some(SettingsPickerTarget::MusicGenerationProvider) => {
+                widgets::provider_picker::available_music_generation_provider_defs(&self.auth)
             }
             _ => widgets::provider_picker::available_provider_defs(&self.auth),
         }
@@ -461,6 +473,18 @@ impl TuiModel {
                     &self.config.video_generation_model(),
                 );
                 self.status_line = "Enter video generation model ID".to_string();
+            }
+            SettingsPickerTarget::MusicGenerationModel => {
+                if self.modal.top() != Some(modal::ModalKind::Settings) {
+                    self.modal
+                        .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
+                }
+                self.focus_settings_page_field("feat_music_generation_model");
+                self.settings.start_editing(
+                    "feat_music_generation_model",
+                    &self.config.music_generation_model(),
+                );
+                self.status_line = "Enter music generation model ID".to_string();
             }
             SettingsPickerTarget::EmbeddingModel => {
                 if self.modal.top() != Some(modal::ModalKind::Settings) {

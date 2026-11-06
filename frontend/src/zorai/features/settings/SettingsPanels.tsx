@@ -11,6 +11,9 @@ import {
   filterEmbeddingProviderOptions,
   filterImageGenerationProviderOptions,
   filterVideoGenerationProviderOptions,
+  filterMusicGenerationProviderOptions,
+  musicGenerationModelOptions,
+  normalizeMusicGenerationModelForProviderChange,
   imageGenerationModelOptions,
   imageRemoteModelFetchOutputModalities,
   normalizeAudioModelForProviderChange,
@@ -804,10 +807,12 @@ function MediaPanel() {
   const audioTtsProviderOptions = filterAudioProviderOptions(providerOptions, "tts");
   const imageGenerationProviderOptions = filterImageGenerationProviderOptions(providerOptions);
   const videoGenerationProviderOptions = filterVideoGenerationProviderOptions(providerOptions);
+  const musicGenerationProviderOptions = filterMusicGenerationProviderOptions(providerOptions);
   const audioSttProviderConfig = getProviderConfig(agentSettings, agentSettings.audio_stt_provider);
   const audioTtsProviderConfig = getProviderConfig(agentSettings, agentSettings.audio_tts_provider);
   const imageGenerationProviderConfig = getProviderConfig(agentSettings, agentSettings.image_generation_provider);
   const videoGenerationProviderConfig = getProviderConfig(agentSettings, agentSettings.video_generation_provider);
+  const musicGenerationProviderConfig = getProviderConfig(agentSettings, agentSettings.music_generation_provider);
   const providerHasDaemonAuth = (providerId: AgentProviderId) => providerAuthStates.some((state) => state.provider_id === providerId && state.authenticated);
 
   return (
@@ -929,6 +934,34 @@ function MediaPanel() {
               modelOptions={videoGenerationModelOptions(agentSettings.video_generation_provider)}
               remoteModelFilter={(model) => filterFetchedModelsForVideoGeneration([model]).length > 0}
               fetchOutputModalities={videoRemoteModelFetchOutputModalities(agentSettings.video_generation_provider)}
+            />
+          </SettingRow>
+        )}
+      </Panel>
+      <Panel section="Music" title="Music generation">
+        <SettingRow label="Music Provider" description="Music generation provider (ElevenLabs Music, Google Lyria or MiniMax Music). None keeps the music tool and /music disabled.">
+          <ProviderSelect
+            value={agentSettings.music_generation_provider}
+            options={[{ id: "", label: "None" }, ...musicGenerationProviderOptions]}
+            fallbackOptions={providerIds}
+            onChange={(providerId) => {
+              updateAgentSetting("music_generation_provider", providerId);
+              updateAgentSetting("music_generation_model", normalizeMusicGenerationModelForProviderChange(providerId, agentSettings.music_generation_model));
+            }}
+          />
+        </SettingRow>
+        {agentSettings.music_generation_provider && (
+          <SettingRow label="Music Model" description="Music generation model.">
+            <ModelSelector
+              providerId={agentSettings.music_generation_provider}
+              value={agentSettings.music_generation_model}
+              customName={musicGenerationProviderConfig.custom_model_name}
+              onChange={(value) => updateAgentSetting("music_generation_model", value)}
+              base_url={musicGenerationProviderConfig.base_url}
+              api_key={musicGenerationProviderConfig.api_key}
+              auth_source={musicGenerationProviderConfig.auth_source}
+              allowProviderAuthFetch={false}
+              modelOptions={musicGenerationModelOptions(agentSettings.music_generation_provider)}
             />
           </SettingRow>
         )}

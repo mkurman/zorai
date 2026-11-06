@@ -72,6 +72,33 @@ fn video_generation_result_refreshes_thread_and_work_context() {
 }
 
 #[test]
+fn music_generation_result_refreshes_the_thread_and_reports_the_saved_track() {
+    let (mut model, mut daemon_rx) = make_model_with_daemon_rx();
+    model.chat.reduce(chat::ChatAction::ThreadListReceived(vec![
+        chat::AgentThread {
+            id: "thread-1".to_string(),
+            title: "Thread".to_string(),
+            ..Default::default()
+        },
+    ]));
+    model
+        .chat
+        .reduce(chat::ChatAction::SelectThread("thread-1".to_string()));
+
+    model.handle_client_event(ClientEvent::GenerateMusicResult {
+        content: r#"{"ok":true,"thread_id":"thread-1","path":"/tmp/music-1.mp3","mime_type":"audio/mpeg"}"#
+            .to_string(),
+    });
+
+    assert!(next_thread_request(&mut daemon_rx).is_some());
+    assert!(matches!(
+        daemon_rx.try_recv(),
+        Ok(DaemonCommand::RequestThreadWorkContext(thread_id)) if thread_id == "thread-1"
+    ));
+    assert_eq!(model.status_line, "Music generated: /tmp/music-1.mp3");
+}
+
+#[test]
 fn video_generation_error_result_surfaces_failure_without_refreshing_thread() {
     let (mut model, mut daemon_rx) = make_model_with_daemon_rx();
 

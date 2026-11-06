@@ -12,6 +12,8 @@ import {
   normalizeVideoGenerationModelForProviderChange,
   videoGenerationModelOptions,
   videoRemoteModelFetchOutputModalities,
+  filterMusicGenerationProviderOptions,
+  normalizeMusicGenerationModelForProviderChange,
 } from "./agentTabHelpers";
 
 test("image generation provider changes normalize unsupported models", () => {
@@ -159,4 +161,20 @@ test("video generation provider changes pick a valid catalog model and keep open
 test("video remote model fetch asks openrouter for video output models only", () => {
   expect(videoRemoteModelFetchOutputModalities("openrouter")).toBe("video");
   expect(videoRemoteModelFetchOutputModalities("minimax")).toBeUndefined();
+});
+
+test("music generation offers only providers the daemon can call and defaults to their full-song model", () => {
+  expect(
+    filterMusicGenerationProviderOptions([
+      { id: "openai", label: "OpenAI" },
+      { id: "elevenlabs", label: "ElevenLabs" },
+      { id: "gemini", label: "Gemini" },
+      { id: "minimax", label: "MiniMax" },
+    ]).map((provider) => provider.id),
+  ).toEqual(["elevenlabs", "gemini", "minimax"]);
+  expect(normalizeMusicGenerationModelForProviderChange("elevenlabs", "")).toBe("music_v2");
+  expect(normalizeMusicGenerationModelForProviderChange("minimax", "lyria-3.5")).toBe("music-3.0");
+  expect(normalizeMusicGenerationModelForProviderChange("gemini", "music_v2")).toBe("lyria-3.5");
+  expect(normalizeMusicGenerationModelForProviderChange("gemini", "lyria-3-clip-preview")).toBe("lyria-3-clip-preview");
+  expect(normalizeMusicGenerationModelForProviderChange("", "music_v2")).toBe("");
 });

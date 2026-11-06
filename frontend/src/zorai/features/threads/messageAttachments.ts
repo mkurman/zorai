@@ -20,7 +20,7 @@ export function splitMessageAttachments(
     tiles.push({
       id: `block:${block.type}:${index}`,
       kind: block.type,
-      name: mediaBlockName(block.type, block.mime_type, index),
+      name: mediaBlockFileName(block.url) ?? mediaBlockName(block.type, block.mime_type, index),
       previewUrl,
       inventoryPath: block.type === "image" ? block.inventory_path : undefined,
     });
@@ -47,6 +47,12 @@ export function splitMessageAttachments(
     .join("\n")
     .trim();
   return { displayText, tiles };
+}
+
+function mediaBlockFileName(url: string | undefined): string | null {
+  if (!url?.startsWith("file://")) return null;
+  const name = decodeURIComponent(url.split(/[?#]/)[0].split("/").pop() ?? "");
+  return name || null;
 }
 
 function mediaBlockName(kind: "image" | "audio" | "video", mimeType: string | undefined, index: number): string {

@@ -41,6 +41,25 @@ fn configured_video_generation_model(config: &AgentConfig) -> Option<&str> {
         })
 }
 
+fn configured_music_generation_model(config: &AgentConfig) -> Option<&str> {
+    config
+        .extra
+        .get("music")
+        .and_then(|value| value.get("generation"))
+        .and_then(|value| value.get("model"))
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            config
+                .extra
+                .get("music_generation_model")
+                .and_then(|value| value.as_str())
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+        })
+}
+
 fn configured_image_generation_provider(config: &AgentConfig) -> Option<&str> {
     configured_image_generation_setting(config, "provider")
 }
@@ -259,6 +278,26 @@ pub(crate) fn add_available_tools_part_c(
                     "size": { "type": "string", "description": "Optional exact size such as 1280x720, for providers that take sizes instead of resolution and aspect ratio" },
                     "negative_prompt": { "type": "string", "description": "Optional content to avoid, for providers that support it" },
                     "timeout_seconds": { "type": "integer", "minimum": 0, "maximum": 600, "description": "Max time to wait for the clip (default: 600, max: 600)" }
+                },
+                "required": ["prompt"]
+            }),
+        ));
+    }
+
+    if configured_music_generation_model(config).is_some() {
+        tools.push(tool_def(
+            tool_names::GENERATE_MUSIC,
+            "Generate a song or instrumental track from a text prompt with the configured music model (ElevenLabs Music, Google Lyria or MiniMax Music). The finished track is saved into the thread and shown to the operator as a player, so do not repeat the file path afterwards.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "prompt": { "type": "string", "description": "Describe genre, mood, instruments, tempo, vocals and structure" },
+                    "lyrics": { "type": "string", "description": "Optional lyrics, with section tags such as [Verse] and [Chorus]; ignored when instrumental is true" },
+                    "instrumental": { "type": "boolean", "description": "Generate an instrumental track without vocals (default false)" },
+                    "duration_seconds": { "type": "integer", "minimum": 3, "maximum": 600, "description": "Optional target length in seconds; ElevenLabs honours 3-600 s, Lyria and MiniMax treat it as a hint and Lyria clip models always return 30 s" },
+                    "provider": { "type": "string", "description": "Optional provider override, only when the operator explicitly specifies it" },
+                    "model": { "type": "string", "description": "Optional model override, only when the operator explicitly specifies it" },
+                    "timeout_seconds": { "type": "integer", "minimum": 0, "maximum": 600, "description": "Max time to wait for the track (default: 600, max: 600)" }
                 },
                 "required": ["prompt"]
             }),

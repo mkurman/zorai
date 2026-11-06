@@ -2,7 +2,9 @@ use futures::StreamExt;
 
 use super::*;
 
+mod music_generation;
 mod video_generation;
+pub(crate) use music_generation::*;
 pub(crate) use video_generation::*;
 
 const DEFAULT_IMAGE_ANALYSIS_PROMPT: &str = "Analyze this image in detail.";
@@ -82,6 +84,7 @@ enum MediaInputSource {
 enum MediaEndpoint {
     ImageGeneration,
     VideoGeneration,
+    MusicGeneration,
     SpeechToText,
     TextToSpeech,
 }
@@ -90,7 +93,7 @@ impl MediaEndpoint {
     fn default_model(self) -> &'static str {
         match self {
             Self::ImageGeneration => DEFAULT_IMAGE_GENERATION_MODEL,
-            Self::VideoGeneration => "",
+            Self::VideoGeneration | Self::MusicGeneration => "",
             Self::SpeechToText => DEFAULT_STT_MODEL,
             Self::TextToSpeech => DEFAULT_TTS_MODEL,
         }
@@ -100,13 +103,16 @@ impl MediaEndpoint {
         match self {
             Self::ImageGeneration => "image",
             Self::VideoGeneration => "video",
+            Self::MusicGeneration => "music",
             Self::SpeechToText | Self::TextToSpeech => "audio",
         }
     }
 
     fn nested_group(self) -> &'static [&'static str] {
         match self {
-            Self::ImageGeneration | Self::VideoGeneration => &["generation"],
+            Self::ImageGeneration | Self::VideoGeneration | Self::MusicGeneration => {
+                &["generation"]
+            }
             Self::SpeechToText => &["stt"],
             Self::TextToSpeech => &["tts"],
         }
@@ -116,6 +122,7 @@ impl MediaEndpoint {
         match self {
             Self::ImageGeneration => "image_generation",
             Self::VideoGeneration => "video_generation",
+            Self::MusicGeneration => "music_generation",
             Self::SpeechToText => "audio_stt",
             Self::TextToSpeech => "audio_tts",
         }
@@ -488,11 +495,16 @@ fn provider_specific_default_media_model(
         return match endpoint {
             MediaEndpoint::TextToSpeech => Some("openai/gpt-4o-mini-tts"),
             MediaEndpoint::SpeechToText => Some("openai/whisper-1"),
-            MediaEndpoint::ImageGeneration | MediaEndpoint::VideoGeneration => None,
+            MediaEndpoint::ImageGeneration
+            | MediaEndpoint::VideoGeneration
+            | MediaEndpoint::MusicGeneration => None,
         };
     }
     if endpoint == MediaEndpoint::VideoGeneration {
         return video_generation::provider_specific_default_video_model(provider_id);
+    }
+    if endpoint == MediaEndpoint::MusicGeneration {
+        return music_generation::provider_specific_default_music_model(provider_id);
     }
     None
 }

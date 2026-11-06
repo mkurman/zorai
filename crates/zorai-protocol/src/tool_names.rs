@@ -58,6 +58,7 @@ pub const FETCH_PROVIDER_MODELS: &str = "fetch_provider_models";
 pub const FETCH_URL: &str = "fetch_url";
 pub const FIND_SYMBOL: &str = "find_symbol";
 pub const GENERATE_IMAGE: &str = "generate_image";
+pub const GENERATE_MUSIC: &str = "generate_music";
 pub const GENERATE_VIDEO: &str = "generate_video";
 pub const GENERATE_SOC2_ARTIFACT: &str = "generate_soc2_artifact";
 pub const GET_BACKGROUND_TASK_STATUS: &str = "get_background_task_status";
@@ -387,6 +388,7 @@ pub const COMMUNICATION_TOOLS: &[&str] = &[
 pub const AUDIO_TOOLS: &[&str] = &[SPEECH_TO_TEXT, TEXT_TO_SPEECH];
 pub const IMAGE_TOOLS: &[&str] = &[ANALYZE_IMAGE, GENERATE_IMAGE];
 pub const VIDEO_TOOLS: &[&str] = &[GENERATE_VIDEO];
+pub const MUSIC_TOOLS: &[&str] = &[GENERATE_MUSIC];
 pub const SYSTEM_TOOLS: &[&str] = &[
     GET_SYSTEM_INFO,
     LIST_PROCESSES,

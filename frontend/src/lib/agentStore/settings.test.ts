@@ -164,6 +164,18 @@ test("video generation settings fall back to legacy flat keys", () => {
   expect(normalized.video_generation_model).toBe("T2V-01");
 });
 
+test("music generation stays off until picked and reads nested daemon config before legacy keys", () => {
+  expect(normalizeAgentSettingsFromSource({} as any).music_generation_provider).toBe("");
+  const normalized = normalizeAgentSettingsFromSource({
+    music: { generation: { provider: "gemini", model: "lyria-3.5" } },
+    music_generation_provider: "elevenlabs",
+    music_generation_model: "music_v1",
+  } as any);
+
+  expect(normalized.music_generation_provider).toBe("gemini");
+  expect(normalized.music_generation_model).toBe("lyria-3.5");
+});
+
 test("participant observer restore window defaults and preserves disabled sentinel", () => {
   expect(DEFAULT_AGENT_SETTINGS.participant_observer_restore_window_hours).toBe(24);
 

@@ -19,6 +19,10 @@ pub(super) fn default_command_items() -> Vec<CommandItem> {
             description: "Compose a video generation prompt".into(),
         },
         CommandItem {
+            command: "music".into(),
+            description: "Compose a music generation prompt".into(),
+        },
+        CommandItem {
             command: "tools".into(),
             description: "Toggle tool categories".into(),
         },

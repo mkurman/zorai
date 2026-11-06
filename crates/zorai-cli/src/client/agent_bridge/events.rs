@@ -149,6 +149,11 @@ fn bridge_event_from_daemon_message(message: &DaemonMessage) -> Option<serde_jso
             "data": serde_json::from_str::<serde_json::Value>(content)
                 .unwrap_or_else(|_| serde_json::Value::String(content.clone())),
         })),
+        DaemonMessage::AgentGenerateMusicResult { content } => Some(serde_json::json!({
+            "type": "music-generation-result",
+            "data": serde_json::from_str::<serde_json::Value>(content)
+                .unwrap_or_else(|_| serde_json::Value::String(content.clone())),
+        })),
         DaemonMessage::AgentOpenAICodexAuthStatus { status_json } => Some(serde_json::json!({
             "type": "openai-codex-auth-status",
             "data": serde_json::from_str::<serde_json::Value>(status_json).unwrap_or_default(),
@@ -1202,6 +1207,18 @@ mod tests {
             serde_json::json!({
                 "type": "video-generation-result",
                 "data": { "path": "/tmp/video.mp4" }
+            })
+        );
+
+        let music = bridge_event_from_daemon_message(&DaemonMessage::AgentGenerateMusicResult {
+            content: serde_json::json!({ "path": "/tmp/music.mp3" }).to_string(),
+        })
+        .expect("music generation result should translate");
+        assert_eq!(
+            music,
+            serde_json::json!({
+                "type": "music-generation-result",
+                "data": { "path": "/tmp/music.mp3" }
             })
         );
     }

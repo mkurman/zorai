@@ -347,6 +347,9 @@ pub enum DaemonCommand {
     GenerateVideo {
         args_json: String,
     },
+    GenerateMusic {
+        args_json: String,
+    },
     SetOperatorProfileConsent {
         consent_key: String,
         granted: bool,

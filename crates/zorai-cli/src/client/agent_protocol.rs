@@ -553,6 +553,9 @@ pub(super) enum AgentBridgeCommand {
     GenerateVideo {
         args_json: String,
     },
+    GenerateMusic {
+        args_json: String,
+    },
     PromoteGeneratedTool {
         tool_name: String,
     },

@@ -162,4 +162,18 @@ describe("daemon agent config audio wiring", () => {
 
     expect(daemonConfig.video).toEqual({ generation: { provider: "", model: "" } });
   });
+
+  it("serializes music generation settings and sends the music provider's credentials", () => {
+    const daemonConfig = buildDaemonAgentConfig({
+      ...DEFAULT_AGENT_SETTINGS,
+      active_provider: "openai",
+      music_generation_provider: "elevenlabs",
+      music_generation_model: "music_v2",
+      elevenlabs: { ...DEFAULT_AGENT_SETTINGS.elevenlabs, api_key: "sk-eleven" },
+    } as any);
+
+    expect(daemonConfig.music).toEqual({ generation: { provider: "elevenlabs", model: "music_v2" } });
+    expect(daemonConfig.providers?.elevenlabs).toBeDefined();
+    expect(buildDaemonAgentConfig(DEFAULT_AGENT_SETTINGS).music).toEqual({ generation: { provider: "", model: "" } });
+  });
 });

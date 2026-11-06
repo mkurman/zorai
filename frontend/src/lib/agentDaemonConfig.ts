@@ -118,6 +118,7 @@ export function buildDaemonAgentConfig(
     agentSettings.audio_tts_provider,
     agentSettings.image_generation_provider,
     agentSettings.video_generation_provider,
+    agentSettings.music_generation_provider,
     agentSettings.semantic_embedding_provider,
   ]));
   const providerConfigs = Object.fromEntries(
@@ -295,6 +296,12 @@ export function buildDaemonAgentConfig(
       generation: {
         provider: agentSettings.video_generation_provider,
         model: agentSettings.video_generation_model,
+      },
+    },
+    music: {
+      generation: {
+        provider: agentSettings.music_generation_provider,
+        model: agentSettings.music_generation_model,
       },
     },
     semantic: {

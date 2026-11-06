@@ -22,6 +22,7 @@ const DEFERRABLE_GROUPS: &[&[&str]] = &[
     tn::AUDIO_TOOLS,
     tn::IMAGE_TOOLS,
     tn::VIDEO_TOOLS,
+    tn::MUSIC_TOOLS,
 ];
 
 const DEFERRABLE_EXTRA: &[&str] = &[

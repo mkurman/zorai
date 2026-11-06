@@ -275,7 +275,7 @@ const SKILLS_PAGE: SettingsPageSpec = SettingsPageSpec {
 
 const MEDIA_PAGE: SettingsPageSpec = SettingsPageSpec {
     title: "Audio & Images",
-    description: "Speech-to-text, text-to-speech, image and video generation.",
+    description: "Speech-to-text, text-to-speech, image, video and music generation.",
     sections: &[
         section!("Speech-to-text", note _c => Some("Hotkeys: Ctrl+L record | Ctrl+P speak / pause-resume | Ctrl+S stop playback".to_string()), [
             field!(Toggle, "feat_audio_stt_enabled", "Speech-to-text", c => c.audio_stt_enabled()),
@@ -305,6 +305,13 @@ const MEDIA_PAGE: SettingsPageSpec = SettingsPageSpec {
             [
                 field!(Picker, "feat_video_generation_provider", "Provider", c => or_default(c.video_generation_provider(), "minimax")),
                 field!(Picker, "feat_video_generation_model", "Model", c => or_default(c.video_generation_model(), "MiniMax-Hailuo-2.3")),
+            ]
+        ),
+        section!(
+            "Music generation",
+            [
+                field!(Picker, "feat_music_generation_provider", "Provider", c => or_default(c.music_generation_provider(), "none")),
+                field!(Picker, "feat_music_generation_model", "Model", c => or_default(c.music_generation_model(), "none")),
             ]
         ),
     ],

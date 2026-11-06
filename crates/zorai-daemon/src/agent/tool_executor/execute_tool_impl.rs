@@ -1887,6 +1887,9 @@ async fn dispatch_tool_execution(
         tool_names::GENERATE_VIDEO => {
             execute_generate_video(args, agent, http_client, Some(thread_id)).await
         }
+        tool_names::GENERATE_MUSIC => {
+            execute_generate_music(args, agent, http_client, Some(thread_id)).await
+        }
         tool_names::SPEECH_TO_TEXT => execute_speech_to_text(args, agent, http_client).await,
         tool_names::TEXT_TO_SPEECH => execute_text_to_speech(args, agent, http_client).await,
         tool_names::LIST_FILES => execute_list_files(args, session_manager, session_id).await,

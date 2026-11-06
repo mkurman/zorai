@@ -210,6 +210,44 @@ impl TuiModel {
             .unwrap_or_default()
     }
 
+    pub(crate) fn music_generation_catalog_models(
+        provider_id: &str,
+    ) -> Vec<crate::state::config::FetchedModel> {
+        let model = |id: &str, name: &str| crate::state::config::FetchedModel {
+            id: id.to_string(),
+            name: Some(name.to_string()),
+            context_window: None,
+            pricing: None,
+            metadata: None,
+        };
+        match provider_id {
+            PROVIDER_ID_ELEVENLABS => vec![
+                model("music_v2", "ElevenLabs Music v2"),
+                model("music_v2_5", "ElevenLabs Music v2.5"),
+                model("music_v1", "ElevenLabs Music v1"),
+            ],
+            PROVIDER_ID_GEMINI => vec![
+                model("lyria-3.5", "Lyria 3.5 (full songs)"),
+                model("lyria-3-clip-preview", "Lyria 3 Clip (30 s)"),
+            ],
+            PROVIDER_ID_MINIMAX | PROVIDER_ID_MINIMAX_CODING_PLAN => vec![
+                model("music-3.0", "MiniMax Music 3.0"),
+                model("music-2.6", "MiniMax Music 2.6"),
+                model("music-3.0-free", "MiniMax Music 3.0 (free tier)"),
+                model("music-2.6-free", "MiniMax Music 2.6 (free tier)"),
+            ],
+            _ => Vec::new(),
+        }
+    }
+
+    pub(crate) fn default_music_generation_model_for(provider_id: &str) -> String {
+        Self::music_generation_catalog_models(provider_id)
+            .into_iter()
+            .next()
+            .map(|model| model.id)
+            .unwrap_or_default()
+    }
+
     pub(crate) fn embedding_catalog_models(
         provider_id: &str,
     ) -> Vec<crate::state::config::FetchedModel> {
@@ -311,6 +349,22 @@ impl TuiModel {
         }
     }
 
+    pub(crate) fn set_music_generation_config_string(&mut self, field: &str, value: String) {
+        self.send_daemon_command(DaemonCommand::SetConfigItem {
+            key_path: format!("/music/generation/{field}"),
+            value_json: serde_json::Value::String(value.clone()).to_string(),
+        });
+        if let Some(ref mut raw) = self.config.agent_config_raw {
+            if raw.get("music").is_none() {
+                raw["music"] = serde_json::json!({});
+            }
+            if raw["music"].get("generation").is_none() {
+                raw["music"]["generation"] = serde_json::json!({});
+            }
+            raw["music"]["generation"][field] = serde_json::Value::String(value);
+        }
+    }
+
     pub(crate) fn set_embedding_config_string(&mut self, field: &str, value: String) {
         self.send_daemon_command(DaemonCommand::SetConfigItem {
             key_path: format!("/semantic/embedding/{field}"),
@@ -394,6 +448,24 @@ impl TuiModel {
             });
         }
         self.settings_picker_target = Some(SettingsPickerTarget::ImageGenerationModel);
+        self.modal
+            .reduce(modal::ModalAction::Push(modal::ModalKind::ModelPicker));
+        self.sync_model_picker_item_count();
+    }
+
+    pub(crate) fn open_music_generation_model_picker(&mut self) {
+        let provider_id = {
+            let provider = self.config.music_generation_provider();
+            if provider.trim().is_empty() {
+                PROVIDER_ID_ELEVENLABS.to_string()
+            } else {
+                provider
+            }
+        };
+        let models = Self::music_generation_catalog_models(&provider_id);
+        self.config
+            .reduce(config::ConfigAction::ModelsFetched(models));
+        self.settings_picker_target = Some(SettingsPickerTarget::MusicGenerationModel);
         self.modal
             .reduce(modal::ModalAction::Push(modal::ModalKind::ModelPicker));
         self.sync_model_picker_item_count();

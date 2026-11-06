@@ -100,6 +100,7 @@ impl DaemonClient {
             | DaemonMessage::AgentTextToSpeechResult { .. }
             | DaemonMessage::AgentGenerateImageResult { .. }
             | DaemonMessage::AgentGenerateVideoResult { .. }
+            | DaemonMessage::AgentGenerateMusicResult { .. }
             | DaemonMessage::AgentOperatorProfileSessionCompleted { .. }
             | DaemonMessage::AgentError { .. }
             | DaemonMessage::AgentTierChanged { .. }
