@@ -294,7 +294,7 @@ describe("Zorai feature surfaces", () => {
     expect(shellSource).toContain("if (detail.returnTarget !== undefined) setReturnTarget(detail.returnTarget)");
     expect(shellSource).toContain("setReturnTarget(null)");
     expect(shellSource).not.toContain("zorai-topbar");
-    expect(threadSource).toContain("className=\"zorai-thread-header\"");
+    expect(threadSource).toContain("className=\"zorai-thread-header zorai-thread-header--slim\"");
     expect(threadSource).toContain("returnTarget.label");
     expect(threadSource).toContain("onReturnTarget");
     expect(goalsSource).toContain("returnTarget.label");

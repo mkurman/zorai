@@ -19,6 +19,7 @@ import {
   SKETCH_TEXT_LINE_HEIGHT,
   sketchBounds,
   sketchFontSize,
+  sketchHasInk,
   sketchTextLines,
   serializeSketchClipboard,
   translateShape,
@@ -32,6 +33,7 @@ import {
   type SketchTool,
   type SketchView,
 } from "./sketchpadModel";
+import { annotateImageToPngFile, sketchToPngFile } from "./sketchExport";
 import { useComposerPanelHeight } from "./useComposerPanelHeight";
 
 const SKETCH_COLORS = ["ink", "#e5484d", "#f5a524", "#3e9b4f", "#3b82f6", "#a571f0"] as const;
@@ -412,6 +414,27 @@ export function ComposerSketchpad({
     },
   };
 
+  const [exporting, setExporting] = useState(false);
+  const downloadPng = async () => {
+    commitEditor();
+    setExporting(true);
+    try {
+      const panel = resize.panelRef.current;
+      const file = background
+        ? await annotateImageToPngFile(background, shapesRef.current, "image")
+        : await sketchToPngFile(shapesRef.current, panel ? getComputedStyle(panel).backgroundColor : "#ffffff");
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.name;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const fitView = () => {
     const surface = surfaceRef.current;
     if (!surface) return;
@@ -686,6 +709,16 @@ export function ComposerSketchpad({
           <button type="button" className="zorai-sketchpad__button" title="Clear" aria-label="Clear sketch" disabled={shapes.length === 0} onClick={() => commit([])}>
             <SketchActionIcon kind="clear" />
           </button>
+          <button
+            type="button"
+            className="zorai-sketchpad__button"
+            title="Download as PNG"
+            aria-label="Download as PNG"
+            disabled={exporting || (!background && !sketchHasInk(shapes))}
+            onClick={() => void downloadPng()}
+          >
+            <SketchActionIcon kind="download" />
+          </button>
         </div>
         <span className="zorai-sketchpad__zoom">{Math.round(view.scale * 100)}%</span>
         <div className="zorai-sketchpad__actions">
@@ -832,7 +865,8 @@ function SketchToolIcon({ tool }: { tool: SketchTool }) {
   return <svg {...iconProps}><path d="M18 11V6a2 2 0 0 0-4 0v5" /><path d="M14 10V4a2 2 0 0 0-4 0v6" /><path d="M10 10.5V6a2 2 0 0 0-4 0v8" /><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" /></svg>;
 }
 
-function SketchActionIcon({ kind }: { kind: "undo" | "redo" | "fit" | "clear" | "image" }) {
+function SketchActionIcon({ kind }: { kind: "undo" | "redo" | "fit" | "clear" | "image" | "download" }) {
+  if (kind === "download") return <svg {...iconProps}><path d="M12 4v11" /><path d="m7 10 5 5 5-5" /><path d="M5 20h14" /></svg>;
   if (kind === "image") return <svg {...iconProps}><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m21 16-5-5L5 20" /></svg>;
   if (kind === "undo") return <svg {...iconProps}><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></svg>;
   if (kind === "redo") return <svg {...iconProps}><path d="m15 14 5-5-5-5" /><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" /></svg>;

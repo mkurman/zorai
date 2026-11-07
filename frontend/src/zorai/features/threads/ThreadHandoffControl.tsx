@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ThreadHandoffState } from "@/lib/agentStore/types";
 import type { ThreadMutationResult } from "@/components/agent-chat-panel/runtime/types";
 import {
@@ -14,8 +14,10 @@ export function ThreadHandoffControl({
   options,
   onPush,
   onReturn,
+  icon,
 }: {
   daemonLinked: boolean;
+  icon?: ReactNode;
   handoffState: ThreadHandoffState | null | undefined;
   options: ThreadAgentOption[];
   onPush: (request: { targetAgentId: string; reason: string; summary: string }) => Promise<ThreadMutationResult>;
@@ -80,11 +82,13 @@ export function ThreadHandoffControl({
     <div className="zorai-handoff-control">
       <button
         type="button"
-        className="zorai-ghost-button"
+        className={icon ? "zorai-thread-header__icon" : "zorai-ghost-button"}
         aria-expanded={open}
+        title={icon ? "Handoff" : undefined}
+        aria-label={icon ? "Handoff" : undefined}
         onClick={() => setOpen((value) => !value)}
       >
-        Handoff
+        {icon ?? "Handoff"}
       </button>
       {open ? (
         <div className="zorai-handoff-popover">

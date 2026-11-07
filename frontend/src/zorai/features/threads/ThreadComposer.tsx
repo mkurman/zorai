@@ -725,12 +725,6 @@ export function ThreadComposer({
           </div>
         </div>
       </div>
-
-      <div className="zorai-thread-composer__footer">
-        <span>
-          Enter sends. Shift+Enter adds a new line. Up/Down recalls sent messages when empty. Ctrl+M records. Ctrl+L reads.
-        </span>
-      </div>
     </div>
   );
 }

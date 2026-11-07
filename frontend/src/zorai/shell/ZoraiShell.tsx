@@ -358,7 +358,7 @@ export function ZoraiShell() {
           />
         ) : null}
 
-        <ZoraiContextPanel
+        {contextOpen || activeView !== "threads" ? <ZoraiContextPanel
           title={contextLabels.title}
           subtitle={contextLabels.title === activeItem.railLabel ? undefined : activeItem.railLabel}
           collapsedLabel={contextLabels.collapsed}
@@ -366,7 +366,7 @@ export function ZoraiShell() {
           onToggle={() => setContextOpen((current) => !current)}
         >
           {renderContext(activeView, activeTool, setActiveTool)}
-        </ZoraiContextPanel>
+        </ZoraiContextPanel> : null}
       </div>
     </ThreadFilePreviewProvider>
   );

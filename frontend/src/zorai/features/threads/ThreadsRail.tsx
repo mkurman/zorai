@@ -525,7 +525,6 @@ function ThreadSearchResults({
                   title={`${hit.title} — matched ${hit.matched.join(", ")}`}
                   onClick={() => onOpen(hit.thread_id)}
                 >
-                  <span className="zorai-thread-dot zorai-thread-dot--idle" aria-hidden="true" />
                   <span className="zorai-thread-title">{hit.title}</span>
                   <span className="zorai-thread-activity">{sessionActivityLabel(hit.updated_at, now)}</span>
                   {hit.snippet ? <span className="zorai-thread-search__snippet">{hit.snippet}</span> : null}
@@ -622,7 +621,7 @@ function ThreadSessionRow({
             onStartRename();
           }}
         >
-          <span className={`zorai-thread-dot zorai-thread-dot--${status}`} aria-hidden="true" />
+          {status === "working" ? <span className="zorai-thread-dot zorai-thread-dot--working" aria-hidden="true" /> : null}
           <span className="zorai-thread-title">{thread.title}</span>
           {workers > 0 ? <span className="zorai-thread-workers" title={`${workers} spawned ${workers === 1 ? "agent" : "agents"}`}>{workers}</span> : null}
           {loading ? <LoadingState size={12} className="zorai-thread-item__spinner" /> : <span className="zorai-thread-activity">{activity}</span>}
