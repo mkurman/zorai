@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type Ref } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent, type PointerEvent, type Ref } from "react";
 import {
   backgroundBounds,
   drawSketchShape,
@@ -364,14 +364,14 @@ export function ComposerSketchpad({
     surfaceRef.current?.focus();
   };
 
-  const insertImages = async (files: File[]) => {
+  const insertImages = async (files: File[], at?: SketchPoint) => {
     const surface = surfaceRef.current;
     if (!surface) return;
     const loaded = (await Promise.all(files.filter((file) => file.type.startsWith("image/")).map(readImageFile)))
       .filter((image): image is NonNullable<typeof image> => image !== null);
     if (loaded.length === 0) return;
     const current = viewRef.current;
-    const center = screenToWorld(current, { x: surface.clientWidth / 2, y: surface.clientHeight / 2 });
+    const center = screenToWorld(current, at ?? { x: surface.clientWidth / 2, y: surface.clientHeight / 2 });
     const maxSize = { width: (surface.clientWidth * 0.6) / current.scale, height: (surface.clientHeight * 0.6) / current.scale };
     const step = 16 / current.scale;
     const added = loaded.map((image, index) => imageShapeAt(newShapeId(), image.src, image, { x: center.x + index * step, y: center.y + index * step }, maxSize));
@@ -415,6 +415,8 @@ export function ComposerSketchpad({
   };
 
   const [exporting, setExporting] = useState(false);
+  const [dropActive, setDropActive] = useState(false);
+  const draggingFiles = (event: DragEvent<HTMLDivElement>) => Array.from(event.dataTransfer.items).some((item) => item.kind === "file" && item.type.startsWith("image/"));
   const downloadPng = async () => {
     commitEditor();
     setExporting(true);
@@ -759,7 +761,7 @@ export function ComposerSketchpad({
       </div>
       <div
         ref={surfaceRef}
-        className={["zorai-sketchpad__surface", surfaceCursor].filter(Boolean).join(" ")}
+        className={["zorai-sketchpad__surface", surfaceCursor, dropActive ? "is-drop-target" : ""].filter(Boolean).join(" ")}
         tabIndex={0}
         aria-label="Sketch canvas"
         style={{
@@ -772,6 +774,25 @@ export function ComposerSketchpad({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         onKeyDown={onKeyDown}
+        onDragOver={(event) => {
+          if (!draggingFiles(event)) return;
+          event.preventDefault();
+          event.stopPropagation();
+          event.dataTransfer.dropEffect = "copy";
+          if (!dropActive) setDropActive(true);
+        }}
+        onDragLeave={(event) => {
+          event.stopPropagation();
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropActive(false);
+        }}
+        onDrop={(event) => {
+          if (!draggingFiles(event)) return;
+          event.preventDefault();
+          event.stopPropagation();
+          setDropActive(false);
+          const rect = event.currentTarget.getBoundingClientRect();
+          void insertImages(Array.from(event.dataTransfer.files), { x: event.clientX - rect.left, y: event.clientY - rect.top });
+        }}
         onKeyUp={(event) => {
           if (event.key === " ") setSpaceHeld(false);
         }}
