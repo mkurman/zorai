@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const bridge = vi.hoisted(() => ({ agentBrowserResult: vi.fn(async () => ({ ok: true })) }));
 vi.mock("@/lib/bridge", () => ({ getBridge: () => bridge }));
 
-import { handleBrowserRequestEvent, OPERATOR_CONTROL_MESSAGE, runBrowserOp } from "./threadBrowserAgent";
+import { handleBrowserRequestEvent, OPERATOR_CONTROL_MESSAGE, releaseBrowserFromAgent, runBrowserOp } from "./threadBrowserAgent";
 import { markBrowserWebviewReady, type BrowserWebview } from "./threadBrowserRegistry";
 import { getBrowserSession, setBrowserOperatorControl, useThreadBrowserStore, withTabRemoved, emptyBrowserSession, setBrowserPanelOpen, normalizeBrowserAddress } from "./threadBrowserStore";
 
@@ -136,5 +136,29 @@ describe("browser tabs and address bar", () => {
     expect(normalizeBrowserAddress("example.com/docs")).toBe("https://example.com/docs");
     expect(normalizeBrowserAddress("https://a.b/c")).toBe("https://a.b/c");
     expect(normalizeBrowserAddress("how to center a div")).toBe("https://duckduckgo.com/?q=how%20to%20center%20a%20div");
+  });
+});
+
+describe("browser hand-back when the agent's turn ends", () => {
+  beforeEach(() => {
+    useThreadBrowserStore.setState({ sessions: {} });
+  });
+
+  it("drops the agent badge and the take-control bar but keeps the operator's tabs", async () => {
+    setBrowserPanelOpen("thread_1", true);
+    setBrowserOperatorControl("thread_1", true);
+    await handleBrowserRequestEvent({ thread_id: "thread_1", request_id: "br_1", op: { kind: "screenshot" } });
+    const tabs = getBrowserSession("thread_1").tabs;
+
+    releaseBrowserFromAgent("thread_1");
+
+    expect(getBrowserSession("thread_1")).toMatchObject({ agentUsed: false, operatorControl: false, lastAgentAction: null, panelOpen: true, tabs });
+  });
+
+  it("leaves threads the agent never browsed in untouched", () => {
+    releaseBrowserFromAgent("thread_2");
+    releaseBrowserFromAgent(null);
+
+    expect(useThreadBrowserStore.getState().sessions).toEqual({});
   });
 });

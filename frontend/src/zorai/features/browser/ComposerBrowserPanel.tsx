@@ -117,7 +117,9 @@ export function ComposerBrowserPanel({ sessionKey }: { sessionKey: string }) {
           </button>
         </div>
       ) : null}
-      <div ref={slotRef} className="zorai-browser-panel__viewport" />
+      <div ref={slotRef} className="zorai-browser-panel__viewport">
+        {!activeTab || activeTab.url === BROWSER_HOME_URL ? <span className="zorai-browser-panel__empty">Type an address or a search above</span> : null}
+      </div>
     </div>
   );
 }

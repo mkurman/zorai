@@ -9,7 +9,7 @@ import {
   subscribeBrowserSlots,
   type BrowserWebview,
 } from "./threadBrowserRegistry";
-import { useThreadBrowserStore, type ThreadBrowserTab } from "./threadBrowserStore";
+import { BROWSER_HOME_URL, useThreadBrowserStore, type ThreadBrowserTab } from "./threadBrowserStore";
 
 const PARKED_WIDTH = 1280;
 const PARKED_HEIGHT = 800;
@@ -109,7 +109,7 @@ export function ThreadBrowserHost() {
     session.tabs.map((tab) => ({
       sessionKey,
       tab,
-      active: session.panelOpen && session.activeTabId === tab.id,
+      active: session.panelOpen && session.activeTabId === tab.id && tab.url !== BROWSER_HOME_URL,
       shielded: session.agentUsed && !session.operatorControl,
     })),
   );

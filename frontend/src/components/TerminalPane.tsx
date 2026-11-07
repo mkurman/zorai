@@ -27,6 +27,8 @@ interface TerminalPaneProps {
   paneId: string;
   sessionId?: string;
   hideHeader?: boolean;
+  cwd?: string;
+  hideSharedCursor?: boolean;
 }
 
 type DaemonState = "checking" | "reachable" | "unavailable";
@@ -37,7 +39,7 @@ type ContextMenuState = {
   y: number;
 };
 
-export function TerminalPane({ paneId, sessionId, hideHeader }: TerminalPaneProps) {
+export function TerminalPane({ paneId, sessionId, hideHeader, cwd, hideSharedCursor }: TerminalPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -96,12 +98,13 @@ export function TerminalPane({ paneId, sessionId, hideHeader }: TerminalPaneProp
       [paneId],
     ),
   );
-  const paneWorkspaceCwd = useWorkspaceStore(
+  const paneLocationCwd = useWorkspaceStore(
     useCallback(
       (state) => findPaneLocationValue(state.workspaces, paneId, (location) => location.cwd),
       [paneId],
     ),
   );
+  const paneWorkspaceCwd = paneLocationCwd ?? cwd;
 
   const settings = useSettingsStore((state) => state.settings);
   const addCommandLogEntry = useCommandLogStore((state) => state.addEntry);
@@ -335,7 +338,7 @@ export function TerminalPane({ paneId, sessionId, hideHeader }: TerminalPaneProp
       )}
 
       <div ref={containerRef} style={{ width: "100%", height: hideHeader ? "100%" : "calc(100% - 36px)" }} />
-      <SharedCursor mode={sharedCursorMode} />
+      {hideSharedCursor ? null : <SharedCursor mode={sharedCursorMode} />}
 
       <TerminalContextMenu
         visible={contextMenu.visible}

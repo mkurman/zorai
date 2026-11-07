@@ -2577,9 +2577,16 @@
 }
 
 .zorai-browser-panel__viewport {
+  display: grid;
   flex: 1;
   min-height: 0;
-  background: #ffffff;
+  place-items: center;
+  background: transparent;
+}
+
+.zorai-browser-panel__empty {
+  color: var(--zorai-muted);
+  font-size: 12px;
 }
 
 .zorai-thread-browser-host__tab {
@@ -7136,4 +7143,101 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-engine-table__null {
   color: var(--zorai-muted);
   font-style: italic;
+}
+
+.zorai-terminal-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 8px;
+  overflow: hidden;
+  border: 1px solid var(--zorai-border-strong);
+  border-radius: 12px;
+  background: var(--zorai-bg-panel);
+  color: var(--zorai-text);
+}
+
+.zorai-terminal-panel__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid var(--zorai-border);
+  background: var(--zorai-bg-elevated);
+  font-size: 12px;
+}
+
+.zorai-terminal-panel__sessions {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.zorai-terminal-panel__session {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  max-width: 200px;
+  padding: 2px 4px 2px 10px;
+  overflow: hidden;
+  border: 1px solid var(--zorai-border);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--zorai-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.zorai-terminal-panel__session--agent::before {
+  content: "◆ ";
+  color: var(--zorai-accent);
+}
+
+.zorai-terminal-panel__session.is-active {
+  border-color: var(--zorai-border-strong);
+  background: var(--zorai-bg-panel);
+  color: var(--zorai-text);
+}
+
+.zorai-terminal-panel__session-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.zorai-terminal-panel__empty {
+  display: block;
+  margin: 24px auto;
+  padding: 6px 14px;
+  border: 1px solid var(--zorai-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--zorai-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.zorai-terminal-panel__note {
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--zorai-border);
+  color: var(--zorai-muted);
+  font-size: 11px;
+}
+
+.zorai-terminal-panel__cwd {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--zorai-muted);
+  font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zorai-terminal-panel__body {
+  flex: 1;
+  min-height: 0;
 }

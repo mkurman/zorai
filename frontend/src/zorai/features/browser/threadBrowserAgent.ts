@@ -116,6 +116,11 @@ export async function handleBrowserRequestEvent(event: { thread_id?: unknown; re
   }
 }
 
+export function releaseBrowserFromAgent(sessionKey: string | null): void {
+  if (!sessionKey || !getBrowserSession(sessionKey).agentUsed) return;
+  updateBrowserSession(sessionKey, (session) => ({ ...session, agentUsed: false, operatorControl: false, lastAgentAction: null }));
+}
+
 export function setBrowserTabLoading(sessionKey: string, tabId: string, loading: boolean): void {
   updateBrowserSession(sessionKey, (session) => withTabUpdated(session, tabId, { loading }));
 }

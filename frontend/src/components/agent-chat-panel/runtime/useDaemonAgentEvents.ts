@@ -21,7 +21,7 @@ import {
 } from "./daemonHelpers";
 import { getThreadCompaction, handleCompactionWorkflowNotice } from "@/zorai/features/threads/threadCompactionStatus";
 import { handleContextWindowUpdateEvent } from "@/zorai/features/threads/threadContextBreakdown";
-import { handleBrowserRequestEvent } from "@/zorai/features/browser/threadBrowserAgent";
+import { handleBrowserRequestEvent, releaseBrowserFromAgent } from "@/zorai/features/browser/threadBrowserAgent";
 import {
   handleDivergentStartEvent,
   handleGatewayIncomingEvent,
@@ -347,6 +347,7 @@ export function useDaemonAgentEvents({
         case "done": {
           releaseSuppressedThreadRetryStatus(typeof event.thread_id === "string" ? event.thread_id : null);
           clearThreadRetryStatus(typeof event.thread_id === "string" ? event.thread_id : null);
+          releaseBrowserFromAgent(typeof event.thread_id === "string" ? event.thread_id : null);
           if (!tid) break;
           flushStreamDeltas();
           useAgentMissionStore.getState().setSharedCursorMode("idle");
@@ -379,6 +380,7 @@ export function useDaemonAgentEvents({
         case "turn_interrupted": {
           releaseSuppressedThreadRetryStatus(typeof event.thread_id === "string" ? event.thread_id : null);
           clearThreadRetryStatus(typeof event.thread_id === "string" ? event.thread_id : null);
+          releaseBrowserFromAgent(typeof event.thread_id === "string" ? event.thread_id : null);
           if (!tid) break;
           flushStreamDeltas();
           useAgentMissionStore.getState().setSharedCursorMode("idle");
@@ -513,6 +515,7 @@ export function useDaemonAgentEvents({
             break;
           }
           clearThreadRetryStatus(typeof event.thread_id === "string" ? event.thread_id : null);
+          releaseBrowserFromAgent(typeof event.thread_id === "string" ? event.thread_id : null);
           if (!tid) break;
           flushStreamDeltas();
           useAgentMissionStore.getState().setSharedCursorMode("idle");

@@ -2,21 +2,31 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Keyboar
 import {
   backgroundBounds,
   drawSketchShape,
+  duplicateShapes,
   fitViewToBounds,
+  hitTestHandle,
   hitTestShapes,
+  imageShapeAt,
   isFreehandTool,
+  loadSketchImages,
+  parseSketchClipboard,
+  resizeShape,
+  rotateHandlePosition,
+  rotateShapeToward,
+  shapeCorners,
   screenToWorld,
-  shapeBounds,
   SKETCH_FONT_FAMILY,
   SKETCH_TEXT_LINE_HEIGHT,
   sketchBounds,
   sketchFontSize,
   sketchTextLines,
+  serializeSketchClipboard,
   translateShape,
   unionBounds,
   worldToScreen,
   zoomViewAt,
   type SketchBackground,
+  type SketchHandle,
   type SketchPoint,
   type SketchShape,
   type SketchTool,
@@ -48,9 +58,30 @@ type SketchTextEditor = {
 };
 
 type SketchMove = { pointerId: number; origin: SketchPoint; shape: SketchShape; dx: number; dy: number };
+type SketchTransform = { pointerId: number; handle: SketchHandle; shape: SketchShape; preview: SketchShape | null };
+
+const HANDLE_HIT_PX = 8;
+const HANDLE_SIZE_PX = 8;
+const ROTATE_HANDLE_PX = 22;
+const HANDLE_CURSORS: Record<SketchHandle, string> = { nw: "nwse-resize", se: "nwse-resize", ne: "nesw-resize", sw: "nesw-resize", rotate: "grab" };
 
 function newShapeId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function readImageFile(file: File): Promise<{ src: string; width: number; height: number } | null> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onerror = () => resolve(null);
+    reader.onload = () => {
+      const src = String(reader.result);
+      const image = new Image();
+      image.onload = () => resolve(image.naturalWidth > 0 ? { src, width: image.naturalWidth, height: image.naturalHeight } : null);
+      image.onerror = () => resolve(null);
+      image.src = src;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 let measureContext: CanvasRenderingContext2D | null = null;
@@ -104,6 +135,8 @@ export function ComposerSketchpad({
   const draftRef = useRef<SketchShape | null>(null);
   const panRef = useRef<{ pointerId: number; last: SketchPoint } | null>(null);
   const moveRef = useRef<SketchMove | null>(null);
+  const transformRef = useRef<SketchTransform | null>(null);
+  const [hoverHandle, setHoverHandle] = useState<SketchHandle | null>(null);
   const editorRef = useRef(editor);
   editorRef.current = editor;
   const selectedIdRef = useRef(selectedId);
@@ -114,6 +147,9 @@ export function ComposerSketchpad({
   viewRef.current = view;
   const shapesRef = useRef(shapes);
   shapesRef.current = shapes;
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const lastPasteRef = useRef<{ text: string; count: number } | null>(null);
+  const clipboardRef = useRef<{ copy: (event: ClipboardEvent, cut: boolean) => void; paste: (event: ClipboardEvent) => void } | null>(null);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -125,23 +161,49 @@ export function ComposerSketchpad({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(current.scale * dpr, 0, 0, current.scale * dpr, current.x * dpr, current.y * dpr);
     const move = moveRef.current;
+    const transform = transformRef.current;
     const editingId = editorRef.current?.id;
     let selected: SketchShape | null = null;
     for (const stored of shapesRef.current) {
       if (stored.id === editingId) continue;
-      const shape = move && stored.id === move.shape.id ? translateShape(move.shape, move.dx, move.dy) : stored;
+      const shape = move && stored.id === move.shape.id
+        ? translateShape(move.shape, move.dx, move.dy)
+        : transform?.preview && stored.id === transform.shape.id ? transform.preview : stored;
       if (shape.id === selectedIdRef.current) selected = shape;
       drawSketchShape(ctx, shape);
     }
     if (draftRef.current) drawSketchShape(ctx, draftRef.current);
-    const bounds = selected ? shapeBounds(selected) : null;
-    if (bounds && canvas.parentElement) {
-      const margin = 4 / current.scale;
+    const corners = selected ? shapeCorners(selected) : null;
+    const rotateHandle = selected ? rotateHandlePosition(selected, ROTATE_HANDLE_PX / current.scale) : null;
+    if (corners && rotateHandle && canvas.parentElement) {
+      const accent = getComputedStyle(canvas.parentElement).getPropertyValue("--zorai-accent").trim() || "#3b82f6";
+      const unit = 1 / current.scale;
       ctx.save();
-      ctx.strokeStyle = getComputedStyle(canvas.parentElement).getPropertyValue("--zorai-accent").trim() || "#3b82f6";
-      ctx.lineWidth = 1 / current.scale;
-      ctx.setLineDash([4 / current.scale, 3 / current.scale]);
-      ctx.strokeRect(bounds.minX - margin, bounds.minY - margin, bounds.maxX - bounds.minX + margin * 2, bounds.maxY - bounds.minY + margin * 2);
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = unit;
+      ctx.setLineDash([4 * unit, 3 * unit]);
+      ctx.beginPath();
+      ctx.moveTo(corners.nw.x, corners.nw.y);
+      ctx.lineTo(corners.ne.x, corners.ne.y);
+      ctx.lineTo(corners.se.x, corners.se.y);
+      ctx.lineTo(corners.sw.x, corners.sw.y);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo((corners.nw.x + corners.ne.x) / 2, (corners.nw.y + corners.ne.y) / 2);
+      ctx.lineTo(rotateHandle.x, rotateHandle.y);
+      ctx.stroke();
+      ctx.fillStyle = "#ffffff";
+      const half = (HANDLE_SIZE_PX / 2) * unit;
+      for (const corner of Object.values(corners)) {
+        ctx.fillRect(corner.x - half, corner.y - half, half * 2, half * 2);
+        ctx.strokeRect(corner.x - half, corner.y - half, half * 2, half * 2);
+      }
+      ctx.beginPath();
+      ctx.arc(rotateHandle.x, rotateHandle.y, half * 1.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
       ctx.restore();
     }
   }, []);
@@ -171,6 +233,30 @@ export function ComposerSketchpad({
   useEffect(() => {
     draw();
   }, [draw, shapes, view, selectedId, editor]);
+
+  useEffect(() => {
+    let live = true;
+    void loadSketchImages(shapes).then(() => {
+      if (live) draw();
+    });
+    return () => {
+      live = false;
+    };
+  }, [draw, shapes]);
+
+  useEffect(() => {
+    const onCopy = (event: ClipboardEvent) => clipboardRef.current?.copy(event, false);
+    const onCut = (event: ClipboardEvent) => clipboardRef.current?.copy(event, true);
+    const onPaste = (event: ClipboardEvent) => clipboardRef.current?.paste(event);
+    document.addEventListener("copy", onCopy);
+    document.addEventListener("cut", onCut);
+    document.addEventListener("paste", onPaste);
+    return () => {
+      document.removeEventListener("copy", onCopy);
+      document.removeEventListener("cut", onCut);
+      document.removeEventListener("paste", onPaste);
+    };
+  }, []);
 
   useEffect(() => {
     if (!editor) return;
@@ -267,6 +353,65 @@ export function ComposerSketchpad({
     setSelectedId(null);
   };
 
+  const addShapes = (added: SketchShape[]) => {
+    if (added.length === 0) return;
+    commitEditor();
+    commit([...shapesRef.current, ...added]);
+    setTool("select");
+    setSelectedId(added[added.length - 1].id);
+    surfaceRef.current?.focus();
+  };
+
+  const insertImages = async (files: File[]) => {
+    const surface = surfaceRef.current;
+    if (!surface) return;
+    const loaded = (await Promise.all(files.filter((file) => file.type.startsWith("image/")).map(readImageFile)))
+      .filter((image): image is NonNullable<typeof image> => image !== null);
+    if (loaded.length === 0) return;
+    const current = viewRef.current;
+    const center = screenToWorld(current, { x: surface.clientWidth / 2, y: surface.clientHeight / 2 });
+    const maxSize = { width: (surface.clientWidth * 0.6) / current.scale, height: (surface.clientHeight * 0.6) / current.scale };
+    const step = 16 / current.scale;
+    const added = loaded.map((image, index) => imageShapeAt(newShapeId(), image.src, image, { x: center.x + index * step, y: center.y + index * step }, maxSize));
+    await loadSketchImages(added);
+    addShapes(added);
+  };
+
+  clipboardRef.current = {
+    copy: (event, cut) => {
+      if (!surfaceRef.current || document.activeElement !== surfaceRef.current || editorRef.current || !event.clipboardData) return;
+      const shape = shapesRef.current.find((entry) => entry.id === selectedIdRef.current);
+      if (!shape) return;
+      event.preventDefault();
+      event.clipboardData.setData("text/plain", serializeSketchClipboard([shape]));
+      lastPasteRef.current = null;
+      if (cut) {
+        commit(shapesRef.current.filter((entry) => entry.id !== shape.id));
+        setSelectedId(null);
+      }
+    },
+    paste: (event) => {
+      if (!surfaceRef.current || document.activeElement !== surfaceRef.current || editorRef.current || !event.clipboardData) return;
+      const text = event.clipboardData.getData("text/plain");
+      const copied = parseSketchClipboard(text);
+      if (copied) {
+        event.preventDefault();
+        const count = lastPasteRef.current?.text === text ? lastPasteRef.current.count + 1 : 1;
+        lastPasteRef.current = { text, count };
+        const offset = (16 * count) / viewRef.current.scale;
+        addShapes(duplicateShapes(copied, offset, offset, newShapeId));
+        return;
+      }
+      const files = Array.from(event.clipboardData.items)
+        .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => file !== null);
+      if (files.length === 0) return;
+      event.preventDefault();
+      void insertImages(files);
+    },
+  };
+
   const fitView = () => {
     const surface = surfaceRef.current;
     if (!surface) return;
@@ -307,6 +452,14 @@ export function ComposerSketchpad({
     const world = screenToWorld(viewRef.current, point);
     const tolerance = 6 / viewRef.current.scale;
     if (tool === "select") {
+      const selectedShape = shapesRef.current.find((shape) => shape.id === selectedIdRef.current);
+      const handle = selectedShape
+        ? hitTestHandle(selectedShape, world, HANDLE_HIT_PX / viewRef.current.scale, ROTATE_HANDLE_PX / viewRef.current.scale)
+        : null;
+      if (selectedShape && handle) {
+        transformRef.current = { pointerId: event.pointerId, handle, shape: selectedShape, preview: null };
+        return;
+      }
       const hit = hitTestShapes(shapesRef.current, world, tolerance);
       setSelectedId(hit?.id ?? null);
       if (hit) moveRef.current = { pointerId: event.pointerId, origin: world, shape: hit, dx: 0, dy: 0 };
@@ -339,6 +492,23 @@ export function ComposerSketchpad({
       setView((current) => ({ ...current, x: current.x + dx, y: current.y + dy }));
       return;
     }
+    const transform = transformRef.current;
+    if (transform && transform.pointerId === event.pointerId) {
+      const world = screenToWorld(viewRef.current, point);
+      transform.preview = transform.handle === "rotate"
+        ? rotateShapeToward(transform.shape, world, event.shiftKey)
+        : resizeShape(transform.shape, transform.handle, world, event.shiftKey);
+      draw();
+      return;
+    }
+    if (tool === "select" && !moveRef.current && !draftRef.current) {
+      const selectedShape = shapesRef.current.find((shape) => shape.id === selectedIdRef.current);
+      const world = screenToWorld(viewRef.current, point);
+      const handle = selectedShape
+        ? hitTestHandle(selectedShape, world, HANDLE_HIT_PX / viewRef.current.scale, ROTATE_HANDLE_PX / viewRef.current.scale)
+        : null;
+      if (handle !== hoverHandle) setHoverHandle(handle);
+    }
     const move = moveRef.current;
     if (move && move.pointerId === event.pointerId) {
       const world = screenToWorld(viewRef.current, point);
@@ -368,6 +538,14 @@ export function ComposerSketchpad({
   const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
     if (panRef.current?.pointerId === event.pointerId) {
       panRef.current = null;
+      return;
+    }
+    const transform = transformRef.current;
+    if (transform?.pointerId === event.pointerId) {
+      transformRef.current = null;
+      const changed = transform.preview;
+      if (changed) commit(shapesRef.current.map((shape) => (shape.id === changed.id ? changed : shape)));
+      else draw();
       return;
     }
     const move = moveRef.current;
@@ -480,6 +658,22 @@ export function ComposerSketchpad({
           ))}
         </div>
         <div className="zorai-sketchpad__group">
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(event) => {
+              void insertImages(Array.from(event.target.files ?? []));
+              event.target.value = "";
+            }}
+          />
+          <button type="button" className="zorai-sketchpad__button" title="Insert image (or paste one with Ctrl+V)" aria-label="Insert image" onClick={() => imageInputRef.current?.click()}>
+            <SketchActionIcon kind="image" />
+          </button>
+        </div>
+        <div className="zorai-sketchpad__group">
           <button type="button" className="zorai-sketchpad__button" title="Undo (Ctrl+Z)" aria-label="Undo" disabled={past.length === 0} onClick={undo}>
             <SketchActionIcon kind="undo" />
           </button>
@@ -536,6 +730,7 @@ export function ComposerSketchpad({
         tabIndex={0}
         aria-label="Sketch canvas"
         style={{
+          cursor: tool === "select" && hoverHandle && !panning ? HANDLE_CURSORS[hoverHandle] : undefined,
           backgroundSize: `${20 * view.scale}px ${20 * view.scale}px`,
           backgroundPosition: `${view.x}px ${view.y}px`,
         }}
@@ -605,7 +800,7 @@ export function ComposerSketchpad({
         {shapes.length === 0 && background ? (
           <span className="zorai-sketchpad__hint">Draw on the image · Save to image replaces the attachment · Esc cancels</span>
         ) : shapes.length === 0 ? (
-          <span className="zorai-sketchpad__hint">Draw here · T for text, V to select and move · Space or middle-drag to pan · Ctrl+scroll to zoom · Save & attach adds it as a PNG</span>
+          <span className="zorai-sketchpad__hint">Draw here · T for text, V to select and move · Ctrl+C / Ctrl+V copies shapes or pastes images · Space or middle-drag to pan · Ctrl+scroll to zoom · Save & attach adds it as a PNG</span>
         ) : null}
       </div>
     </div>
@@ -637,7 +832,8 @@ function SketchToolIcon({ tool }: { tool: SketchTool }) {
   return <svg {...iconProps}><path d="M18 11V6a2 2 0 0 0-4 0v5" /><path d="M14 10V4a2 2 0 0 0-4 0v6" /><path d="M10 10.5V6a2 2 0 0 0-4 0v8" /><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" /></svg>;
 }
 
-function SketchActionIcon({ kind }: { kind: "undo" | "redo" | "fit" | "clear" }) {
+function SketchActionIcon({ kind }: { kind: "undo" | "redo" | "fit" | "clear" | "image" }) {
+  if (kind === "image") return <svg {...iconProps}><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m21 16-5-5L5 20" /></svg>;
   if (kind === "undo") return <svg {...iconProps}><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></svg>;
   if (kind === "redo") return <svg {...iconProps}><path d="m15 14 5-5-5-5" /><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" /></svg>;
   if (kind === "fit") return <svg {...iconProps}><path d="M3 8V5a2 2 0 0 1 2-2h3" /><path d="M16 3h3a2 2 0 0 1 2 2v3" /><path d="M21 16v3a2 2 0 0 1-2 2h-3" /><path d="M8 21H5a2 2 0 0 1-2-2v-3" /></svg>;

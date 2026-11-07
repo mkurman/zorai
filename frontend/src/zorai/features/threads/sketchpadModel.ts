@@ -1,5 +1,5 @@
 export type SketchTool = "select" | "pen" | "highlighter" | "line" | "arrow" | "rect" | "ellipse" | "text" | "eraser" | "pan";
-export type SketchShapeTool = Exclude<SketchTool, "select" | "pan">;
+export type SketchShapeTool = Exclude<SketchTool, "select" | "pan"> | "image";
 export type SketchPoint = { x: number; y: number; p?: number };
 export type SketchShape = {
   id: string;
@@ -9,7 +9,10 @@ export type SketchShape = {
   points: SketchPoint[];
   text?: string;
   textWidth?: number;
+  src?: string;
+  rotation?: number;
 };
+export type SketchHandle = "nw" | "ne" | "sw" | "se" | "rotate";
 export type SketchView = { x: number; y: number; scale: number };
 export type SketchBackground = { src: string; width: number; height: number };
 export type SketchBounds = { minX: number; minY: number; maxX: number; maxY: number };
@@ -22,6 +25,66 @@ export const SKETCH_TEXT_LINE_HEIGHT = 1.25;
 const HIGHLIGHTER_WIDTH_FACTOR = 3;
 const HIGHLIGHTER_ALPHA = 0.35;
 const ERASER_WIDTH_FACTOR = 4;
+const SKETCH_CLIPBOARD_PREFIX = "zorai-sketch:";
+const sketchImages = new Map<string, HTMLImageElement>();
+
+export async function loadSketchImages(shapes: readonly SketchShape[]): Promise<void> {
+  await Promise.all(shapes.map(async (shape) => {
+    if (shape.tool !== "image" || !shape.src || sketchImages.has(shape.src)) return;
+    const image = new Image();
+    image.src = shape.src;
+    try {
+      await image.decode();
+      sketchImages.set(shape.src, image);
+    } catch {
+      return;
+    }
+  }));
+}
+
+export function serializeSketchClipboard(shapes: readonly SketchShape[]): string {
+  return SKETCH_CLIPBOARD_PREFIX + JSON.stringify(shapes);
+}
+
+export function parseSketchClipboard(text: string | undefined | null): SketchShape[] | null {
+  if (!text?.startsWith(SKETCH_CLIPBOARD_PREFIX)) return null;
+  try {
+    const parsed: unknown = JSON.parse(text.slice(SKETCH_CLIPBOARD_PREFIX.length));
+    if (!Array.isArray(parsed)) return null;
+    const shapes = parsed.filter((shape): shape is SketchShape => (
+      typeof shape === "object" && shape !== null
+      && typeof shape.tool === "string" && Array.isArray(shape.points)
+      && shape.points.every((point: unknown) => typeof (point as SketchPoint)?.x === "number" && typeof (point as SketchPoint)?.y === "number")
+    ));
+    return shapes.length > 0 ? shapes : null;
+  } catch {
+    return null;
+  }
+}
+
+export function duplicateShapes(shapes: readonly SketchShape[], dx: number, dy: number, newId: () => string): SketchShape[] {
+  return shapes.map((shape) => ({ ...translateShape(shape, dx, dy), id: newId() }));
+}
+
+export function imageShapeAt(
+  id: string,
+  src: string,
+  natural: { width: number; height: number },
+  center: SketchPoint,
+  maxSize: { width: number; height: number },
+): SketchShape {
+  const scale = Math.min(1, maxSize.width / natural.width, maxSize.height / natural.height);
+  const width = natural.width * scale;
+  const height = natural.height * scale;
+  return {
+    id,
+    tool: "image",
+    color: "#000000",
+    width: 0,
+    points: [{ x: center.x - width / 2, y: center.y - height / 2 }, { x: center.x + width / 2, y: center.y + height / 2 }],
+    src,
+  };
+}
 
 export function isFreehandTool(tool: SketchShapeTool): boolean {
   return tool === "pen" || tool === "highlighter" || tool === "eraser";
@@ -56,6 +119,10 @@ export function sketchHasInk(shapes: readonly SketchShape[]): boolean {
 
 export function shapeBounds(shape: SketchShape): SketchBounds | null {
   if (shape.points.length === 0) return null;
+  if (shape.tool === "image") {
+    const [a, b] = [shape.points[0], shape.points[shape.points.length - 1]];
+    return { minX: Math.min(a.x, b.x), minY: Math.min(a.y, b.y), maxX: Math.max(a.x, b.x), maxY: Math.max(a.y, b.y) };
+  }
   if (shape.tool === "text") {
     const anchor = shape.points[0];
     const fontSize = sketchFontSize(shape.width);
@@ -78,11 +145,121 @@ export function shapeBounds(shape: SketchShape): SketchBounds | null {
   return bounds;
 }
 
+export function rotatePoint(point: SketchPoint, center: SketchPoint, angle: number): SketchPoint {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const dx = point.x - center.x;
+  const dy = point.y - center.y;
+  return { ...point, x: center.x + dx * cos - dy * sin, y: center.y + dx * sin + dy * cos };
+}
+
+export function shapeCenter(shape: SketchShape): SketchPoint | null {
+  const bounds = shapeBounds(shape);
+  return bounds ? { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 } : null;
+}
+
+export function shapeCorners(shape: SketchShape): Record<"nw" | "ne" | "sw" | "se", SketchPoint> | null {
+  const bounds = shapeBounds(shape);
+  const center = shapeCenter(shape);
+  if (!bounds || !center) return null;
+  const angle = shape.rotation ?? 0;
+  return {
+    nw: rotatePoint({ x: bounds.minX, y: bounds.minY }, center, angle),
+    ne: rotatePoint({ x: bounds.maxX, y: bounds.minY }, center, angle),
+    sw: rotatePoint({ x: bounds.minX, y: bounds.maxY }, center, angle),
+    se: rotatePoint({ x: bounds.maxX, y: bounds.maxY }, center, angle),
+  };
+}
+
+export function rotatedShapeBounds(shape: SketchShape): SketchBounds | null {
+  if (!shape.rotation) return shapeBounds(shape);
+  const corners = shapeCorners(shape);
+  if (!corners) return null;
+  const points = Object.values(corners);
+  return {
+    minX: Math.min(...points.map((point) => point.x)),
+    minY: Math.min(...points.map((point) => point.y)),
+    maxX: Math.max(...points.map((point) => point.x)),
+    maxY: Math.max(...points.map((point) => point.y)),
+  };
+}
+
+export function rotateHandlePosition(shape: SketchShape, distance: number): SketchPoint | null {
+  const bounds = shapeBounds(shape);
+  const center = shapeCenter(shape);
+  if (!bounds || !center) return null;
+  return rotatePoint({ x: center.x, y: bounds.minY - distance }, center, shape.rotation ?? 0);
+}
+
+export function hitTestHandle(shape: SketchShape, point: SketchPoint, tolerance: number, rotateDistance: number): SketchHandle | null {
+  const rotate = rotateHandlePosition(shape, rotateDistance);
+  if (rotate && Math.hypot(point.x - rotate.x, point.y - rotate.y) <= tolerance) return "rotate";
+  const corners = shapeCorners(shape);
+  if (!corners) return null;
+  for (const handle of ["nw", "ne", "sw", "se"] as const) {
+    if (Math.hypot(point.x - corners[handle].x, point.y - corners[handle].y) <= tolerance) return handle;
+  }
+  return null;
+}
+
+const OPPOSITE_CORNER = { nw: "se", ne: "sw", sw: "ne", se: "nw" } as const;
+const MIN_RESIZE_SIDE = 4;
+
+export function resizeShape(shape: SketchShape, handle: "nw" | "ne" | "sw" | "se", pointer: SketchPoint, keepAspect: boolean): SketchShape {
+  const bounds = shapeBounds(shape);
+  const center = shapeCenter(shape);
+  if (!bounds || !center) return shape;
+  const angle = shape.rotation ?? 0;
+  const local = rotatePoint(pointer, center, -angle);
+  const corner = (name: "nw" | "ne" | "sw" | "se") => ({
+    x: name === "nw" || name === "sw" ? bounds.minX : bounds.maxX,
+    y: name === "nw" || name === "ne" ? bounds.minY : bounds.maxY,
+  });
+  const anchor = corner(OPPOSITE_CORNER[handle]);
+  const dragged = corner(handle);
+  const side = (from: number, to: number, value: number) => {
+    const original = to - from;
+    if (original === 0) return 1;
+    const next = (value - from) * Math.sign(original);
+    return Math.max(MIN_RESIZE_SIDE, next) / Math.abs(original);
+  };
+  let sx = side(anchor.x, dragged.x, local.x);
+  let sy = side(anchor.y, dragged.y, local.y);
+  if (keepAspect || shape.tool === "text" || shape.tool === "image") {
+    const uniform = Math.max(sx, sy);
+    sx = uniform;
+    sy = uniform;
+  }
+  const scaled: SketchShape = {
+    ...shape,
+    points: shape.points.map((point) => ({ ...point, x: anchor.x + (point.x - anchor.x) * sx, y: anchor.y + (point.y - anchor.y) * sy })),
+  };
+  if (shape.tool === "text") {
+    const fontSize = sketchFontSize(shape.width) * sx;
+    scaled.width = Math.max(0.1, (fontSize - 8) / 3);
+    scaled.textWidth = (shape.textWidth ?? 0) * sx;
+  }
+  if (!angle) return scaled;
+  const before = rotatePoint(anchor, center, angle);
+  const scaledCenter = shapeCenter(scaled) ?? center;
+  const after = rotatePoint(anchor, scaledCenter, angle);
+  return translateShape(scaled, before.x - after.x, before.y - after.y);
+}
+
+export function rotateShapeToward(shape: SketchShape, pointer: SketchPoint, snap: boolean): SketchShape {
+  const center = shapeCenter(shape);
+  if (!center) return shape;
+  let angle = Math.atan2(pointer.y - center.y, pointer.x - center.x) + Math.PI / 2;
+  if (snap) angle = Math.round(angle / (Math.PI / 12)) * (Math.PI / 12);
+  angle = Math.atan2(Math.sin(angle), Math.cos(angle));
+  return { ...shape, rotation: Math.abs(angle) < 1e-9 ? 0 : angle };
+}
+
 export function sketchBounds(shapes: readonly SketchShape[]): SketchBounds | null {
   const bounds: SketchBounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
   for (const shape of shapes) {
     if (shape.tool === "eraser") continue;
-    const own = shapeBounds(shape);
+    const own = rotatedShapeBounds(shape);
     if (!own) continue;
     bounds.minX = Math.min(bounds.minX, own.minX);
     bounds.minY = Math.min(bounds.minY, own.minY);
@@ -102,7 +279,11 @@ function distanceToSegment(point: SketchPoint, a: SketchPoint, b: SketchPoint): 
 
 export function shapeContainsPoint(shape: SketchShape, point: SketchPoint, tolerance: number): boolean {
   if (shape.tool === "eraser") return false;
-  if (shape.tool === "text" || shape.tool === "rect" || shape.tool === "ellipse") {
+  if (shape.rotation) {
+    const center = shapeCenter(shape);
+    if (center) point = rotatePoint(point, center, -shape.rotation);
+  }
+  if (shape.tool === "text" || shape.tool === "rect" || shape.tool === "ellipse" || shape.tool === "image") {
     const bounds = shapeBounds(shape);
     return Boolean(bounds)
       && point.x >= bounds!.minX - tolerance
@@ -251,10 +432,19 @@ export function drawSketchShape(ctx: CanvasRenderingContext2D, shape: SketchShap
   ctx.fillStyle = shape.color;
   if (shape.tool === "highlighter") ctx.globalAlpha = HIGHLIGHTER_ALPHA;
   if (shape.tool === "eraser") ctx.globalCompositeOperation = "destination-out";
+  const center = shape.rotation ? shapeCenter(shape) : null;
+  if (center) {
+    ctx.translate(center.x, center.y);
+    ctx.rotate(shape.rotation!);
+    ctx.translate(-center.x, -center.y);
+  }
 
   const first = points[0];
   const last = points[points.length - 1];
-  if (shape.tool === "text") {
+  if (shape.tool === "image") {
+    const image = shape.src ? sketchImages.get(shape.src) : undefined;
+    if (image) ctx.drawImage(image, Math.min(first.x, last.x), Math.min(first.y, last.y), Math.abs(last.x - first.x), Math.abs(last.y - first.y));
+  } else if (shape.tool === "text") {
     const fontSize = sketchFontSize(shape.width);
     ctx.font = `${fontSize}px ${SKETCH_FONT_FAMILY}`;
     ctx.textBaseline = "top";
