@@ -31,6 +31,24 @@ describe("retainLiveLocalMessages", () => {
 });
 
 describe("reconcileThreadMessages", () => {
+  it("keeps one bubble for an attachment-only send even though the daemon stores a media placeholder as its text", () => {
+    const blocks = [{ type: "image" as const, data_url: "data:image/png;base64,abc" }];
+    const optimistic = message({ id: "msg_1794053426000", role: "user", content: "", createdAt: 1_000, contentBlocks: blocks });
+    const authoritative = message({ id: "daemon-user", role: "user", content: "[Image attachment: image/png]", createdAt: 1_050, contentBlocks: blocks });
+
+    const reconciled = reconcileThreadMessages([optimistic], [authoritative]);
+
+    expect(reconciled).toHaveLength(1);
+    expect(reconciled[0].id).toBe("daemon-user");
+  });
+
+  it("still keeps two attachment-only sends with different text apart", () => {
+    const optimistic = message({ id: "msg_1794053426000", role: "user", content: "look", createdAt: 1_000 });
+    const authoritative = message({ id: "daemon-user", role: "user", content: "[Image attachment: image/png]", createdAt: 1_050 });
+
+    expect(reconcileThreadMessages([optimistic], [authoritative])).toHaveLength(2);
+  });
+
   it("produces the same image-bearing timeline whether authority arrives before or after local send", () => {
     const optimistic = message({
       id: "queued-prompt:p1",

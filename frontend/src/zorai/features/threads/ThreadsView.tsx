@@ -40,7 +40,7 @@ import {
 import { ThreadRetryStatusBanner } from "./ThreadRetryStatusBanner";
 import { useThreadRetryStatus } from "./threadRetryStatus";
 import { resolveThreadOwnerRuntimeProfile } from "./threadOwnerRuntime";
-import type { ZoraiReturnTarget } from "../../shell/zoraiNavigationEvents";
+import { navigateZorai, type ZoraiReturnTarget } from "../../shell/zoraiNavigationEvents";
 import { isThreadLoading, shouldShowConversationSkeleton, useThreadLoadingStore } from "./threadLoadingStore";
 import { threadReadKey, useThreadReadStateStore } from "./threadReadStateStore";
 import { useThreadRailTabStore } from "./threadRailTabStore";
@@ -566,40 +566,74 @@ function ThreadHeader({
   const model = profile.model || "default model";
   const effort = profile.effort || "default effort";
   const context = profile.contextWindowTokens.toLocaleString();
+  const runtimeInfo = [
+    ["Messages", String(messageCount)],
+    ["Responder", activeResponder],
+    ["Provider", provider],
+    ["Model", model],
+    ["Effort", effort],
+    ["Context", `${context} tokens`],
+  ];
   return (
-    <header className="zorai-thread-header">
-      <div>
-        <h3>{thread.title}</h3>
-        <span>{messageCount} messages / {activeResponder} · {provider} · {model} · effort: {effort} · context: {context} tokens</span>
-      </div>
+    <header className="zorai-thread-header zorai-thread-header--slim">
+      <h3 title={thread.title}>{thread.title}</h3>
       <div className="zorai-thread-header__actions">
         {returnTarget && onReturnTarget ? (
-          <button type="button" className="zorai-ghost-button" onClick={onReturnTarget}>
+          <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" onClick={onReturnTarget}>
             {returnTarget.label}
           </button>
         ) : null}
+        <div className="zorai-thread-header__info" tabIndex={0} aria-label="Thread details">
+          <ThreadHeaderIcon kind="info" />
+          <div className="zorai-thread-header__info-card" role="tooltip">
+            {runtimeInfo.map(([label, value]) => (
+              <div key={label}>
+                <span>{label}</span>
+                <strong>{value}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
         <ThreadHandoffControl
           daemonLinked={Boolean(thread.daemonThreadId)}
           handoffState={thread.threadHandoffState}
           options={agentOptions}
           onPush={onPushHandoff}
           onReturn={onReturnHandoff}
+          icon={<ThreadHeaderIcon kind="handoff" />}
         />
-        <ThreadGatewayControl daemonThreadId={thread.daemonThreadId} />
-        <button type="button" className="zorai-ghost-button" onClick={onOpenParticipants}>
-          Participants {activeParticipants.length}
+        <ThreadGatewayControl daemonThreadId={thread.daemonThreadId} icon={<ThreadHeaderIcon kind="gateway" />} />
+        <button type="button" className="zorai-thread-header__icon" title={`Participants (${activeParticipants.length} active)`} aria-label={`Participants, ${activeParticipants.length} active`} onClick={onOpenParticipants}>
+          <ThreadHeaderIcon kind="participants" />
+          {activeParticipants.length > 0 ? <span className="zorai-thread-header__badge">{activeParticipants.length}</span> : null}
         </button>
         <button
           type="button"
-          className="zorai-ghost-button"
+          className="zorai-thread-header__icon"
+          title={activeOperationCount > 0 ? `Operations (${activeOperationCount} running) - jump to the latest` : "No running operations"}
+          aria-label={`Operations, ${activeOperationCount} running`}
           disabled={activeOperationCount === 0}
           onClick={onOpenOperations}
         >
-          Operations {activeOperationCount}
+          <ThreadHeaderIcon kind="operations" />
+          {activeOperationCount > 0 ? <span className="zorai-thread-header__badge">{activeOperationCount}</span> : null}
+        </button>
+        <button type="button" className="zorai-thread-header__icon" title="Toggle context panel" aria-label="Toggle context panel" onClick={() => navigateZorai({ toggleContext: true })}>
+          <ThreadHeaderIcon kind="context" />
         </button>
       </div>
     </header>
   );
+}
+
+function ThreadHeaderIcon({ kind }: { kind: "info" | "handoff" | "gateway" | "participants" | "operations" | "context" }) {
+  const common = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
+  if (kind === "info") return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M12 11v5" /><path d="M12 8h.01" /></svg>;
+  if (kind === "handoff") return <svg {...common}><path d="M17 3l4 4-4 4" /><path d="M21 7H9" /><path d="M7 21l-4-4 4-4" /><path d="M3 17h12" /></svg>;
+  if (kind === "gateway") return <svg {...common}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>;
+  if (kind === "participants") return <svg {...common}><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7" /><path d="M18 14.5a6.5 6.5 0 0 1 3.5 5.5" /></svg>;
+  if (kind === "operations") return <svg {...common}><path d="M22 12h-4l-3 8-6-16-3 8H2" /></svg>;
+  return <svg {...common}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16" /></svg>;
 }
 
 function ThinkingIndicator({ label }: { label: string }) {

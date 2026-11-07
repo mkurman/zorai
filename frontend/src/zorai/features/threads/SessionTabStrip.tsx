@@ -29,7 +29,7 @@ export function SessionTabStrip({
       {tabs.map((tab) => (
         <div key={tab.id} className={tab.active ? "zorai-session-tab zorai-session-tab--active" : "zorai-session-tab"}>
           <button type="button" className="zorai-session-tab__main" aria-current={tab.active ? "page" : undefined} onClick={() => onSelect(tab.id)}>
-            <span className={`zorai-thread-dot zorai-thread-dot--${tab.working ? "working" : tab.unread ? "unread" : tab.active ? "active" : "idle"}`} aria-hidden="true" />
+            {tab.working ? <span className="zorai-thread-dot zorai-thread-dot--working" aria-hidden="true" /> : null}
             <span>{tab.title}</span>
           </button>
           <button type="button" className="zorai-session-tab__close" aria-label={`Close ${tab.title}`} onClick={() => onClose(tab.id)}>

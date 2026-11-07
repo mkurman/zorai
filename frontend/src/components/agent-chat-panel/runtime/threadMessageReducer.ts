@@ -78,10 +78,16 @@ function isOptimisticMessage(message: AgentMessage): boolean {
   return message.id.startsWith("queued-prompt:") || /^msg_\d+$/.test(message.id);
 }
 
+const MEDIA_PLACEHOLDER_LINE = /^\[(Image|Audio|Video) attachment(?:: [^\]\n]*)?\]$/;
+
+function userTextIdentity(content: string): string {
+  return content.split("\n").filter((line) => !MEDIA_PLACEHOLDER_LINE.test(line.trim())).join("\n").trim();
+}
+
 function messagesAreEquivalent(left: AgentMessage, right: AgentMessage): boolean {
   if (left.role !== right.role) return false;
   if (left.role === "user") {
-    return left.content.trim() === right.content.trim()
+    return userTextIdentity(left.content) === userTextIdentity(right.content)
       && Math.abs(normalizeTimestamp(left.createdAt) - normalizeTimestamp(right.createdAt))
         <= EQUIVALENT_USER_WINDOW_MS;
   }

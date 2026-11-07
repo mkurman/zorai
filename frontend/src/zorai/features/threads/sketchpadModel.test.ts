@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   backgroundBounds,
+  mergeSelection,
+  normalizeBounds,
+  shapesInMarquee,
+  toggleSelection,
   hitTestHandle,
   resizeShape,
   rotatedShapeBounds,
@@ -223,5 +227,22 @@ describe("resizing and rotating a selected object", () => {
 
     expect(shapeCorners(resized)!.nw.x).toBeCloseTo(anchorBefore.x);
     expect(shapeCorners(resized)!.nw.y).toBeCloseTo(anchorBefore.y);
+  });
+});
+
+describe("selecting several objects", () => {
+  const left: SketchShape = { id: "a", tool: "rect", color: "#000", width: 0, points: [{ x: 0, y: 0 }, { x: 10, y: 10 }] };
+  const right: SketchShape = { id: "b", tool: "rect", color: "#000", width: 0, points: [{ x: 100, y: 0 }, { x: 110, y: 10 }] };
+  const eraser: SketchShape = { id: "e", tool: "eraser", color: "#000", width: 4, points: [{ x: 5, y: 5 }, { x: 6, y: 6 }] };
+
+  it("box-selects everything the box touches, dragged in any direction, but never eraser strokes", () => {
+    expect(shapesInMarquee([left, right, eraser], normalizeBounds({ x: 8, y: 20 }, { x: -5, y: 5 }))).toEqual(["a"]);
+    expect(shapesInMarquee([left, right, eraser], normalizeBounds({ x: -5, y: -5 }, { x: 105, y: 5 }))).toEqual(["a", "b"]);
+  });
+
+  it("Ctrl+click toggles one object and Ctrl+drag adds to what was already selected", () => {
+    expect(toggleSelection(["a"], "b")).toEqual(["a", "b"]);
+    expect(toggleSelection(["a", "b"], "a")).toEqual(["b"]);
+    expect(mergeSelection(["a"], ["a", "b"])).toEqual(["a", "b"]);
   });
 });

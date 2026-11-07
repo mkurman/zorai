@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { notifyThreadListRefresh } from "../../shell/zoraiNavigationEvents";
 import {
   fetchGatewayChats,
@@ -9,7 +9,7 @@ import {
   type GatewayChat,
 } from "./gatewayChatModel";
 
-export function ThreadGatewayControl({ daemonThreadId }: { daemonThreadId: string | null | undefined }) {
+export function ThreadGatewayControl({ daemonThreadId, icon }: { daemonThreadId: string | null | undefined; icon?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [chats, setChats] = useState<GatewayChat[]>([]);
   const [loading, setLoading] = useState(false);
@@ -63,15 +63,16 @@ export function ThreadGatewayControl({ daemonThreadId }: { daemonThreadId: strin
     <div className="zorai-handoff-control">
       <button
         type="button"
-        className="zorai-ghost-button"
+        className={icon ? ["zorai-thread-header__icon", linked ? "is-active" : ""].filter(Boolean).join(" ") : "zorai-ghost-button"}
         aria-expanded={open}
-        title={linked ? `Linked to ${gatewayChatLabel(linked)}` : undefined}
+        aria-label={icon ? (linked ? `Linked to ${gatewayChatLabel(linked)}` : "Continue on gateway") : undefined}
+        title={linked ? `Linked to ${gatewayChatLabel(linked)}` : icon ? "Continue on gateway" : undefined}
         onClick={() => {
           if (!open) void loadChats();
           setOpen((value) => !value);
         }}
       >
-        {linked ? `↔ ${gatewayChatLabel(linked)}` : "Continue on gateway"}
+        {icon ?? (linked ? `↔ ${gatewayChatLabel(linked)}` : "Continue on gateway")}
       </button>
       {open ? (
         <div className="zorai-handoff-popover">
