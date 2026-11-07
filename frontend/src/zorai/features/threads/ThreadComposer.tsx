@@ -31,6 +31,8 @@ import { AttachmentTiles, composerAttachmentToTile } from "./attachmentTiles";
 import { useComposerSketch } from "./useComposerSketch";
 import { ComposerBrowserPanel } from "../browser/ComposerBrowserPanel";
 import { setBrowserPanelOpen, useThreadBrowserStore } from "../browser/threadBrowserStore";
+import { ComposerTerminalPanel } from "../terminal/ComposerTerminalPanel";
+import { setThreadTerminalOpen, useThreadTerminalStore } from "../terminal/threadTerminalStore";
 import { buildHandoffDefaults, buildThreadAgentOptions } from "./threadHandoffModel";
 import {
   canAssignComposerOwnerDirectly,
@@ -105,6 +107,13 @@ export function ThreadComposer({
     : null;
   const browserSession = useThreadBrowserStore((state) => (browserSessionKey ? state.sessions[browserSessionKey] : undefined));
   const browserAvailable = agentSettings.enable_web_browsing_tool && Boolean(browserSessionKey);
+  const terminalOpen = useThreadTerminalStore((state) => (browserSessionKey ? Boolean(state.open[browserSessionKey]) : false));
+  const terminalAvailable = Boolean(browserSessionKey) && typeof getBridge()?.startTerminalSession === "function";
+  const showOnlyPanel = (panel: "sketch" | "browser" | "terminal") => {
+    if (panel !== "sketch") sketch.hideSketch();
+    if (panel !== "browser" && browserSessionKey && browserSession?.panelOpen) setBrowserPanelOpen(browserSessionKey, false);
+    if (panel !== "terminal" && browserSessionKey && terminalOpen) setThreadTerminalOpen(browserSessionKey, false);
+  };
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [dropActive, setDropActive] = useState(false);
@@ -369,6 +378,7 @@ export function ThreadComposer({
   };
 
   const onPaste = (event: ClipboardEvent<HTMLDivElement>) => {
+    if (event.target instanceof Element && event.target.closest(".zorai-sketchpad")) return;
     const files = collectClipboardFiles(event.clipboardData);
     if (files.length === 0) return;
     event.preventDefault();
@@ -454,7 +464,10 @@ export function ThreadComposer({
             setAttachments((current) => current.filter((item) => item.id !== id));
             sketch.forgetAttachment(id);
           }}
-          onAnnotate={sketch.openAnnotation}
+          onAnnotate={(attachmentId) => {
+            showOnlyPanel("sketch");
+            sketch.openAnnotation(attachmentId);
+          }}
         />
       ) : null}
 
@@ -475,6 +488,7 @@ export function ThreadComposer({
       {targetError ? <p className="zorai-composer-budget-notice" role="alert">{targetError}</p> : null}
       {sketch.pad}
       {browserAvailable && browserSessionKey && browserSession?.panelOpen ? <ComposerBrowserPanel sessionKey={browserSessionKey} /> : null}
+      {terminalAvailable && browserSessionKey && terminalOpen ? <ComposerTerminalPanel sessionKey={browserSessionKey} cwd={workspaceContext?.root ?? undefined} workspaceId={runtime.activeThread?.workspaceId} /> : null}
       <div className="zorai-composer-box">
         <textarea
           ref={inputRef}
@@ -522,7 +536,10 @@ export function ThreadComposer({
               aria-label={sketch.sketchOpen ? "Hide sketchpad" : "Draw a sketch"}
               aria-pressed={sketch.sketchOpen}
               disabled={sketch.annotating}
-              onClick={sketch.toggleSketch}
+              onClick={() => {
+                if (!sketch.sketchOpen) showOnlyPanel("sketch");
+                sketch.toggleSketch();
+              }}
             >
               <ComposerIcon kind="sketch" />
             </button>
@@ -538,9 +555,29 @@ export function ThreadComposer({
                 title={browserSession?.panelOpen ? "Hide browser" : browserSession?.agentUsed ? "Show the browser Zorai is using" : "Open browser"}
                 aria-label={browserSession?.panelOpen ? "Hide browser" : "Open browser"}
                 aria-pressed={Boolean(browserSession?.panelOpen)}
-                onClick={() => setBrowserPanelOpen(browserSessionKey, !browserSession?.panelOpen)}
+                disabled={sketch.annotating}
+                onClick={() => {
+                  if (!browserSession?.panelOpen) showOnlyPanel("browser");
+                  setBrowserPanelOpen(browserSessionKey, !browserSession?.panelOpen);
+                }}
               >
                 <ComposerIcon kind="browser" />
+              </button>
+            ) : null}
+            {terminalAvailable && browserSessionKey ? (
+              <button
+                type="button"
+                className={["zorai-composer-icon-button", terminalOpen ? "zorai-composer-icon-button--toggled" : ""].filter(Boolean).join(" ")}
+                title={terminalOpen ? "Hide terminal" : "Open terminal"}
+                aria-label={terminalOpen ? "Hide terminal" : "Open terminal"}
+                aria-pressed={terminalOpen}
+                disabled={sketch.annotating}
+                onClick={() => {
+                  if (!terminalOpen) showOnlyPanel("terminal");
+                  setThreadTerminalOpen(browserSessionKey, !terminalOpen);
+                }}
+              >
+                <ComposerIcon kind="terminal" />
               </button>
             ) : null}
             <div className="zorai-composer-mode">
@@ -698,7 +735,7 @@ export function ThreadComposer({
   );
 }
 
-function ComposerIcon({ kind }: { kind: "attach" | "sketch" | "browser" | "mic" | "send" | "stop" | "queue" | "autoplay" | "edit" | "cancel" | "accept" }) {
+function ComposerIcon({ kind }: { kind: "attach" | "sketch" | "browser" | "terminal" | "mic" | "send" | "stop" | "queue" | "autoplay" | "edit" | "cancel" | "accept" }) {
   const common = {
     width: 16,
     height: 16,
@@ -731,6 +768,15 @@ function ComposerIcon({ kind }: { kind: "attach" | "sketch" | "browser" | "mic" 
         <circle cx="12" cy="12" r="9" />
         <path d="M3 12h18" />
         <path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z" />
+      </svg>
+    );
+  }
+  if (kind === "terminal") {
+    return (
+      <svg {...common}>
+        <rect x="2" y="4" width="20" height="16" rx="2" />
+        <path d="m6 9 3 3-3 3" />
+        <path d="M12 15h5" />
       </svg>
     );
   }

@@ -1,5 +1,6 @@
 import {
   drawSketchShape,
+  loadSketchImages,
   sketchBounds,
   sketchExportFrame,
   sketchHasInk,
@@ -10,6 +11,7 @@ import {
 export async function sketchToPngFile(shapes: readonly SketchShape[], background: string): Promise<File | null> {
   const bounds = sketchBounds(shapes);
   if (!bounds || !sketchHasInk(shapes)) return null;
+  await loadSketchImages(shapes);
   const frame = sketchExportFrame(bounds);
   const ink = document.createElement("canvas");
   ink.width = frame.width;
@@ -42,6 +44,7 @@ export async function annotateImageToPngFile(
   } catch {
     return null;
   }
+  await loadSketchImages(shapes);
   const ink = document.createElement("canvas");
   ink.width = background.width;
   ink.height = background.height;

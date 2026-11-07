@@ -25,6 +25,7 @@ export function useComposerSketch({
   hasDraft: boolean;
   annotating: boolean;
   toggleSketch: () => void;
+  hideSketch: () => void;
   openAnnotation: (attachmentId: string) => void;
   tileBadge: (attachmentId: string) => string | undefined;
   forgetAttachment: (attachmentId: string) => void;
@@ -165,6 +166,9 @@ export function useComposerSketch({
     hasDraft: sketchHasInk(sketchDraft),
     annotating: Boolean(annotating),
     toggleSketch: () => (sketchOpen ? saveSketchDraft() : openSketch()),
+    hideSketch: () => {
+      if (sketchOpen) saveSketchDraft();
+    },
     openAnnotation,
     tileBadge: (attachmentId) => (annotationHasDraft(annotations[attachmentId]) ? "draft" : undefined),
     forgetAttachment: (attachmentId) => {

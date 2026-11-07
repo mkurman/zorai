@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   backgroundBounds,
+  hitTestHandle,
+  resizeShape,
+  rotatedShapeBounds,
+  rotateShapeToward,
+  shapeCorners,
+  duplicateShapes,
+  imageShapeAt,
+  parseSketchClipboard,
+  serializeSketchClipboard,
   fitViewToBounds,
   fitViewToShapes,
   unionBounds,
@@ -138,5 +147,81 @@ describe("image annotation view", () => {
     expect(unionBounds(backgroundBounds({ src: "", width: 100, height: 50 }), { minX: -20, minY: 10, maxX: 40, maxY: 90 }))
       .toEqual({ minX: -20, minY: 0, maxX: 100, maxY: 90 });
     expect(unionBounds(null, { minX: 1, minY: 2, maxX: 3, maxY: 4 })).toEqual({ minX: 1, minY: 2, maxX: 3, maxY: 4 });
+  });
+});
+
+describe("sketch copy, paste and images", () => {
+  const stroke: SketchShape = { id: "s1", tool: "pen", color: "#e5484d", width: 4, points: [{ x: 0, y: 0 }, { x: 10, y: 5 }] };
+
+  it("round-trips copied shapes through clipboard text and ignores ordinary text", () => {
+    const text = serializeSketchClipboard([stroke]);
+
+    expect(parseSketchClipboard(text)).toEqual([stroke]);
+    expect(parseSketchClipboard("hello")).toBeNull();
+    expect(parseSketchClipboard("zorai-sketch:{broken")).toBeNull();
+    expect(parseSketchClipboard('zorai-sketch:[{"tool":"pen","points":[{"x":"a"}]}]')).toBeNull();
+  });
+
+  it("pastes copies under new ids, offset so they do not hide the original", () => {
+    let serial = 0;
+    const [copy] = duplicateShapes([stroke], 16, 16, () => `new-${++serial}`);
+
+    expect(copy.id).toBe("new-1");
+    expect(copy.points).toEqual([{ x: 16, y: 16 }, { x: 26, y: 21 }]);
+    expect(stroke.points[0]).toEqual({ x: 0, y: 0 });
+  });
+
+  it("centres an inserted image, shrinks it to fit the view, and lets select hit it anywhere inside", () => {
+    const image = imageShapeAt("img", "data:image/png;base64,AAAA", { width: 2000, height: 1000 }, { x: 100, y: 100 }, { width: 400, height: 400 });
+
+    expect(shapeBounds(image)).toEqual({ minX: -100, minY: 0, maxX: 300, maxY: 200 });
+    expect(hitTestShapes([image], { x: 100, y: 100 }, 0)?.id).toBe("img");
+    expect(sketchHasInk([image])).toBe(true);
+    expect(shapeBounds(imageShapeAt("small", "x", { width: 40, height: 20 }, { x: 0, y: 0 }, { width: 400, height: 400 }))).toEqual({ minX: -20, minY: -10, maxX: 20, maxY: 10 });
+  });
+});
+
+describe("resizing and rotating a selected object", () => {
+  const box: SketchShape = { id: "r", tool: "rect", color: "#000", width: 0, points: [{ x: 0, y: 0 }, { x: 100, y: 50 }] };
+
+  it("drags a corner while the opposite corner stays put", () => {
+    expect(shapeBounds(resizeShape(box, "se", { x: 200, y: 150 }, false))).toEqual({ minX: 0, minY: 0, maxX: 200, maxY: 150 });
+    expect(shapeBounds(resizeShape(box, "nw", { x: 50, y: 25 }, false))).toEqual({ minX: 50, minY: 25, maxX: 100, maxY: 50 });
+    expect(shapeBounds(resizeShape(box, "se", { x: 200, y: 60 }, true))).toEqual({ minX: 0, minY: 0, maxX: 200, maxY: 100 });
+  });
+
+  it("never collapses or flips an object dragged past its anchor", () => {
+    const squashed = shapeBounds(resizeShape(box, "se", { x: -500, y: -500 }, false))!;
+
+    expect(squashed.minX).toBe(0);
+    expect(squashed.maxX).toBeGreaterThan(0);
+    expect(squashed.maxY).toBeGreaterThan(0);
+  });
+
+  it("scales text and images proportionally so they do not distort", () => {
+    const text: SketchShape = { id: "t", tool: "text", color: "#000", width: 4, points: [{ x: 0, y: 0 }], text: "hi", textWidth: 40 };
+    const bigger = resizeShape(text, "se", { x: 80, y: 1 }, false);
+
+    expect(bigger.textWidth).toBeCloseTo(80);
+    expect(sketchFontSize(bigger.width)).toBeCloseTo(sketchFontSize(4) * 2);
+  });
+
+  it("rotates around the centre, snaps with Shift, and hit-tests in the rotated frame", () => {
+    const turned = rotateShapeToward(box, { x: 150, y: 25 }, false);
+    expect(turned.rotation).toBeCloseTo(Math.PI / 2);
+    expect(rotateShapeToward(box, { x: 52, y: -100 }, true).rotation).toBe(0);
+    expect(rotatedShapeBounds(turned)).toMatchObject({ minX: expect.closeTo(25), maxX: expect.closeTo(75), minY: expect.closeTo(-25), maxY: expect.closeTo(75) });
+    expect(hitTestShapes([turned], { x: 50, y: -20 }, 0)?.id).toBe("r");
+    expect(hitTestShapes([turned], { x: 95, y: 25 }, 0)).toBeNull();
+    expect(hitTestHandle(turned, { x: 50 + 47, y: 25 }, 4, 22)).toBe("rotate");
+  });
+
+  it("keeps the anchored corner fixed when resizing a rotated object", () => {
+    const turned = { ...box, rotation: Math.PI / 2 };
+    const anchorBefore = shapeCorners(turned)!.nw;
+    const resized = resizeShape(turned, "se", { x: -50, y: 200 }, false);
+
+    expect(shapeCorners(resized)!.nw.x).toBeCloseTo(anchorBefore.x);
+    expect(shapeCorners(resized)!.nw.y).toBeCloseTo(anchorBefore.y);
   });
 });
