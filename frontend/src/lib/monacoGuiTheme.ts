@@ -53,7 +53,7 @@ const GUI_COLOR_VARS: Record<keyof MonacoGuiColors, string> = {
 };
 
 export const DEFAULT_MONACO_GUI_COLORS: MonacoGuiColors = {
-  surface: "#141c28",
+  surface: "#161616",
   elevated: "#212e3e",
   panel: "#191919",
   text: "#f2f2f2",

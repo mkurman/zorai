@@ -20,7 +20,7 @@ describe("monaco gui theme", () => {
 
     expect(theme.base).toBe("vs-dark");
     expect(theme.inherit).toBe(false);
-    expect(theme.colors["editor.background"]).toBe("#141c28");
+    expect(theme.colors["editor.background"]).toBe("#161616");
     expect(theme.colors["editor.foreground"]).toBe("#f2f2f2");
     expect(theme.colors["editorCursor.foreground"]).toBe("#5ee7df");
     expect(theme.colors["editorWidget.background"]).toBe("#212e3e");
@@ -51,7 +51,7 @@ describe("monaco gui theme", () => {
   it("composites translucent muted text onto the editor surface", () => {
     const theme = buildMonacoGuiTheme({
       ...DEFAULT_MONACO_GUI_COLORS,
-      surface: "#141c28",
+      surface: "#161616",
       muted: "rgba(242, 242, 242, 0.5)",
     });
 

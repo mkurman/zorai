@@ -3,18 +3,24 @@ import { getBridge } from "@/lib/bridge";
 import { useSettingsStore } from "@/lib/settingsStore";
 import {
   coerceThemeNameForAppearance,
+  getThemeByName,
   themesForAppearance,
 } from "@/lib/themes";
-import type { NightModePreference, UiFontScale } from "@/lib/types";
+import type { NightModePreference } from "@/lib/types";
 import {
+  DEFAULT_UI_FONT,
   NIGHT_MODE_OPTIONS,
-  UI_FONT_SCALE_OPTIONS,
+  UI_FONT_SCALE_MAX,
+  UI_FONT_SCALE_MIN,
+  UI_FONT_SCALE_STEP,
+  UI_FONT_SCALE_TICKS,
   normalizeNightMode,
   normalizeUiFontScale,
   resolveAppearance,
   systemPrefersDark,
 } from "@/lib/uiInterfacePrefs";
-import { buildTerminalFontOptions } from "./terminalFontOptions";
+import { FontPicker } from "./FontPicker";
+import { BUNDLED_UI_FONTS, buildTerminalFontOptions } from "./terminalFontOptions";
 
 export function InterfacePanel() {
   const settings = useSettingsStore((state) => state.settings);
@@ -67,35 +73,29 @@ export function InterfacePanel() {
     [settings.fontFamily, systemFonts],
   );
   const uiFontOptions = useMemo(
-    () => buildTerminalFontOptions(systemFonts, settings.uiFontFamily),
+    () => buildTerminalFontOptions(systemFonts, settings.uiFontFamily, BUNDLED_UI_FONTS),
     [settings.uiFontFamily, systemFonts],
   );
+
+  const themeUiFontName = themeFontName(getThemeByName(coerceThemeNameForAppearance(settings.themeName, appearance)).fonts?.ui);
 
   return (
     <SettingsGrid>
       <Panel section="Interface" title="Shell appearance">
         <SettingRow label="UI Font" description="Font family used across the Zorai interface chrome.">
-          <select
-            className="zorai-input"
+          <FontPicker
             value={settings.uiFontFamily}
-            onChange={(event) => updateSetting("uiFontFamily", event.target.value)}
-            style={{ fontFamily: settings.uiFontFamily }}
-          >
-            {uiFontOptions.map((font) => (
-              <option key={font} value={font} style={{ fontFamily: font }}>{font}</option>
-            ))}
-          </select>
+            options={uiFontOptions}
+            onChange={(font) => updateSetting("uiFontFamily", font)}
+            defaultLabel={`Theme default (${themeUiFontName})`}
+            previewFont={settings.uiFontFamily || "var(--font-ui)"}
+          />
         </SettingRow>
         <SettingRow label="UI Font Size" description="Scale interface typography without changing terminal text size.">
-          <select
-            className="zorai-input"
+          <UiFontScaleSlider
             value={normalizeUiFontScale(settings.uiFontScale)}
-            onChange={(event) => updateSetting("uiFontScale", event.target.value as UiFontScale)}
-          >
-            {UI_FONT_SCALE_OPTIONS.map((option) => (
-              <option key={option.id} value={option.id}>{option.label}</option>
-            ))}
-          </select>
+            onChange={(scale) => updateSetting("uiFontScale", scale)}
+          />
         </SettingRow>
         <SettingRow label="Night Mode" description="Default stays on. Auto follows the system appearance preference.">
           <select
@@ -128,16 +128,11 @@ export function InterfacePanel() {
 
       <Panel section="Terminal" title="Shell presentation">
         <SettingRow label="Terminal Font" description="Font used by standard and infinite-canvas terminals.">
-          <select
-            className="zorai-input"
+          <FontPicker
             value={settings.fontFamily}
-            onChange={(event) => updateSetting("fontFamily", event.target.value)}
-            style={{ fontFamily: settings.fontFamily }}
-          >
-            {fontOptions.map((font) => (
-              <option key={font} value={font} style={{ fontFamily: font }}>{font}</option>
-            ))}
-          </select>
+            options={fontOptions}
+            onChange={(font) => updateSetting("fontFamily", font)}
+          />
         </SettingRow>
         <NumberRow
           label="Font Size"
@@ -161,6 +156,50 @@ export function InterfacePanel() {
         <Metric label="Goals" value="ctrl+g" />
       </Panel>
     </SettingsGrid>
+  );
+}
+
+function themeFontName(stack: string | undefined): string {
+  const first = stack?.split(",")[0]?.trim().replace(/^["']|["']$/g, "");
+  return first || DEFAULT_UI_FONT;
+}
+
+function UiFontScaleSlider({ value, onChange }: { value: number; onChange: (scale: number) => void }) {
+  const percent = (scale: number) => `${Math.round(scale * 1000) / 10}%`;
+  const position = (scale: number) => `${((scale - UI_FONT_SCALE_MIN) / (UI_FONT_SCALE_MAX - UI_FONT_SCALE_MIN)) * 100}%`;
+  return (
+    <div className="zorai-scale-slider">
+      <div className="zorai-scale-slider__control">
+        <input
+          type="range"
+          min={UI_FONT_SCALE_MIN}
+          max={UI_FONT_SCALE_MAX}
+          step={UI_FONT_SCALE_STEP}
+          value={value}
+          aria-label="UI font scale"
+          aria-valuetext={percent(value)}
+          onChange={(event) => onChange(normalizeUiFontScale(Number(event.target.value)))}
+          onDoubleClick={() => onChange(1)}
+        />
+        <button type="button" className="zorai-scale-slider__value" title="Reset to 100%" onClick={() => onChange(1)}>
+          {percent(value)}
+        </button>
+      </div>
+      <div className="zorai-scale-slider__ticks" aria-hidden="true">
+        {UI_FONT_SCALE_TICKS.map((tick) => {
+          const major = Math.round(tick * 100) % 25 === 0;
+          return (
+            <i
+              key={tick}
+              className={`zorai-scale-slider__tick${major ? " is-major" : ""}${tick === value ? " is-current" : ""}`}
+              style={{ left: position(tick) }}
+              data-label={major ? percent(tick) : undefined}
+              onClick={() => onChange(tick)}
+            />
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
