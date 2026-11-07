@@ -255,6 +255,30 @@ export function rotateShapeToward(shape: SketchShape, pointer: SketchPoint, snap
   return { ...shape, rotation: Math.abs(angle) < 1e-9 ? 0 : angle };
 }
 
+export function normalizeBounds(a: SketchPoint, b: SketchPoint): SketchBounds {
+  return { minX: Math.min(a.x, b.x), minY: Math.min(a.y, b.y), maxX: Math.max(a.x, b.x), maxY: Math.max(a.y, b.y) };
+}
+
+export function shapesInMarquee(shapes: readonly SketchShape[], marquee: SketchBounds): string[] {
+  return shapes
+    .filter((shape) => {
+      if (shape.tool === "eraser") return false;
+      const bounds = rotatedShapeBounds(shape);
+      return Boolean(bounds)
+        && bounds!.minX <= marquee.maxX && bounds!.maxX >= marquee.minX
+        && bounds!.minY <= marquee.maxY && bounds!.maxY >= marquee.minY;
+    })
+    .map((shape) => shape.id);
+}
+
+export function toggleSelection(selected: readonly string[], id: string): string[] {
+  return selected.includes(id) ? selected.filter((entry) => entry !== id) : [...selected, id];
+}
+
+export function mergeSelection(base: readonly string[], added: readonly string[]): string[] {
+  return [...base, ...added.filter((id) => !base.includes(id))];
+}
+
 export function sketchBounds(shapes: readonly SketchShape[]): SketchBounds | null {
   const bounds: SketchBounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
   for (const shape of shapes) {

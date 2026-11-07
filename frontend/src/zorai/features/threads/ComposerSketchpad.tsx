@@ -9,6 +9,8 @@ import {
   imageShapeAt,
   isFreehandTool,
   loadSketchImages,
+  mergeSelection,
+  normalizeBounds,
   parseSketchClipboard,
   resizeShape,
   rotateHandlePosition,
@@ -22,6 +24,8 @@ import {
   sketchHasInk,
   sketchTextLines,
   serializeSketchClipboard,
+  shapesInMarquee,
+  toggleSelection,
   translateShape,
   unionBounds,
   worldToScreen,
@@ -59,13 +63,18 @@ type SketchTextEditor = {
   width: number;
 };
 
-type SketchMove = { pointerId: number; origin: SketchPoint; shape: SketchShape; dx: number; dy: number };
+type SketchMove = { pointerId: number; origin: SketchPoint; ids: string[]; dx: number; dy: number };
+type SketchMarquee = { pointerId: number; start: SketchPoint; end: SketchPoint; base: string[] };
 type SketchTransform = { pointerId: number; handle: SketchHandle; shape: SketchShape; preview: SketchShape | null };
 
 const HANDLE_HIT_PX = 8;
 const HANDLE_SIZE_PX = 8;
 const ROTATE_HANDLE_PX = 22;
 const HANDLE_CURSORS: Record<SketchHandle, string> = { nw: "nwse-resize", se: "nwse-resize", ne: "nesw-resize", sw: "nesw-resize", rotate: "grab" };
+
+function marqueeHasArea(marquee: SketchMarquee, scale: number): boolean {
+  return Math.hypot(marquee.end.x - marquee.start.x, marquee.end.y - marquee.start.y) * scale > 3;
+}
 
 function newShapeId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -132,17 +141,21 @@ export function ComposerSketchpad({
   const [past, setPast] = useState<SketchShape[][]>([]);
   const [future, setFuture] = useState<SketchShape[][]>([]);
   const [spaceHeld, setSpaceHeld] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editor, setEditor] = useState<SketchTextEditor | null>(null);
   const draftRef = useRef<SketchShape | null>(null);
   const panRef = useRef<{ pointerId: number; last: SketchPoint } | null>(null);
   const moveRef = useRef<SketchMove | null>(null);
+  const marqueeRef = useRef<SketchMarquee | null>(null);
   const transformRef = useRef<SketchTransform | null>(null);
   const [hoverHandle, setHoverHandle] = useState<SketchHandle | null>(null);
   const editorRef = useRef(editor);
   editorRef.current = editor;
-  const selectedIdRef = useRef(selectedId);
-  selectedIdRef.current = selectedId;
+  const selectedIdsRef = useRef(selectedIds);
+  selectedIdsRef.current = selectedIds;
+  const singleSelected = () => (selectedIdsRef.current.length === 1
+    ? shapesRef.current.find((shape) => shape.id === selectedIdsRef.current[0]) ?? null
+    : null);
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
   const fittedBackgroundRef = useRef(false);
   const viewRef = useRef(view);
@@ -165,20 +178,56 @@ export function ComposerSketchpad({
     const move = moveRef.current;
     const transform = transformRef.current;
     const editingId = editorRef.current?.id;
-    let selected: SketchShape | null = null;
+    const marquee = marqueeRef.current;
+    const marqueeBounds = marquee && marqueeHasArea(marquee, current.scale) ? normalizeBounds(marquee.start, marquee.end) : null;
+    const highlighted = marquee && marqueeBounds
+      ? mergeSelection(marquee.base, shapesInMarquee(shapesRef.current, marqueeBounds))
+      : selectedIdsRef.current;
+    const selectedShapes: SketchShape[] = [];
     for (const stored of shapesRef.current) {
       if (stored.id === editingId) continue;
-      const shape = move && stored.id === move.shape.id
-        ? translateShape(move.shape, move.dx, move.dy)
+      const shape = move && move.ids.includes(stored.id)
+        ? translateShape(stored, move.dx, move.dy)
         : transform?.preview && stored.id === transform.shape.id ? transform.preview : stored;
-      if (shape.id === selectedIdRef.current) selected = shape;
+      if (highlighted.includes(shape.id)) selectedShapes.push(shape);
       drawSketchShape(ctx, shape);
     }
     if (draftRef.current) drawSketchShape(ctx, draftRef.current);
+    const accentColor = canvas.parentElement
+      ? getComputedStyle(canvas.parentElement).getPropertyValue("--zorai-accent").trim() || "#3b82f6"
+      : "#3b82f6";
+    if (selectedShapes.length > 1 || marquee) {
+      const unit = 1 / current.scale;
+      ctx.save();
+      ctx.strokeStyle = accentColor;
+      ctx.lineWidth = unit;
+      ctx.setLineDash([4 * unit, 3 * unit]);
+      for (const shape of selectedShapes) {
+        const outline = shapeCorners(shape);
+        if (!outline) continue;
+        ctx.beginPath();
+        ctx.moveTo(outline.nw.x, outline.nw.y);
+        ctx.lineTo(outline.ne.x, outline.ne.y);
+        ctx.lineTo(outline.se.x, outline.se.y);
+        ctx.lineTo(outline.sw.x, outline.sw.y);
+        ctx.closePath();
+        ctx.stroke();
+      }
+      if (marqueeBounds) {
+        ctx.setLineDash([]);
+        ctx.fillStyle = accentColor;
+        ctx.globalAlpha = 0.12;
+        ctx.fillRect(marqueeBounds.minX, marqueeBounds.minY, marqueeBounds.maxX - marqueeBounds.minX, marqueeBounds.maxY - marqueeBounds.minY);
+        ctx.globalAlpha = 1;
+        ctx.strokeRect(marqueeBounds.minX, marqueeBounds.minY, marqueeBounds.maxX - marqueeBounds.minX, marqueeBounds.maxY - marqueeBounds.minY);
+      }
+      ctx.restore();
+    }
+    const selected = selectedShapes.length === 1 && !marquee ? selectedShapes[0] : null;
     const corners = selected ? shapeCorners(selected) : null;
     const rotateHandle = selected ? rotateHandlePosition(selected, ROTATE_HANDLE_PX / current.scale) : null;
-    if (corners && rotateHandle && canvas.parentElement) {
-      const accent = getComputedStyle(canvas.parentElement).getPropertyValue("--zorai-accent").trim() || "#3b82f6";
+    if (corners && rotateHandle) {
+      const accent = accentColor;
       const unit = 1 / current.scale;
       ctx.save();
       ctx.strokeStyle = accent;
@@ -234,7 +283,7 @@ export function ComposerSketchpad({
 
   useEffect(() => {
     draw();
-  }, [draw, shapes, view, selectedId, editor]);
+  }, [draw, shapes, view, selectedIds, editor]);
 
   useEffect(() => {
     let live = true;
@@ -339,20 +388,20 @@ export function ComposerSketchpad({
   };
 
   const editText = (shape: SketchShape) => {
-    setSelectedId(null);
+    setSelectedIds([]);
     setEditor({ id: shape.id, anchor: shape.points[0], value: shape.text ?? "", color: shape.color, width: shape.width });
   };
 
   const chooseTool = (next: SketchTool) => {
     commitEditor();
-    if (next !== "select") setSelectedId(null);
+    if (next !== "select") setSelectedIds([]);
     setTool(next);
   };
 
   const deleteSelected = () => {
-    if (!selectedId) return;
-    commit(shapesRef.current.filter((shape) => shape.id !== selectedId));
-    setSelectedId(null);
+    if (selectedIds.length === 0) return;
+    commit(shapesRef.current.filter((shape) => !selectedIds.includes(shape.id)));
+    setSelectedIds([]);
   };
 
   const addShapes = (added: SketchShape[]) => {
@@ -360,7 +409,7 @@ export function ComposerSketchpad({
     commitEditor();
     commit([...shapesRef.current, ...added]);
     setTool("select");
-    setSelectedId(added[added.length - 1].id);
+    setSelectedIds(added.map((shape) => shape.id));
     surfaceRef.current?.focus();
   };
 
@@ -382,14 +431,14 @@ export function ComposerSketchpad({
   clipboardRef.current = {
     copy: (event, cut) => {
       if (!surfaceRef.current || document.activeElement !== surfaceRef.current || editorRef.current || !event.clipboardData) return;
-      const shape = shapesRef.current.find((entry) => entry.id === selectedIdRef.current);
-      if (!shape) return;
+      const copied = shapesRef.current.filter((entry) => selectedIdsRef.current.includes(entry.id));
+      if (copied.length === 0) return;
       event.preventDefault();
-      event.clipboardData.setData("text/plain", serializeSketchClipboard([shape]));
+      event.clipboardData.setData("text/plain", serializeSketchClipboard(copied));
       lastPasteRef.current = null;
       if (cut) {
-        commit(shapesRef.current.filter((entry) => entry.id !== shape.id));
-        setSelectedId(null);
+        commit(shapesRef.current.filter((entry) => !selectedIdsRef.current.includes(entry.id)));
+        setSelectedIds([]);
       }
     },
     paste: (event) => {
@@ -477,7 +526,8 @@ export function ComposerSketchpad({
     const world = screenToWorld(viewRef.current, point);
     const tolerance = 6 / viewRef.current.scale;
     if (tool === "select") {
-      const selectedShape = shapesRef.current.find((shape) => shape.id === selectedIdRef.current);
+      const additive = event.ctrlKey || event.metaKey;
+      const selectedShape = additive ? null : singleSelected();
       const handle = selectedShape
         ? hitTestHandle(selectedShape, world, HANDLE_HIT_PX / viewRef.current.scale, ROTATE_HANDLE_PX / viewRef.current.scale)
         : null;
@@ -486,8 +536,19 @@ export function ComposerSketchpad({
         return;
       }
       const hit = hitTestShapes(shapesRef.current, world, tolerance);
-      setSelectedId(hit?.id ?? null);
-      if (hit) moveRef.current = { pointerId: event.pointerId, origin: world, shape: hit, dx: 0, dy: 0 };
+      if (hit && additive) {
+        setSelectedIds((current) => toggleSelection(current, hit.id));
+        return;
+      }
+      if (hit) {
+        const ids = selectedIdsRef.current.includes(hit.id) ? selectedIdsRef.current : [hit.id];
+        setSelectedIds(ids);
+        moveRef.current = { pointerId: event.pointerId, origin: world, ids, dx: 0, dy: 0 };
+        return;
+      }
+      const base = additive ? selectedIdsRef.current : [];
+      if (!additive) setSelectedIds([]);
+      marqueeRef.current = { pointerId: event.pointerId, start: world, end: world, base };
       return;
     }
     if (tool === "text") {
@@ -526,8 +587,14 @@ export function ComposerSketchpad({
       draw();
       return;
     }
+    const marquee = marqueeRef.current;
+    if (marquee && marquee.pointerId === event.pointerId) {
+      marquee.end = screenToWorld(viewRef.current, point);
+      draw();
+      return;
+    }
     if (tool === "select" && !moveRef.current && !draftRef.current) {
-      const selectedShape = shapesRef.current.find((shape) => shape.id === selectedIdRef.current);
+      const selectedShape = singleSelected();
       const world = screenToWorld(viewRef.current, point);
       const handle = selectedShape
         ? hitTestHandle(selectedShape, world, HANDLE_HIT_PX / viewRef.current.scale, ROTATE_HANDLE_PX / viewRef.current.scale)
@@ -573,12 +640,19 @@ export function ComposerSketchpad({
       else draw();
       return;
     }
+    const marquee = marqueeRef.current;
+    if (marquee?.pointerId === event.pointerId) {
+      marqueeRef.current = null;
+      const hits = marqueeHasArea(marquee, viewRef.current.scale) ? shapesInMarquee(shapesRef.current, normalizeBounds(marquee.start, marquee.end)) : [];
+      setSelectedIds(mergeSelection(marquee.base, hits));
+      draw();
+      return;
+    }
     const move = moveRef.current;
     if (move?.pointerId === event.pointerId) {
       moveRef.current = null;
       if (move.dx !== 0 || move.dy !== 0) {
-        const moved = translateShape(move.shape, move.dx, move.dy);
-        commit(shapesRef.current.map((shape) => (shape.id === moved.id ? moved : shape)));
+        commit(shapesRef.current.map((shape) => (move.ids.includes(shape.id) ? translateShape(shape, move.dx, move.dy) : shape)));
       } else {
         draw();
       }
@@ -607,14 +681,14 @@ export function ComposerSketchpad({
       setSpaceHeld(true);
       return;
     }
-    if ((event.key === "Delete" || event.key === "Backspace") && selectedId) {
+    if ((event.key === "Delete" || event.key === "Backspace") && selectedIds.length > 0) {
       event.preventDefault();
       deleteSelected();
       return;
     }
     if (event.key === "Escape") {
       event.preventDefault();
-      if (selectedId) setSelectedId(null);
+      if (selectedIds.length > 0) setSelectedIds([]);
       else onClose();
       return;
     }
@@ -854,7 +928,7 @@ export function ComposerSketchpad({
         {shapes.length === 0 && background ? (
           <span className="zorai-sketchpad__hint">Draw on the image · Save to image replaces the attachment · Esc cancels</span>
         ) : shapes.length === 0 ? (
-          <span className="zorai-sketchpad__hint">Draw here · T for text, V to select and move · Ctrl+C / Ctrl+V copies shapes or pastes images · Space or middle-drag to pan · Ctrl+scroll to zoom · Save & attach adds it as a PNG</span>
+          <span className="zorai-sketchpad__hint">Draw here · T for text, V to select (drag a box, Ctrl+click to add) · Ctrl+C / Ctrl+V copies shapes or pastes images · Space or middle-drag to pan · Ctrl+scroll to zoom · Save & attach adds it as a PNG</span>
         ) : null}
       </div>
     </div>

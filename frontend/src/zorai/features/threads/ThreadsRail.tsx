@@ -1,6 +1,7 @@
 import { LoadingState, ThreadListSkeleton } from "@/components/LoadingState";
 import { RefreshButton } from "@/zorai/shell/RefreshButton";
-import { memo, startTransition, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { threadDateGroupLabel } from "./threadDateGroups";
+import { Fragment, memo, startTransition, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import type { AgentChatPanelRuntimeValue } from "@/components/agent-chat-panel/runtime/types";
 import { ACTIVE_RUN_POLL_MS, fetchAgentRuns, IDLE_RUN_POLL_MS, runListIsActive, type AgentRun } from "@/lib/agentRuns";
@@ -108,6 +109,9 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
   const toggleFavorite = useThreadRailTabStore((state) => state.toggleFavorite);
   const agentDisplayName = useAgentDisplayName();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const showSearch = searchOpen || Boolean(runtime.searchQuery);
   const [pickerQuery, setPickerQuery] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilterId>(DEFAULT_THREAD_DATE_FILTER);
   const [fromDate, setFromDate] = useState("");
@@ -220,8 +224,11 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
 
   useEffect(() => {
     const focusSearch = () => {
-      searchInputRef.current?.focus();
-      searchInputRef.current?.select();
+      setSearchOpen(true);
+      window.requestAnimationFrame(() => {
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      });
     };
     if (consumePendingFocusSearch()) focusSearch();
     const onFocusSearch = () => {
@@ -301,7 +308,7 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
       <div className="zorai-rail-actions">
         <button
           type="button"
-          className="zorai-primary-button"
+          className="zorai-rail-new-thread"
           onClick={() => {
             runtime.createThread({
               workspaceId: runtime.activeWorkspace?.id ?? null,
@@ -312,12 +319,58 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
             runtime.setView("chat");
           }}
         >
-          + New Thread
+          <ThreadRowIcon kind="new" />
+          New thread
         </button>
-        <RefreshButton onClick={() => { refreshSelectedTab(); refreshGatewayThreadIds(); }} disabled={loadingTab !== null} busy={loadingTab !== null} />
       </div>
+      <div className="zorai-thread-section">
+        <button
+          type="button"
+          className="zorai-thread-section__label"
+          aria-expanded={filtersOpen}
+          title="Show filters"
+          onClick={() => setFiltersOpen((open) => !open)}
+        >
+          {[threadTabs.find((item) => item.id === tab)?.label ?? "Threads", dateFilters.find((item) => item.id === dateFilter)?.label].filter(Boolean).join(" · ")}
+        </button>
+        <button
+          type="button"
+          className={["zorai-icon-button", "zorai-thread-section__icon", showSearch ? "is-active" : ""].filter(Boolean).join(" ")}
+          aria-expanded={showSearch}
+          aria-label="Search threads"
+          title="Search threads (Ctrl+F)"
+          onClick={() => {
+            if (showSearch) {
+              runtime.setSearchQuery("");
+              setSearchOpen(false);
+            } else {
+              setSearchOpen(true);
+              window.requestAnimationFrame(() => searchInputRef.current?.focus());
+            }
+          }}
+        >
+          <ThreadRowIcon kind="search" />
+        </button>
+        <button
+          type="button"
+          className={["zorai-icon-button", "zorai-thread-section__icon", filtersOpen ? "is-active" : ""].filter(Boolean).join(" ")}
+          aria-expanded={filtersOpen}
+          aria-label="Filters"
+          title="Filters"
+          onClick={() => setFiltersOpen((open) => !open)}
+        >
+          <ThreadRowIcon kind="filter" />
+        </button>
+        <RefreshButton className="zorai-thread-section__icon" onClick={() => { refreshSelectedTab(); refreshGatewayThreadIds(); }} disabled={loadingTab !== null} busy={loadingTab !== null} />
+      </div>
+      {showSearch ? (
       <div className="zorai-search-field">
-        <input ref={searchInputRef} className="zorai-search-input" value={runtime.searchQuery} onChange={(event) => runtime.setSearchQuery(event.target.value)} placeholder="Search threads" />
+        <input ref={searchInputRef} className="zorai-search-input" value={runtime.searchQuery} onChange={(event) => runtime.setSearchQuery(event.target.value)} placeholder="Search threads" onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            runtime.setSearchQuery("");
+            setSearchOpen(false);
+          }
+        }} />
         {runtime.searchQuery ? (
           <button
             type="button"
@@ -333,8 +386,9 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
           </button>
         ) : null}
       </div>
+      ) : null}
+      {filtersOpen ? (
       <div className="zorai-thread-filters">
-        <summary>Filters</summary>
       <div className="zorai-thread-filter-tabs" aria-label="Thread source filters">
         {visibleTabs.map((item) => (
           <button
@@ -422,6 +476,7 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
         ) : null}
       </div>
       </div>
+      ) : null}
       {searchActive ? (
         <ThreadSearchResults
           query={runtime.searchQuery.trim()}
@@ -436,7 +491,9 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
           <ThreadListSkeleton />
         ) : listedThreads.length === 0 ? (
           <div className="zorai-empty">No threads match this search.</div>
-        ) : listedThreads.map((thread) => {
+        ) : listedThreads.map((thread, index) => {
+          const group = threadDateGroupLabel(thread.updatedAt, now);
+          const groupStarts = index === 0 || threadDateGroupLabel(listedThreads[index - 1].updatedAt, now) !== group;
           const loading = isThreadLoading(threadLoadingByThreadId, thread.id, thread.daemonThreadId);
           const active = thread.id === runtime.activeThreadId || thread.daemonThreadId === runtime.activeThread?.daemonThreadId;
           const working = threadIsWorking(
@@ -448,8 +505,9 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
           const unread = threadIsUnread(thread, readKey ? lastReadAtByThread[readKey] ?? null : null, Boolean(active));
           const workers = workerCountForThread(thread, runs);
           return (
+            <Fragment key={thread.daemonThreadId ?? thread.id}>
+            {groupStarts ? <div className="zorai-thread-group-label">{group}</div> : null}
             <ThreadSessionRow
-              key={thread.daemonThreadId ?? thread.id}
               thread={thread}
               active={Boolean(active)}
               loading={loading}
@@ -477,6 +535,7 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
                 setDaemonFilteredThreads((current) => current?.filter((item) => item.id !== thread.id) ?? null);
               }}
             />
+            </Fragment>
           );
         })}
       </div>
@@ -660,7 +719,26 @@ function threadHistoryLabel(thread: AgentThread): string {
   return "0 msgs";
 }
 
-function ThreadRowIcon({ kind }: { kind: "rename" | "delete" }) {
+function ThreadRowIcon({ kind }: { kind: "rename" | "delete" | "new" | "filter" | "search" }) {
+  if (kind === "new" || kind === "filter" || kind === "search") {
+    return (
+      <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        {kind === "new" ? (
+          <>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 8v8M8 12h8" />
+          </>
+        ) : kind === "search" ? (
+          <>
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+          </>
+        ) : (
+          <path d="M4 6h16M7 12h10M10 18h4" />
+        )}
+      </svg>
+    );
+  }
   return (
     <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {kind === "rename" ? (

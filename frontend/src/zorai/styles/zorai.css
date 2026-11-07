@@ -7359,3 +7359,109 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-sketchpad__surface.is-drop-target {
   box-shadow: inset 0 0 0 2px var(--zorai-accent);
 }
+
+.zorai-rail-actions:has(> .zorai-rail-new-thread:only-child) {
+  grid-template-columns: 1fr;
+}
+
+.zorai-rail-new-thread {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  border: 1px solid var(--zorai-border);
+  border-radius: 10px;
+  background: var(--zorai-bg-elevated);
+  color: var(--zorai-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.zorai-rail-new-thread:hover {
+  border-color: var(--zorai-border-strong);
+  background: var(--zorai-bg-active);
+}
+
+.zorai-thread-section {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 4px;
+  padding: 0 2px 0 6px;
+}
+
+.zorai-thread-section__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--zorai-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.zorai-thread-section__label:hover {
+  color: var(--zorai-text);
+}
+
+.zorai-icon-button.zorai-thread-section__icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-color: transparent;
+  border-radius: 7px;
+  color: var(--zorai-muted);
+}
+
+.zorai-icon-button.zorai-thread-section__icon:hover:not(:disabled),
+.zorai-icon-button.zorai-thread-section__icon.is-active {
+  background: var(--zorai-bg-elevated);
+  color: var(--zorai-text);
+}
+
+.zorai-thread-group-label {
+  padding: 12px 8px 4px;
+  color: var(--zorai-muted);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.zorai-thread-group-label:first-child {
+  padding-top: 4px;
+}
+
+.zorai-thread-list .zorai-thread-row {
+  min-height: 34px;
+  border-radius: 8px;
+}
+
+.zorai-thread-list .zorai-thread-row__main {
+  padding: 7px 10px;
+}
+
+.zorai-thread-list .zorai-thread-row--active .zorai-thread-title {
+  color: var(--zorai-text);
+  font-weight: 600;
+}
+
+.zorai-thread-list .zorai-thread-title {
+  color: color-mix(in srgb, var(--zorai-text) 82%, transparent);
+  font-weight: 400;
+}
+
+.zorai-thread-list .zorai-thread-activity {
+  opacity: 0.7;
+}
