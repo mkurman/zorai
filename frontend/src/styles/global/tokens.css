@@ -37,7 +37,7 @@
   --bg-deep: #050810;
   --bg-primary: #191919;
   --bg-secondary: #0f1520;
-  --bg-tertiary: #141c28;
+  --bg-tertiary: #161616;
   --bg-surface: #0c111a;
   --bg-elevated: #212e3e;
   --bg-canvas: #060a10;
@@ -232,9 +232,9 @@
    * Font families, sizes, weights, and line heights
    * ═══════════════════════════════════════════════════════════════════════ */
   
-  --font-ui: "Inter Variable",Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  --font-mono: "Söhne Mono","Sohne Mono","IBM Plex Mono","IBM Plex Mono Fallback",ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
-  --font-display: var(--font-ui);
+  --font-ui: "Inter Variable", Inter, "Segoe UI", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+  --font-display: "Inter Variable", Inter, "Segoe UI", Arial, sans-serif;
   --ui-font-scale: 1.0;
   
   --text-2xs: calc(10px * var(--ui-font-scale));

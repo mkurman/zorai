@@ -12,8 +12,8 @@ import { getAppShellTheme } from "./themesAppShell";
 
 describe("uiInterfacePrefs", () => {
   it("normalizes scale and night mode with night-on defaults", () => {
-    expect(normalizeUiFontScale("large")).toBe("large");
-    expect(normalizeUiFontScale("nope")).toBe("medium");
+    expect(normalizeUiFontScale(1.1)).toBe(1.1);
+    expect(normalizeUiFontScale("nope")).toBe(1);
     expect(normalizeNightMode("auto")).toBe("auto");
     expect(normalizeNightMode("nope")).toBe("on");
   });
@@ -29,6 +29,18 @@ describe("uiInterfacePrefs", () => {
     expect(UI_FONT_SCALE_FACTORS.small).toBeLessThan(UI_FONT_SCALE_FACTORS.medium);
     expect(UI_FONT_SCALE_FACTORS.medium).toBeLessThan(UI_FONT_SCALE_FACTORS.large);
     expect(UI_FONT_SCALE_FACTORS.large).toBeLessThan(UI_FONT_SCALE_FACTORS["very-large"]);
+  });
+
+  it("keeps saved named sizes working after the switch to a numeric scale", () => {
+    expect(normalizeUiFontScale("large")).toBe(UI_FONT_SCALE_FACTORS.large);
+    expect(normalizeUiFontScale("small")).toBe(0.875);
+  });
+
+  it("clamps and snaps the scale so the slider can never produce an unreadable or off-tick size", () => {
+    expect(normalizeUiFontScale(3)).toBe(1.5);
+    expect(normalizeUiFontScale(0.1)).toBe(0.75);
+    expect(normalizeUiFontScale(1.0700000001)).toBe(1.075);
+    expect(normalizeUiFontScale(Number.NaN)).toBe(1);
   });
 
   it("quotes selected UI fonts in the CSS stack", () => {
@@ -99,7 +111,7 @@ describe("ClinicalGym theme", () => {
     expect(coerceThemeNameForAppearance("ClinicalGym Dark", "light")).toBe("ClinicalGym");
   });
 
-  it("applies the site fonts over the UI font setting and restores defaults when another theme is chosen", () => {
+  it("applies the site fonts when the UI font is left on theme default and restores defaults when another theme is chosen", () => {
     const properties = new Map<string, string>();
     const root = {
       dataset: {} as Record<string, string>,
@@ -111,14 +123,35 @@ describe("ClinicalGym theme", () => {
       },
     };
     vi.stubGlobal("document", { documentElement: root });
-    applyUiInterfacePrefs({ uiFontFamily: "Cascadia Code", uiFontScale: "medium", appearance: "light", themeName: "ClinicalGym", themeFonts: getThemeByName("ClinicalGym").fonts });
+    applyUiInterfacePrefs({ uiFontFamily: "", uiFontScale: 1, appearance: "light", themeName: "ClinicalGym", themeFonts: getThemeByName("ClinicalGym").fonts });
     expect(root.style.getPropertyValue("--font-ui")).toContain("Inter Variable");
     expect(root.style.getPropertyValue("--font-mono")).toContain("ui-monospace");
     expect(root.dataset.theme).toBe("clinicalgym");
-    applyUiInterfacePrefs({ uiFontFamily: "Cascadia Code", uiFontScale: "medium", appearance: "light", themeName: "GitHub Light", themeFonts: getThemeByName("GitHub Light").fonts });
+    applyUiInterfacePrefs({ uiFontFamily: "Cascadia Code", uiFontScale: 1, appearance: "light", themeName: "GitHub Light", themeFonts: getThemeByName("GitHub Light").fonts });
     expect(root.style.getPropertyValue("--font-ui")).toContain('"Cascadia Code"');
     expect(root.style.getPropertyValue("--font-mono")).toBe("");
     expect(root.dataset.theme).toBe("github-light");
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("explicit UI font", () => {
+  it("wins over theme fonts so picking a font under ClinicalGym actually changes the interface", () => {
+    const properties = new Map<string, string>();
+    const root = {
+      dataset: {} as Record<string, string>,
+      style: {
+        colorScheme: "",
+        setProperty: (name: string, value: string) => properties.set(name, value),
+        removeProperty: (name: string) => properties.delete(name),
+        getPropertyValue: (name: string) => properties.get(name) ?? "",
+      },
+    };
+    vi.stubGlobal("document", { documentElement: root });
+    applyUiInterfacePrefs({ uiFontFamily: "Ubuntu Sans", uiFontScale: 1, appearance: "light", themeName: "ClinicalGym", themeFonts: getThemeByName("ClinicalGym").fonts });
+    expect(root.style.getPropertyValue("--font-ui")).toContain('"Ubuntu Sans"');
+    expect(root.style.getPropertyValue("--font-ui")).not.toContain("Inter Variable");
+    expect(root.style.getPropertyValue("--font-display")).toBe("var(--font-ui)");
     vi.unstubAllGlobals();
   });
 });

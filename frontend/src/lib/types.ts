@@ -231,7 +231,7 @@ export interface TranscriptEntry {
 // ---------------------------------------------------------------------------
 // Settings (mirrors ZoraiConfig in Rust)
 // ---------------------------------------------------------------------------
-export type UiFontScale = "tiny" | "small" | "medium" | "large" | "very-large" | "huge";
+export type UiFontScale = number;
 export type NightModePreference = "on" | "off" | "auto";
 
 export interface ZoraiSettings {
@@ -296,8 +296,8 @@ export const DEFAULT_SETTINGS: ZoraiSettings = {
   fontFamily: "Cascadia Code",
   fontSize: 14,
   themeName: "Catppuccin Mocha",
-  uiFontFamily: "Cascadia Code",
-  uiFontScale: "medium",
+  uiFontFamily: "",
+  uiFontScale: 1,
   nightMode: "on",
   useCustomTerminalColors: false,
   customTerminalBackground: "",
