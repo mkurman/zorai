@@ -1166,6 +1166,10 @@
   padding: 14px 0 0;
 }
 
+.acp-md p:first-child {
+  padding-top: 0;
+}
+
 .acp-md a {
   color: var(--acp-link);
   text-decoration: underline;
