@@ -111,6 +111,47 @@ async fn accept_completes_goal_stops_worker_and_unpins_owner() {
 }
 
 #[tokio::test]
+async fn verdict_does_not_stop_the_owner_stream_that_submitted_it() {
+    for verdict in [
+        GoalSupervisorVerdict::Accept,
+        GoalSupervisorVerdict::HardReject,
+    ] {
+        let root = tempdir().expect("tempdir");
+        let manager = SessionManager::new_test(root.path()).await;
+        let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+        let goal = start_supervised_goal(&engine).await;
+        let worker = enqueue_worker(&engine, &goal.id).await;
+        let worker_thread_id = goal.thread_id.clone().expect("worker thread");
+        let owner_id = goal.supervision_thread_id.clone().expect("owner");
+        assert_eq!(worker.parent_thread_id.as_deref(), Some(owner_id.as_str()));
+        engine
+            .history
+            .upsert_agent_task(&worker)
+            .await
+            .expect("persist worker");
+        engine
+            .request_goal_review(&goal.id, &worker.id, "Done.")
+            .await
+            .expect("review");
+
+        engine
+            .submit_goal_review(&goal.id, verdict, "Verdict reason.", Some(&owner_id))
+            .await
+            .expect("verdict");
+
+        assert!(
+            !engine.operator_stream_stop_requested(&owner_id).await,
+            "{verdict:?} must let the owner keep streaming so it can tell the user the outcome"
+        );
+        assert!(
+            engine
+                .operator_stream_stop_requested(&worker_thread_id)
+                .await
+        );
+    }
+}
+
+#[tokio::test]
 async fn worker_thread_learns_the_verdict_so_it_is_not_left_waiting_on_review() {
     for (verdict, explanation, expected) in [
         (
