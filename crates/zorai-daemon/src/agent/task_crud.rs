@@ -1797,6 +1797,11 @@ impl AgentEngine {
                 }
             }
         }
+        if let Some(owner_thread_id) = goal_run.supervision_thread_id.as_deref() {
+            if goal_run.thread_id.as_deref() != Some(owner_thread_id) {
+                thread_ids.remove(owner_thread_id);
+            }
+        }
         thread_ids
     }
 
