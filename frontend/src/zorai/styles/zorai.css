@@ -3085,89 +3085,103 @@
 /* Queued messages chips above the composer */
 .zorai-composer-queue {
   display: grid;
-  gap: 6px;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .zorai-composer-queue__chip {
-  display: flex;
-  flex-direction: column;
-  align-items: space-between;
-  gap: 8px;
-  border: 1px dashed var(--zorai-border-strong);
-  border-radius: 8px;
-  background: var(--accent-dim);
-  padding: 6px 10px;
-  font-size: var(--text-sm);
+  overflow: hidden;
+  border: 1px solid var(--zorai-border-strong);
+  border-radius: 12px;
+  background: var(--zorai-bg-panel);
   color: var(--zorai-text);
+  font-size: var(--text-sm);
+}
+
+.zorai-composer-queue__chip--editing {
+  border-color: var(--zorai-accent);
 }
 
 .zorai-composer-queue__header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid var(--zorai-border);
 }
 
 .zorai-composer-queue__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
-  color: var(--zorai-accent);
+  color: var(--zorai-muted);
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+}
+
+.zorai-composer-queue__chip--editing .zorai-composer-queue__label {
+  color: var(--zorai-accent);
+}
+
+.zorai-composer-queue__count {
+  padding-left: 8px;
+  border-left: 1px solid var(--zorai-border);
 }
 
 .zorai-composer-queue__actions {
   display: flex;
-  justify-content: flex-end;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  margin-left: auto;
 }
 
-.zorai-composer-queue__text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: pre-wrap;
-  word-break: break-all;
-  width: 100%;
-  color: var(--zorai-muted);
-}
-
-.zorai-composer-queue__remove,
-.zorai-composer-queue__send-now {
-  flex-shrink: 0;
-  border: none;
-  background: transparent;
-  color: var(--zorai-muted);
-  cursor: pointer;
-  line-height: 1;
-  padding: 3px 5px;
-  border-radius: 4px;
-}
-
-.zorai-composer-queue__send-now {
+.zorai-composer-queue__primary {
+  border-color: var(--zorai-accent);
   color: var(--zorai-accent);
-  font-size: var(--text-xs);
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  white-space: nowrap;
-}
-
-.zorai-composer-queue__chip--editing {
-  border-style: solid;
 }
 
 .zorai-composer-queue__remove {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--zorai-muted);
   font-size: var(--text-base);
+  line-height: 1;
+  cursor: pointer;
 }
 
-.zorai-composer-queue__remove:hover,
-.zorai-composer-queue__send-now:hover {
-  color: var(--zorai-text);
+.zorai-composer-queue__remove:hover {
   background: var(--zorai-bg-elevated);
+  color: var(--zorai-text);
+}
+
+.zorai-composer-queue__body {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.zorai-composer-queue__text {
+  margin: 0;
+  color: var(--zorai-text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.zorai-composer-queue__attachments .zorai-attachment-tiles {
+  justify-content: flex-start;
 }
 
 /* Thinking indicator bubble */

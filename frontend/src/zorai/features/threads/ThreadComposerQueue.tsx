@@ -1,4 +1,5 @@
-import { queuedComposerLabel, type QueuedComposerMessage } from "./composerQueue";
+import { AttachmentTiles } from "./attachmentTiles";
+import { queuedComposerPreview, type QueuedComposerMessage } from "./composerQueue";
 
 export function ThreadComposerQueue({
   items,
@@ -17,7 +18,7 @@ export function ThreadComposerQueue({
   return (
     <div className="zorai-composer-queue">
       {items.map((queued, index) => {
-        const label = queuedComposerLabel(queued);
+        const { text, tiles } = queuedComposerPreview(queued);
         const editing = queued.id === editingId;
         return (
           <div
@@ -27,11 +28,18 @@ export function ThreadComposerQueue({
               .join(" ")}
           >
             <div className="zorai-composer-queue__header">
-              <span className="zorai-composer-queue__label">{editing ? "Editing" : `Queued ${index + 1}`}</span>
+              <span className="zorai-composer-queue__label">
+                {editing ? "Editing" : `Queued ${index + 1}`}
+                {tiles.length > 0 ? (
+                  <span className="zorai-composer-queue__count">
+                    {tiles.length} attachment{tiles.length === 1 ? "" : "s"}
+                  </span>
+                ) : null}
+              </span>
               <div className="zorai-composer-queue__actions">
                 <button
                   type="button"
-                  className="zorai-composer-queue__send-now"
+                  className="zorai-ghost-button zorai-ghost-button--compact"
                   title="Edit this queued message"
                   onClick={() => onEdit(queued)}
                 >
@@ -39,7 +47,7 @@ export function ThreadComposerQueue({
                 </button>
                 <button
                   type="button"
-                  className="zorai-composer-queue__send-now"
+                  className="zorai-ghost-button zorai-ghost-button--compact zorai-composer-queue__primary"
                   title="Interrupt the current response and send this message now"
                   onClick={() => onSendNow(queued.id)}
                 >
@@ -49,15 +57,20 @@ export function ThreadComposerQueue({
                   type="button"
                   className="zorai-composer-queue__remove"
                   aria-label="Cancel queued message"
+                  title="Cancel queued message"
                   onClick={() => onCancel(queued.id)}
                 >
                   ×
                 </button>
               </div>
             </div>
-            <div className="zorai-composer-queue__content">
-              <span className="zorai-composer-queue__text">{label.slice(0, 100)}</span>
-              {label.length > 100 ? <span className="zorai-composer-queue__text-ellipsis">…</span> : null}
+            <div className="zorai-composer-queue__body">
+              {text ? <p className="zorai-composer-queue__text" title={text}>{text}</p> : null}
+              {tiles.length > 0 ? (
+                <div className="zorai-composer-queue__attachments">
+                  <AttachmentTiles items={tiles} />
+                </div>
+              ) : null}
             </div>
           </div>
         );

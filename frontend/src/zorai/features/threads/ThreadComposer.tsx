@@ -18,6 +18,7 @@ import { useComposerDraftStore } from "./composerDraftStore";
 import { useComposerInputHistory } from "./composerInputHistory";
 import { applyComposerTextareaSize } from "./composerTextareaSize";
 import { ThreadComposerQueue } from "./ThreadComposerQueue";
+import { queuedComposerDraft } from "./composerQueue";
 import { OperatorQuestionDock } from "@/components/OperatorQuestionDock";
 import { useDaemonPromptQueue } from "./useDaemonPromptQueue";
 import { getBridge } from "@/lib/bridge";
@@ -253,9 +254,10 @@ export function ThreadComposer({
   };
 
   const startEditQueued = (item: (typeof queue.queuedMessages)[number]) => {
+    const draft = queuedComposerDraft(item);
     queue.startEdit(item);
-    setInput(item.text);
-    setAttachments([]);
+    setInput(draft.text);
+    setAttachments(draft.attachments);
     sketch.forgetAll();
   };
 
