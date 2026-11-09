@@ -792,6 +792,16 @@ impl AgentEngine {
             .is_some_and(|goal| goal.status == GoalRunStatus::Paused || goal.status.is_terminal())
     }
 
+    pub(in crate::agent) async fn thread_supervises_goal_awaiting_review(
+        &self,
+        thread_id: &str,
+    ) -> bool {
+        self.goal_runs.lock().await.iter().any(|goal| {
+            goal.status == GoalRunStatus::AwaitingReview
+                && goal.supervision_thread_id.as_deref() == Some(thread_id)
+        })
+    }
+
     async fn goal_for_execution_thread(&self, thread_id: &str) -> Option<GoalRun> {
         let refs = self
             .history
@@ -821,6 +831,7 @@ impl AgentEngine {
         if let Some(goal) = self.goal_for_execution_thread(thread_id).await {
             if (goal.status == GoalRunStatus::Paused || goal.status.is_terminal())
                 && !force_compaction_queued
+                && !self.thread_supervises_goal_awaiting_review(thread_id).await
             {
                 tracing::debug!(goal_run_id = %goal.id, thread_id, "not flushing deferred continuation for paused or terminal goal");
                 return Ok(());

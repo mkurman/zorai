@@ -431,3 +431,67 @@ async fn spawned_goal_child_does_not_steal_worker_thread_or_active_task() {
         .iter()
         .any(|id| id == "thread_spawned_helper"));
 }
+
+#[tokio::test]
+async fn review_wakes_owner_that_is_the_worker_thread_of_a_finished_goal() {
+    let root = tempdir().expect("tempdir");
+    let manager = SessionManager::new_test(root.path()).await;
+    let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+    let first = start_supervised_goal(&engine).await;
+    let first_worker = enqueue_worker(&engine, &first.id).await;
+    let first_thread_id = first.thread_id.clone().expect("first worker thread");
+    engine
+        .get_or_create_thread_with_target(Some(&first_thread_id), "First worker thread", None)
+        .await;
+    engine
+        .request_goal_review(&first.id, &first_worker.id, "Done.")
+        .await
+        .expect("first review");
+    let first_owner = first.supervision_thread_id.clone().expect("first owner");
+    engine
+        .submit_goal_review(&first.id, GoalSupervisorVerdict::Accept, "", Some(&first_owner))
+        .await
+        .expect("accept first");
+
+    let second = engine
+        .start_goal_run(
+            "Follow-up batch launched by the first worker".to_string(),
+            Some("Follow-up goal".to_string()),
+            Some(first_thread_id.clone()),
+            None,
+            Some("normal"),
+            None,
+            None,
+            None,
+        )
+        .await;
+    assert_eq!(second.supervision_thread_id.as_deref(), Some(first_thread_id.as_str()));
+    let second_worker = enqueue_worker(&engine, &second.id).await;
+    engine
+        .request_goal_review(&second.id, &second_worker.id, "Follow-up delivered.")
+        .await
+        .expect("second review");
+
+    assert!(
+        !engine
+            .deferred_visible_thread_continuations_for(&first_thread_id)
+            .await
+            .is_empty(),
+        "review wake should be queued on the owner thread"
+    );
+    assert!(engine.thread_supervises_goal_awaiting_review(&first_thread_id).await);
+
+    let _ = tokio::time::timeout(
+        std::time::Duration::from_secs(20),
+        engine.flush_deferred_visible_thread_continuations(&first_thread_id),
+    )
+    .await
+    .expect("flush should not hang");
+    assert!(
+        engine
+            .deferred_visible_thread_continuations_for(&first_thread_id)
+            .await
+            .is_empty(),
+        "the finished first goal must not block its thread from reviewing the second goal"
+    );
+}
