@@ -1,6 +1,7 @@
 import { LoadingState, ThreadListSkeleton } from "@/components/LoadingState";
 import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { threadDateGroupLabel } from "./threadDateGroups";
+import { ThreadRowHoverCard } from "./ThreadRowHoverCard";
 import { Fragment, memo, startTransition, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import type { AgentChatPanelRuntimeValue } from "@/components/agent-chat-panel/runtime/types";
@@ -515,7 +516,6 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
               unread={unread}
               workers={workers}
               activity={sessionActivityLabel(thread.updatedAt, now)}
-              history={threadHistoryLabel(thread)}
               editing={editingThreadId === thread.id}
               onOpen={() => void openListedThread(runtimeRef.current, thread)}
               onStartRename={() => setEditingThreadId(thread.id)}
@@ -605,7 +605,6 @@ function ThreadSessionRow({
   unread,
   workers,
   activity,
-  history,
   editing,
   onOpen,
   onStartRename,
@@ -620,7 +619,6 @@ function ThreadSessionRow({
   unread: boolean;
   workers: number;
   activity: string;
-  history: string;
   editing: boolean;
   onOpen: () => void;
   onStartRename: () => void;
@@ -629,6 +627,8 @@ function ThreadSessionRow({
   onDelete: () => void;
 }) {
   const [draft, setDraft] = useState(thread.title);
+  const [hoverAnchor, setHoverAnchor] = useState<DOMRect | null>(null);
+  const hoverTimerRef = useRef<number | null>(null);
   const status = working ? "working" : active ? "active" : unread ? "unread" : "idle";
   const statusLabel = [working ? "working" : "", unread ? "unread" : ""].filter(Boolean).join(", ");
 
@@ -636,10 +636,26 @@ function ThreadSessionRow({
     if (editing) setDraft(thread.title);
   }, [editing, thread.title]);
 
+  const hideHoverCard = () => {
+    if (hoverTimerRef.current != null) window.clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = null;
+    setHoverAnchor(null);
+  };
+
+  useEffect(() => hideHoverCard, []);
+
   return (
     <div
       className={["zorai-thread-row", active ? "zorai-thread-row--active" : "", loading ? "zorai-thread-row--loading" : ""].filter(Boolean).join(" ")}
       data-status={status}
+      onMouseEnter={(event) => {
+        if (editing) return;
+        const row = event.currentTarget;
+        if (hoverTimerRef.current != null) window.clearTimeout(hoverTimerRef.current);
+        hoverTimerRef.current = window.setTimeout(() => setHoverAnchor(row.getBoundingClientRect()), 550);
+      }}
+      onMouseLeave={hideHoverCard}
+      onMouseDown={hideHoverCard}
     >
       {editing ? (
         <input
@@ -673,7 +689,6 @@ function ThreadSessionRow({
           aria-current={active ? "page" : undefined}
           aria-busy={loading}
           aria-label={[thread.title, statusLabel].filter(Boolean).join(", ")}
-          title={`${thread.title} — ${history}`}
           onClick={onOpen}
           onDoubleClick={(event) => {
             event.preventDefault();
@@ -682,8 +697,7 @@ function ThreadSessionRow({
         >
           {status === "working" ? <span className="zorai-thread-dot zorai-thread-dot--working" aria-hidden="true" /> : null}
           <span className="zorai-thread-title">{thread.title}</span>
-          {workers > 0 ? <span className="zorai-thread-workers" title={`${workers} spawned ${workers === 1 ? "agent" : "agents"}`}>{workers}</span> : null}
-          {loading ? <LoadingState size={12} className="zorai-thread-item__spinner" /> : <span className="zorai-thread-activity">{activity}</span>}
+          {loading ? <LoadingState size={12} className="zorai-thread-item__spinner" /> : null}
         </button>
       )}
       {editing ? null : (
@@ -692,6 +706,7 @@ function ThreadSessionRow({
           <button type="button" className="zorai-thread-row__action zorai-thread-row__action--danger" aria-label={`Delete ${thread.title}`} title="Delete" onClick={onDelete}><ThreadRowIcon kind="delete" /></button>
         </span>
       )}
+      {hoverAnchor && !editing ? <ThreadRowHoverCard anchor={hoverAnchor} thread={thread} activity={activity} workers={workers} working={working} /> : null}
     </div>
   );
 }
@@ -711,12 +726,6 @@ function goalThreadIds(goalRuns: ReturnType<typeof useAgentChatPanelRuntime>["go
     }
   }
   return ids;
-}
-
-function threadHistoryLabel(thread: AgentThread): string {
-  if (thread.messageCount > 0) return `${thread.messageCount} msgs`;
-  if ((thread.totalInputTokens ?? 0) > 0 || (thread.totalOutputTokens ?? 0) > 0 || (thread.totalTokens ?? 0) > 0) return "history";
-  return "0 msgs";
 }
 
 function ThreadRowIcon({ kind }: { kind: "rename" | "delete" | "new" | "filter" | "search" }) {

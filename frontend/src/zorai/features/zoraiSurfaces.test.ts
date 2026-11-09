@@ -869,7 +869,7 @@ describe("Zorai feature surfaces", () => {
     expect(source).toContain("consumeThreadHistoryScroll");
     expect(source).toContain("fillThreadHistoryIfUnscrollable");
     expect(source).toContain("threadHasOlderHistory");
-    expect(railSource).toContain("threadHistoryLabel");
+    expect(railSource).toContain("ThreadRowHoverCard");
     expect(railSource).toContain("threadTabs");
     expect(railSource).toContain("visibleThreadTabs");
     expect(railSource).toContain("searchThreadTabs");

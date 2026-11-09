@@ -7699,3 +7699,112 @@ button.zorai-composer-context-chip { cursor: pointer; }
   font-style: normal;
   white-space: nowrap;
 }
+
+.zorai-thread-list .zorai-thread-row[data-status="unread"] .zorai-thread-title {
+  color: var(--zorai-text);
+  font-weight: 500;
+}
+
+.zorai-thread-list .zorai-thread-row__actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  align-items: center;
+  padding: 0 6px 0 22px;
+  border-radius: 0 8px 8px 0;
+  background: linear-gradient(to right, transparent, var(--zorai-bg-elevated) 18px);
+}
+
+.zorai-thread-list .zorai-thread-row--active .zorai-thread-row__actions {
+  background: linear-gradient(to right, transparent, var(--zorai-bg-active) 18px);
+}
+
+.zorai-thread-list .zorai-thread-row__action {
+  width: 22px;
+  height: 22px;
+  justify-content: center;
+  padding: 0;
+  border-radius: 5px;
+}
+
+.zorai-thread-list .zorai-thread-row__action:hover {
+  background: color-mix(in srgb, var(--zorai-text) 10%, transparent);
+}
+
+.zorai-thread-hovercard {
+  position: fixed;
+  z-index: 120;
+  width: min(300px, 80vw);
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--zorai-border-strong);
+  border-radius: 10px;
+  background: var(--zorai-bg-panel);
+  box-shadow: 0 14px 36px color-mix(in srgb, var(--shade) 50%, transparent);
+  pointer-events: none;
+  animation: zorai-thread-hovercard-in 120ms ease-out;
+}
+
+@keyframes zorai-thread-hovercard-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+}
+
+.zorai-thread-hovercard__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.zorai-thread-hovercard__title strong {
+  color: var(--zorai-text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.zorai-thread-hovercard__preview {
+  margin: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  color: var(--zorai-muted);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.zorai-thread-hovercard__facts {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--zorai-border);
+}
+
+.zorai-thread-hovercard__facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: var(--text-xs);
+}
+
+.zorai-thread-hovercard__facts dt {
+  color: var(--zorai-muted);
+}
+
+.zorai-thread-hovercard__facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--zorai-text);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
