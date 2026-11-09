@@ -1163,6 +1163,7 @@
 
 .acp-md p {
   overflow-wrap: anywhere;
+  padding: 14px 0 0;
 }
 
 .acp-md a {
