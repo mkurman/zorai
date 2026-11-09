@@ -267,6 +267,13 @@ fn feature_edit_fields_start_with_saved_values_and_submit_expected_updates() {
             "6",
         ),
         (
+            "feat_memory_limit_memory_chars",
+            serde_json::json!({"memory_limits": {"memory_chars": 8000}}),
+            "8000",
+            "/memory_limits/memory_chars",
+            "8000",
+        ),
+        (
             "feat_decay_half_life_hours",
             serde_json::json!({"consolidation": {"memory_decay_half_life_hours": 72.0}}),
             "72",

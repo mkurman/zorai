@@ -35,6 +35,7 @@ impl AgentEngine {
             tracing::warn!("failed to persist agent config to sqlite: {error}");
         }
         crate::agent::agent_identity::set_agent_aliases(&config.agent_aliases);
+        crate::agent::memory::set_memory_limits(&config.memory_limits);
         *self.config.write().await = config.clone();
         self.mlflow_tracing
             .reconfigure(config.mlflow_tracing.clone())

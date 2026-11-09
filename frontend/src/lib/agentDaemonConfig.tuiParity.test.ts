@@ -24,6 +24,13 @@ describe("settings the GUI gained from the TUI", () => {
     expect(reload({ ...DEFAULT_AGENT_SETTINGS, consolidation_memory_decay_half_life_hours: 120 }).consolidation_memory_decay_half_life_hours).toBe(120);
   });
 
+  it("writes memory file limits under memory_limits so the daemon enforces the operator's size, never below its floor", () => {
+    const settings = { ...DEFAULT_AGENT_SETTINGS, memory_limit_memory_chars: 8000, memory_limit_user_chars: 10 };
+    const config = buildDaemonAgentConfig(settings) as Record<string, any>;
+    expect(config.memory_limits).toEqual({ soul_chars: 2000, memory_chars: 8000, user_chars: 200 });
+    expect(reload(settings).memory_limit_memory_chars).toBe(8000);
+  });
+
   it("automatic tier and default Claude permissions clear the daemon override instead of storing an empty string", () => {
     const config = buildDaemonAgentConfig(DEFAULT_AGENT_SETTINGS) as Record<string, any>;
     expect(config.tier.user_override).toBeNull();

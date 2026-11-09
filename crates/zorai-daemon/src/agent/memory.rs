@@ -1,6 +1,7 @@
 //! Persistent memory helpers for SOUL.md, MEMORY.md, and USER.md.
 
 use std::borrow::Cow;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::operator_profile::user_sync::{
     current_user_sync_state, handle_user_memory_append_with_reconcile, UserProfileSyncState,
@@ -8,9 +9,17 @@ use super::operator_profile::user_sync::{
 use super::*;
 use crate::history::{HistoryStore, MemoryProvenanceRecord};
 
-const SOUL_LIMIT_CHARS: usize = 2_000;
-const MEMORY_LIMIT_CHARS: usize = 3_600;
-const USER_LIMIT_CHARS: usize = 1_800;
+const MIN_LIMIT_CHARS: usize = 200;
+
+static SOUL_LIMIT_CHARS: AtomicUsize = AtomicUsize::new(2_000);
+static MEMORY_LIMIT_CHARS: AtomicUsize = AtomicUsize::new(3_600);
+static USER_LIMIT_CHARS: AtomicUsize = AtomicUsize::new(1_800);
+
+pub(crate) fn set_memory_limits(limits: &MemoryLimitsConfig) {
+    SOUL_LIMIT_CHARS.store(limits.soul_chars.max(MIN_LIMIT_CHARS), Ordering::Relaxed);
+    MEMORY_LIMIT_CHARS.store(limits.memory_chars.max(MIN_LIMIT_CHARS), Ordering::Relaxed);
+    USER_LIMIT_CHARS.store(limits.user_chars.max(MIN_LIMIT_CHARS), Ordering::Relaxed);
+}
 
 const DEFAULT_MEMORY: &str = "# Memory\n\n## zorai Architecture (Verified)\n- zorai is a Rust, daemon-first multi-agent runtime\n- Daemon-first: daemon owns all state; TUI/Electron/CLI/MCP/gateway are clients\n- Memory: layered — SOUL.md (identity), MEMORY.md (durable facts/strategy), USER.md (operator profile), plus daemon state, recall, skills, and provenance\n- Provenance-backed: durable memory writes are tracked in SQLite with contradiction handling and operator-auditable lifecycle\n- Persistence: SQLite (threads, tasks, goals, provenance); Files (markdown, skills, ledgers)\n- Goal runners: durable autonomy — plan, dispatch, monitor, replan, reflect\n- M1–M10: operator model, causal traces, skill evolution, semantic env, collaboration,\n  trusted provenance, implicit feedback, tool synthesis, anticipatory runtime\n- Security: governance over transitions with approvals, critique, sandbox constraints, and audit trails\n\n## First-Run Truth\nDaemon = source of truth. Memory = curated, not dumped. Goals = autonomy.\nSecurity = governance, not vibes. Rust codebase — `cargo build`, `./scripts/setup.sh --check --profile source`.\n";
 
@@ -200,11 +209,12 @@ impl MemoryTarget {
     }
 
     pub(super) fn limit_chars(self) -> usize {
-        match self {
-            Self::Soul => SOUL_LIMIT_CHARS,
-            Self::Memory => MEMORY_LIMIT_CHARS,
-            Self::User => USER_LIMIT_CHARS,
-        }
+        let limit = match self {
+            Self::Soul => &SOUL_LIMIT_CHARS,
+            Self::Memory => &MEMORY_LIMIT_CHARS,
+            Self::User => &USER_LIMIT_CHARS,
+        };
+        limit.load(Ordering::Relaxed)
     }
 
     fn default_content_for_scope(self, scope_id: &str) -> Cow<'static, str> {
@@ -227,6 +237,15 @@ impl MemoryUpdateMode {
             )),
         }
     }
+}
+
+pub(crate) fn memory_limits_prompt_line() -> String {
+    format!(
+        "- Memory files have hard limits: SOUL.md {} chars, MEMORY.md {} chars, USER.md {} chars.\n",
+        MemoryTarget::Soul.limit_chars(),
+        MemoryTarget::Memory.limit_chars(),
+        MemoryTarget::User.limit_chars()
+    )
 }
 
 pub(crate) fn memory_curation_guidance() -> &'static str {

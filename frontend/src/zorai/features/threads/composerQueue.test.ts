@@ -2,13 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   EMPTY_PROMPT_QUEUE,
   createQueuedComposerMessage,
+  queuedComposerDraft,
   queuedComposerLabel,
+  queuedComposerPreview,
   queuedPromptsFromDaemon,
   readPromptQueueResponse,
   reconcileSentQueuedPromptMessages,
   sameQueuedPrompts,
   shouldApplyPromptQueueSnapshot,
 } from "./composerQueue";
+import { buildAttachmentSendPayload } from "@/components/agent-chat-panel/chat-view/composerMedia";
 import { MAX_CACHED_PROMPT_QUEUES, selectThreadPromptQueue, usePromptQueueStore } from "./promptQueueStore";
 
 describe("queued composer follow-ups", () => {
@@ -23,6 +26,50 @@ describe("queued composer follow-ups", () => {
     expect(queued.localContentBlocks).toHaveLength(1);
     expect(queuedComposerLabel(queued)).toBe("(attachment)");
     expect(queued.id.length).toBeGreaterThan(0);
+  });
+
+  it("previews queued attachments from local blocks or daemon JSON so the queue shows what will be sent", () => {
+    const local = queuedComposerPreview({
+      text: "look at this",
+      localContentBlocks: [{ type: "image", data_url: "data:image/png;base64,abc", mime_type: "image/png" }],
+    });
+    expect(local.text).toBe("look at this");
+    expect(local.tiles.map((tile) => tile.kind)).toEqual(["image"]);
+
+    const hydrated = queuedComposerPreview({
+      text: '<attached_file name="notes.md">\nhello\n</attached_file>\n\nread it',
+      contentBlocksJson: '[{"type":"text","text":"read it"},{"type":"audio","url":"file:///tmp/clip.wav"}]',
+    });
+    expect(hydrated.text).toBe("read it");
+    expect(hydrated.tiles.map((tile) => [tile.kind, tile.name])).toEqual([["audio", "clip.wav"], ["text", "notes.md"]]);
+  });
+
+  it("restores attachments when editing a queued message so saving the edit does not silently drop them", () => {
+    const original = buildAttachmentSendPayload("compare these", [
+      { id: "a", name: "notes.md", size: 5, kind: "text", mimeType: "text/markdown", textContent: "hello" },
+      { id: "b", name: "report.pdf", size: 9, kind: "file", mimeType: "application/pdf", path: "/tmp/report.pdf" },
+      { id: "c", name: "shot.png", size: 3, kind: "image", mimeType: "image/png", dataUrl: "data:image/png;base64,full", previewDataUrl: "data:image/png;base64,small" },
+    ]);
+    const queued = { ...original, id: "q1" };
+
+    const draft = queuedComposerDraft(queued);
+    expect(draft.text).toBe("compare these");
+    expect(draft.attachments.map((attachment) => attachment.kind)).toEqual(["text", "file", "image"]);
+    expect(draft.attachments[2].dataUrl).toBe("data:image/png;base64,full");
+
+    const resaved = buildAttachmentSendPayload(draft.text, draft.attachments);
+    expect(resaved.text).toBe(original.text);
+    expect(resaved.contentBlocksJson).toBe(original.contentBlocksJson);
+  });
+
+  it("restores attachments from daemon-hydrated queue records that only carry block JSON", () => {
+    const draft = queuedComposerDraft({
+      id: "q2",
+      text: "listen",
+      contentBlocksJson: '[{"type":"text","text":"listen"},{"type":"audio","data_url":"data:audio/wav;base64,x","mime_type":"audio/wav"}]',
+    });
+    expect(draft.text).toBe("listen");
+    expect(draft.attachments).toEqual([expect.objectContaining({ kind: "audio", dataUrl: "data:audio/wav;base64,x", mimeType: "audio/wav" })]);
   });
 
   it("hydrates daemon-owned queue records into composer chips", () => {

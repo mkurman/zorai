@@ -849,6 +849,17 @@ impl TuiModel {
                                     Err(message) => self.status_line = message,
                                 }
                             }
+                            "feat_memory_limit_soul_chars"
+                            | "feat_memory_limit_memory_chars"
+                            | "feat_memory_limit_user_chars" => {
+                                if let Ok(n) = value.trim().parse::<u64>() {
+                                    let (key, _) = crate::state::settings_registry::memory_limit_key(&field);
+                                    self.set_raw_config_item(
+                                        &["memory_limits", key],
+                                        serde_json::json!(n.clamp(200, 100_000)),
+                                    );
+                                }
+                            }
                             "feat_decay_half_life_hours" => {
                                 if let Ok(n) = value.parse::<f64>() {
                                     let clamped = n.clamp(1.0, 10000.0);

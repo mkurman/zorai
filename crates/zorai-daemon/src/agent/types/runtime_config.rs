@@ -264,6 +264,7 @@ impl Default for AgentConfig {
             low_activity_frequency_factor: default_low_activity_frequency_factor(),
             ema_activity_threshold: default_ema_activity_threshold(),
             consolidation: ConsolidationConfig::default(),
+            memory_limits: MemoryLimitsConfig::default(),
             skill_discovery: SkillDiscoveryConfig::default(),
             skill_recommendation: SkillRecommendationConfig::default(),
             semantic: SemanticConfig::default(),

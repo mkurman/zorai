@@ -69,4 +69,12 @@ describe("splitMessageAttachments", () => {
     expect(result.tiles[0]).toMatchObject({ kind: "audio", name: "music-1793960000000.mp3" });
     expect(result.displayText).toBe("Generated music.");
   });
+
+  it("turns path-only attached_file references into file tiles so queued and sent messages never show raw markup", () => {
+    const { displayText, tiles } = splitMessageAttachments(
+      '<attached_file name="report.pdf" path="/tmp/report.pdf" mime_type="application/pdf" />\n\nsummarize this',
+    );
+    expect(tiles).toEqual([{ id: "attached-path:/tmp/report.pdf:0", kind: "file", name: "report.pdf" }]);
+    expect(displayText).toBe("summarize this");
+  });
 });

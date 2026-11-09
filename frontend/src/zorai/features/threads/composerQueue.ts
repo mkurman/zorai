@@ -1,5 +1,7 @@
-import type { SendMessagePayload } from "@/components/agent-chat-panel/chat-view/types";
+import type { ComposerAttachment, SendMessagePayload } from "@/components/agent-chat-panel/chat-view/types";
 import type { AgentContentBlock, AgentMessage } from "@/lib/agentStore/types";
+import type { AttachmentTileModel } from "./attachmentTiles";
+import { splitMessageAttachments } from "./messageAttachments";
 
 export type QueuedComposerMessage = SendMessagePayload & { id: string };
 
@@ -27,6 +29,62 @@ export function createQueuedComposerMessage(payload: SendMessagePayload): Queued
 export function queuedComposerLabel(payload: SendMessagePayload): string {
   const text = payload.text.trim();
   return text || "(attachment)";
+}
+
+export function queuedComposerPreview(payload: SendMessagePayload): { text: string; tiles: AttachmentTileModel[] } {
+  const blocks = payload.localContentBlocks ?? queuedContentBlocks(payload.contentBlocksJson);
+  const { displayText, tiles } = splitMessageAttachments(payload.text, blocks);
+  return { text: displayText, tiles };
+}
+
+const QUEUED_TEXT_FILE_PATTERN = /<attached_file name="([^"]*)">\r?\n?([\s\S]*?)\r?\n?<\/attached_file>/g;
+const QUEUED_PATH_FILE_PATTERN = /<attached_file name="([^"]*)" path="([^"]*)" mime_type="([^"]*)" \/>/g;
+
+export function queuedComposerDraft(payload: QueuedComposerMessage): { text: string; attachments: ComposerAttachment[] } {
+  const attachments: ComposerAttachment[] = [];
+  [...payload.text.matchAll(QUEUED_TEXT_FILE_PATTERN)].forEach((match, index) => {
+    attachments.push({
+      id: `${payload.id}:text:${index}`,
+      name: match[1],
+      size: match[2].length,
+      kind: "text",
+      mimeType: "text/plain",
+      textContent: match[2],
+    });
+  });
+  [...payload.text.matchAll(QUEUED_PATH_FILE_PATTERN)].forEach((match, index) => {
+    attachments.push({
+      id: `${payload.id}:file:${index}`,
+      name: match[1],
+      size: 0,
+      kind: "file",
+      mimeType: match[3],
+      path: match[2],
+    });
+  });
+  const blocks = queuedContentBlocks(payload.contentBlocksJson) ?? payload.localContentBlocks ?? [];
+  const previews = payload.localContentBlocks ?? [];
+  blocks.forEach((block, index) => {
+    if (block.type !== "image" && block.type !== "audio") return;
+    const dataUrl = block.data_url ?? block.url;
+    if (!dataUrl) return;
+    const preview = previews[index];
+    const previewDataUrl = preview?.type === "image" && preview.data_url !== dataUrl ? preview.data_url : undefined;
+    attachments.push({
+      id: `${payload.id}:${block.type}:${index}`,
+      name: `${block.type}-${index + 1}`,
+      size: 0,
+      kind: block.type,
+      mimeType: block.mime_type ?? (block.type === "image" ? "image/png" : "audio/wav"),
+      dataUrl,
+      previewDataUrl,
+    });
+  });
+  const text = payload.text
+    .replace(QUEUED_TEXT_FILE_PATTERN, "")
+    .replace(QUEUED_PATH_FILE_PATTERN, "")
+    .trim();
+  return { text, attachments };
 }
 
 export function shouldApplyPromptQueueSnapshot(

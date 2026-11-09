@@ -117,6 +117,14 @@ fn raw_bool(config: &ConfigState, path: &[&str], default: bool) -> bool {
         .unwrap_or(default)
 }
 
+pub(crate) fn memory_limit_key(field: &str) -> (&'static str, u64) {
+    match field {
+        "feat_memory_limit_soul_chars" => ("soul_chars", 2_000),
+        "feat_memory_limit_user_chars" => ("user_chars", 1_800),
+        _ => ("memory_chars", 3_600),
+    }
+}
+
 fn raw_number(config: &ConfigState, path: &[&str], default: &str) -> String {
     raw(config, path)
         .and_then(|value| value.as_f64())
@@ -324,6 +332,14 @@ const MEMORY_PAGE: SettingsPageSpec = SettingsPageSpec {
         section!("Honcho memory", note _c => Some("Enter on Honcho memory opens its connection settings.".to_string()), [
             field!(Toggle, "enable_honcho_memory", "Honcho memory", c => c.enable_honcho_memory),
         ]),
+        section!(
+            "Memory file limits",
+            [
+                field!(Number, "feat_memory_limit_soul_chars", "SOUL.md limit (chars)", c => raw_number(c, &["memory_limits", "soul_chars"], "2000")),
+                field!(Number, "feat_memory_limit_memory_chars", "MEMORY.md limit (chars)", c => raw_number(c, &["memory_limits", "memory_chars"], "3600")),
+                field!(Number, "feat_memory_limit_user_chars", "USER.md limit (chars)", c => raw_number(c, &["memory_limits", "user_chars"], "1800")),
+            ]
+        ),
         section!(
             "Consolidation",
             [

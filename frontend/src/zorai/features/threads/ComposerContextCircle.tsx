@@ -246,9 +246,6 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
               {compacting ? "Compacting…" : "Compact"}
             </button>
           </div>
-          <span className="zorai-composer-context-circle__hint">
-            {pct >= 90 ? "Near limit — compact or start new thread." : pct >= 75 ? "Filling — compact soon." : "Comfortable headroom."}
-          </span>
             </div>,
             document.body
           )

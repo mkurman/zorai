@@ -84,7 +84,7 @@ export const conciergeReasoningEffortOptions: Array<{ value: AgentSettings["reas
   { value: "xhigh", label: "xhigh" },
   { value: "max", label: "max" },
 ];
-const APP_VERSION = "1.0.32";
+const APP_VERSION = "1.0.33";
 const APP_AUTHOR = "Mariusz Kurman";
 const APP_GITHUB = "mkurman/zorai";
 const APP_HOMEPAGE = "zorai.app";
@@ -987,6 +987,11 @@ function MemoryPanel() {
         <SecretRow label="API Key" description="Honcho API key." value={agentSettings.honcho_api_key} onChange={(value) => updateAgentSetting("honcho_api_key", value)} />
         <SettingRow label="Base URL" description="Honcho server URL. Empty uses the hosted service."><input className="zorai-input" value={agentSettings.honcho_base_url} disabled={!agentSettings.enable_honcho_memory} onChange={(event) => updateAgentSetting("honcho_base_url", event.target.value)} /></SettingRow>
         <SettingRow label="Workspace" description="Honcho workspace id."><input className="zorai-input" value={agentSettings.honcho_workspace_id} placeholder="zorai" disabled={!agentSettings.enable_honcho_memory} onChange={(event) => updateAgentSetting("honcho_workspace_id", event.target.value)} /></SettingRow>
+      </Panel>
+      <Panel section="Memory" title="Memory file limits">
+        <NumberRow label="SOUL.md (chars)" description="Maximum size of the agent identity file." value={agentSettings.memory_limit_soul_chars} onChange={(value) => updateAgentSetting("memory_limit_soul_chars", value)} min={200} max={100000} />
+        <NumberRow label="MEMORY.md (chars)" description="Maximum size of durable facts and strategy memory. Writes past this are rejected." value={agentSettings.memory_limit_memory_chars} onChange={(value) => updateAgentSetting("memory_limit_memory_chars", value)} min={200} max={100000} />
+        <NumberRow label="USER.md (chars)" description="Maximum size of the operator profile file." value={agentSettings.memory_limit_user_chars} onChange={(value) => updateAgentSetting("memory_limit_user_chars", value)} min={200} max={100000} />
       </Panel>
       <Panel section="Memory" title="Consolidation">
         <SettingRow label="Consolidation" description="Consolidate memory while you are idle."><Switch checked={agentSettings.consolidation_enabled} onChange={(checked) => updateAgentSetting("consolidation_enabled", checked)} /></SettingRow>
