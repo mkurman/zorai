@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState, type DragEvent } from "react";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import { useAgentStore, type AgentThread } from "@/lib/agentStore";
 import { openThreadTarget } from "./openThreadTarget";
@@ -14,29 +14,83 @@ export type SessionTabModel = {
   unread: boolean;
 };
 
+const SESSION_TAB_DRAG_TYPE = "application/x-zorai-session-tab";
+
+type SessionTabDrop = { id: string; after: boolean };
+
 export function SessionTabStrip({
   tabs,
   onSelect,
   onClose,
+  onMove,
 }: {
   tabs: SessionTabModel[];
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
+  onMove?: (id: string, targetId: string, placeAfter: boolean) => void;
 }) {
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [drop, setDrop] = useState<SessionTabDrop | null>(null);
   if (tabs.length === 0) return null;
+
+  const endDrag = () => {
+    setDraggingId(null);
+    setDrop(null);
+  };
+
+  const dropTarget = (event: DragEvent<HTMLDivElement>, id: string): SessionTabDrop => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return { id, after: event.clientX > rect.left + rect.width / 2 };
+  };
+
   return (
     <nav className="zorai-session-tabs" aria-label="Open sessions">
-      {tabs.map((tab) => (
-        <div key={tab.id} className={tab.active ? "zorai-session-tab zorai-session-tab--active" : "zorai-session-tab"}>
-          <button type="button" className="zorai-session-tab__main" aria-current={tab.active ? "page" : undefined} onClick={() => onSelect(tab.id)}>
-            {tab.working ? <span className="zorai-thread-dot zorai-thread-dot--working" aria-hidden="true" /> : null}
-            <span>{tab.title}</span>
-          </button>
-          <button type="button" className="zorai-session-tab__close" aria-label={`Close ${tab.title}`} onClick={() => onClose(tab.id)}>
-            ×
-          </button>
-        </div>
-      ))}
+      {tabs.map((tab) => {
+        const classes = ["zorai-session-tab"];
+        if (tab.active) classes.push("zorai-session-tab--active");
+        if (tab.id === draggingId) classes.push("is-dragging");
+        if (drop?.id === tab.id && draggingId && draggingId !== tab.id) classes.push(drop.after ? "is-drop-after" : "is-drop-before");
+        return (
+          <div
+            key={tab.id}
+            className={classes.join(" ")}
+            title={tab.title}
+            draggable={Boolean(onMove)}
+            onDragStart={(event) => {
+              event.dataTransfer.setData(SESSION_TAB_DRAG_TYPE, tab.id);
+              event.dataTransfer.effectAllowed = "move";
+              setDraggingId(tab.id);
+            }}
+            onDragOver={(event) => {
+              if (!draggingId || !event.dataTransfer.types.includes(SESSION_TAB_DRAG_TYPE)) return;
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+              const next = dropTarget(event, tab.id);
+              if (next.id !== drop?.id || next.after !== drop?.after) setDrop(next);
+            }}
+            onDrop={(event) => {
+              const id = event.dataTransfer.getData(SESSION_TAB_DRAG_TYPE);
+              if (!id) return;
+              event.preventDefault();
+              const target = dropTarget(event, tab.id);
+              onMove?.(id, target.id, target.after);
+              endDrag();
+            }}
+            onDragEnd={endDrag}
+            onAuxClick={(event) => {
+              if (event.button === 1) onClose(tab.id);
+            }}
+          >
+            <button type="button" className="zorai-session-tab__main" aria-current={tab.active ? "page" : undefined} onClick={() => onSelect(tab.id)}>
+              {tab.working ? <span className="zorai-thread-dot zorai-thread-dot--working" aria-hidden="true" /> : null}
+              <span>{tab.title}</span>
+            </button>
+            <button type="button" className="zorai-session-tab__close" aria-label={`Close ${tab.title}`} onClick={() => onClose(tab.id)}>
+              ×
+            </button>
+          </div>
+        );
+      })}
     </nav>
   );
 }
@@ -64,6 +118,7 @@ export function ThreadSessionTabs() {
   const openSessionIds = useOpenSessionTabs((state) => state.ids);
   const rememberOpenSession = useOpenSessionTabs((state) => state.remember);
   const closeOpenSession = useOpenSessionTabs((state) => state.close);
+  const moveOpenSession = useOpenSessionTabs((state) => state.move);
   const lastReadAtByThread = useThreadReadStateStore((state) => state.lastReadAtByThread);
   const activeId = runtime.activeThread?.id ?? null;
 
@@ -88,6 +143,7 @@ export function ThreadSessionTabs() {
     <SessionTabStrip
       tabs={tabs}
       onSelect={(id) => void openThreadTarget(runtime, id)}
+      onMove={moveOpenSession}
       onClose={(id) => {
         const next = closeOpenSession(id);
         const action = sessionCloseFollowUp({

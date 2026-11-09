@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rememberOpenSessionId, sessionCloseFollowUp } from "./openSessionTabs";
+import { moveOpenSessionId, rememberOpenSessionId, sessionCloseFollowUp } from "./openSessionTabs";
 
 describe("open session tabs", () => {
   it("appends a new session and leaves the existing order in place when one is selected again", () => {
@@ -37,5 +37,18 @@ describe("open session tabs", () => {
       nextOpenId: "thread-a",
       openCount: 1,
     })).toEqual({ kind: "stay" });
+  });
+
+  it("moves a dragged tab before or after the tab it is dropped on", () => {
+    expect(moveOpenSessionId(["a", "b", "c", "d"], "a", "c", false)).toEqual(["b", "a", "c", "d"]);
+    expect(moveOpenSessionId(["a", "b", "c", "d"], "a", "c", true)).toEqual(["b", "c", "a", "d"]);
+    expect(moveOpenSessionId(["a", "b", "c", "d"], "d", "a", false)).toEqual(["d", "a", "b", "c"]);
+  });
+
+  it("keeps the same array when a drop would not change the order so the store does not re-render", () => {
+    const ids = ["a", "b", "c"];
+    expect(moveOpenSessionId(ids, "a", "b", false)).toBe(ids);
+    expect(moveOpenSessionId(ids, "b", "b", true)).toBe(ids);
+    expect(moveOpenSessionId(ids, "x", "b", true)).toBe(ids);
   });
 });

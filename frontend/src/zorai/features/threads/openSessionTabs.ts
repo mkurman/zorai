@@ -6,6 +6,7 @@ type OpenSessionTabsState = {
   ids: string[];
   remember: (id: string) => void;
   close: (id: string) => string | null;
+  move: (id: string, targetId: string, placeAfter: boolean) => void;
 };
 
 export type SessionCloseFollowUp =
@@ -36,6 +37,14 @@ export function rememberOpenSessionId(ids: readonly string[], id: string, max = 
   return next.length <= max ? next : next.slice(next.length - max);
 }
 
+export function moveOpenSessionId(ids: readonly string[], id: string, targetId: string, placeAfter: boolean): readonly string[] {
+  if (id === targetId || !ids.includes(id) || !ids.includes(targetId)) return ids;
+  const rest = ids.filter((item) => item !== id);
+  const targetIndex = rest.indexOf(targetId) + (placeAfter ? 1 : 0);
+  const next = [...rest.slice(0, targetIndex), id, ...rest.slice(targetIndex)];
+  return next.every((item, index) => item === ids[index]) ? ids : next;
+}
+
 export const useOpenSessionTabs = create<OpenSessionTabsState>((set, get) => ({
   ids: [],
   remember: (id) => {
@@ -51,5 +60,11 @@ export const useOpenSessionTabs = create<OpenSessionTabsState>((set, get) => ({
     set({ ids });
     if (index < 0 || ids.length === 0) return null;
     return ids[Math.min(index, ids.length - 1)] ?? null;
+  },
+  move: (id, targetId, placeAfter) => {
+    set((state) => {
+      const ids = moveOpenSessionId(state.ids, id, targetId, placeAfter);
+      return ids === state.ids ? state : { ids: [...ids] };
+    });
   },
 }));
