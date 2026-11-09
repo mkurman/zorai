@@ -53,18 +53,13 @@ test("runtime icon loading fails loudly for an empty image", () => {
     );
 });
 
-test("Linux windows use native window-manager chrome", () => {
-    assert.deepEqual(resolveWindowFrameOptions("linux"), {
-        frame: true,
-        titleBarStyle: "default",
-    });
-});
-
-test("Windows keeps its native window frame", () => {
-    assert.deepEqual(resolveWindowFrameOptions("win32"), {
-        frame: true,
-        titleBarStyle: "default",
-    });
+test("every platform drops the native title bar so the in-app title bar owns the chrome", () => {
+    for (const platform of ["linux", "win32", "darwin"]) {
+        assert.deepEqual(resolveWindowFrameOptions(platform), {
+            frame: false,
+            titleBarStyle: "hidden",
+        });
+    }
 });
 
 test("File menu opens another Zorai window from the first item", () => {
@@ -100,11 +95,4 @@ test("dev builds do not auto-open DevTools unless ZORAI_DEVTOOLS is set", () => 
     assert.equal(shouldOpenDevTools({ isPackaged: false, env: {} }), false);
     assert.equal(shouldOpenDevTools({ isPackaged: false, env: { ZORAI_DEVTOOLS: "1" } }), true);
     assert.equal(shouldOpenDevTools({ isPackaged: true, env: { ZORAI_DEVTOOLS: "1" } }), false);
-});
-
-test("macOS preserves its existing hidden title bar", () => {
-    assert.deepEqual(resolveWindowFrameOptions("darwin"), {
-        frame: false,
-        titleBarStyle: "hidden",
-    });
 });

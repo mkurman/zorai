@@ -7,6 +7,8 @@ import { ModelSelector } from "./shared";
 import { SUB_AGENT_ROLE_PRESETS, findSubAgentRolePreset } from "./subAgentRolePresets";
 import { OpenRouterProviderRoutingControls } from "./OpenRouterProviderRoutingControls";
 import { displayAgentName } from "../../lib/agentNames";
+import { PreferredSkillsEditor } from "../../zorai/features/skills/PreferredSkillsEditor";
+import { preferredSkillScopeId } from "../../zorai/features/skills/skillLibrary";
 
 const WELES_BUILTIN_SUBAGENT_ID = "weles_builtin";
 
@@ -346,6 +348,11 @@ export function SubAgentsTab() {
                             rows={3}
                         />
                     </Field>
+                    {editingId ? (
+                        <Field label="Preferred Skills">
+                            <PreferredSkillsEditor agentId={preferredSkillScopeId(editingId)} agentName={form.name || editingId} />
+                        </Field>
+                    ) : null}
                     <Field label="Reasoning Effort">
                         <select
                             className="zorai-input"

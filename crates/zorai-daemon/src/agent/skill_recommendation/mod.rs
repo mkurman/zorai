@@ -368,6 +368,7 @@ fn resolve_skill_document_by_suffix(
 ) -> Option<(PathBuf, String)> {
     let mut files = Vec::new();
     collect_skill_documents(skills_root, &mut files).ok()?;
+    files.retain(|path| !crate::agent::skill_library::is_skill_path_disabled(skills_root, path));
 
     for suffix in relative_path_suffixes(relative_path) {
         let matches = files
@@ -532,6 +533,9 @@ async fn collect_registered_skill_candidates(
         if !should_include_skill_relative_path(&record.relative_path) {
             continue;
         }
+        if crate::agent::skill_library::is_skill_relative_path_disabled(&record.relative_path) {
+            continue;
+        }
 
         let (skill_path, metadata_relative_path) =
             resolve_skill_document_path(skills_root, &record.relative_path);
@@ -568,6 +572,7 @@ pub(crate) fn list_filesystem_skill_variants(
 ) -> Result<Vec<SkillVariantRecord>> {
     let mut files = Vec::new();
     collect_skill_documents(skills_root, &mut files)?;
+    files.retain(|path| !crate::agent::skill_library::is_skill_path_disabled(skills_root, path));
     files.sort();
     let needle = query.map(|value| value.to_ascii_lowercase());
     let now = crate::history::now_ts();
@@ -617,6 +622,7 @@ pub(crate) fn list_filesystem_skill_variants(
 fn collect_filesystem_skill_candidates(skills_root: &Path) -> Result<Vec<SkillCandidateInput>> {
     let mut files = Vec::new();
     collect_skill_documents(skills_root, &mut files)?;
+    files.retain(|path| !crate::agent::skill_library::is_skill_path_disabled(skills_root, path));
 
     let mut candidates = Vec::new();
     for path in files {

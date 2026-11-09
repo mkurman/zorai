@@ -101,6 +101,7 @@ mod session_recall;
 pub(crate) mod skill_community;
 mod skill_discovery;
 mod skill_evolution;
+pub(crate) mod skill_library;
 pub(crate) mod skill_mesh;
 pub(crate) mod skill_preflight;
 mod skill_recommendation;

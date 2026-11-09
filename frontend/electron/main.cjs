@@ -425,6 +425,8 @@ function registerIpcHandlers() {
     registerCoreIpcHandlers(ipcMain, {
         aiTrainingDiscover: discoverAITraining,
         app,
+        BrowserWindow,
+        Menu,
         checkDaemonRunning,
         checkLspHealth,
         checkMcpHealth,
@@ -439,6 +441,7 @@ function registerIpcHandlers() {
         discordSendMessage: sendDiscordMessage,
         ensureZoraiDataDir,
         getAvailableShells,
+        getCliPath,
         getDaemonPath,
         getFsPathInfo,
         getPlatform: () => process.platform,

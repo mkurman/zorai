@@ -36,6 +36,7 @@ import {
 import { ToolsContext, ToolsRail, ToolsView } from "../features/tools/ToolsView";
 import { getDefaultZoraiTool, type ZoraiToolId } from "../features/tools/tools";
 import { WorkspacesRail, WorkspacesView } from "../features/workspaces/WorkspacesView";
+import { SkillsRail, SkillsView } from "../features/skills/SkillsView";
 import { contextPanelLabels, getDefaultZoraiView, normalizeZoraiToolNavigation, zoraiNavItems, type ZoraiViewId } from "./navigation";
 import { ZoraiContextPanel } from "./ZoraiContextPanel";
 import { ZoraiBrandMark, ZoraiHamburgerIcon, ZoraiNavIcon } from "./ZoraiIcons";
@@ -261,16 +262,13 @@ export function ZoraiShell() {
             <div className="zorai-global-items-footer">
               <button
                 type="button"
-                className={[
-                  "zorai-global-item",
-                  nightModeEnabled ? "zorai-global-item--active" : "",
-                ].filter(Boolean).join(" ")}
+                className="zorai-global-item"
                 onClick={toggleNightMode}
                 title={nightModeEnabled ? "Turn night mode off" : "Turn night mode on"}
                 aria-label={nightModeEnabled ? "Turn night mode off" : "Turn night mode on"}
                 aria-pressed={nightModeEnabled}
               >
-                <ZoraiNavIcon icon="nightMode" />
+                {nightModeEnabled ? <ZoraiNavIcon icon="nightMode" /> : <ZoraiNavIcon icon="lightMode" />}
               </button>
               <button
                 type="button"
@@ -387,6 +385,7 @@ function renderRail(
   if (view === "workspaces") return <WorkspacesRail />;
   if (view === "database") return <DatabaseRail activeTable={activeDatabaseTable} onSelectTable={setActiveDatabaseTable} />;
   if (view === "tools") return <ToolsRail activeTool={activeTool} onSelectTool={setActiveTool} />;
+  if (view === "skills") return <SkillsRail />;
   if (view === "activity") return <ActivityRail />;
   return <SettingsRail activeTab={activeSettingsTab} onSelectTab={setActiveSettingsTab} />;
 }
@@ -409,6 +408,7 @@ function renderMain(
   if (view === "workspaces") return <WorkspacesView />;
   if (view === "database") return <DatabaseView activeTable={activeDatabaseTable} onSelectTable={setActiveDatabaseTable} />;
   if (view === "tools") return <ToolsView activeTool={activeTool} onSelectTool={setActiveTool} />;
+  if (view === "skills") return <SkillsView />;
   if (view === "activity") return <ActivityView />;
   return <SettingsView activeTab={activeSettingsTab} onSelectTab={setActiveSettingsTab} />;
 }

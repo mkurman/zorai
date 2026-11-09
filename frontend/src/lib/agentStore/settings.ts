@@ -97,6 +97,12 @@ export type AgentHeartbeatChecksSettings = {
   plugin_auth_enabled: boolean;
 };
 
+export interface SkillLibrarySettings {
+  locked: string[];
+  disabled: string[];
+  preferred: Record<string, string[]>;
+}
+
 export interface AgentSettings {
   [providerId: string]: any;
   enabled: boolean;
@@ -177,6 +183,7 @@ export interface AgentSettings {
   memory_limit_soul_chars: number;
   memory_limit_memory_chars: number;
   memory_limit_user_chars: number;
+  skill_library: SkillLibrarySettings;
   heartbeat_enabled: boolean;
   heartbeat_interval_mins: number;
   heartbeat_cron: string;
@@ -349,6 +356,7 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   memory_limit_soul_chars: 2000,
   memory_limit_memory_chars: 3600,
   memory_limit_user_chars: 1800,
+  skill_library: { locked: [], disabled: [], preferred: {} },
   heartbeat_enabled: false,
   heartbeat_interval_mins: 30,
   heartbeat_cron: "",
@@ -714,6 +722,11 @@ export type DiskAgentSettings = Partial<AgentSettings> & {
     soul_chars?: number;
     memory_chars?: number;
     user_chars?: number;
+  };
+  skill_library?: {
+    locked?: string[];
+    disabled?: string[];
+    preferred?: Record<string, string[]>;
   };
   heartbeat_enabled?: boolean;
   heartbeat_interval_mins?: number;
@@ -1091,6 +1104,11 @@ export function normalizeAgentSettingsFromSource(source: DiskAgentSettings): Age
     memory_limit_soul_chars: source.memory_limits?.soul_chars ?? DEFAULT_AGENT_SETTINGS.memory_limit_soul_chars,
     memory_limit_memory_chars: source.memory_limits?.memory_chars ?? DEFAULT_AGENT_SETTINGS.memory_limit_memory_chars,
     memory_limit_user_chars: source.memory_limits?.user_chars ?? DEFAULT_AGENT_SETTINGS.memory_limit_user_chars,
+    skill_library: {
+      locked: source.skill_library?.locked ?? [],
+      disabled: source.skill_library?.disabled ?? [],
+      preferred: source.skill_library?.preferred ?? {},
+    },
     heartbeat_enabled: source.heartbeat_enabled ?? DEFAULT_AGENT_SETTINGS.heartbeat_enabled,
     heartbeat_interval_mins: normalizeHeartbeatIntervalMins(source.heartbeat_interval_mins),
     heartbeat_cron: source.heartbeat_cron?.trim() ?? DEFAULT_AGENT_SETTINGS.heartbeat_cron,

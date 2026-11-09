@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use futures::{StreamExt, TryStreamExt};
 use serde::Deserialize;
 use std::path::{Component, Path, PathBuf};
 use std::time::Duration;
@@ -6,6 +7,8 @@ use std::time::Duration;
 const GITHUB_SKILLS_TREE_URL: &str =
     "https://api.github.com/repos/mkurman/zorai/git/trees/main?recursive=1";
 const GITHUB_RAW_MAIN_URL: &str = "https://raw.githubusercontent.com/mkurman/zorai/main";
+const SKILL_DOWNLOAD_CONCURRENCY: usize = 8;
+const SKILL_DOWNLOAD_ATTEMPTS: u32 = 4;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct RemoteSkillDocument {
@@ -17,6 +20,7 @@ pub(super) struct RemoteSkillDocument {
 pub(super) struct SkillSyncSummary {
     pub(super) installed: usize,
     pub(super) skipped_existing: usize,
+    pub(super) skipped_locked: usize,
     pub(super) overwritten: usize,
 }
 
@@ -73,26 +77,20 @@ pub(super) async fn fetch_remote_skill_documents() -> Result<Vec<RemoteSkillDocu
         .collect::<Vec<_>>();
     paths.sort_by(|(_, left), (_, right)| left.cmp(right));
 
-    let mut documents = Vec::with_capacity(paths.len());
-    for (repo_path, relative_path) in paths {
-        let raw_url = format!("{GITHUB_RAW_MAIN_URL}/{}", percent_encode_path(&repo_path));
-        let content = client
-            .get(&raw_url)
-            .header(reqwest::header::USER_AGENT, &user_agent)
-            .send()
-            .await
-            .with_context(|| format!("failed to download skill file {repo_path}"))?
-            .error_for_status()
-            .with_context(|| format!("skill file download returned an error status: {repo_path}"))?
-            .bytes()
-            .await
-            .with_context(|| format!("failed to read skill file response: {repo_path}"))?
-            .to_vec();
-        documents.push(RemoteSkillDocument {
-            relative_path,
-            content,
-        });
-    }
+    let documents = futures::stream::iter(paths.into_iter().map(|(repo_path, relative_path)| {
+        let client = &client;
+        let user_agent = &user_agent;
+        async move {
+            let content = download_skill_file(client, user_agent, &repo_path).await?;
+            Ok::<_, anyhow::Error>(RemoteSkillDocument {
+                relative_path,
+                content,
+            })
+        }
+    }))
+    .buffered(SKILL_DOWNLOAD_CONCURRENCY)
+    .try_collect::<Vec<_>>()
+    .await?;
 
     if documents.is_empty() {
         anyhow::bail!("no skill files were found in the zorai repository");
@@ -100,10 +98,81 @@ pub(super) async fn fetch_remote_skill_documents() -> Result<Vec<RemoteSkillDocu
     Ok(documents)
 }
 
+async fn download_skill_file(
+    client: &reqwest::Client,
+    user_agent: &str,
+    repo_path: &str,
+) -> Result<Vec<u8>> {
+    let raw_url = format!("{GITHUB_RAW_MAIN_URL}/{}", percent_encode_path(repo_path));
+    let mut attempt = 1;
+    loop {
+        let result = client
+            .get(&raw_url)
+            .header(reqwest::header::USER_AGENT, user_agent)
+            .send()
+            .await;
+        let retryable = match &result {
+            Ok(response) => {
+                response.status().is_server_error()
+                    || response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS
+            }
+            Err(error) => error.is_timeout() || error.is_connect() || error.is_request(),
+        };
+        if retryable && attempt < SKILL_DOWNLOAD_ATTEMPTS {
+            tokio::time::sleep(Duration::from_millis(500 * attempt as u64)).await;
+            attempt += 1;
+            continue;
+        }
+        return Ok(result
+            .with_context(|| format!("failed to download skill file {repo_path}"))?
+            .error_for_status()
+            .with_context(|| format!("skill file download returned an error status: {repo_path}"))?
+            .bytes()
+            .await
+            .with_context(|| format!("failed to read skill file response: {repo_path}"))?
+            .to_vec());
+    }
+}
+
+pub(super) fn locked_skill_keys(config: &serde_json::Value) -> Vec<String> {
+    config
+        .pointer("/skill_library/locked")
+        .and_then(|value| value.as_array())
+        .map(|keys| {
+            keys.iter()
+                .filter_map(|key| key.as_str())
+                .filter_map(normalize_skill_key)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn normalize_skill_key(raw: &str) -> Option<String> {
+    let normalized = raw.trim().replace('\\', "/");
+    let parts = normalized
+        .split('/')
+        .filter(|part| !part.is_empty() && *part != ".")
+        .collect::<Vec<_>>();
+    if parts.is_empty() || parts.iter().any(|part| *part == "..") {
+        return None;
+    }
+    Some(parts.join("/"))
+}
+
+fn is_locked_skill_path(locked: &[String], relative_path: &str) -> bool {
+    locked.iter().any(|key| {
+        relative_path == key
+            || relative_path
+                .strip_prefix(key.as_str())
+                .is_some_and(|rest| rest.starts_with('/'))
+    })
+}
+
 pub(super) fn sync_skill_documents(
     skills_root: &Path,
     documents: &[RemoteSkillDocument],
     force: bool,
+    locked: &[String],
 ) -> Result<SkillSyncSummary> {
     std::fs::create_dir_all(skills_root).with_context(|| {
         format!(
@@ -115,11 +184,16 @@ pub(super) fn sync_skill_documents(
     let mut summary = SkillSyncSummary {
         installed: 0,
         skipped_existing: 0,
+        skipped_locked: 0,
         overwritten: 0,
     };
 
     for document in documents {
         let relative = validate_remote_skill_path(&document.relative_path)?;
+        if is_locked_skill_path(locked, document.relative_path.trim()) {
+            summary.skipped_locked += 1;
+            continue;
+        }
         let destination = skills_root.join(relative);
         let exists = destination.exists();
         if exists && !force {
@@ -201,7 +275,7 @@ mod tests {
             },
         ];
 
-        let summary = sync_skill_documents(&root, &documents, false).expect("sync");
+        let summary = sync_skill_documents(&root, &documents, false, &[]).expect("sync");
 
         assert_eq!(summary.installed, 1);
         assert_eq!(summary.overwritten, 0);
@@ -229,7 +303,7 @@ mod tests {
             content: b"remote".to_vec(),
         }];
 
-        let summary = sync_skill_documents(&root, &documents, true).expect("sync");
+        let summary = sync_skill_documents(&root, &documents, true, &[]).expect("sync");
 
         assert_eq!(summary.installed, 0);
         assert_eq!(summary.overwritten, 1);
@@ -241,6 +315,42 @@ mod tests {
     }
 
     #[test]
+    fn force_sync_never_replaces_or_adds_files_inside_a_locked_skill() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let root = temp.path().join("skills");
+        std::fs::create_dir_all(root.join("development/debug")).expect("skills dir");
+        std::fs::write(root.join("development/debug/SKILL.md"), "local").expect("write local");
+
+        let documents = vec![
+            RemoteSkillDocument {
+                relative_path: "development/debug/SKILL.md".to_string(),
+                content: b"remote".to_vec(),
+            },
+            RemoteSkillDocument {
+                relative_path: "development/debug/references/new.md".to_string(),
+                content: b"new".to_vec(),
+            },
+            RemoteSkillDocument {
+                relative_path: "development/debugger/SKILL.md".to_string(),
+                content: b"sibling".to_vec(),
+            },
+        ];
+        let config = serde_json::json!({ "skill_library": { "locked": ["development/debug/"] } });
+
+        let summary = sync_skill_documents(&root, &documents, true, &locked_skill_keys(&config))
+            .expect("sync");
+
+        assert_eq!(summary.skipped_locked, 2);
+        assert_eq!(summary.installed, 1);
+        assert_eq!(
+            std::fs::read_to_string(root.join("development/debug/SKILL.md")).expect("read"),
+            "local"
+        );
+        assert!(!root.join("development/debug/references/new.md").exists());
+        assert!(root.join("development/debugger/SKILL.md").exists());
+    }
+
+    #[test]
     fn sync_skills_rejects_paths_that_escape_root() {
         let temp = tempfile::tempdir().expect("tempdir");
         let documents = vec![RemoteSkillDocument {
@@ -248,7 +358,7 @@ mod tests {
             content: b"# Outside\n".to_vec(),
         }];
 
-        let error = sync_skill_documents(temp.path(), &documents, true)
+        let error = sync_skill_documents(temp.path(), &documents, true, &[])
             .expect_err("path traversal should be rejected");
 
         assert!(error.to_string().contains("must not escape"));

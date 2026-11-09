@@ -264,6 +264,8 @@ pub struct AgentConfig {
     pub consolidation: ConsolidationConfig,
     #[serde(default)]
     pub memory_limits: MemoryLimitsConfig,
+    #[serde(default)]
+    pub skill_library: SkillLibraryConfig,
     /// Skill discovery thresholds (Phase 6).
     #[serde(default)]
     pub skill_discovery: SkillDiscoveryConfig,

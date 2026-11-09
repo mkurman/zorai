@@ -206,6 +206,7 @@ pub(crate) fn resolve_skill_path(
 
     let mut files = Vec::new();
     collect_skill_documents(skills_root, &mut files)?;
+    files.retain(|path| !crate::agent::skill_library::is_skill_path_disabled(skills_root, path));
     let normalized = skill.to_lowercase();
 
     files.sort();
@@ -256,6 +257,7 @@ pub(crate) async fn sync_skill_catalog(
 ) -> Result<Vec<SkillVariantRecord>> {
     let mut files = Vec::new();
     collect_skill_documents(skills_root, &mut files)?;
+    files.retain(|path| !crate::agent::skill_library::is_skill_path_disabled(skills_root, path));
     let mut entries = Vec::new();
     for path in files {
         if let Ok(record) = history.register_skill_document(&path).await {

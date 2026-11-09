@@ -38,6 +38,14 @@ pub(crate) fn install_bundled_skills(
             .file_name()
             .unwrap_or_else(|| std::ffi::OsStr::new(skill_path));
         let dest = target_dir.join(filename);
+        if crate::agent::skill_library::is_skill_path_locked(skills_root, &dest) {
+            tracing::info!(
+                plugin = %plugin_name,
+                skill = %dest.display(),
+                "skipping locked bundled skill"
+            );
+            continue;
+        }
         std::fs::copy(&source, &dest)?;
         copied += 1;
     }
@@ -54,6 +62,10 @@ pub(crate) fn install_bundled_skills(
 /// Target: `skills_root/plugins/{plugin_name}/`
 pub(crate) fn remove_bundled_skills(plugin_name: &str, skills_root: &Path) -> Result<()> {
     let target_dir = skills_root.join("plugins").join(plugin_name);
+    if crate::agent::skill_library::is_skill_path_locked(skills_root, &target_dir) {
+        tracing::info!(plugin = %plugin_name, "keeping locked bundled skills");
+        return Ok(());
+    }
     if target_dir.exists() {
         std::fs::remove_dir_all(&target_dir)?;
         tracing::info!(plugin = %plugin_name, "removed bundled skills");

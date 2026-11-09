@@ -17,6 +17,7 @@ import { useWorkspaceContextStore } from "@/lib/workspaceContextStore";
 import { shouldAutoStartOperatorProfileFromConcierge } from "./conciergeEvents";
 import { useZoraiAppCommands } from "./shell/zoraiAppCommands";
 import { ZoraiShell } from "./shell/ZoraiShell";
+import { ZoraiTitleBar } from "./shell/ZoraiTitleBar";
 import { ThreadBrowserHost } from "./features/browser/ThreadBrowserHost";
 
 export function ZoraiApp() {
@@ -91,7 +92,10 @@ export function ZoraiApp() {
 
   return (
     <AgentChatPanelProvider>
-      <ZoraiShell />
+      <div className="zorai-window">
+        <ZoraiTitleBar />
+        <ZoraiShell />
+      </div>
       <CommandPalette />
       <TimeTravelSlider />
       <SetupOnboardingPanel />

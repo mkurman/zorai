@@ -17,11 +17,10 @@ function toggleWindowDevTools(webContents) {
     webContents.openDevTools({ mode: "detach" });
 }
 
-function resolveWindowFrameOptions(platform = process.platform) {
-    const useNativeFrame = platform === 'win32' || platform === 'linux';
+function resolveWindowFrameOptions() {
     return {
-        frame: useNativeFrame,
-        titleBarStyle: useNativeFrame ? 'default' : 'hidden',
+        frame: false,
+        titleBarStyle: 'hidden',
     };
 }
 
