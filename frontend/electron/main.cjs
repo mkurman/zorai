@@ -425,6 +425,8 @@ function registerIpcHandlers() {
     registerCoreIpcHandlers(ipcMain, {
         aiTrainingDiscover: discoverAITraining,
         app,
+        BrowserWindow,
+        Menu,
         checkDaemonRunning,
         checkLspHealth,
         checkMcpHealth,

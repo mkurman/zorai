@@ -1,6 +1,10 @@
+const { listSkillDocuments } = require('./skill-documents.cjs');
+
 function registerCoreIpcHandlers(ipcMain, options) {
     const {
         app,
+        BrowserWindow,
+        Menu,
         checkDaemonRunning,
         checkMcpHealth,
         checkSetupPrereqs,
@@ -178,7 +182,27 @@ function registerCoreIpcHandlers(ipcMain, options) {
         if (windowState()?.isMaximized()) windowState().unmaximize();
         else windowState()?.maximize();
     });
-    ipcMain.handle('window-close', () => { terminalBridgeRuntime.stopAllTerminalBridges(true, true); app.quit(); return true; });
+    ipcMain.handle('window-close', (event) => { BrowserWindow.fromWebContents(event.sender)?.close(); return true; });
+    ipcMain.handle('window-menu-labels', () => (Menu.getApplicationMenu()?.items ?? []).filter((item) => item.submenu && item.visible !== false).map((item) => item.label));
+    const appSubmenu = (label) => Menu.getApplicationMenu()?.items.find((entry) => entry.label === label && entry.submenu)?.submenu ?? null;
+    ipcMain.handle('window-menu-items', (_event, label) => (appSubmenu(label)?.items ?? [])
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => item.visible !== false)
+        .map(({ item, index }) => ({
+            index,
+            type: item.type === 'separator' ? 'separator' : 'normal',
+            label: item.label,
+            accelerator: String(item.accelerator ?? item.getDefaultRoleAccelerator?.() ?? ''),
+            enabled: item.enabled !== false,
+        })));
+    ipcMain.handle('window-menu-invoke', (event, label, index) => {
+        const item = appSubmenu(label)?.items[index];
+        const window = BrowserWindow.fromWebContents(event.sender);
+        if (!item || !window || item.enabled === false) return false;
+        item.click(undefined, window, window.webContents);
+        return true;
+    });
+    ipcMain.handle('skills-list-documents', (_event, skillsRoot) => listSkillDocuments(skillsRoot));
     ipcMain.handle('window-isMaximized', () => windowState()?.isMaximized() ?? false);
     ipcMain.handle('window-set-opacity', (_event, opacity) => setWindowOpacity(opacity));
     ipcMain.handle('vision-save-screenshot', (_event, payload) => saveVisionScreenshot(payload));

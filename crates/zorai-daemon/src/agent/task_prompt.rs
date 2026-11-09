@@ -444,7 +444,7 @@ pub(super) fn seed_builtin_skills(agent_data_dir: &std::path::Path) {
     let source = builtin_skills_source_dir();
     let target = root;
 
-    match seed_skills_tree(&source, &target) {
+    match seed_skills_tree(&source, &target, &target) {
         Ok(count) => tracing::debug!("seeded {} built-in skills into {}", count, target.display()),
         Err(e) => tracing::warn!(
             "failed to seed built-in skills from {} to {}: {e}",
@@ -474,7 +474,11 @@ pub(super) fn seed_builtin_guidelines(agent_data_dir: &std::path::Path) {
     }
 }
 
-fn seed_skills_tree(source: &std::path::Path, target: &std::path::Path) -> std::io::Result<usize> {
+fn seed_skills_tree(
+    source: &std::path::Path,
+    target: &std::path::Path,
+    skills_root: &std::path::Path,
+) -> std::io::Result<usize> {
     std::fs::create_dir_all(target)?;
 
     let mut count = 0usize;
@@ -484,8 +488,11 @@ fn seed_skills_tree(source: &std::path::Path, target: &std::path::Path) -> std::
         let source_path = entry.path();
         let target_path = target.join(entry.file_name());
 
+        if super::skill_library::is_skill_path_locked(skills_root, &target_path) {
+            continue;
+        }
         if file_type.is_dir() {
-            count += seed_skills_tree(&source_path, &target_path)?;
+            count += seed_skills_tree(&source_path, &target_path, skills_root)?;
         } else if file_type.is_file() {
             if let Some(parent) = target_path.parent() {
                 std::fs::create_dir_all(parent)?;

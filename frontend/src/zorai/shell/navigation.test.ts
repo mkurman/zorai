@@ -14,6 +14,7 @@ describe("Zorai navigation", () => {
       "workspaces",
       "database",
       "tools",
+      "skills",
       "activity",
       "settings",
     ]);

@@ -198,6 +198,10 @@ pub(super) fn build_system_prompt(
         prompt.push_str(&skill_index);
         prompt.push('\n');
     }
+    if let Some(section) = render_preferred_skills(&skills_root, agent_scope_id) {
+        prompt.push('\n');
+        prompt.push_str(&section);
+    }
 
     prompt.push_str(
         "\n\n## Recall and Memory Maintenance\n\
@@ -586,12 +590,27 @@ pub(super) fn render_skill_index(skills_root: &std::path::Path) -> Option<String
     )
 }
 
+pub(super) fn render_preferred_skills(
+    skills_root: &std::path::Path,
+    agent_scope_id: &str,
+) -> Option<String> {
+    if super::skill_library::preferred_skills_for_agent(agent_scope_id).is_empty() {
+        return None;
+    }
+    let mut available = Vec::new();
+    collect_skill_stems(skills_root, skills_root, &mut available);
+    super::skill_library::preferred_skills_prompt_section(agent_scope_id, &available)
+}
+
 fn collect_skill_stems(root: &std::path::Path, dir: &std::path::Path, out: &mut Vec<String>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
     };
     for entry in entries.flatten() {
         let path = entry.path();
+        if super::skill_library::is_skill_path_disabled(root, &path) {
+            continue;
+        }
         if path.is_dir() {
             collect_skill_stems(root, &path, out);
             continue;

@@ -36,6 +36,7 @@ impl AgentEngine {
         }
         crate::agent::agent_identity::set_agent_aliases(&config.agent_aliases);
         crate::agent::memory::set_memory_limits(&config.memory_limits);
+        crate::agent::skill_library::set_skill_library(&config.skill_library);
         *self.config.write().await = config.clone();
         self.mlflow_tracing
             .reconfigure(config.mlflow_tracing.clone())

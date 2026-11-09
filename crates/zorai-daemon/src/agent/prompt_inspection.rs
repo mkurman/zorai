@@ -524,6 +524,16 @@ fn build_sections(
     if let Some(skill_index) = render_skill_index(&skills_root) {
         push_section(&mut sections, "skill_index", "Skill Index", skill_index);
     }
+    if let Some(preferred) =
+        super::system_prompt::render_preferred_skills(&skills_root, &target.agent_id)
+    {
+        push_section(
+            &mut sections,
+            "preferred_skills",
+            "Preferred Skills",
+            preferred,
+        );
+    }
     push_section(
         &mut sections,
         "recall_and_memory",

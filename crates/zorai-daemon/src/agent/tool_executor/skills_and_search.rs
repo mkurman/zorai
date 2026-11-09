@@ -527,6 +527,9 @@ async fn read_single_skill(
         None => None,
     };
     let skill_path = resolve_skill_path(&skills_root, skill, variant.as_ref())?;
+    if crate::agent::skill_library::is_skill_path_disabled(skills_root, &skill_path) {
+        anyhow::bail!("skill '{skill}' is disabled by the operator");
+    }
     let content = tokio::fs::read_to_string(&skill_path).await?;
     if let Some(variant) = variant.as_ref() {
         let (goal_run_id, _, _) = agent.goal_context_for_task(task_id).await;

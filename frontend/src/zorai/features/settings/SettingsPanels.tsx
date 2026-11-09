@@ -58,6 +58,7 @@ import { embeddingSettingsPatchForModelSelection } from "./embeddingSettings";
 import { InterfacePanel } from "./InterfacePanel";
 import { duckDuckGoSafeSearchOptions, searchProviderOptions } from "./searchProviders";
 import { MlflowPanel } from "./MlflowPanel";
+import { PreferredSkillsEditor } from "../skills/PreferredSkillsEditor";
 import type { ZoraiSettingsTabId } from "./settingsTabs";
 import {
   formatProviderValidationError,
@@ -248,6 +249,9 @@ function ModelPanel() {
           <textarea className="zorai-input" value={agentSettings.system_prompt} onChange={(event) => updateAgentSetting("system_prompt", event.target.value)} />
         </SettingRow>
         <Metric label="Backend" value="daemon" />
+      </Panel>
+      <Panel section="Svarog" title="Preferred skills">
+        <PreferredSkillsEditor agentId="swarog" agentName="Svarog" />
       </Panel>
     </SettingsGrid>
   );
@@ -626,6 +630,9 @@ function ConciergePanel() {
           />
         </Panel>
       ) : null}
+      <Panel section="Rarog" title="Preferred skills">
+        <PreferredSkillsEditor agentId="rarog" agentName="Rarog" />
+      </Panel>
     </SettingsGrid>
   );
 }

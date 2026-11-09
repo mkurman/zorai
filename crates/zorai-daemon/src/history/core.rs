@@ -564,6 +564,9 @@ impl HistoryStore {
         if hits.is_empty() {
             body.push_str("- No matching executions were available.\n");
         }
+        if crate::agent::skill_library::is_skill_path_locked(&self.skills_root(), &path) {
+            anyhow::bail!("skill location {} is locked", path.display());
+        }
         std::fs::write(&path, body)
             .with_context(|| format!("failed to write {}", path.display()))?;
         self.register_skill_document(&path).await?;

@@ -275,6 +275,9 @@ impl HistoryStore {
             .iter()
             .map(map_skill_variant_row_db)
             .collect::<anyhow::Result<Vec<_>>>()?;
+        variants.retain(|record| {
+            !crate::agent::skill_library::is_skill_relative_path_disabled(&record.relative_path)
+        });
         let trend_by_variant =
             load_skill_variant_trends_db(&mut db::ConnExecutor(&*self.conn_db), &variants, 8)
                 .await?;
@@ -347,6 +350,9 @@ impl HistoryStore {
             .filter_map(|row| map_skill_variant_row_db(row).ok())
             .filter(|record| skill_variant_matches(record, &normalized))
             .filter(|record| record.status != "archived" && record.status != "merged")
+            .filter(|record| {
+                !crate::agent::skill_library::is_skill_relative_path_disabled(&record.relative_path)
+            })
             .collect::<Vec<_>>();
         if candidates.is_empty() {
             return Ok(None);
@@ -613,6 +619,9 @@ impl HistoryStore {
         let mut variants = rows
             .iter()
             .filter_map(|row| map_skill_variant_row_db(row).ok())
+            .filter(|record| {
+                !crate::agent::skill_library::is_skill_relative_path_disabled(&record.relative_path)
+            })
             .collect::<Vec<_>>();
 
         let trend_by_variant =

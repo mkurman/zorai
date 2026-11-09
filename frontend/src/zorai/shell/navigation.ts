@@ -7,6 +7,7 @@ export type ZoraiViewId =
   | "workspaces"
   | "database"
   | "tools"
+  | "skills"
   | "activity"
   | "settings";
 
@@ -25,6 +26,7 @@ export type ZoraiNavIconId =
   | "workspaces"
   | "database"
   | "tools"
+  | "skills"
   | "activity"
   | "settings"
   | "nightMode";
@@ -71,6 +73,13 @@ export const zoraiNavItems: ZoraiNavItem[] = [
     railLabel: "Operator Tools",
     icon: "tools",
     description: "Open terminal, files, browser, history, system, and vault tools.",
+  },
+  {
+    id: "skills",
+    label: "Skills",
+    railLabel: "Skills",
+    icon: "skills",
+    description: "Browse, edit, lock, disable, and prefer skills for agents and subagents.",
   },
   {
     id: "activity",

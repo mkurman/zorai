@@ -94,6 +94,16 @@ impl Default for MemoryLimitsConfig {
     }
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SkillLibraryConfig {
+    #[serde(default)]
+    pub locked: Vec<String>,
+    #[serde(default)]
+    pub disabled: Vec<String>,
+    #[serde(default)]
+    pub preferred: std::collections::BTreeMap<String, Vec<String>>,
+}
+
 /// Maturity stage of a skill variant as it progresses through discovery.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]

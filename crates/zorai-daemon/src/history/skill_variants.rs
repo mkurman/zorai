@@ -572,6 +572,9 @@ impl HistoryStore {
             &append_skill_merge_notes(&canonical_content, &merged_notes),
             &merged_sections,
         );
+        if crate::agent::skill_library::is_skill_path_locked(&self.skills_root(), &canonical_path) {
+            return Ok(Vec::new());
+        }
         if merged_content != canonical_content {
             std::fs::write(&canonical_path, merged_content).with_context(|| {
                 format!(
@@ -711,6 +714,9 @@ impl HistoryStore {
             extract_mergeable_variant_body(&right_content),
         );
 
+        if crate::agent::skill_library::is_skill_path_locked(&self.skills_root(), &offspring_path) {
+            return Ok(None);
+        }
         if let Some(parent) = offspring_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -783,6 +789,9 @@ impl HistoryStore {
         );
         body.push_str(&source_content);
 
+        if crate::agent::skill_library::is_skill_path_locked(&self.skills_root(), &branch_path) {
+            return Ok(None);
+        }
         if let Some(parent) = branch_path.parent() {
             std::fs::create_dir_all(parent)?;
         }

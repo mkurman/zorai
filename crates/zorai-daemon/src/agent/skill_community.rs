@@ -260,6 +260,12 @@ pub(crate) async fn import_community_skill(
         }
         ImportDecision::Import => {
             let skill_dir = skills_root.join("community").join(skill_name);
+            if crate::agent::skill_library::is_skill_path_locked(
+                skills_root,
+                &skill_dir.join("SKILL.md"),
+            ) {
+                anyhow::bail!("community skill '{skill_name}' is locked and cannot be replaced");
+            }
             tokio::fs::create_dir_all(&skill_dir)
                 .await
                 .with_context(|| format!("create community skill dir {}", skill_dir.display()))?;
