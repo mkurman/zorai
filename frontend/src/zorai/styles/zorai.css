@@ -8093,15 +8093,67 @@ button.zorai-composer-context-chip { cursor: pointer; }
 }
 
 .zorai-skills-rail__toolbar {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  padding: 10px 12px 6px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 10px 4px;
 }
 
-.zorai-skills-rail__toolbar .zorai-ghost-button {
-  justify-content: center;
-  font-size: 12px;
+.zorai-skills-rail__toolbar-gap {
+  flex: 1;
+}
+
+.zorai-skill-icon-button {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--zorai-muted);
+  cursor: pointer;
+}
+
+.zorai-skill-icon-button:not(:disabled):hover,
+.zorai-skill-icon-button:focus-visible {
+  background: var(--zorai-bg-elevated);
+  color: var(--zorai-text);
+  outline: none;
+}
+
+.zorai-skill-icon-button--active {
+  color: var(--zorai-accent);
+}
+
+.zorai-skill-icon-button--danger:not(:disabled):hover {
+  color: var(--danger);
+}
+
+.zorai-skill-icon-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.zorai-skill-icon-button--busy:disabled {
+  opacity: 1;
+  color: var(--zorai-accent);
+}
+
+.zorai-skill-icon-button--busy .zorai-skill-icon {
+  animation: zorai-loader-spin 1s linear infinite;
+}
+
+.zorai-skill-icon {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .zorai-skills-rail__target,
@@ -8109,6 +8161,24 @@ button.zorai-composer-context-chip { cursor: pointer; }
   padding: 0 14px 6px;
   color: var(--zorai-muted);
   font-size: 11px;
+}
+
+.zorai-skills-rail__notice--failed {
+  color: var(--danger);
+}
+
+.zorai-skills-rail__notice-action {
+  margin-left: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--zorai-accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.zorai-skills-rail__notice-action:hover {
+  text-decoration: underline;
 }
 
 .zorai-skills-rail__target code {
@@ -8221,16 +8291,24 @@ button.zorai-composer-context-chip { cursor: pointer; }
 
 .zorai-skill-pane__header {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
   padding: 16px 20px 12px;
   border-bottom: 1px solid var(--zorai-border);
 }
 
 .zorai-skill-pane__title {
+  flex: 1;
   min-width: 0;
+}
+
+.zorai-skill-pane__title h2,
+.zorai-skill-pane__title code {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .zorai-skill-pane__title h2 {
@@ -8244,52 +8322,87 @@ button.zorai-composer-context-chip { cursor: pointer; }
 }
 
 .zorai-skill-pane__actions {
+  flex: 0 0 auto;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
 }
 
 .zorai-skill-pane__tabs {
   display: inline-flex;
+  gap: 2px;
   padding: 2px;
   border: 1px solid var(--zorai-border);
-  border-radius: 8px;
+  border-radius: 9px;
 }
 
-.zorai-skill-pane__tabs button {
+.zorai-skill-pane__tabs .zorai-skill-icon-button {
+  width: 28px;
   height: 26px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--zorai-muted);
-  font: inherit;
-  font-size: 12px;
-  cursor: default;
 }
 
-.zorai-skill-pane__tabs button[aria-selected="true"] {
+.zorai-skill-pane__tabs .zorai-skill-icon-button--active {
   background: var(--zorai-bg-active);
   color: var(--zorai-text);
 }
 
-.zorai-skill-pane__tabs button:disabled {
-  opacity: 0.5;
+.zorai-skill-pane__divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 6px;
+  background: var(--zorai-border);
 }
 
-.zorai-skill-toggle--on {
-  border-color: var(--zorai-accent);
-  color: var(--zorai-accent);
+.zorai-skill-confirm {
+  width: min(500px, 100%);
 }
 
-.zorai-skill-danger {
-  color: var(--danger);
+.zorai-skill-confirm__body code {
+  color: var(--zorai-text);
 }
 
-.zorai-skill-pane__confirm {
+.zorai-skill-confirm__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 14px 0 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--zorai-border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.zorai-skill-confirm__option input {
+  margin-top: 3px;
+}
+
+.zorai-skill-confirm__option span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.zorai-skill-confirm__option small {
   color: var(--zorai-muted);
   font-size: 12px;
+}
+
+.zorai-skill-confirm__note {
+  font-size: 12px;
+}
+
+.zorai-skill-confirm__output {
+  max-height: 220px;
+  overflow: auto;
+  margin: 8px 0 0;
+  padding: 10px;
+  border: 1px solid var(--zorai-border);
+  border-radius: 6px;
+  background: var(--zorai-bg-elevated);
+  color: var(--zorai-text);
+  font: 11px/1.5 var(--font-mono);
+  white-space: pre-wrap;
 }
 
 .zorai-skill-pane__banner,
@@ -8321,9 +8434,50 @@ button.zorai-composer-context-chip { cursor: pointer; }
   min-height: 0;
 }
 
+.zorai-skill-pane__body {
+  position: relative;
+}
+
 .zorai-skill-pane__preview {
   overflow: auto;
-  padding: 16px 24px;
+  padding: 18px 28px;
+}
+
+.zorai-skill-pane__preview-inner {
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.zorai-skill-pane__preview-host {
+  position: relative;
+}
+
+.zorai-skill-frontmatter {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--zorai-border);
+  border-radius: 10px;
+  background: var(--zorai-bg-panel);
+  font-size: 12px;
+}
+
+.zorai-skill-frontmatter > div {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.zorai-skill-frontmatter dt {
+  color: var(--zorai-muted);
+  font-family: var(--font-mono);
+}
+
+.zorai-skill-frontmatter dd {
+  margin: 0;
+  color: var(--zorai-text);
+  overflow-wrap: anywhere;
 }
 
 .zorai-skill-pane__empty {
@@ -8412,11 +8566,102 @@ button.zorai-composer-context-chip { cursor: pointer; }
   color: var(--zorai-text);
 }
 
-.zorai-preferred-skills__add {
+.zorai-preferred-skills__combo {
+  position: relative;
+}
+
+.zorai-preferred-skills__combo .zorai-input {
+  width: 100%;
+}
+
+.zorai-preferred-skills__suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 300px;
+  overflow: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--zorai-border-strong);
+  border-radius: 10px;
+  background: var(--zorai-bg-panel);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--shade) 35%, transparent);
+}
+
+.zorai-preferred-skills__suggestions--up {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+.zorai-preferred-skills__suggestions li {
   display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.zorai-preferred-skills__suggestions li.is-highlighted {
+  background: var(--zorai-bg-elevated);
+}
+
+.zorai-preferred-skills__suggestion-name {
+  flex: 0 0 auto;
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--zorai-text);
+  font: 13px var(--font-mono);
+}
+
+.zorai-preferred-skills__suggestion-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  color: var(--zorai-muted);
+  font-size: 11px;
+}
+
+.zorai-preferred-skills__suggestions--empty {
+  padding: 10px 12px;
+  color: var(--zorai-muted);
+  font-size: 12px;
+}
+
+.zorai-panel__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.zorai-panel__heading-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
   gap: 6px;
 }
 
-.zorai-preferred-skills__add .zorai-input {
-  flex: 1;
+.zorai-preferred-skills__more {
+  height: 24px;
+  padding: 0 10px;
+  border: 1px dashed var(--zorai-border-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--zorai-muted);
+  font: 12px var(--font-mono);
+  cursor: pointer;
+}
+
+.zorai-preferred-skills__more:hover {
+  border-style: solid;
+  color: var(--zorai-text);
 }

@@ -108,9 +108,11 @@ function renderIconPath(icon: ZoraiNavIconId) {
   if (icon === "skills") {
     return (
       <>
-        <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z" />
-        <path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z" />
-        <path d="M7 8h1.5M7 11h1.5M15.5 8H17M15.5 11H17" />
+        <path d="m4 20 11-11" />
+        <path d="m13.5 7.5 3 3" />
+        <path d="M18 3v4M16 5h4" />
+        <path d="M9 3v2M8 4h2" />
+        <path d="M19 12v2M18 13h2" />
       </>
     );
   }
@@ -125,6 +127,10 @@ function renderIconPath(icon: ZoraiNavIconId) {
   }
 
   if (icon === "nightMode") {
+    return <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />;
+  }
+
+  if (icon === "lightMode") {
     return (
       <>
         <circle cx="12" cy="12" r="3" />

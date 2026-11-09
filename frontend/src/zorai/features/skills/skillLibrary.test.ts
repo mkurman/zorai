@@ -4,10 +4,13 @@ import {
   coveringSkillKey,
   isBlankSkillDraft,
   isSkillPathCovered,
+  preferableSkills,
   preferredSkillAgents,
+  searchPreferableSkills,
   setPreferredSkill,
   skillKeyForPath,
   skillNameForPath,
+  splitSkillFrontmatter,
   toggleSkillKey,
 } from "./skillLibrary";
 
@@ -59,5 +62,41 @@ describe("skill library rules", () => {
   it("treats whitespace-only drafts as empty so closing them never writes a blank skill", () => {
     expect(isBlankSkillDraft("  \n ")).toBe(true);
     expect(isBlankSkillDraft("# Skill")).toBe(false);
+  });
+});
+
+describe("skill preview frontmatter", () => {
+  it("shows SKILL.md metadata as fields instead of one run-on paragraph", () => {
+    const { frontmatter, body } = splitSkillFrontmatter("---\nname: hf-datasets\ndescription: Load datasets.\n  Stream them too.\ntags: [a, b]\n---\n# HuggingFace Datasets\n");
+    expect(frontmatter).toEqual([
+      ["name", "hf-datasets"],
+      ["description", "Load datasets. Stream them too."],
+      ["tags", "[a, b]"],
+    ]);
+    expect(body).toBe("# HuggingFace Datasets\n");
+    expect(splitSkillFrontmatter("# No frontmatter").frontmatter).toEqual([]);
+  });
+});
+
+describe("preferred skill search", () => {
+  const documents = [
+    { path: "generated/workflow--cat-empero.md", name: "workflow--cat-empero" },
+    { path: "drafts/empero-draft/SKILL.md", name: "empero-draft" },
+    { path: "empero/research/SKILL.md", name: "research" },
+    { path: "empero-tools/SKILL.md", name: "empero-tools" },
+    { path: "off/empero-old/SKILL.md", name: "empero-old" },
+    { path: "development/dataset-cleaning/SKILL.md", name: "dataset-cleaning" },
+  ];
+
+  it("offers only operator skills: agent-generated, draft, and disabled skills are left out", () => {
+    const skills = preferableSkills(documents, ["off"]);
+    expect(skills.map((skill) => skill.name)).toEqual(["dataset-cleaning", "empero-tools", "research"]);
+  });
+
+  it("ranks name matches before path matches and hides skills already preferred", () => {
+    const skills = preferableSkills(documents, []);
+    expect(searchPreferableSkills(skills, "empero", []).map((skill) => skill.name)).toEqual(["empero-old", "empero-tools", "research"]);
+    expect(searchPreferableSkills(skills, "empero", ["Empero-Tools"]).map((skill) => skill.name)).toEqual(["empero-old", "research"]);
+    expect(searchPreferableSkills(skills, "", [], 2)).toHaveLength(2);
   });
 });

@@ -268,6 +268,7 @@ const bridgeApi = {
     windowIsMaximized: () => ipcRenderer.invoke('window-isMaximized'),
     windowMenuLabels: () => ipcRenderer.invoke('window-menu-labels'),
     skillsListDocuments: (skillsRoot) => ipcRenderer.invoke('skills-list-documents', skillsRoot),
+    skillsSync: (force) => ipcRenderer.invoke('skills-sync', force),
     windowMenuItems: (label) => ipcRenderer.invoke('window-menu-items', label),
     windowMenuInvoke: (label, index) => ipcRenderer.invoke('window-menu-invoke', label, index),
     setWindowOpacity: (opacity) => ipcRenderer.invoke('window-set-opacity', opacity),

@@ -6,7 +6,7 @@ use crate::cli::SkillAction;
 use crate::client;
 use crate::output::truncate_for_display;
 
-use super::skill_sync::{fetch_remote_skill_documents, sync_skill_documents};
+use super::skill_sync::{fetch_remote_skill_documents, locked_skill_keys, sync_skill_documents};
 
 pub(crate) async fn run(action: SkillAction) -> Result<()> {
     match action {
@@ -53,13 +53,23 @@ pub(crate) async fn run(action: SkillAction) -> Result<()> {
         }
         SkillAction::Sync { force } => {
             let root = zorai_protocol::zorai_skills_dir();
+            let locked = match client::send_config_get().await {
+                Ok(config) => locked_skill_keys(&config),
+                Err(error) if force => anyhow::bail!(
+                    "cannot read locked skills from the daemon ({error}); start the daemon before a forced skill sync"
+                ),
+                Err(_) => Vec::new(),
+            };
             let documents = fetch_remote_skill_documents().await?;
-            let summary = sync_skill_documents(&root, &documents, force)?;
+            let summary = sync_skill_documents(&root, &documents, force, &locked)?;
             println!("Synced skills from https://github.com/mkurman/zorai/tree/main/skills");
             println!("Skills root: {}", root.display());
             println!(
-                "Installed: {} | Overwritten: {} | Skipped existing: {}",
-                summary.installed, summary.overwritten, summary.skipped_existing
+                "Installed: {} | Overwritten: {} | Skipped existing: {} | Skipped locked: {}",
+                summary.installed,
+                summary.overwritten,
+                summary.skipped_existing,
+                summary.skipped_locked
             );
         }
         SkillAction::Discover {

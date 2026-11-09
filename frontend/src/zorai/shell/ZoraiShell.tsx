@@ -262,16 +262,13 @@ export function ZoraiShell() {
             <div className="zorai-global-items-footer">
               <button
                 type="button"
-                className={[
-                  "zorai-global-item",
-                  nightModeEnabled ? "zorai-global-item--active" : "",
-                ].filter(Boolean).join(" ")}
+                className="zorai-global-item"
                 onClick={toggleNightMode}
                 title={nightModeEnabled ? "Turn night mode off" : "Turn night mode on"}
                 aria-label={nightModeEnabled ? "Turn night mode off" : "Turn night mode on"}
                 aria-pressed={nightModeEnabled}
               >
-                <ZoraiNavIcon icon="nightMode" />
+                {nightModeEnabled ? <ZoraiNavIcon icon="nightMode" /> : <ZoraiNavIcon icon="lightMode" />}
               </button>
               <button
                 type="button"

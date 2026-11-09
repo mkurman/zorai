@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getBridge } from "@/lib/bridge";
 import { useAgentStore } from "@/lib/agentStore";
 import { MonacoReadOnlyView, WorkspaceCodeEditor } from "@/components/WorkspaceCodeEditor";
+import { MarkdownContent } from "@/components/agent-chat-panel/chat-view/markdown";
 import { CodeDocumentPreview, codePreviewKind } from "../code/CodeDocumentPreview";
 import { CodeFileIcon, CodeFolderChevron } from "../code/CodeFileIcon";
 import { useCodeEditorSettingsStore } from "../code/codeEditorSettingsStore";
@@ -16,10 +17,14 @@ import {
   setPreferredSkill,
   skillKeyForPath,
   skillNameForPath,
+  splitSkillFrontmatter,
   toggleSkillKey,
+  useSkillDocuments,
   useSkillLibrary,
 } from "./skillLibrary";
-import { isValidSkillName, joinSkillPath, parentDir, useSkillsViewStore, type OpenSkillDocument } from "./skillsViewStore";
+import { isValidSkillName, joinSkillPath, parentDir, useSkillsViewStore, type OpenSkillDocument, type SkillSyncResult } from "./skillsViewStore";
+import { SkillIconButton } from "./SkillIcons";
+import type { ReactNode } from "react";
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -31,7 +36,7 @@ function useSkillsRoot(): string | null {
     let cancelled = false;
     void resolveSkillsRoot().then(async (resolved) => {
       if (!resolved) return;
-      await getBridge()?.workspaceCreateDirectory?.(resolved, "").catch(() => undefined);
+      await getBridge()?.createFsDirectory?.(resolved).catch(() => undefined);
       if (!cancelled) setRoot(resolved);
     });
     return () => {
@@ -95,11 +100,123 @@ function NameDialog({ title, label, placeholder, initial = "", submitLabel, onSu
   );
 }
 
+function ConfirmDialog({ title, children, confirmLabel, danger = false, onConfirm, onClose }: {
+  title: string;
+  children: ReactNode;
+  confirmLabel: string;
+  danger?: boolean;
+  onConfirm: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const confirmRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    confirmRef.current?.focus();
+  }, []);
+  return (
+    <div className="zorai-code-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
+      <div
+        className="zorai-code-close-dialog zorai-skill-confirm"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="zorai-skill-confirm-title"
+        onKeyDown={(event) => { if (event.key === "Escape" && !busy) onClose(); }}
+      >
+        <h2 id="zorai-skill-confirm-title">{title}</h2>
+        <div className="zorai-skill-confirm__body">{children}</div>
+        {error ? <p role="alert">{error}</p> : null}
+        <footer>
+          <button type="button" disabled={busy} onClick={onClose}>Cancel</button>
+          <button
+            ref={confirmRef}
+            type="button"
+            className={danger ? "is-danger" : "is-primary"}
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              setError(null);
+              void onConfirm().then(onClose, (failure) => {
+                setError(errorMessage(failure));
+                setBusy(false);
+              });
+            }}
+          >
+            {busy ? "Working…" : confirmLabel}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function startSkillSync(force: boolean) {
+  const store = useSkillsViewStore.getState();
+  if (store.syncing) return;
+  store.setSyncResult(null);
+  store.setSyncing(true);
+  void (getBridge()?.skillsSync?.(force) ?? Promise.resolve({ ok: false, output: "Skill sync is unavailable." }))
+    .catch((error: unknown) => ({ ok: false, output: errorMessage(error) }))
+    .then((result) => {
+      useSkillsViewStore.getState().setSyncResult(result);
+      afterTreeChange();
+    })
+    .finally(() => useSkillsViewStore.getState().setSyncing(false));
+}
+
+function SyncDialog({ result, onClose }: { result: SkillSyncResult | null; onClose: () => void }) {
+  const [force, setForce] = useState(false);
+  return (
+    <div className="zorai-code-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <div className="zorai-code-close-dialog zorai-skill-confirm" role="alertdialog" aria-modal="true" aria-labelledby="zorai-skill-sync-title" onKeyDown={(event) => { if (event.key === "Escape") onClose(); }}>
+        <h2 id="zorai-skill-sync-title">{result ? (result.ok ? "Skills synced" : "Skill sync failed") : "Sync skills?"}</h2>
+        {result ? (
+          <div className="zorai-skill-confirm__body">
+            {result.output ? <pre className="zorai-skill-confirm__output">{result.output}</pre> : null}
+          </div>
+        ) : (
+          <div className="zorai-skill-confirm__body">
+            <p>Downloads the latest official skills from the zorai repository into <code>~/.zorai/skills</code>. It runs in the background.</p>
+            <label className="zorai-skill-confirm__option">
+              <input type="checkbox" checked={force} onChange={(event) => setForce(event.target.checked)} />
+              <span>
+                <strong>Overwrite local changes</strong>
+                <small>Replaces existing files with upstream versions. Without this, only missing skills are added.</small>
+              </span>
+            </label>
+            <p className="zorai-skill-confirm__note">Locked skills and folders are never replaced or added to.</p>
+          </div>
+        )}
+        <footer>
+          {result ? (
+            <button type="button" className="is-primary" onClick={onClose}>Close</button>
+          ) : (
+            <>
+              <button type="button" onClick={onClose}>Cancel</button>
+              <button
+                type="button"
+                className={force ? "is-danger" : "is-primary"}
+                onClick={() => {
+                  startSkillSync(force);
+                  onClose();
+                }}
+              >
+                {force ? "Sync and overwrite" : "Sync"}
+              </button>
+            </>
+          )}
+        </footer>
+      </div>
+    </div>
+  );
+}
+
 function SkillBadges({ path }: { path: string }) {
   const { library } = useSkillLibrary();
+  const documents = useSkillDocuments();
   const locked = isSkillPathCovered(library.locked, path);
   const disabled = isSkillPathCovered(library.disabled, path);
-  const name = skillNameForPath(path);
+  const name = documents.find((document) => document.path === path)?.name ?? skillNameForPath(path);
   const preferredBy = name ? agentsPreferringSkill(library, name).length : 0;
   return (
     <>
@@ -156,8 +273,8 @@ function SkillTreeNode({ root, entry, depth, expanded, childrenByPath, onToggle 
         </button>
         {entry.isDirectory ? null : (
           <span className="zorai-skill-tree-row__actions">
-            <button type="button" onClick={() => open("preview")}>show</button>
-            <button type="button" onClick={() => open("editor")}>edit</button>
+            <button type="button" title="Show preview" onClick={() => open("preview")}>show</button>
+            <button type="button" title="Open in editor" onClick={() => open("editor")}>edit</button>
           </span>
         )}
       </div>
@@ -174,10 +291,12 @@ export function SkillsRail() {
   const root = useSkillsRoot();
   const selectedDir = useSkillsViewStore((state) => state.selectedDir);
   const refreshToken = useSkillsViewStore((state) => state.refreshToken);
+  const syncing = useSkillsViewStore((state) => state.syncing);
+  const syncResult = useSkillsViewStore((state) => state.syncResult);
   const { library } = useSkillLibrary();
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set([""]));
   const [childrenByPath, setChildrenByPath] = useState<Map<string, ZoraiWorkspaceEntry[]>>(() => new Map());
-  const [dialog, setDialog] = useState<"skill" | "folder" | null>(null);
+  const [dialog, setDialog] = useState<"skill" | "folder" | "sync" | "syncResult" | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const targetLocked = selectedDir !== "" && isSkillPathCovered(library.locked, selectedDir);
 
@@ -238,19 +357,31 @@ export function SkillsRail() {
 
   return (
     <div className="zorai-skills-rail">
-      <div className="zorai-skills-rail__toolbar">
-        <button type="button" className="zorai-ghost-button" disabled={targetLocked} onClick={() => setDialog("skill")}>New skill</button>
-        <button type="button" className="zorai-ghost-button" disabled={targetLocked} onClick={() => setDialog("folder")}>New folder</button>
-        <button type="button" className="zorai-ghost-button" disabled={targetLocked} onClick={() => void importFrom("file")}>Import file</button>
-        <button type="button" className="zorai-ghost-button" disabled={targetLocked} onClick={() => void importFrom("folder")}>Import folder</button>
+      <div className="zorai-skills-rail__toolbar" role="toolbar" aria-label="Skill actions">
+        <SkillIconButton icon="newSkill" label="New skill" disabled={targetLocked} onClick={() => setDialog("skill")} />
+        <SkillIconButton icon="newFolder" label="New folder" disabled={targetLocked} onClick={() => setDialog("folder")} />
+        <SkillIconButton icon="importFile" label="Import file" disabled={targetLocked} onClick={() => void importFrom("file")} />
+        <SkillIconButton icon="importFolder" label="Import folder" disabled={targetLocked} onClick={() => void importFrom("folder")} />
+        <span className="zorai-skills-rail__toolbar-gap" />
+        <SkillIconButton icon="refresh" label="Refresh tree" onClick={afterTreeChange} />
+        <SkillIconButton icon="sync" label={syncing ? "Syncing skills…" : "Sync skills from zorai…"} busy={syncing} disabled={syncing} onClick={() => setDialog("sync")} />
       </div>
       <div className="zorai-skills-rail__target" title="New skills, folders and imports go here">
         into <code>skills/{selectedDir}</code>{targetLocked ? " (locked)" : ""}
       </div>
       {notice ? <p className="zorai-skills-rail__notice" role="status">{notice}</p> : null}
+      {syncResult ? (
+        <p className={syncResult.ok ? "zorai-skills-rail__notice" : "zorai-skills-rail__notice zorai-skills-rail__notice--failed"} role="status">
+          {syncResult.ok ? "Skills synced." : "Skill sync failed."}
+          <button type="button" className="zorai-skills-rail__notice-action" onClick={() => setDialog("syncResult")}>Details</button>
+          <button type="button" className="zorai-skills-rail__notice-action" onClick={() => useSkillsViewStore.getState().setSyncResult(null)}>Dismiss</button>
+        </p>
+      ) : null}
       <div className="zorai-skill-tree" role="tree" aria-label="Skills">
         <SkillTreeNode root={root} entry={rootEntry} depth={0} expanded={expanded} childrenByPath={childrenByPath} onToggle={toggle} />
       </div>
+      {dialog === "sync" ? <SyncDialog result={null} onClose={() => setDialog(null)} /> : null}
+      {dialog === "syncResult" && syncResult ? <SyncDialog result={syncResult} onClose={() => setDialog(null)} /> : null}
       {dialog === "folder" ? (
         <NameDialog
           title="Create folder"
@@ -339,27 +470,23 @@ function LibraryToggles({ path, isSkillDoc }: { path: string; isSkillDoc: boolea
   const disableInherited = disabledBy !== null && disabledBy !== key;
   return (
     <>
-      <button
-        type="button"
-        className={["zorai-ghost-button", lockedBy ? "zorai-skill-toggle--on" : ""].filter(Boolean).join(" ")}
+      <SkillIconButton
+        icon={lockedBy ? "lock" : "unlock"}
+        active={lockedBy !== null}
         disabled={lockInherited}
-        title={lockInherited ? `Locked by skills/${lockedBy}` : lockedBy ? "Allow edits and sync overwrites again" : "Protect from edits and sync overwrites"}
+        label={lockInherited ? `Locked by skills/${lockedBy}` : lockedBy ? "Unlock: allow edits and sync overwrites" : "Lock: protect from edits and sync overwrites"}
         onClick={() => void update({ ...library, locked: toggleSkillKey(library.locked, key) })}
-      >
-        {lockedBy ? "Unlock" : "Lock"}
-      </button>
-      <button
-        type="button"
-        className={["zorai-ghost-button", disabledBy ? "zorai-skill-toggle--on" : ""].filter(Boolean).join(" ")}
+      />
+      <SkillIconButton
+        icon={disabledBy ? "disable" : "enable"}
+        active={disabledBy !== null}
         disabled={disableInherited}
-        title={disableInherited ? `Disabled by skills/${disabledBy}` : disabledBy ? "Show to agents again" : "Hide from skill lists and preferred skills"}
+        label={disableInherited ? `Disabled by skills/${disabledBy}` : disabledBy ? "Enable: show to agents again" : "Disable: hide from skill lists and preferred skills"}
         onClick={() => {
           invalidateSkillDocuments();
           void update({ ...library, disabled: toggleSkillKey(library.disabled, key) });
         }}
-      >
-        {disabledBy ? "Enable" : "Disable"}
-      </button>
+      />
     </>
   );
 }
@@ -367,7 +494,6 @@ function LibraryToggles({ path, isSkillDoc }: { path: string; isSkillDoc: boolea
 function FolderPane({ root, dir }: { root: string; dir: string }) {
   const { library } = useSkillLibrary();
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const locked = dir !== "" && isSkillPathCovered(library.locked, dir);
   return (
     <section className="zorai-skill-pane zorai-skill-pane--folder">
@@ -379,30 +505,25 @@ function FolderPane({ root, dir }: { root: string; dir: string }) {
         {dir ? (
           <div className="zorai-skill-pane__actions">
             <LibraryToggles path={dir} isSkillDoc={false} />
-            {confirmDelete ? (
-              <>
-                <span className="zorai-skill-pane__confirm">Delete folder and everything in it?</span>
-                <button
-                  type="button"
-                  className="zorai-ghost-button zorai-skill-danger"
-                  onClick={() => {
-                    void getBridge()?.workspaceDeletePath?.(root, dir, { recursive: true }).then(() => {
-                      useSkillsViewStore.getState().selectDir(parentDir(dir));
-                      afterTreeChange();
-                    }, (failure) => setError(errorMessage(failure)));
-                  }}
-                >
-                  Delete
-                </button>
-                <button type="button" className="zorai-ghost-button" onClick={() => setConfirmDelete(false)}>Cancel</button>
-              </>
-            ) : (
-              <button type="button" className="zorai-ghost-button" disabled={locked} onClick={() => setConfirmDelete(true)}>Delete folder</button>
-            )}
+            <SkillIconButton icon="delete" label="Delete folder…" danger disabled={locked} onClick={() => setConfirmDelete(true)} />
           </div>
         ) : null}
       </header>
-      {error ? <p role="alert" className="zorai-skill-pane__error">{error}</p> : null}
+      {confirmDelete ? (
+        <ConfirmDialog
+          title="Delete folder?"
+          confirmLabel="Delete folder"
+          danger
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={async () => {
+            await getBridge()?.workspaceDeletePath?.(root, dir, { recursive: true });
+            useSkillsViewStore.getState().selectDir(parentDir(dir));
+            afterTreeChange();
+          }}
+        >
+          <p><code>skills/{dir}</code> and everything inside it will be permanently deleted.</p>
+        </ConfirmDialog>
+      ) : null}
       <div className="zorai-skill-pane__empty">
         <p>Pick a file in the tree to preview it, or hover a file and choose <strong>edit</strong>.</p>
         <p>New skills, folders and imports are created in <code>skills/{dir}</code>.</p>
@@ -412,8 +533,30 @@ function FolderPane({ root, dir }: { root: string; dir: string }) {
   );
 }
 
+function SkillMarkdownPreview({ content }: { content: string }) {
+  const { frontmatter, body } = useMemo(() => splitSkillFrontmatter(content), [content]);
+  return (
+    <div className="zorai-skill-pane__preview">
+      <div className="zorai-skill-pane__preview-inner">
+        {frontmatter.length > 0 ? (
+          <dl className="zorai-skill-frontmatter">
+            {frontmatter.map(([key, value]) => (
+              <div key={key}>
+                <dt>{key}</dt>
+                <dd>{value || "—"}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
+        <MarkdownContent content={body} />
+      </div>
+    </div>
+  );
+}
+
 function DocumentPane({ root, open }: { root: string; open: OpenSkillDocument }) {
   const { library } = useSkillLibrary();
+  const documents = useSkillDocuments();
   const settings = useCodeEditorSettingsStore((state) => state.settings);
   const [content, setContent] = useState("");
   const [original, setOriginal] = useState("");
@@ -433,7 +576,7 @@ function DocumentPane({ root, open }: { root: string; open: OpenSkillDocument })
   const lockedRef = useRef(locked);
   lockedRef.current = locked;
   draftRef.current = open.draft;
-  const skillName = skillNameForPath(open.path);
+  const skillName = documents.find((document) => document.path === open.path)?.name ?? skillNameForPath(open.path);
   const isSkillDoc = skillName !== null;
   const dirty = content !== original || open.draft;
   const mode = locked ? "preview" : open.mode;
@@ -515,63 +658,29 @@ function DocumentPane({ root, open }: { root: string; open: OpenSkillDocument })
           <code>skills/{open.path}</code>
         </div>
         <div className="zorai-skill-pane__actions">
-          <div className="zorai-skill-pane__tabs" role="tablist">
-            <button type="button" role="tab" aria-selected={mode === "preview"} onClick={() => useSkillsViewStore.getState().setMode("preview")}>Preview</button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === "editor"}
-              disabled={locked}
-              title={locked ? "Unlock to edit" : undefined}
-              onClick={() => useSkillsViewStore.getState().setMode("editor")}
-            >
-              Editor
-            </button>
+          <div className="zorai-skill-pane__tabs" role="tablist" aria-label="View mode">
+            <SkillIconButton icon="preview" label="Preview" active={mode === "preview"} onClick={() => useSkillsViewStore.getState().setMode("preview")} />
+            <SkillIconButton icon="editor" label={locked ? "Editor (unlock to edit)" : "Editor"} active={mode === "editor"} disabled={locked} onClick={() => useSkillsViewStore.getState().setMode("editor")} />
           </div>
+          <span className="zorai-skill-pane__divider" />
           {open.draft ? null : <LibraryToggles path={open.path} isSkillDoc={isSkillDoc} />}
           {skillName && !open.draft ? (
             <div className="zorai-skill-pane__picker-anchor">
-              <button type="button" className="zorai-ghost-button" aria-expanded={pickerOpen} onClick={() => setPickerOpen((value) => !value)}>
-                Preferred{agentsPreferringSkill(library, skillName).length > 0 ? ` · ${agentsPreferringSkill(library, skillName).length}` : ""}
-              </button>
+              <SkillIconButton
+                icon="preferred"
+                label={`Preferred by agents (${agentsPreferringSkill(library, skillName).length})`}
+                active={agentsPreferringSkill(library, skillName).length > 0}
+                expanded={pickerOpen}
+                onClick={() => setPickerOpen((value) => !value)}
+              />
               {pickerOpen ? <PreferredPicker skill={skillName} onClose={() => setPickerOpen(false)} /> : null}
             </div>
           ) : null}
-          {open.draft ? null : (
-            <button type="button" className="zorai-ghost-button" disabled={locked} onClick={() => setDialog("rename")}>Rename</button>
-          )}
-          {confirmDelete ? (
-            <>
-              <span className="zorai-skill-pane__confirm">{open.draft ? "Discard this draft?" : `Delete skills/${deleteTarget}?`}</span>
-              <button
-                type="button"
-                className="zorai-ghost-button zorai-skill-danger"
-                onClick={() => {
-                  skipCloseSaveRef.current = true;
-                  if (open.draft) {
-                    useSkillsViewStore.getState().close();
-                    return;
-                  }
-                  void getBridge()?.workspaceDeletePath?.(root, deleteTarget, { recursive: true }).then(() => {
-                    useSkillsViewStore.getState().close();
-                    afterTreeChange();
-                  }, (failure) => {
-                    skipCloseSaveRef.current = false;
-                    setError(errorMessage(failure));
-                  });
-                }}
-              >
-                {open.draft ? "Discard" : "Delete"}
-              </button>
-              <button type="button" className="zorai-ghost-button" onClick={() => setConfirmDelete(false)}>Cancel</button>
-            </>
-          ) : (
-            <button type="button" className="zorai-ghost-button" disabled={locked} onClick={() => setConfirmDelete(true)}>{open.draft ? "Discard" : "Delete"}</button>
-          )}
-          {mode === "editor" ? (
-            <button type="button" className="zorai-ghost-button zorai-skill-save" disabled={!dirty} onClick={() => void save()}>Save</button>
-          ) : null}
-          <button type="button" className="zorai-icon-button" aria-label="Close" title="Close (unsaved edits are saved)" onClick={() => useSkillsViewStore.getState().close()}>×</button>
+          {open.draft ? null : <SkillIconButton icon="rename" label="Rename…" disabled={locked} onClick={() => setDialog("rename")} />}
+          <SkillIconButton icon="delete" label={open.draft ? "Discard draft…" : "Delete…"} danger disabled={locked} onClick={() => setConfirmDelete(true)} />
+          <SkillIconButton icon="save" label="Save (Ctrl+S)" disabled={mode !== "editor" || !dirty} onClick={() => void save()} />
+          <span className="zorai-skill-pane__divider" />
+          <SkillIconButton icon="close" label="Close (unsaved edits are saved)" onClick={() => useSkillsViewStore.getState().close()} />
         </div>
       </header>
       {locked ? <p className="zorai-skill-pane__banner">Locked — read only, and protected from sync overwrites.</p> : null}
@@ -593,14 +702,45 @@ function DocumentPane({ root, open }: { root: string; open: OpenSkillDocument })
             onSelect={() => undefined}
             onSave={() => void save()}
           />
+        ) : !content.trim() ? (
+          <p className="zorai-empty-state zorai-skill-pane__empty">Nothing to preview yet.</p>
+        ) : codePreviewKind(open.path) === "markdown" ? (
+          <SkillMarkdownPreview content={content} />
         ) : codePreviewKind(open.path) ? (
-          <div className="zorai-skill-pane__preview">
-            {content.trim() ? <CodeDocumentPreview path={open.path} content={content} /> : <p className="zorai-empty-state">Nothing to preview yet.</p>}
+          <div className="zorai-skill-pane__preview-host">
+            <CodeDocumentPreview path={open.path} content={content} />
           </div>
         ) : (
           <MonacoReadOnlyView value={content} path={`${root}/${open.path}`} language={language} />
         )}
       </div>
+      {confirmDelete ? (
+        <ConfirmDialog
+          title={open.draft ? "Discard draft?" : isSkillDoc ? "Delete skill?" : "Delete file?"}
+          confirmLabel={open.draft ? "Discard" : "Delete"}
+          danger
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={async () => {
+            skipCloseSaveRef.current = true;
+            if (!open.draft) {
+              try {
+                await getBridge()?.workspaceDeletePath?.(root, deleteTarget, { recursive: true });
+              } catch (failure) {
+                skipCloseSaveRef.current = false;
+                throw failure;
+              }
+              afterTreeChange();
+            }
+            useSkillsViewStore.getState().close();
+          }}
+        >
+          {open.draft ? (
+            <p>The unsaved skill <code>{skillName}</code> will be discarded.</p>
+          ) : (
+            <p><code>skills/{deleteTarget}</code>{isSkillDoc ? " and every file in the skill folder" : ""} will be permanently deleted.</p>
+          )}
+        </ConfirmDialog>
+      ) : null}
       {dialog === "rename" ? (
         <NameDialog
           title="Rename"

@@ -924,6 +924,7 @@ declare global {
         windowIsMaximized?: () => Promise<boolean>;
         windowMenuLabels?: () => Promise<string[]>;
         skillsListDocuments?: (skillsRoot: string) => Promise<Array<{ path: string; name: string }>>;
+        skillsSync?: (force: boolean) => Promise<{ ok: boolean; output: string }>;
         windowMenuItems?: (label: string) => Promise<Array<{ index: number; type: "normal" | "separator"; label: string; accelerator: string; enabled: boolean }>>;
         windowMenuInvoke?: (label: string, index: number) => Promise<boolean>;
         onWindowState?: (cb: (state: any) => void) => (() => void) | void;

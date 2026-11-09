@@ -29,7 +29,8 @@ export type ZoraiNavIconId =
   | "skills"
   | "activity"
   | "settings"
-  | "nightMode";
+  | "nightMode"
+  | "lightMode";
 
 export const zoraiNavItems: ZoraiNavItem[] = [
   {

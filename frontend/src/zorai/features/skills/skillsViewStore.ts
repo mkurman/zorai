@@ -8,10 +8,14 @@ export type OpenSkillDocument = {
   draft: boolean;
 };
 
+export type SkillSyncResult = { ok: boolean; output: string };
+
 type SkillsViewState = {
   selectedDir: string;
   open: OpenSkillDocument | null;
   refreshToken: number;
+  syncing: boolean;
+  syncResult: SkillSyncResult | null;
   selectDir: (dir: string) => void;
   openDocument: (path: string, mode: SkillEditorMode) => void;
   openDraft: (path: string) => void;
@@ -19,12 +23,16 @@ type SkillsViewState = {
   setMode: (mode: SkillEditorMode) => void;
   close: () => void;
   refresh: () => void;
+  setSyncing: (syncing: boolean) => void;
+  setSyncResult: (result: SkillSyncResult | null) => void;
 };
 
 export const useSkillsViewStore = create<SkillsViewState>((set) => ({
   selectedDir: "",
   open: null,
   refreshToken: 0,
+  syncing: false,
+  syncResult: null,
   selectDir: (dir) => set({ selectedDir: dir }),
   openDocument: (path, mode) => set({ open: { path, mode, draft: false } }),
   openDraft: (path) => set({ open: { path, mode: "editor", draft: true } }),
@@ -33,6 +41,8 @@ export const useSkillsViewStore = create<SkillsViewState>((set) => ({
   setMode: (mode) => set((state) => (state.open ? { open: { ...state.open, mode } } : {})),
   close: () => set({ open: null }),
   refresh: () => set((state) => ({ refreshToken: state.refreshToken + 1 })),
+  setSyncing: (syncing) => set({ syncing }),
+  setSyncResult: (syncResult) => set({ syncResult }),
 }));
 
 export function parentDir(path: string): string {

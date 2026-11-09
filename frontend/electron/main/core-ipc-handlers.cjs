@@ -1,3 +1,4 @@
+const { execFile } = require('child_process');
 const { listSkillDocuments } = require('./skill-documents.cjs');
 
 function registerCoreIpcHandlers(ipcMain, options) {
@@ -17,6 +18,7 @@ function registerCoreIpcHandlers(ipcMain, options) {
         discordSendMessage,
         ensureZoraiDataDir,
         getAvailableShells,
+        getCliPath,
         getDaemonPath,
         getFsPathInfo,
         getPlatform,
@@ -202,6 +204,13 @@ function registerCoreIpcHandlers(ipcMain, options) {
         item.click(undefined, window, window.webContents);
         return true;
     });
+    ipcMain.handle('skills-sync', (_event, force) => new Promise((resolve) => {
+        const args = ['skill', 'sync', ...(force === true ? ['--force'] : [])];
+        execFile(getCliPath(), args, { timeout: 900000, maxBuffer: 4 * 1024 * 1024 }, (error, stdout, stderr) => {
+            const output = `${stdout ?? ''}${stderr ?? ''}`.trim();
+            resolve({ ok: !error, output: output || (error ? String(error.message ?? error) : '') });
+        });
+    }));
     ipcMain.handle('skills-list-documents', (_event, skillsRoot) => listSkillDocuments(skillsRoot));
     ipcMain.handle('window-isMaximized', () => windowState()?.isMaximized() ?? false);
     ipcMain.handle('window-set-opacity', (_event, opacity) => setWindowOpacity(opacity));

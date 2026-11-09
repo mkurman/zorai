@@ -376,8 +376,7 @@ function AuthPanel() {
 
   return (
     <SettingsGrid extraClassName="zorai-settings-grid--full">
-      <Panel section="Auth" title="Authentication" extraClassName="zorai-settings-auth">
-        <RefreshButton label="Refresh auth status" onClick={() => void refreshAuth()} />
+      <Panel section="Auth" title="Authentication" extraClassName="zorai-settings-auth" actions={<RefreshButton label="Refresh auth status" onClick={() => void refreshAuth()} />}>
         {authStates.length > 0 ? <input className="zorai-input" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search providers" aria-label="Search providers" /> : null}
         {authStates.length > 0 && visibleAuthStates.length === 0 ? <p className="zorai-empty-state">No providers match "{query.trim()}".</p> : null}
         {authStates.length === 0 ? <p className="zorai-empty-state">No provider auth status has been reported by the daemon yet.</p> : (
@@ -1436,8 +1435,7 @@ function PluginsPanel() {
 
   return (
     <SettingsGrid>
-      <Panel section="Plugins" title="Installed extensions">
-        <RefreshButton busy={loading} label={loading ? "Refreshing..." : "Refresh plugins"} onClick={() => void fetchPlugins()} />
+      <Panel section="Plugins" title="Installed extensions" actions={<RefreshButton busy={loading} label={loading ? "Refreshing..." : "Refresh plugins"} onClick={() => void fetchPlugins()} />}>
         <SettingRow label="Add plugin" description="Register an installed plugin directory with the daemon.">
           <div className="zorai-inline-fields">
             <input className="zorai-input" value={newPluginDir} onChange={(event) => setNewPluginDir(event.target.value)} placeholder="dir-name" />
@@ -1548,10 +1546,17 @@ function SettingsGrid({ children, extraClassName }: { children: ReactNode; extra
   return <div className={["zorai-settings-grid", extraClassName ?? ""].filter(Boolean).join(" ")}>{children}</div>;
 }
 
-function Panel({ section, title, children, extraClassName }: { section: string; title: string; children: ReactNode; extraClassName?: string }) {
+function Panel({ section, title, children, extraClassName, actions }: { section: string; title: string; children: ReactNode; extraClassName?: string; actions?: ReactNode }) {
   return (
     <div className={["zorai-panel", extraClassName ?? ""].filter(Boolean).join(" ")}>
-      <div><div className="zorai-section-label">{section}</div><h2>{title}</h2></div>
+      {actions ? (
+        <div className="zorai-panel__heading">
+          <div><div className="zorai-section-label">{section}</div><h2>{title}</h2></div>
+          <div className="zorai-panel__heading-actions">{actions}</div>
+        </div>
+      ) : (
+        <div><div className="zorai-section-label">{section}</div><h2>{title}</h2></div>
+      )}
       {children}
     </div>
   );

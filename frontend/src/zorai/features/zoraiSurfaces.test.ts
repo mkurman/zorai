@@ -923,9 +923,12 @@ describe("Zorai feature surfaces", () => {
     const iconSource = readFeature("../shell/ZoraiIcons.tsx");
     const styleSource = readFeature("../styles/zorai.css");
     expect(shellSource).toContain('icon="nightMode"');
+    expect(shellSource).toContain('icon="lightMode"');
+    expect(shellSource).not.toContain('nightModeEnabled ? "zorai-global-item--active"');
     expect(shellSource).toContain("toggleNightMode");
     expect(shellSource).toContain("zorai-global-items-footer");
     expect(iconSource).toContain('icon === "nightMode"');
+    expect(iconSource).toContain('icon === "lightMode"');
     expect(iconSource).toContain("M19.4 13a7.7 7.7 0 0 0 .1-2l2.1-1.6");
     expect(styleSource).toContain(".zorai-global-items-footer");
     expect(styleSource).not.toContain(".zorai-global-items .zorai-global-item:last-child");

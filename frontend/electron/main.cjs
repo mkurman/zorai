@@ -441,6 +441,7 @@ function registerIpcHandlers() {
         discordSendMessage: sendDiscordMessage,
         ensureZoraiDataDir,
         getAvailableShells,
+        getCliPath,
         getDaemonPath,
         getFsPathInfo,
         getPlatform: () => process.platform,
