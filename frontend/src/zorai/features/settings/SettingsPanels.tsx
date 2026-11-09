@@ -988,6 +988,11 @@ function MemoryPanel() {
         <SettingRow label="Base URL" description="Honcho server URL. Empty uses the hosted service."><input className="zorai-input" value={agentSettings.honcho_base_url} disabled={!agentSettings.enable_honcho_memory} onChange={(event) => updateAgentSetting("honcho_base_url", event.target.value)} /></SettingRow>
         <SettingRow label="Workspace" description="Honcho workspace id."><input className="zorai-input" value={agentSettings.honcho_workspace_id} placeholder="zorai" disabled={!agentSettings.enable_honcho_memory} onChange={(event) => updateAgentSetting("honcho_workspace_id", event.target.value)} /></SettingRow>
       </Panel>
+      <Panel section="Memory" title="Memory file limits">
+        <NumberRow label="SOUL.md (chars)" description="Maximum size of the agent identity file." value={agentSettings.memory_limit_soul_chars} onChange={(value) => updateAgentSetting("memory_limit_soul_chars", value)} min={200} max={100000} />
+        <NumberRow label="MEMORY.md (chars)" description="Maximum size of durable facts and strategy memory. Writes past this are rejected." value={agentSettings.memory_limit_memory_chars} onChange={(value) => updateAgentSetting("memory_limit_memory_chars", value)} min={200} max={100000} />
+        <NumberRow label="USER.md (chars)" description="Maximum size of the operator profile file." value={agentSettings.memory_limit_user_chars} onChange={(value) => updateAgentSetting("memory_limit_user_chars", value)} min={200} max={100000} />
+      </Panel>
       <Panel section="Memory" title="Consolidation">
         <SettingRow label="Consolidation" description="Consolidate memory while you are idle."><Switch checked={agentSettings.consolidation_enabled} onChange={(checked) => updateAgentSetting("consolidation_enabled", checked)} /></SettingRow>
         <NumberRow label="Decay Half-Life (h)" description="Half-life in hours for memory fact decay." value={agentSettings.consolidation_memory_decay_half_life_hours} onChange={(value) => updateAgentSetting("consolidation_memory_decay_half_life_hours", value)} min={1} max={10000} />

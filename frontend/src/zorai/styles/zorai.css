@@ -3084,12 +3084,7 @@
 
 /* Queued messages chips above the composer */
 .zorai-composer-queue {
-  display: grid;
-  gap: 8px;
   margin-bottom: 8px;
-}
-
-.zorai-composer-queue__chip {
   overflow: hidden;
   border: 1px solid var(--zorai-border-strong);
   border-radius: 12px;
@@ -3098,86 +3093,160 @@
   font-size: var(--text-sm);
 }
 
-.zorai-composer-queue__chip--editing {
-  border-color: var(--zorai-accent);
-}
-
 .zorai-composer-queue__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  padding: 6px 8px 6px 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: var(--zorai-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.zorai-composer-queue__header:hover {
+  color: var(--zorai-text);
+}
+
+.zorai-composer-queue__header[aria-expanded="true"] {
   border-bottom: 1px solid var(--zorai-border);
 }
 
-.zorai-composer-queue__label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.zorai-composer-queue__chevron {
+  width: 10px;
   flex-shrink: 0;
-  color: var(--zorai-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
 }
 
-.zorai-composer-queue__chip--editing .zorai-composer-queue__label {
-  color: var(--zorai-accent);
+.zorai-composer-queue__label {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
 }
 
 .zorai-composer-queue__count {
-  padding-left: 8px;
-  border-left: 1px solid var(--zorai-border);
+  flex-shrink: 0;
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--zorai-accent);
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.zorai-composer-queue__peek {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zorai-composer-queue__list {
+  max-height: min(180px, 28vh);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.zorai-composer-queue__row + .zorai-composer-queue__row {
+  border-top: 1px solid var(--zorai-border);
+}
+
+.zorai-composer-queue__row--editing {
+  background: var(--accent-dim);
+}
+
+.zorai-composer-queue__line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 6px 0 12px;
+}
+
+.zorai-composer-queue__index {
+  flex-shrink: 0;
+  width: 16px;
+  color: var(--zorai-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-align: right;
+}
+
+.zorai-composer-queue__row--editing .zorai-composer-queue__index {
+  color: var(--zorai-accent);
+}
+
+.zorai-composer-queue__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zorai-composer-queue__text em {
+  color: var(--zorai-muted);
+}
+
+.zorai-composer-queue__attachment-count {
+  flex-shrink: 0;
+  color: var(--zorai-muted);
+  font-size: var(--text-xs);
 }
 
 .zorai-composer-queue__actions {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
-  gap: 6px;
-  margin-left: auto;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 120ms ease;
 }
 
-.zorai-composer-queue__primary {
-  border-color: var(--zorai-accent);
-  color: var(--zorai-accent);
+.zorai-composer-queue__row:hover .zorai-composer-queue__actions,
+.zorai-composer-queue__row:focus-within .zorai-composer-queue__actions,
+.zorai-composer-queue__row--editing .zorai-composer-queue__actions {
+  opacity: 1;
 }
 
-.zorai-composer-queue__remove {
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  padding: 0;
+.zorai-composer-queue__action {
+  height: 24px;
+  padding: 0 8px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
   color: var(--zorai-muted);
-  font-size: var(--text-base);
-  line-height: 1;
+  font: inherit;
+  font-size: var(--text-xs);
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.zorai-composer-queue__remove:hover {
+.zorai-composer-queue__action:hover {
   background: var(--zorai-bg-elevated);
   color: var(--zorai-text);
 }
 
-.zorai-composer-queue__body {
-  display: grid;
-  gap: 8px;
-  padding: 10px 12px;
+.zorai-composer-queue__action--primary {
+  color: var(--zorai-accent);
 }
 
-.zorai-composer-queue__text {
-  margin: 0;
-  color: var(--zorai-text);
-  line-height: 1.5;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+.zorai-composer-queue__action--remove {
+  width: 24px;
+  padding: 0;
+  font-size: var(--text-base);
+  line-height: 1;
+}
+
+.zorai-composer-queue__attachments {
+  padding: 0 12px 8px 36px;
 }
 
 .zorai-composer-queue__attachments .zorai-attachment-tiles {
@@ -3404,15 +3473,38 @@
 .zorai-image-lightbox__toolbar {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  padding: 8px 12px;
+  gap: 4px;
+  max-width: calc(100% - 24px);
+  margin: 10px 12px;
+  justify-self: end;
+  padding: 4px 4px 4px 12px;
+  border: 1px solid var(--zorai-border-strong);
+  border-radius: 12px;
+  background: var(--zorai-bg-panel);
   color: var(--zorai-text);
   font: 11px var(--font-mono);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--shade) 30%, transparent);
+}
+
+.zorai-image-lightbox__toolbar .zorai-ghost-button {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-color: transparent;
+  border-radius: 6px;
+  color: var(--zorai-muted);
+  font: inherit;
+}
+
+.zorai-image-lightbox__toolbar .zorai-ghost-button:not(:disabled):hover {
+  border-color: transparent;
+  background: var(--zorai-bg-elevated);
+  color: var(--zorai-text);
 }
 
 .zorai-image-lightbox__name {
-  margin-right: auto;
+  margin-right: 8px;
+  max-width: 320px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4347,10 +4439,7 @@
 
 .zorai-handoff-popover input,
 .zorai-handoff-popover textarea,
-.zorai-handoff-popover select,
-.zorai-participants-drawer input,
-.zorai-participants-drawer textarea,
-.zorai-participants-drawer select {
+.zorai-handoff-popover select {
   width: 100%;
   box-sizing: border-box;
   padding: 8px 10px;
@@ -4410,21 +4499,20 @@
   inset: 0;
   display: flex;
   justify-content: flex-end;
-  background: color-mix(in srgb, var(--shade) 52%, transparent);
+  background: transparent;
 }
 
 .zorai-participants-drawer {
-  width: min(460px, 100vw);
+  width: min(360px, 100vw);
   height: 100%;
-  overflow: auto;
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
   border-left: 1px solid var(--zorai-border);
   background: var(--zorai-bg-panel);
-  box-shadow: -18px 0 48px color-mix(in srgb, var(--shade) 35%, transparent);
+  box-shadow: -8px 0 24px color-mix(in srgb, var(--shade) 14%, transparent);
 }
 
-.zorai-participants-drawer > header,
 .zorai-participant-card > div:first-child,
 .zorai-suggestion-card > div:first-child {
   display: flex;
@@ -4434,25 +4522,46 @@
 }
 
 .zorai-participants-drawer__section {
-  display: grid;
-  gap: 10px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--zorai-border);
+  font-size: var(--text-sm);
 }
 
 .zorai-participants-drawer__section label {
   display: grid;
-  gap: 6px;
+  gap: 4px;
+}
+
+.zorai-participants-drawer__section label > span {
+  color: var(--zorai-muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.zorai-participants-drawer__section .zorai-input {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.zorai-participants-drawer__section textarea.zorai-input {
+  min-height: 72px;
+  resize: vertical;
+  font: inherit;
+}
+
+.zorai-participants-drawer__section .zorai-empty-state,
+.zorai-participant-card p,
+.zorai-suggestion-card p {
+  margin: 0;
 }
 
 .zorai-participant-card,
 .zorai-suggestion-card {
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  padding: 10px;
   border: 1px solid var(--zorai-border);
-  border-radius: 10px;
+  border-radius: 7px;
   background: var(--zorai-bg);
 }
 

@@ -121,26 +121,29 @@ export function ThreadParticipantsDrawer({
         aria-modal="true"
         aria-labelledby="zorai-participants-title"
       >
-        <header>
+        <header className="zorai-context-header">
           <div>
-            <div className="zorai-kicker">Collaboration</div>
-            <h2 id="zorai-participants-title">Thread Participants</h2>
+            <div className="zorai-context-title" id="zorai-participants-title">Thread Participants</div>
+            <div className="zorai-context-subtitle">Collaboration</div>
           </div>
           <button ref={closeRef} type="button" className="zorai-icon-button zorai-participants-drawer__close" onClick={onClose}>
             x
           </button>
         </header>
 
+        <div className="zorai-context-body">
+        <div className="zorai-thread-context-stack">
         {error ? <p className="zorai-inline-error" role="alert">{error}</p> : null}
 
-        <section className="zorai-participants-drawer__section">
-          <h3>Add participant</h3>
+        <section className="zorai-thread-runtime-setup zorai-participants-drawer__section">
+          <div className="zorai-section-label">Add participant</div>
           {!thread.daemonThreadId ? (
-            <p>Send the first message before adding participants.</p>
+            <p className="zorai-empty-state">Send the first message before adding participants.</p>
           ) : null}
           <label>
             <span>Agent</span>
             <select
+              className="zorai-input"
               value={agentId}
               disabled={!thread.daemonThreadId || pendingKey !== null}
               onChange={(event) => setAgentId(event.target.value)}
@@ -153,6 +156,7 @@ export function ThreadParticipantsDrawer({
           <label>
             <span>Instruction</span>
             <textarea
+              className="zorai-input"
               value={instruction}
               disabled={!thread.daemonThreadId || pendingKey !== null}
               onChange={(event) => setInstruction(event.target.value)}
@@ -173,9 +177,9 @@ export function ThreadParticipantsDrawer({
           </button>
         </section>
 
-        <section className="zorai-participants-drawer__section">
-          <h3>Participants</h3>
-          {participants.length === 0 ? <p>No participants configured.</p> : null}
+        <section className="zorai-thread-runtime-setup zorai-participants-drawer__section">
+          <div className="zorai-section-label">Participants</div>
+          {participants.length === 0 ? <p className="zorai-empty-state">No participants configured.</p> : null}
           {participants.map((participant) => {
             const editing = editingId === participant.agentId;
             const key = `participant:${participant.agentId}`;
@@ -187,6 +191,7 @@ export function ThreadParticipantsDrawer({
                 </div>
                 {editing ? (
                   <textarea
+                    className="zorai-input"
                     value={editingInstruction}
                     disabled={pendingKey !== null}
                     onChange={(event) => setEditingInstruction(event.target.value)}
@@ -246,9 +251,9 @@ export function ThreadParticipantsDrawer({
           })}
         </section>
 
-        <section className="zorai-participants-drawer__section">
-          <h3>Queued suggestions</h3>
-          {suggestions.length === 0 ? <p>No queued suggestions.</p> : null}
+        <section className="zorai-thread-runtime-setup zorai-participants-drawer__section">
+          <div className="zorai-section-label">Queued suggestions</div>
+          {suggestions.length === 0 ? <p className="zorai-empty-state">No queued suggestions.</p> : null}
           {suggestions.map((suggestion) => {
             const daemonThreadId = thread.daemonThreadId;
             const action = busySuggestions[suggestion.id];
@@ -307,6 +312,8 @@ export function ThreadParticipantsDrawer({
             );
           })}
         </section>
+        </div>
+        </div>
       </section>
     </div>
   );

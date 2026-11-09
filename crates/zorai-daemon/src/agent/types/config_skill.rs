@@ -64,6 +64,36 @@ impl Default for ConsolidationConfig {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MemoryLimitsConfig {
+    #[serde(default = "default_memory_limits_soul_chars")]
+    pub soul_chars: usize,
+    #[serde(default = "default_memory_limits_memory_chars")]
+    pub memory_chars: usize,
+    #[serde(default = "default_memory_limits_user_chars")]
+    pub user_chars: usize,
+}
+
+fn default_memory_limits_soul_chars() -> usize {
+    2_000
+}
+fn default_memory_limits_memory_chars() -> usize {
+    3_600
+}
+fn default_memory_limits_user_chars() -> usize {
+    1_800
+}
+
+impl Default for MemoryLimitsConfig {
+    fn default() -> Self {
+        Self {
+            soul_chars: default_memory_limits_soul_chars(),
+            memory_chars: default_memory_limits_memory_chars(),
+            user_chars: default_memory_limits_user_chars(),
+        }
+    }
+}
+
 /// Maturity stage of a skill variant as it progresses through discovery.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]

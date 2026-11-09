@@ -261,6 +261,11 @@ export function buildDaemonAgentConfig(
       heuristic_promotion_threshold: Math.max(1, Math.floor(agentSettings.consolidation_heuristic_promotion_threshold)),
       memory_decay_half_life_hours: Math.max(1, agentSettings.consolidation_memory_decay_half_life_hours),
     },
+    memory_limits: {
+      soul_chars: Math.max(200, Math.floor(agentSettings.memory_limit_soul_chars)),
+      memory_chars: Math.max(200, Math.floor(agentSettings.memory_limit_memory_chars)),
+      user_chars: Math.max(200, Math.floor(agentSettings.memory_limit_user_chars)),
+    },
     heartbeat_enabled: agentSettings.heartbeat_enabled,
     heartbeat_interval_mins: agentSettings.heartbeat_interval_mins,
     heartbeat_cron: agentSettings.heartbeat_cron.trim() || null,

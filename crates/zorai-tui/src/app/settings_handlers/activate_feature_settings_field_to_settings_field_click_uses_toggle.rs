@@ -126,6 +126,22 @@ impl TuiModel {
                 self.settings.start_editing(field, &current);
                 true
             }
+            "feat_memory_limit_soul_chars"
+            | "feat_memory_limit_memory_chars"
+            | "feat_memory_limit_user_chars" => {
+                let (key, default) = crate::state::settings_registry::memory_limit_key(field);
+                let current = self
+                    .config
+                    .agent_config_raw
+                    .as_ref()
+                    .and_then(|r| r.get("memory_limits"))
+                    .and_then(|c| c.get(key))
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(default)
+                    .to_string();
+                self.settings.start_editing(field, &current);
+                true
+            }
             "feat_decay_half_life_hours" => {
                 let current = self
                     .config

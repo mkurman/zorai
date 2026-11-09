@@ -31,6 +31,31 @@ fn memory_target_limits_match_policy_contract() {
 }
 
 #[test]
+fn configured_memory_limits_govern_writes_and_the_prompt_but_never_drop_below_floor() {
+    set_memory_limits(&MemoryLimitsConfig {
+        soul_chars: 5_000,
+        ..MemoryLimitsConfig::default()
+    });
+    let roomy = validate_memory_size(MemoryTarget::Soul, &"x".repeat(4_000));
+    let over = validate_memory_size(MemoryTarget::Soul, &"x".repeat(5_001));
+    let prompt = memory_limits_prompt_line();
+    set_memory_limits(&MemoryLimitsConfig {
+        soul_chars: 10,
+        ..MemoryLimitsConfig::default()
+    });
+    let floored = MemoryTarget::Soul.limit_chars();
+    set_memory_limits(&MemoryLimitsConfig::default());
+
+    assert!(roomy.is_ok());
+    assert!(over
+        .unwrap_err()
+        .to_string()
+        .contains("(5001 > 5000 chars)"));
+    assert!(prompt.contains("SOUL.md 5000 chars"));
+    assert_eq!(floored, 200);
+}
+
+#[test]
 fn append_content_separates_blocks() {
     assert_eq!(append_content("alpha", "beta"), "alpha\n\nbeta");
 }

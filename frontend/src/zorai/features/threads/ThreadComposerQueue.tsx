@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { AttachmentTiles } from "./attachmentTiles";
 import { queuedComposerPreview, type QueuedComposerMessage } from "./composerQueue";
 
@@ -14,67 +15,78 @@ export function ThreadComposerQueue({
   onSendNow: (id: string) => void;
   onCancel: (id: string) => void;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
   if (items.length === 0) return null;
   return (
     <div className="zorai-composer-queue">
-      {items.map((queued, index) => {
-        const { text, tiles } = queuedComposerPreview(queued);
-        const editing = queued.id === editingId;
-        return (
-          <div
-            key={queued.id}
-            className={["zorai-composer-queue__chip", editing ? "zorai-composer-queue__chip--editing" : ""]
-              .filter(Boolean)
-              .join(" ")}
-          >
-            <div className="zorai-composer-queue__header">
-              <span className="zorai-composer-queue__label">
-                {editing ? "Editing" : `Queued ${index + 1}`}
-                {tiles.length > 0 ? (
-                  <span className="zorai-composer-queue__count">
-                    {tiles.length} attachment{tiles.length === 1 ? "" : "s"}
+      <button
+        type="button"
+        className="zorai-composer-queue__header"
+        aria-expanded={!collapsed}
+        onClick={() => setCollapsed((value) => !value)}
+      >
+        <span className="zorai-composer-queue__chevron" aria-hidden="true">{collapsed ? "▸" : "▾"}</span>
+        <span className="zorai-composer-queue__label">Queued</span>
+        <span className="zorai-composer-queue__count">{items.length}</span>
+        {collapsed ? (
+          <span className="zorai-composer-queue__peek">{queuedComposerPreview(items[0]).text}</span>
+        ) : null}
+      </button>
+      {collapsed ? null : (
+        <ol className="zorai-composer-queue__list">
+          {items.map((queued, index) => {
+            const { text, tiles } = queuedComposerPreview(queued);
+            const editing = queued.id === editingId;
+            return (
+              <li
+                key={queued.id}
+                className={["zorai-composer-queue__row", editing ? "zorai-composer-queue__row--editing" : ""]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                <div className="zorai-composer-queue__line">
+                  <span className="zorai-composer-queue__index">{editing ? "✎" : index + 1}</span>
+                  <span className="zorai-composer-queue__text" title={text}>
+                    {text || <em>{tiles.length === 1 ? "1 attachment" : `${tiles.length} attachments`}</em>}
                   </span>
-                ) : null}
-              </span>
-              <div className="zorai-composer-queue__actions">
-                <button
-                  type="button"
-                  className="zorai-ghost-button zorai-ghost-button--compact"
-                  title="Edit this queued message"
-                  onClick={() => onEdit(queued)}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  className="zorai-ghost-button zorai-ghost-button--compact zorai-composer-queue__primary"
-                  title="Interrupt the current response and send this message now"
-                  onClick={() => onSendNow(queued.id)}
-                >
-                  Send now
-                </button>
-                <button
-                  type="button"
-                  className="zorai-composer-queue__remove"
-                  aria-label="Cancel queued message"
-                  title="Cancel queued message"
-                  onClick={() => onCancel(queued.id)}
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-            <div className="zorai-composer-queue__body">
-              {text ? <p className="zorai-composer-queue__text" title={text}>{text}</p> : null}
-              {tiles.length > 0 ? (
-                <div className="zorai-composer-queue__attachments">
-                  <AttachmentTiles items={tiles} />
+                  {tiles.length > 0 && text ? (
+                    <span className="zorai-composer-queue__attachment-count" title={tiles.map((tile) => tile.name).join(", ")}>
+                      +{tiles.length} file{tiles.length === 1 ? "" : "s"}
+                    </span>
+                  ) : null}
+                  <span className="zorai-composer-queue__actions">
+                    <button type="button" className="zorai-composer-queue__action" title="Edit this queued message" onClick={() => onEdit(queued)}>
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="zorai-composer-queue__action zorai-composer-queue__action--primary"
+                      title="Interrupt the current response and send this message now"
+                      onClick={() => onSendNow(queued.id)}
+                    >
+                      Send now
+                    </button>
+                    <button
+                      type="button"
+                      className="zorai-composer-queue__action zorai-composer-queue__action--remove"
+                      aria-label="Cancel queued message"
+                      title="Cancel queued message"
+                      onClick={() => onCancel(queued.id)}
+                    >
+                      ×
+                    </button>
+                  </span>
                 </div>
-              ) : null}
-            </div>
-          </div>
-        );
-      })}
+                {tiles.length > 0 ? (
+                  <div className="zorai-composer-queue__attachments">
+                    <AttachmentTiles items={tiles} />
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </div>
   );
 }
