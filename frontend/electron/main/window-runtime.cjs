@@ -52,6 +52,38 @@ async function saveWindowScreenshot(webContents, { directory, clipboard, fs, pat
     return filePath;
 }
 
+const FREEDESKTOP_SOUNDS = '/usr/share/sounds/freedesktop/stereo';
+const MAC_GRAB_SOUND = '/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/system/Grab.aif';
+
+function screenshotSoundCommands(platform, exists) {
+    if (platform === 'darwin') return exists(MAC_GRAB_SOUND) ? [['afplay', [MAC_GRAB_SOUND]]] : [];
+    if (platform !== 'linux') return [];
+    const commands = [['canberra-gtk-play', ['-i', 'screen-capture', '-d', 'Zorai screenshot']]];
+    for (const name of ['screen-capture.oga', 'camera-shutter.oga']) {
+        const file = `${FREEDESKTOP_SOUNDS}/${name}`;
+        if (exists(file)) commands.push(['pw-play', [file]], ['paplay', [file]]);
+    }
+    return commands;
+}
+
+function playScreenshotSound({ spawn, platform = process.platform, exists }) {
+    const commands = screenshotSoundCommands(platform, exists);
+    const tryNext = (index) => {
+        if (index >= commands.length) return;
+        const [command, args] = commands[index];
+        let child;
+        try {
+            child = spawn(command, args, { stdio: 'ignore' });
+        } catch {
+            tryNext(index + 1);
+            return;
+        }
+        child.on('error', () => tryNext(index + 1));
+        child.on('exit', (code) => { if (code !== 0) tryNext(index + 1); });
+    };
+    tryNext(0);
+}
+
 function resolveWindowFrameOptions() {
     return {
         frame: false,
@@ -122,6 +154,7 @@ function createWindowRuntime(options) {
                 path,
             });
             logToFile('info', 'screenshot saved', { filePath });
+            playScreenshotSound({ spawn: require('child_process').spawn, exists: (file) => fs.existsSync(file) });
             if (Notification?.isSupported?.()) {
                 const notification = new Notification({ title: 'Screenshot saved', body: `Copied to clipboard and saved to ${filePath}` });
                 notification.on('click', () => shell.showItemInFolder(filePath));
@@ -294,6 +327,8 @@ module.exports = {
     resolveScreenshotDirectory,
     saveWindowScreenshot,
     screenshotFileName,
+    screenshotSoundCommands,
+    playScreenshotSound,
     devToolsAccelerator,
     shouldOpenDevTools,
     toggleWindowDevTools,

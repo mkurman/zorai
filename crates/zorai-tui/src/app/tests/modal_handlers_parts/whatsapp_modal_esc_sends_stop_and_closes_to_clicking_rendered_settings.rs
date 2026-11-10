@@ -439,6 +439,12 @@ pub(super) fn command_palette_tools_opens_settings_tools_tab() {
         daemon_rx.try_recv().expect("expected rarog refresh"),
         DaemonCommand::GetConciergeConfig
     ));
+    assert!(matches!(
+        daemon_rx
+            .try_recv()
+            .expect("expected config refresh so prompts edited in the GUI show up"),
+        DaemonCommand::GetConfig
+    ));
 }
 
 #[test]

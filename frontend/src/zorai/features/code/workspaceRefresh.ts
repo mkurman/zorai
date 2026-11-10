@@ -7,6 +7,17 @@ export type WorkspaceRootState = {
   conflicts: Array<{ path: string }>;
 };
 
+const rootStateCache = new Map<string, WorkspaceRootState>();
+
+export function cachedWorkspaceRootState(root: string | null | undefined): WorkspaceRootState | null {
+  return root ? rootStateCache.get(root) ?? null : null;
+}
+
+export function rememberWorkspaceRootState(root: string, patch: Partial<WorkspaceRootState>): void {
+  const current = rootStateCache.get(root) ?? { entries: [], statuses: [], overview: null, worktrees: [], history: [], conflicts: [] };
+  rootStateCache.set(root, { ...current, ...patch });
+}
+
 export type WorkspaceRefreshBridge = Pick<ZoraiBridge,
   "workspaceGitStatus" |
   "workspaceGitOverview" |

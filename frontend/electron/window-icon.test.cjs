@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const { contextMenuRequest, devToolsAccelerator, loadWindowIcon, resolveWindowFrameOptions, resolveWindowIcon, resolveScreenshotDirectory, saveWindowScreenshot, screenshotFileName, shouldOpenDevTools, toggleWindowDevTools } = require("./main/window-runtime.cjs");
+const { contextMenuRequest, devToolsAccelerator, loadWindowIcon, resolveWindowFrameOptions, resolveWindowIcon, resolveScreenshotDirectory, saveWindowScreenshot, screenshotFileName, screenshotSoundCommands, playScreenshotSound, shouldOpenDevTools, toggleWindowDevTools } = require("./main/window-runtime.cjs");
 
 test("Linux windows use the PNG app icon", () => {
     assert.equal(
@@ -138,4 +138,29 @@ test("the right-click request only offers to open web links, so file: or javascr
     assert.equal(contextMenuRequest({ ...base, linkURL: "javascript:alert(1)" }).linkURL, "");
     assert.equal(contextMenuRequest({ ...base, linkURL: "file:///etc/passwd" }).linkURL, "");
     assert.deepEqual(contextMenuRequest({ ...base, linkURL: "" }), { x: 4, y: 8, linkURL: "", isEditable: false, canCut: false, canCopy: true, canPaste: false });
+});
+
+test("screenshots play the desktop's own capture sound, falling back to the sound files", () => {
+    const linux = screenshotSoundCommands("linux", () => true);
+    assert.deepEqual(linux[0], ["canberra-gtk-play", ["-i", "screen-capture", "-d", "Zorai screenshot"]]);
+    assert.deepEqual(linux[1], ["pw-play", ["/usr/share/sounds/freedesktop/stereo/screen-capture.oga"]]);
+    assert.equal(screenshotSoundCommands("linux", () => false).length, 1);
+    assert.equal(screenshotSoundCommands("darwin", () => true)[0][0], "afplay");
+    assert.deepEqual(screenshotSoundCommands("win32", () => true), []);
+});
+
+test("a missing or failing sound player falls through to the next one instead of breaking the screenshot", () => {
+    const { EventEmitter } = require("node:events");
+    const tried = [];
+    const spawn = (command) => {
+        tried.push(command);
+        const child = new EventEmitter();
+        setImmediate(() => (command === "canberra-gtk-play" ? child.emit("error", new Error("ENOENT")) : command === "pw-play" ? child.emit("exit", 1) : child.emit("exit", 0)));
+        return child;
+    };
+    playScreenshotSound({ spawn, platform: "linux", exists: () => true });
+    return new Promise((resolve) => setTimeout(() => {
+        assert.deepEqual(tried, ["canberra-gtk-play", "pw-play", "paplay"]);
+        resolve();
+    }, 20));
 });

@@ -285,6 +285,13 @@ declare global {
         canPaste: boolean;
     };
 
+    type ZoraiGitAction =
+        | "pull" | "pullRebase" | "pullFrom" | "push" | "pushForce" | "pushTo" | "pushTags" | "fetch" | "sync"
+        | "commitAll" | "commitAmend" | "undoCommit" | "stageAll" | "unstageAll" | "discardAll"
+        | "checkout" | "branchCreate" | "branchRename" | "branchDelete" | "merge" | "rebase"
+        | "stash" | "stashApply" | "stashPop" | "stashDrop" | "tagCreate" | "tagDelete"
+        | "remoteAdd" | "remoteRemove" | "remoteRename";
+
     type ZoraiThreadOperation = {
         operation_id: string;
         handle: string;
@@ -637,6 +644,11 @@ declare global {
         workspaceGitUnstageMany?: (rootPath: string, relativePaths: string[]) => Promise<ZoraiWorkspaceGitStatus[]>;
         workspaceGitBranches?: (rootPath: string) => Promise<Array<{ name: string; isCurrent: boolean }>>;
         workspaceGitCheckout?: (rootPath: string, branch: string) => Promise<{ overview: ZoraiWorkspaceGitOverview; status: ZoraiWorkspaceGitStatus[] }>;
+        workspaceGitRemote?: (rootPath: string, action: "pull" | "push" | "fetch" | "sync") => Promise<{ output: string; overview: ZoraiWorkspaceGitOverview; status: ZoraiWorkspaceGitStatus[] }>;
+        workspaceGitAction?: (rootPath: string, action: ZoraiGitAction, params?: Record<string, string | boolean>) => Promise<{ output: string; overview: ZoraiWorkspaceGitOverview; status: ZoraiWorkspaceGitStatus[] }>;
+        workspaceGitList?: (rootPath: string, kind: "branches" | "localBranches" | "tags" | "stashes" | "remotes") => Promise<Array<{ value: string; label: string }>>;
+        workspaceGitClone?: (url: string, parentDir: string, folderName?: string) => Promise<{ path: string }>;
+        workspaceGitOutput?: () => Promise<Array<{ cwd: string; command: string; ok: boolean; output: string; at: number }>>;
         workspaceGitDiscard?: (rootPath: string, relativePath: string) => Promise<ZoraiWorkspaceGitStatus[]>;
         workspaceGitHunks?: (rootPath: string, relativePath: string, options?: { staged?: boolean }) => Promise<ZoraiWorkspaceGitHunk[]>;
         workspaceGitApplyHunk?: (rootPath: string, relativePath: string, hunkId: string, action: "stage" | "unstage" | "discard") => Promise<{ status: ZoraiWorkspaceGitStatus[]; hunks: ZoraiWorkspaceGitHunk[] }>;

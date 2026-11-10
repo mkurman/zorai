@@ -167,7 +167,7 @@ export function CodeAgentPane() {
       agentId: responder.id,
       agentName: responder.name,
     });
-    bindRoot(localId, root);
+    useWorkspaceContextStore.getState().adoptRoot(localId, root);
     useCodeWorkspaceBindingStore.getState().recordProjectThread(root, localId);
     runtime.openThread(localId);
     setError(null);

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { getBridge } from "@/lib/bridge";
 import { CodeFileIcon, CodeFolderChevron } from "./CodeFileIcon";
-import { createWorkspaceExplorerController, createWorkspaceExplorerLoader, type WorkspaceExplorerSnapshot } from "./workspaceExplorerController";
+import { workspaceExplorerControllerFor, type WorkspaceExplorerSnapshot } from "./workspaceExplorerController";
 import { filterExplorerEntries, searchWorkspaceFiles } from "./workspaceExplorerFilter";
 
 export type WorkspaceExplorerTreeProps = {
@@ -63,7 +63,7 @@ const EMPTY_EXPLORER_SNAPSHOT: WorkspaceExplorerSnapshot = {
 export function WorkspaceExplorerTree({ root, entries, status, onOpen, refreshToken, allFiles }: WorkspaceExplorerTreeProps) {
   const bridge = getBridge();
   const [query, setQuery] = useState("");
-  const controller = useMemo(() => createWorkspaceExplorerController(createWorkspaceExplorerLoader(bridge, root)), [bridge, root]);
+  const controller = useMemo(() => workspaceExplorerControllerFor(bridge, root), [bridge, root]);
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, () => EMPTY_EXPLORER_SNAPSHOT);
   const visibleEntries = useMemo(
     () => filterExplorerEntries(entries, query, (path) => snapshot.childrenByPath.get(path) ?? []),

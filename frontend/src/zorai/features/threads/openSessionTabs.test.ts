@@ -19,6 +19,16 @@ describe("open session tabs", () => {
     })).toEqual({ kind: "clear" });
   });
 
+  it("keeps a hidden active thread on screen when the last visible Code tab closes", () => {
+    expect(sessionCloseFollowUp({
+      closedId: "code-thread",
+      activeThreadId: "threads-session",
+      activeDaemonThreadId: "daemon-threads-session",
+      nextOpenId: null,
+      openCount: 0,
+    })).toEqual({ kind: "stay" });
+  });
+
   it("follows the neighbor when an active tab closes and another session stays open", () => {
     expect(sessionCloseFollowUp({
       closedId: "thread-a",

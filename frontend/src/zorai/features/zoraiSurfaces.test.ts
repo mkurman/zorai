@@ -213,7 +213,7 @@ describe("Zorai feature surfaces", () => {
     expect(agentPaneSource).toContain("actualThreadResponder(activeThread)");
     expect(agentPaneSource).toContain("agentId: responder.id");
     expect(agentPaneSource).toContain("agentName: responder.name");
-    expect(agentPaneSource).toContain("bindRoot(localId, root)");
+    expect(agentPaneSource).toContain("useWorkspaceContextStore.getState().adoptRoot(localId, root)");
     expect(agentPaneSource).toContain("bindRoot(entry.localThread.id, root)");
     expect(agentPaneSource).toContain("bindRoot(openedId, root)");
     expect(agentPaneSource).toContain("runtime.openThread(localId)");

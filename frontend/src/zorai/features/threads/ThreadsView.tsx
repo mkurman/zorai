@@ -267,8 +267,8 @@ export function ThreadsView({
 
   if (!runtime.activeThread) {
     return (
-      <div className="zorai-empty-main">
-        <ZoraiBrandMark className="zorai-empty-main__brand-mark" />
+      <div className="zorai-empty-main zorai-empty-main--thread">
+        <ZoraiBrandMark className="zorai-empty-main__brand-mark zorai-brand-mark--accent" />
         <h1>What are we working on today?</h1>
         <div className="zorai-empty-main__composer">
           <ThreadComposer
@@ -357,7 +357,7 @@ export function ThreadsView({
           <ThreadConversationSkeleton embedded />
         ) : runtime.messages.length === 0 ? (
           <div className="zorai-thread-empty-state">
-            <ZoraiBrandMark />
+            <ZoraiBrandMark className="zorai-brand-mark--accent" />
             <strong>What are we building today?</strong>
             <span>Ask for a plan, delegate work, or turn a request into a goal. Or just chat.</span>
           </div>

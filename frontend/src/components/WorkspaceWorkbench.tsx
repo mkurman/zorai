@@ -41,13 +41,16 @@ import { AgentReviewPanel } from "@/zorai/features/code/AgentReviewPanel";
 import { buildReviewPrompt, extractSpawnedSubagentId, resolveCodeReviewer, resolveReviewReport, useCodeReviewStore, waitForSubagentRun } from "@/zorai/features/code/codeReview";
 import { fetchAgentRuns } from "@/lib/agentRuns";
 import { confirmWorkspaceDiscard, runWorkspaceGitMutation } from "@/zorai/features/code/workspaceGitActions";
-import { loadWorkspaceRootState, loadWorkspaceGitState, runWorkspacePathMutation } from "@/zorai/features/code/workspaceRefresh";
+import { cachedWorkspaceRootState, loadWorkspaceRootState, loadWorkspaceGitState, rememberWorkspaceRootState, runWorkspacePathMutation } from "@/zorai/features/code/workspaceRefresh";
 import { useComposerDraftStore } from "@/zorai/features/threads/composerDraftStore";
 import { isRelativeWorkspacePath, workContextRelativePath } from "@/zorai/features/threads/compactSessionModel";
 import { AgentOperationDiffView, type AgentOperationDiffTarget } from "@/zorai/features/code/AgentOperationDiffView";
 import { CodeDocumentPreview, codePreviewKind } from "@/zorai/features/code/CodeDocumentPreview";
 import { CodeRailTabs, useCodeRailTab } from "@/zorai/features/code/CodeRailTabs";
 import { CodeToolbarMenu } from "@/zorai/features/code/CodeToolbarMenu";
+import { GitActionDialog, GitOutputDialog, type GitDialogSpec, type GitDialogValues } from "@/zorai/features/code/GitActionDialog";
+import { buildGitMenuItems, type GitListKind } from "@/zorai/features/code/gitMenu";
+import { emitCodeRailAction } from "@/zorai/features/code/codeRailActions";
 import { AgentOperationList } from "@/zorai/features/code/AgentOperationList";
 import { ViewModeToggle } from "@/components/data-viewers/ViewModeToggle";
 
@@ -83,21 +86,27 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const setIsolateAgentTasks = useWorkspaceContextStore((state) => state.setIsolateAgentTasks);
   const setIsolatedWorktreeState = useWorkspaceContextStore((state) => state.setIsolatedWorktreeState);
   const [rootInput, setRootInput] = useState(context?.root ?? activeWorkspace?.cwd ?? "");
-  const [rootEntries, setRootEntries] = useState<ZoraiWorkspaceEntry[]>([]);
-  const [rootLoading, setRootLoading] = useState(true);
+  const [initialRootState] = useState(() => cachedWorkspaceRootState(context?.root));
+  const [rootEntries, setRootEntries] = useState<ZoraiWorkspaceEntry[]>(initialRootState?.entries ?? []);
+  const [rootLoading, setRootLoading] = useState(!initialRootState);
   const [explorerRefreshToken, setExplorerRefreshToken] = useState(0);
-  const [gitStatus, setGitStatus] = useState<ZoraiWorkspaceGitStatus[]>([]);
-  const [gitOverview, setGitOverview] = useState<ZoraiWorkspaceGitOverview | null>(null);
-  const [gitHistory, setGitHistory] = useState<Array<{ hash: string; shortHash: string; author: string; date: string; subject: string }>>([]);
+  const [gitStatus, setGitStatus] = useState<ZoraiWorkspaceGitStatus[]>(initialRootState?.statuses ?? []);
+  const [gitOverview, setGitOverview] = useState<ZoraiWorkspaceGitOverview | null>(initialRootState?.overview ?? null);
+  const [gitHistory, setGitHistory] = useState<Array<{ hash: string; shortHash: string; author: string; date: string; subject: string }>>(initialRootState?.history ?? []);
   const [commitDetail, setCommitDetail] = useState<{ hash: string; author: string; date: string; subject: string; body: string; files: Array<{ status: string; path: string }> } | null>(null);
-  const [gitConflicts, setGitConflicts] = useState<Array<{ path: string }>>([]);
-  const [gitWorktrees, setGitWorktrees] = useState<ZoraiGitWorktree[]>([]);
+  const [gitConflicts, setGitConflicts] = useState<Array<{ path: string }>>(initialRootState?.conflicts ?? []);
+  const [gitWorktrees, setGitWorktrees] = useState<ZoraiGitWorktree[]>(initialRootState?.worktrees ?? []);
   const [worktreeReviews, setWorktreeReviews] = useState<Record<string, ZoraiWorktreeReview>>({});
   const [worktreeName, setWorktreeName] = useState("");
   const [worktreeBranch, setWorktreeBranch] = useState("");
   const [worktreeBaseRef, setWorktreeBaseRef] = useState("HEAD");
   const [commitMessage, setCommitMessage] = useState("");
   const [generatingCommitMessage, setGeneratingCommitMessage] = useState(false);
+  const [gitRemoteBusy, setGitRemoteBusy] = useState<ZoraiGitAction | null>(null);
+  const [gitDialog, setGitDialog] = useState<GitDialogSpec | null>(null);
+  const [gitDialogBusy, setGitDialogBusy] = useState(false);
+  const [gitDialogError, setGitDialogError] = useState<string | null>(null);
+  const [gitOutputEntries, setGitOutputEntries] = useState<Awaited<ReturnType<NonNullable<ZoraiBridge["workspaceGitOutput"]>>> | null>(null);
   const [committing, setCommitting] = useState(false);
   const [reviewedChange, setReviewedChange] = useState<{ path: string; staged: boolean; hunks: ZoraiWorkspaceGitHunk[] } | null>(null);
   const [documents, setDocuments] = useState<Record<string, OpenDocument>>({});
@@ -159,7 +168,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const statusMap = useMemo(() => new Map(gitStatus.map((entry) => [entry.path, statusLabel(entry)])), [gitStatus]);
 
   const refreshGenRef = useRef(0);
-  const loadedRootRef = useRef<string | null>(null);
+  const loadedRootRef = useRef<string | null>(initialRootState ? context?.root ?? null : null);
   const activeThreadIdRef = useRef(activeThreadId);
   const contextRootRef = useRef(context?.root);
   activeThreadIdRef.current = activeThreadId;
@@ -167,7 +176,20 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const refreshRoot = useCallback(async (root = contextRootRef.current) => {
     if (!root || !bridge?.workspaceListDirectory) return;
     const generation = ++refreshGenRef.current;
-    if (loadedRootRef.current !== root) setRootLoading(true);
+    if (loadedRootRef.current !== root) {
+      const cached = cachedWorkspaceRootState(root);
+      if (cached) {
+        loadedRootRef.current = root;
+        setRootEntries(cached.entries);
+        setGitStatus(cached.statuses);
+        setGitOverview(cached.overview);
+        setGitWorktrees(cached.worktrees);
+        setGitHistory(cached.history);
+        setGitConflicts(cached.conflicts);
+      } else {
+        setRootLoading(true);
+      }
+    }
     try {
       const state = await loadWorkspaceRootState({ ...bridge, workspaceListDirectory: bridge.workspaceListDirectory }, root);
       const currentRoot = activeThreadIdRef.current
@@ -175,6 +197,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         : undefined;
       if (generation !== refreshGenRef.current || (currentRoot && currentRoot !== root)) return;
       loadedRootRef.current = root;
+      rememberWorkspaceRootState(root, state);
       setRootEntries(state.entries);
       setGitStatus(state.statuses);
       setGitOverview(state.overview);
@@ -198,6 +221,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         ? useWorkspaceContextStore.getState().byThreadId[activeThreadIdRef.current]?.root
         : undefined;
       if (currentRoot && currentRoot !== root) return;
+      rememberWorkspaceRootState(root, { statuses: gitState.statuses, overview: gitState.overview });
       setGitStatus(gitState.statuses);
       setGitOverview(gitState.overview);
     } catch {
@@ -876,6 +900,68 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     finally { setCommitting(false); }
   };
 
+  const applyGitResult = (result: { overview: ZoraiWorkspaceGitOverview; status: ZoraiWorkspaceGitStatus[] }) => {
+    setGitStatus(result.status);
+    setGitOverview(result.overview);
+    setError(null);
+    void refreshRoot();
+  };
+
+  const runGitCommand = async (action: ZoraiGitAction, params?: Record<string, string | boolean>) => {
+    if (!context?.root || !bridge?.workspaceGitAction || gitRemoteBusy) return;
+    setGitRemoteBusy(action);
+    try {
+      applyGitResult(await bridge.workspaceGitAction(context.root, action, params));
+    } catch (reason: any) { setError(`Git failed: ${reason?.message ?? String(reason)}`); }
+    finally { setGitRemoteBusy(null); }
+  };
+
+  const openGitDialog = (spec: GitDialogSpec) => {
+    setGitDialogError(null);
+    setGitDialogBusy(false);
+    setGitDialog(spec);
+  };
+
+  const runGitDialogStep = async (step: () => Promise<void>) => {
+    setGitDialogBusy(true);
+    setGitDialogError(null);
+    try {
+      await step();
+      setGitDialog(null);
+    } catch (reason: any) { setGitDialogError(reason?.message ?? String(reason)); }
+    finally { setGitDialogBusy(false); }
+  };
+
+  const gitMenuItems = context?.root && bridge?.workspaceGitAction ? buildGitMenuItems({
+    busy: Boolean(gitRemoteBusy),
+    currentBranch: gitOverview?.branch ?? null,
+    run: (action, params) => void runGitCommand(action, params),
+    submit: (action, params) => runGitDialogStep(async () => {
+      applyGitResult(await bridge.workspaceGitAction!(context.root, action, params));
+    }),
+    openDialog: openGitDialog,
+    list: (kind: GitListKind) => (bridge.workspaceGitList?.(context.root, kind) ?? Promise.resolve([])).catch((reason: any) => {
+      setError(`Could not list ${kind}: ${reason?.message ?? String(reason)}`);
+      return [];
+    }),
+    clone: (values: GitDialogValues) => runGitDialogStep(async () => {
+      const selection = await bridge.workspaceSelectFolder?.();
+      if (!selection || selection.canceled || !selection.root) throw new Error("Choose a folder to clone into.");
+      const cloned = await bridge.workspaceGitClone!(String(values.url ?? "").trim(), selection.root.root, String(values.folder ?? "").trim() || undefined);
+      emitCodeRailAction({ kind: "open-recent", root: cloned.path });
+    }),
+    createWorktree: (values: GitDialogValues) => runGitDialogStep(async () => {
+      const result = await bridge.workspaceGitCreateWorktree!(context.root, {
+        name: String(values.name ?? "").trim(),
+        branch: String(values.branch ?? "").trim(),
+        baseRef: String(values.baseRef ?? "").trim() || undefined,
+      });
+      setGitWorktrees(result.worktrees);
+      void refreshRoot();
+    }),
+    showOutput: () => void bridge.workspaceGitOutput?.().then(setGitOutputEntries),
+  }) : null;
+
   const generateCommitMessage = async () => {
     if (!context?.root || !bridge?.agentGenerateCommitMessage || !bridge.workspaceGitDiff) return;
     setGeneratingCommitMessage(true);
@@ -1406,8 +1492,9 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                   <details className="zorai-code-source-control" open>
                     <summary className="zorai-code-source-heading">
                       <span>Source Control ({gitOverview.stagedFiles + gitOverview.unstagedFiles})</span>
-                      <span className="zorai-code-source-heading-actions">
-                        <button type="button" title="Refresh Source Control" aria-label="Refresh Source Control" onClick={(event) => { event.preventDefault(); void refreshGitOnly(); }}><RefreshIcon /></button>
+                      <span className="zorai-code-source-heading-actions" onClick={(event) => event.preventDefault()}>
+                        <button type="button" title="Refresh Source Control" aria-label="Refresh Source Control" onClick={() => void refreshGitOnly()}><RefreshIcon /></button>
+                        {gitMenuItems ? <CodeToolbarMenu label="More source control actions" items={gitMenuItems} /> : null}
                       </span>
                     </summary>
                     <div className="zorai-workspace-git-overview">
@@ -1439,6 +1526,12 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                         ) : null}
                       </div>
                       <button type="button" className="zorai-scm-commit" disabled={committing || !commitMessage.trim() || gitOverview.stagedFiles === 0} onClick={() => void commitStagedChanges()}>{committing ? "Committing…" : "Commit staged"}</button>
+                      {bridge?.workspaceGitAction && (gitOverview.ahead > 0 || gitOverview.behind > 0 || gitRemoteBusy) ? (
+                        <button type="button" className="zorai-scm-sync-button" disabled={Boolean(gitRemoteBusy)} title={`Pull ${gitOverview.behind} and push ${gitOverview.ahead} commit(s)`} onClick={() => void runGitCommand("sync")}>
+                          <RefreshIcon />
+                          {gitRemoteBusy ? "Working…" : `Sync Changes${gitOverview.behind > 0 ? ` ${gitOverview.behind}↓` : ""}${gitOverview.ahead > 0 ? ` ${gitOverview.ahead}↑` : ""}`}
+                        </button>
+                      ) : null}
                     </div>
                     {bridge?.agentSpawnSubagent ? (
                       <AgentReviewPanel
@@ -1762,6 +1855,8 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             </div>
           </>
         )}
+        {gitDialog ? <GitActionDialog spec={gitDialog} busy={gitDialogBusy} error={gitDialogError} onClose={() => setGitDialog(null)} /> : null}
+        {gitOutputEntries ? <GitOutputDialog entries={gitOutputEntries} onClose={() => setGitOutputEntries(null)} /> : null}
         {pathDialog ? <WorkspacePathDialog operation={pathDialog.operation} initialPath={pathDialog.initialPath} busy={pathDialogBusy} error={pathDialogError} onSubmit={submitPathDialog} onClose={() => { setPathDialog(null); setPathDialogError(null); }} /> : null}
         {codeOverlay === "quickOpen" ? (
           <CodeQuickOpen
