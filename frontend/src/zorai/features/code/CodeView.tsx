@@ -213,12 +213,15 @@ export function CodeView({
       const bindings = useCodeWorkspaceBindingStore.getState();
       const mappedDaemonThreadId = bindings.threadForRoot(rootAtCall);
       if (generation !== activationGenRef.current) return;
-      if (mappedDaemonThreadId && await openThreadTarget(activeRuntime, mappedDaemonThreadId)) {
+      const loadedMapped = mappedDaemonThreadId
+        ? useAgentStore.getState().threads.find((thread) => thread.daemonThreadId === mappedDaemonThreadId || thread.id === mappedDaemonThreadId)
+        : undefined;
+      const mappedStillLinked = !loadedMapped || useWorkspaceContextStore.getState().byThreadId[loadedMapped.id]?.root === rootAtCall;
+      if (mappedDaemonThreadId && mappedStillLinked && await openThreadTarget(activeRuntime, mappedDaemonThreadId)) {
         if (generation !== activationGenRef.current) return;
         const local = useAgentStore.getState().threads.find((thread) => thread.daemonThreadId === mappedDaemonThreadId);
-        if (local) {
+        if (local && useWorkspaceContextStore.getState().byThreadId[local.id]?.root === rootAtCall) {
           codeThreadLocalIdRef.current = local.id;
-          bindRoot(local.id, rootAtCall);
           return;
         }
       }

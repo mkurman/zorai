@@ -29,6 +29,12 @@ export function sessionCloseFollowUp(input: {
   return { kind: "stay" };
 }
 
+export function neighborSessionId(ids: readonly string[], closedId: string): string | null {
+  const index = ids.indexOf(closedId);
+  if (index < 0) return null;
+  return ids[index + 1] ?? ids[index - 1] ?? null;
+}
+
 /** New sessions append. Selecting one leaves the existing order alone. */
 export function rememberOpenSessionId(ids: readonly string[], id: string, max = MAX_OPEN_SESSIONS): readonly string[] {
   const trimmed = id.trim();

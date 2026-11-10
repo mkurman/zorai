@@ -124,6 +124,40 @@ impl AgentEngine {
         removed.len()
     }
 
+    pub(crate) async fn list_thread_operations(&self, thread_id: &str) -> Vec<serde_json::Value> {
+        let wakeups = {
+            let wakeups = self.operation_wakeups.lock().await;
+            wakeups
+                .values()
+                .filter(|wakeup| wakeup.thread_id == thread_id)
+                .cloned()
+                .collect::<Vec<_>>()
+        };
+        let mut operations = Vec::new();
+        for wakeup in wakeups {
+            let Ok(Some(mut status)) = self.operation_wakeup_status(&wakeup).await else {
+                continue;
+            };
+            if operation_status_is_terminal(&status) {
+                continue;
+            }
+            status["operation_id"] = serde_json::Value::String(wakeup.operation_id.clone());
+            status["handle"] = serde_json::Value::String(
+                crate::agent::tool_executor::model_operation_id(
+                    self,
+                    thread_id,
+                    &wakeup.operation_id,
+                )
+                .await,
+            );
+            status["tool_name"] = serde_json::Value::String(wakeup.tool_name.clone());
+            status["registered_at"] = serde_json::Value::Number(wakeup.registered_at.into());
+            operations.push(status);
+        }
+        operations.sort_by_key(|operation| operation["registered_at"].as_u64().unwrap_or(0));
+        operations
+    }
+
     pub(in crate::agent) async fn supervise_operation_completion_wakeups(&self) -> Result<()> {
         // Piggyback the ask_parent timeout sweep on this periodic pass so an
         // expired blocking question unblocks the child without a full
@@ -638,6 +672,53 @@ mod tests {
             now_millis()
                 .saturating_sub(operation_wakeup_debounce_ms())
                 .saturating_sub(1),
+        );
+    }
+
+    #[tokio::test]
+    async fn thread_operations_list_only_this_threads_unfinished_work() {
+        let root = tempdir().expect("tempdir should succeed");
+        let manager = SessionManager::new_test(root.path()).await;
+        let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+        let registry = crate::server::operation_registry();
+        let running = registry.accept_operation(zorai_protocol::tool_names::BASH_COMMAND, None);
+        registry.mark_started(&running.operation_id);
+        let finished = registry.accept_operation(zorai_protocol::tool_names::BASH_COMMAND, None);
+        registry.mark_started(&finished.operation_id);
+        let elsewhere = registry.accept_operation(zorai_protocol::tool_names::BASH_COMMAND, None);
+        registry.mark_started(&elsewhere.operation_id);
+        for (thread_id, operation_id) in [
+            ("thread-ops", &running.operation_id),
+            ("thread-ops", &finished.operation_id),
+            ("thread-other", &elsewhere.operation_id),
+        ] {
+            engine
+                .register_operation_wakeup(
+                    thread_id,
+                    zorai_protocol::tool_names::BASH_COMMAND,
+                    operation_id,
+                    true,
+                )
+                .await;
+        }
+        registry.mark_completed_with_terminal_result(
+            &finished.operation_id,
+            serde_json::json!({ "exit_code": 0 }),
+        );
+
+        let operations = engine.list_thread_operations("thread-ops").await;
+
+        assert_eq!(operations.len(), 1, "{operations:?}");
+        assert_eq!(operations[0]["operation_id"], running.operation_id.as_str());
+        assert_eq!(operations[0]["state"], "started");
+        assert_eq!(
+            operations[0]["tool_name"],
+            zorai_protocol::tool_names::BASH_COMMAND
+        );
+        assert_ne!(
+            operations[0]["handle"],
+            running.operation_id.as_str(),
+            "the operator should see the same short handle the agent mentions in chat"
         );
     }
 

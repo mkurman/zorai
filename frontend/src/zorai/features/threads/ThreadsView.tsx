@@ -27,6 +27,8 @@ import { endThreadCompaction, messageTimeMs, useThreadCompaction } from "./threa
 import { isCompactionArtifactMessage } from "@/components/agent-chat-panel/chat-view/compactionArtifact";
 import { ThreadHandoffControl } from "./ThreadHandoffControl";
 import { ThreadGatewayControl } from "./ThreadGatewayControl";
+import { ThreadOperationsControl } from "./ThreadOperationsControl";
+import { ZoraiBrandMark } from "../../shell/ZoraiIcons";
 import { ThreadParticipantsDrawer } from "./ThreadParticipantsDrawer";
 import { buildThreadAgentOptions } from "./threadHandoffModel";
 import { BUILTIN_WORKSPACE_PERSONAS } from "../workspaces/workspaceActorPicker";
@@ -49,7 +51,7 @@ import { resolveThreadCreationAgent } from "./threadFilterModel";
 import { DelegatedSessionSlot } from "./DelegatedSessionBar";
 import { ThreadSessionTabs } from "./SessionTabStrip";
 import { threadMessageItemKey } from "./threadMessageWindow";
-import { revealThreadMessage, ThreadMessageMeasure, useThreadMessageWindow } from "./useThreadMessageWindow";
+import { ThreadMessageMeasure, useThreadMessageWindow } from "./useThreadMessageWindow";
 
 export { ThreadsRail } from "./ThreadsRail";
 
@@ -71,11 +73,13 @@ export function ThreadsView({
   onReturnTarget,
   variant = "full",
   compactHeaderActions = null,
+  sessionTabFilter,
 }: {
   returnTarget?: ZoraiReturnTarget | null;
   onReturnTarget?: () => void;
   variant?: "full" | "compact";
   compactHeaderActions?: ReactNode;
+  sessionTabFilter?: (id: string, thread: AgentThread | undefined) => boolean;
 } = {}) {
   const threadLoadingPending = useThreadLoadingStore((state) => state.pending);
   const threadLoadingByThreadId = useThreadLoadingStore((state) => state.byThreadId);
@@ -97,12 +101,6 @@ export function ThreadsView({
     ),
     [runtime.messages],
   );
-  const activeOperations = useMemo(() => runtime.messages.flatMap((message) => {
-    const activity = classifyThreadActivityMessage(message);
-    return activity?.kind === "operation"
-      ? activity.operations.filter((operation) => operation.state === "accepted" || operation.state === "started")
-      : [];
-  }), [runtime.messages]);
   const threadEnds = useMemo(() => latestThreadEnds(runtime.messages), [runtime.messages]);
   const latestUserMessage = threadEnds.latestUserMessage;
   const latestAssistantMessageId = threadEnds.latestAssistantMessageId;
@@ -276,20 +274,19 @@ export function ThreadsView({
           Threads are the default Zorai surface. Create a conversation, bring in an agent,
           then promote durable work into goals or workspace cards when needed.
         </p>
-        <button
-          type="button"
-          className="zorai-primary-button"
-          onClick={() => {
-            const agent = resolveThreadCreationAgent(railTab, subAgents);
-            runtime.createThread({
-              workspaceId: runtime.activeWorkspace?.id ?? null,
-              agentId: agent?.id ?? null,
-              agentName: agent?.name ?? null,
-            });
-          }}
-        >
-          + New Thread
-        </button>
+        <div className="zorai-empty-main__composer">
+          <ThreadComposer
+            onStartThread={(firstMessage) => {
+              const agent = resolveThreadCreationAgent(railTab, subAgents);
+              runtime.createThread({
+                workspaceId: runtime.activeWorkspace?.id ?? null,
+                agentId: agent?.id ?? null,
+                agentName: agent?.name ?? null,
+                title: firstMessage.trim().slice(0, 50) || undefined,
+              });
+            }}
+          />
+        </div>
       </div>
     );
   }
@@ -324,7 +321,6 @@ export function ThreadsView({
     scroller.scrollTop = scroller.scrollHeight;
     endProgrammaticThreadHistoryScroll();
   };
-  const profile = resolveThreadOwnerRuntimeProfile(activeThread, subAgents, useAgentStore.getState().agentSettings, useAgentStore.getState().conciergeConfig);
   const activeThreadIdForActions = runtime.activeThread?.id;
   messageActionsRef.current = {
     speak: (message) => { void speech.speakMessage(message); },
@@ -341,54 +337,22 @@ export function ThreadsView({
   };
   return (
     <section className={["zorai-thread-surface", "zorai-native-thread-surface", variant === "compact" ? "zorai-thread-surface--compact" : ""].filter(Boolean).join(" ")}>
-      <ThreadSessionTabs />
-      {variant === "full" ? (
-        <>
-          <ThreadHeader
+      <ThreadSessionTabs includeSession={sessionTabFilter} />
+      <ThreadHeader
         thread={runtime.activeThread}
         messageCount={runtime.messages.length}
         agentOptions={agentOptions}
-        returnTarget={returnTarget}
-        onReturnTarget={onReturnTarget}
+        returnTarget={variant === "compact"
+          ? (runtime.canGoBackThread ? { view: "code", label: runtime.backThreadTitle ? `Back to ${runtime.backThreadTitle}` : "Back to parent" } : null)
+          : returnTarget}
+        onReturnTarget={variant === "compact" ? runtime.goBackThread : onReturnTarget}
         onPushHandoff={runtime.pushHandoff}
         onReturnHandoff={runtime.returnHandoff}
         onOpenParticipants={() => setParticipantsOpen(true)}
-        activeOperationCount={activeOperations.length}
-            onOpenOperations={() => {
-              const latest = activeOperations[activeOperations.length - 1];
-              if (!latest || latest.operationId === "unknown") return;
-              const host = runtime.messages.find((message) => {
-                const activity = classifyThreadActivityMessage(message);
-                return activity?.kind === "operation"
-                  && activity.operations.some((operation) => operation.operationId === latest.operationId);
-              });
-              if (host) revealThreadMessage(host.id);
-            }}
-          />
-          <ParticipantStrip thread={runtime.activeThread} onOpen={() => setParticipantsOpen(true)} />
-        </>
-      ) : (
-        <header className="zorai-code-agent-thread-header">
-          {runtime.canGoBackThread ? (
-            <button
-              type="button"
-              className="zorai-code-agent-thread-back"
-              title={runtime.backThreadTitle ? `Back to ${runtime.backThreadTitle}` : "Back to parent"}
-              onClick={runtime.goBackThread}
-            >
-              <span aria-hidden="true">←</span>
-              <span>{runtime.backThreadTitle ? `Back to ${runtime.backThreadTitle}` : "Back to parent"}</span>
-            </button>
-          ) : null}
-          <div className="zorai-code-agent-thread-header__meta">
-            <strong>{activeThread.title}</strong>
-            <span>Responder · {agentDisplayName(actualThreadResponderLabel(activeThread))} · {profile.model} · {profile.provider}</span>
-          </div>
-          <div className="zorai-code-agent-thread-actions">
-            {compactHeaderActions}
-          </div>
-        </header>
-      )}
+        messages={runtime.messages}
+        extraActions={variant === "compact" ? compactHeaderActions : null}
+      />
+      {variant === "full" ? <ParticipantStrip thread={runtime.activeThread} onOpen={() => setParticipantsOpen(true)} /> : null}
 
       <div className="zorai-thread-chat">
         <DelegatedSessionSlot />
@@ -397,7 +361,7 @@ export function ThreadsView({
           <ThreadConversationSkeleton embedded />
         ) : runtime.messages.length === 0 ? (
           <div className="zorai-thread-empty-state">
-            <div className="zorai-brand-mark"><span>Z</span></div>
+            <ZoraiBrandMark />
             <strong>Start a Zorai thread</strong>
             <span>Ask for a plan, delegate work, or turn a request into a goal.</span>
           </div>
@@ -488,7 +452,7 @@ export function ThreadsView({
       {variant === "full" && pinLimitResult ? (
         <PinLimitModal result={pinLimitResult} onClose={() => setPinLimitResult(null)} />
       ) : null}
-      {variant === "full" && participantsOpen ? (
+      {participantsOpen ? (
         <ThreadParticipantsDrawer
           thread={runtime.activeThread}
           agentOptions={agentOptions}
@@ -523,11 +487,6 @@ function latestThreadEnds(messages: AgentMessage[]): {
   return { latestUserMessage, latestAssistantMessageId };
 }
 
-function actualThreadResponderLabel(thread: AgentThread): string {
-  const stack = thread.threadHandoffState?.responderStack ?? [];
-  return stack[stack.length - 1]?.agentName ?? thread.agent_name;
-}
-
 function ThreadHeader({
   thread,
   messageCount,
@@ -537,8 +496,8 @@ function ThreadHeader({
   onPushHandoff,
   onReturnHandoff,
   onOpenParticipants,
-  activeOperationCount,
-  onOpenOperations,
+  messages,
+  extraActions = null,
 }: {
   thread: AgentThread;
   messageCount: number;
@@ -548,8 +507,8 @@ function ThreadHeader({
   onPushHandoff: ReturnType<typeof useAgentChatPanelRuntime>["pushHandoff"];
   onReturnHandoff: ReturnType<typeof useAgentChatPanelRuntime>["returnHandoff"];
   onOpenParticipants: () => void;
-  activeOperationCount: number;
-  onOpenOperations: () => void;
+  messages: AgentMessage[];
+  extraActions?: ReactNode;
 }) {
   const participants = thread.threadParticipants ?? [];
   const activeParticipants = participants.filter((participant) => participant.status === "active");
@@ -578,6 +537,7 @@ function ThreadHeader({
     <header className="zorai-thread-header zorai-thread-header--slim">
       <h3 title={thread.title}>{thread.title}</h3>
       <div className="zorai-thread-header__actions">
+        {extraActions}
         {returnTarget && onReturnTarget ? (
           <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" onClick={onReturnTarget}>
             {returnTarget.label}
@@ -607,17 +567,7 @@ function ThreadHeader({
           <ThreadHeaderIcon kind="participants" />
           {activeParticipants.length > 0 ? <span className="zorai-thread-header__badge">{activeParticipants.length}</span> : null}
         </button>
-        <button
-          type="button"
-          className="zorai-thread-header__icon"
-          title={activeOperationCount > 0 ? `Operations (${activeOperationCount} running) - jump to the latest` : "No running operations"}
-          aria-label={`Operations, ${activeOperationCount} running`}
-          disabled={activeOperationCount === 0}
-          onClick={onOpenOperations}
-        >
-          <ThreadHeaderIcon kind="operations" />
-          {activeOperationCount > 0 ? <span className="zorai-thread-header__badge">{activeOperationCount}</span> : null}
-        </button>
+        <ThreadOperationsControl daemonThreadId={thread.daemonThreadId} messages={messages} icon={<ThreadHeaderIcon kind="operations" />} />
         <button type="button" className="zorai-thread-header__icon" title="Toggle context panel" aria-label="Toggle context panel" onClick={() => navigateZorai({ toggleContext: true })}>
           <ThreadHeaderIcon kind="context" />
         </button>

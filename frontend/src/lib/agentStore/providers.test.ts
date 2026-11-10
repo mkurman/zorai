@@ -305,28 +305,30 @@ describe("frontend Anthropic provider catalog", () => {
 
     expect(anthropic).toBeDefined();
     expect(anthropic?.defaultBaseUrl).toBe("https://api.anthropic.com");
-    expect(anthropic?.defaultModel).toBe("claude-opus-4-7");
+    expect(anthropic?.defaultModel).toBe("claude-opus-5-5");
     expect(anthropic?.supportsModelFetch).toBe(false);
     expect(anthropic?.models.map((model) => [model.id, model.contextWindow])).toEqual([
+      ["claude-opus-5-5", 1_000_000],
+      ["claude-fable-5-2", 1_000_000],
+      ["claude-fable-5-1", 1_000_000],
+      ["claude-fable-5", 1_000_000],
+      ["claude-opus-5", 1_000_000],
+      ["claude-opus-4-8", 1_000_000],
       ["claude-opus-4-7", 1_000_000],
       ["claude-opus-4-6", 1_000_000],
       ["claude-opus-4-5-20251101", 200_000],
-      ["claude-opus-4-1-20250805", 200_000],
-      ["claude-opus-4-20250514", 200_000],
+      ["claude-sonnet-5-5", 1_000_000],
+      ["claude-sonnet-5", 1_000_000],
       ["claude-sonnet-4-6", 1_000_000],
       ["claude-sonnet-4-5-20250929", 200_000],
-      ["claude-sonnet-4-20250514", 200_000],
-      ["claude-3-7-sonnet-20250219", 200_000],
+      ["claude-haiku-5-5", 1_000_000],
       ["claude-haiku-4-5-20251001", 200_000],
-      ["claude-3-5-haiku-20241022", 200_000],
-      ["claude-3-opus-20240229", 200_000],
-      ["claude-3-haiku-20240307", 200_000],
     ]);
   });
 
   it("recognizes Anthropic as a valid provider id", () => {
     expect(normalizeAgentProviderId("anthropic")).toBe("anthropic");
-    expect(getDefaultModelForProvider("anthropic" as any)).toBe("claude-opus-4-7");
+    expect(getDefaultModelForProvider("anthropic" as any)).toBe("claude-opus-5-5");
   });
 });
 

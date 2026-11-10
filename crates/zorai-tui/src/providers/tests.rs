@@ -368,7 +368,7 @@ fn anthropic_provider_uses_expected_defaults() {
     let provider = find_by_id(PROVIDER_ID_ANTHROPIC).unwrap();
     assert_eq!(provider.name, "Anthropic");
     assert_eq!(provider.default_base_url, "https://api.anthropic.com");
-    assert_eq!(provider.default_model, "claude-opus-4-7");
+    assert_eq!(provider.default_model, "claude-opus-5-5");
     assert_eq!(provider.default_auth_source, "api_key");
     assert_eq!(provider.supported_auth_sources, API_KEY_ONLY_AUTH_SOURCES);
     assert_eq!(provider.default_transport, "chat_completions");
@@ -383,8 +383,11 @@ fn anthropic_provider_uses_expected_defaults() {
     );
     assert!(!supports_model_fetch_for(PROVIDER_ID_ANTHROPIC));
     let models = known_models_for_provider(PROVIDER_ID_ANTHROPIC);
-    assert_eq!(models.len(), 13);
-    assert!(models.iter().any(|model| model.id == "claude-opus-4-7"));
+    assert_eq!(models.len(), 15);
+    assert!(models.iter().any(|model| model.id == "claude-opus-5-5"));
+    assert!(!models
+        .iter()
+        .any(|model| model.id == "claude-3-haiku-20240307"));
     assert!(models
         .iter()
         .any(|model| model.id == "claude-sonnet-4-5-20250929"));

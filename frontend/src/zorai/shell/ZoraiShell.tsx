@@ -360,6 +360,7 @@ export function ZoraiShell() {
           title={contextLabels.title}
           subtitle={contextLabels.title === activeItem.railLabel ? undefined : activeItem.railLabel}
           collapsedLabel={contextLabels.collapsed}
+          headerless={activeView === "code"}
           open={contextOpen}
           onToggle={() => setContextOpen((current) => !current)}
         >

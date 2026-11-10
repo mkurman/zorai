@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moveOpenSessionId, rememberOpenSessionId, sessionCloseFollowUp } from "./openSessionTabs";
+import { moveOpenSessionId, neighborSessionId, rememberOpenSessionId, sessionCloseFollowUp } from "./openSessionTabs";
 
 describe("open session tabs", () => {
   it("appends a new session and leaves the existing order in place when one is selected again", () => {
@@ -50,5 +50,15 @@ describe("open session tabs", () => {
     expect(moveOpenSessionId(ids, "a", "b", false)).toBe(ids);
     expect(moveOpenSessionId(ids, "b", "b", true)).toBe(ids);
     expect(moveOpenSessionId(ids, "x", "b", true)).toBe(ids);
+  });
+});
+
+describe("filtered session tabs", () => {
+  it("moves to a neighbouring visible tab, so closing a Code project tab never jumps to a hidden Threads session", () => {
+    const visible = ["code-a", "code-b", "code-c"];
+    expect(neighborSessionId(visible, "code-b")).toBe("code-c");
+    expect(neighborSessionId(visible, "code-c")).toBe("code-b");
+    expect(neighborSessionId(["code-a"], "code-a")).toBeNull();
+    expect(neighborSessionId(visible, "threads-only")).toBeNull();
   });
 });

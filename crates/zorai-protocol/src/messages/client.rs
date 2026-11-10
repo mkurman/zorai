@@ -338,4 +338,5 @@ pub enum ClientMessage {
     AgentGenerateVideo { args_json: String },
     AgentBrowserResult { request_id: String, ok: bool, result_json: String },
     AgentGenerateMusic { args_json: String },
+    AgentListThreadOperations { thread_id: String },
 }

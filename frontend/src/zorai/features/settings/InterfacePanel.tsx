@@ -27,6 +27,17 @@ export function InterfacePanel() {
   const updateSetting = useSettingsStore((state) => state.updateSetting);
   const [systemFonts, setSystemFonts] = useState<string[]>([]);
   const [systemPrefersDarkScheme, setSystemPrefersDarkScheme] = useState(systemPrefersDark);
+  const [defaultScreenshotDirectory, setDefaultScreenshotDirectory] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    void getBridge()?.screenshotsDefaultDirectory?.()
+      .then((directory) => {
+        if (active) setDefaultScreenshotDirectory(directory);
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -123,6 +134,37 @@ export function InterfacePanel() {
               <option key={theme.name} value={theme.name}>{theme.name}</option>
             ))}
           </select>
+        </SettingRow>
+      </Panel>
+
+      <Panel section="Interface" title="Screenshots">
+        <SettingRow label="Screenshot Folder" description="Where right-click → Take Screenshot saves PNGs. Every screenshot is also copied to the clipboard.">
+          <div className="zorai-setting-path">
+            <input
+              className="zorai-input"
+              value={settings.screenshotDirectory}
+              placeholder={defaultScreenshotDirectory || "Pictures/Zorai"}
+              spellCheck={false}
+              onChange={(event) => updateSetting("screenshotDirectory", event.target.value)}
+            />
+            <button
+              type="button"
+              className="zorai-ghost-button"
+              onClick={() => {
+                void getBridge()?.screenshotsSelectDirectory?.(settings.screenshotDirectory)
+                  .then((directory) => {
+                    if (directory) updateSetting("screenshotDirectory", directory);
+                  });
+              }}
+            >
+              Choose…
+            </button>
+            {settings.screenshotDirectory ? (
+              <button type="button" className="zorai-ghost-button" onClick={() => updateSetting("screenshotDirectory", "")}>
+                Default
+              </button>
+            ) : null}
+          </div>
         </SettingRow>
       </Panel>
 

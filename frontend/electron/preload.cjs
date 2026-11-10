@@ -272,7 +272,15 @@ const bridgeApi = {
     windowMenuItems: (label) => ipcRenderer.invoke('window-menu-items', label),
     windowMenuInvoke: (label, index) => ipcRenderer.invoke('window-menu-invoke', label, index),
     setWindowOpacity: (opacity) => ipcRenderer.invoke('window-set-opacity', opacity),
+    screenshotsDefaultDirectory: () => ipcRenderer.invoke('screenshots-default-directory'),
+    screenshotsSelectDirectory: (current) => ipcRenderer.invoke('screenshots-select-directory', current),
     saveVisionScreenshot: (payload) => ipcRenderer.invoke('vision-save-screenshot', payload),
+    contextMenuAction: (action, payload) => ipcRenderer.invoke('context-menu-action', action, payload),
+    onContextMenuRequest: (cb) => {
+        const listener = (_e, request) => cb(request);
+        ipcRenderer.on('context-menu-request', listener);
+        return () => ipcRenderer.removeListener('context-menu-request', listener);
+    },
     onWindowState: (cb) => {
         ipcRenderer.on('window-state', (_e, state) => cb(state));
         return () => ipcRenderer.removeAllListeners('window-state');
@@ -322,6 +330,7 @@ const bridgeApi = {
     agentThreadParticipantCommand: (payload) => ipcRenderer.invoke('agent-thread-participant-command', payload),
     agentHandoffThread: (payload) => ipcRenderer.invoke('agent-handoff-thread', payload),
     agentGetOperationStatus: (id) => ipcRenderer.invoke('agent-get-operation-status', id),
+    agentListThreadOperations: (threadId) => ipcRenderer.invoke('agent-list-thread-operations', threadId),
     agentCancelOperation: (id) => ipcRenderer.invoke('agent-cancel-operation', id),
     agentSendParticipantSuggestion: (payload) => ipcRenderer.invoke('agent-send-participant-suggestion', payload),
     agentDismissParticipantSuggestion: (payload) => ipcRenderer.invoke('agent-dismiss-participant-suggestion', payload),

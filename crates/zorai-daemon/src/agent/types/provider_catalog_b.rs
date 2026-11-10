@@ -104,6 +104,42 @@ pub const ALIBABA_TOKEN_MODELS: &[ModelDefinition] = &[
 
 pub const ANTHROPIC_MODELS: &[ModelDefinition] = &[
     ModelDefinition {
+        id: "claude-opus-5-5",
+        name: "Claude Opus 5.5",
+        context_window: 1_000_000,
+        modalities: TEXT_IMAGE,
+    },
+    ModelDefinition {
+        id: "claude-fable-5-2",
+        name: "Claude Fable 5.2",
+        context_window: 1_000_000,
+        modalities: TEXT_IMAGE,
+    },
+    ModelDefinition {
+        id: "claude-fable-5-1",
+        name: "Claude Fable 5.1",
+        context_window: 1_000_000,
+        modalities: TEXT_IMAGE,
+    },
+    ModelDefinition {
+        id: "claude-fable-5",
+        name: "Claude Fable 5",
+        context_window: 1_000_000,
+        modalities: TEXT_IMAGE,
+    },
+    ModelDefinition {
+        id: "claude-opus-5",
+        name: "Claude Opus 5",
+        context_window: 1_000_000,
+        modalities: TEXT_IMAGE,
+    },
+    ModelDefinition {
+        id: "claude-opus-4-8",
+        name: "Claude Opus 4.8",
+        context_window: 1_000_000,
+        modalities: TEXT_IMAGE,
+    },
+    ModelDefinition {
         id: "claude-opus-4-7",
         name: "Claude Opus 4.7",
         context_window: 1_000_000,
@@ -122,15 +158,15 @@ pub const ANTHROPIC_MODELS: &[ModelDefinition] = &[
         modalities: TEXT_IMAGE,
     },
     ModelDefinition {
-        id: "claude-opus-4-1-20250805",
-        name: "Claude Opus 4.1",
-        context_window: 200_000,
+        id: "claude-sonnet-5-5",
+        name: "Claude Sonnet 5.5",
+        context_window: 1_000_000,
         modalities: TEXT_IMAGE,
     },
     ModelDefinition {
-        id: "claude-opus-4-20250514",
-        name: "Claude Opus 4",
-        context_window: 200_000,
+        id: "claude-sonnet-5",
+        name: "Claude Sonnet 5",
+        context_window: 1_000_000,
         modalities: TEXT_IMAGE,
     },
     ModelDefinition {
@@ -146,38 +182,14 @@ pub const ANTHROPIC_MODELS: &[ModelDefinition] = &[
         modalities: TEXT_IMAGE,
     },
     ModelDefinition {
-        id: "claude-sonnet-4-20250514",
-        name: "Claude Sonnet 4",
-        context_window: 200_000,
-        modalities: TEXT_IMAGE,
-    },
-    ModelDefinition {
-        id: "claude-3-7-sonnet-20250219",
-        name: "Claude Sonnet 3.7",
-        context_window: 200_000,
+        id: "claude-haiku-5-5",
+        name: "Claude Haiku 5.5",
+        context_window: 1_000_000,
         modalities: TEXT_IMAGE,
     },
     ModelDefinition {
         id: "claude-haiku-4-5-20251001",
         name: "Claude Haiku 4.5",
-        context_window: 200_000,
-        modalities: TEXT_IMAGE,
-    },
-    ModelDefinition {
-        id: "claude-3-5-haiku-20241022",
-        name: "Claude Haiku 3.5",
-        context_window: 200_000,
-        modalities: TEXT_IMAGE,
-    },
-    ModelDefinition {
-        id: "claude-3-opus-20240229",
-        name: "Claude Opus 3",
-        context_window: 200_000,
-        modalities: TEXT_IMAGE,
-    },
-    ModelDefinition {
-        id: "claude-3-haiku-20240307",
-        name: "Claude Haiku 3",
         context_window: 200_000,
         modalities: TEXT_IMAGE,
     },

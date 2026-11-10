@@ -46,7 +46,7 @@ export function CodeThreadRuntimeSwitcher({ thread, variant = "toolbar" }: Props
     setPickerQuery("");
   }, [threadId]);
 
-  const threadProviderIdsList = useMemo(() => threadProviderIds(), [agentSettings]);
+  const threadProviderIdsList = useMemo(() => threadProviderIds(), [agentSettings, open]);
 
   // Agent candidates: Svarog + Rarog + personas + subagents
   const agents = useMemo(() => {

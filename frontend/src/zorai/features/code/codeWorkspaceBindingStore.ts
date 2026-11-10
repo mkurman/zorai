@@ -55,6 +55,15 @@ export type CodeWorkspaceBindingStore = CodeWorkspaceBindings & CodeWorkspaceBin
  * which validates the directory and returns the canonical root. The renderer
  * must not pretend to filesystem-canonicalize.
  */
+export function isCodeProjectThread(
+  projectThreadIds: string[],
+  thread: { id: string; daemonThreadId?: string | null } | undefined,
+): boolean {
+  if (!thread) return false;
+  return projectThreadIds.includes(thread.id)
+    || Boolean(thread.daemonThreadId && projectThreadIds.includes(thread.daemonThreadId));
+}
+
 export function trimCodeWorkspaceRoot(root: unknown): string | null {
   if (typeof root !== "string") return null;
   const trimmed = root.trim();

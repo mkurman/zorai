@@ -248,6 +248,7 @@ export interface ZoraiSettings {
   customTerminalCursor: string;
   customTerminalSelection: string;
   opacity: number;
+  screenshotDirectory: string;
   lineHeight: number;
   padding: number;
 
@@ -305,6 +306,7 @@ export const DEFAULT_SETTINGS: ZoraiSettings = {
   customTerminalCursor: "",
   customTerminalSelection: "",
   opacity: 1.0,
+  screenshotDirectory: "",
   lineHeight: 1.0,
   padding: 0,
   gpuAcceleration: true,

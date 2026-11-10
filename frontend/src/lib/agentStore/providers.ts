@@ -119,19 +119,21 @@ const QWEN_MODELS: ModelDefinition[] = [
 ];
 
 const ANTHROPIC_MODELS: ModelDefinition[] = [
+  { id: "claude-opus-5-5", name: "Claude Opus 5.5", contextWindow: 1_000_000, modalities: M_TI },
+  { id: "claude-fable-5-2", name: "Claude Fable 5.2", contextWindow: 1_000_000, modalities: M_TI },
+  { id: "claude-fable-5-1", name: "Claude Fable 5.1", contextWindow: 1_000_000, modalities: M_TI },
+  { id: "claude-fable-5", name: "Claude Fable 5", contextWindow: 1_000_000, modalities: M_TI },
+  { id: "claude-opus-5", name: "Claude Opus 5", contextWindow: 1_000_000, modalities: M_TI },
+  { id: "claude-opus-4-8", name: "Claude Opus 4.8", contextWindow: 1_000_000, modalities: M_TI },
   { id: "claude-opus-4-7", name: "Claude Opus 4.7", contextWindow: 1_000_000, modalities: M_TI },
   { id: "claude-opus-4-6", name: "Claude Opus 4.6", contextWindow: 1_000_000, modalities: M_TI },
   { id: "claude-opus-4-5-20251101", name: "Claude Opus 4.5", contextWindow: 200_000, modalities: M_TI },
-  { id: "claude-opus-4-1-20250805", name: "Claude Opus 4.1", contextWindow: 200_000, modalities: M_TI },
-  { id: "claude-opus-4-20250514", name: "Claude Opus 4", contextWindow: 200_000, modalities: M_TI },
+  { id: "claude-sonnet-5-5", name: "Claude Sonnet 5.5", contextWindow: 1_000_000, modalities: M_TI },
+  { id: "claude-sonnet-5", name: "Claude Sonnet 5", contextWindow: 1_000_000, modalities: M_TI },
   { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", contextWindow: 1_000_000, modalities: M_TI },
   { id: "claude-sonnet-4-5-20250929", name: "Claude Sonnet 4.5", contextWindow: 200_000, modalities: M_TI },
-  { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4", contextWindow: 200_000, modalities: M_TI },
-  { id: "claude-3-7-sonnet-20250219", name: "Claude Sonnet 3.7", contextWindow: 200_000, modalities: M_TI },
+  { id: "claude-haiku-5-5", name: "Claude Haiku 5.5", contextWindow: 1_000_000, modalities: M_TI },
   { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5", contextWindow: 200_000, modalities: M_TI },
-  { id: "claude-3-5-haiku-20241022", name: "Claude Haiku 3.5", contextWindow: 200_000, modalities: M_TI },
-  { id: "claude-3-opus-20240229", name: "Claude Opus 3", contextWindow: 200_000, modalities: M_TI },
-  { id: "claude-3-haiku-20240307", name: "Claude Haiku 3", contextWindow: 200_000, modalities: M_TI },
 ];
 
 const CURSOR_MODELS: ModelDefinition[] = [
@@ -485,7 +487,7 @@ export function modelSupports(model: ModelDefinition | undefined, modality: Moda
 
 export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
   { id: "featherless", name: "Featherless", defaultBaseUrl: "https://api.featherless.ai/v1", defaultModel: "meta-llama/Llama-3.3-70B-Instruct", apiType: "openai", authMethod: "bearer", models: [], supportsModelFetch: false, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: false },
-  { id: "anthropic", name: "Anthropic", defaultBaseUrl: "https://api.anthropic.com", defaultModel: "claude-opus-4-7", apiType: "anthropic", authMethod: "x-api-key", models: ANTHROPIC_MODELS, supportsModelFetch: false, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: false },
+  { id: "anthropic", name: "Anthropic", defaultBaseUrl: "https://api.anthropic.com", defaultModel: "claude-opus-5-5", apiType: "anthropic", authMethod: "x-api-key", models: ANTHROPIC_MODELS, supportsModelFetch: false, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: false },
   { id: "openai", name: "OpenAI / ChatGPT", defaultBaseUrl: "https://api.openai.com/v1", defaultModel: "gpt-5.5", apiType: "openai", authMethod: "bearer", models: OPENAI_API_MODELS, supportsModelFetch: true, supportedTransports: RESPONSES_AND_CHAT_TRANSPORTS, defaultTransport: "responses", supportedAuthSources: OPENAI_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
   { id: "deepseek", name: "DeepSeek", defaultBaseUrl: "https://api.deepseek.com", defaultModel: "deepseek-v4-pro", apiType: "openai", authMethod: "bearer", models: DEEPSEEK_MODELS, supportsModelFetch: true, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: false },
   { id: "gemini", name: "Gemini", defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta", defaultModel: "gemini-3.8-flash", apiType: "gemini", authMethod: "x-goog-api-key", models: GEMINI_MODELS, supportsModelFetch: false, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
@@ -604,6 +606,10 @@ export function hydrateProviderDefinitionsFromCatalog(raw: unknown): ProviderCat
     ? catalog.custom_provider_report.diagnostics as ProviderCatalogDiagnostic[]
     : [];
   return { diagnostics };
+}
+
+export function getProviderDefinitions(): readonly ProviderDefinition[] {
+  return hydratedProviderDefinitions;
 }
 
 export function getProviderDefinition(id: AgentProviderId): ProviderDefinition | undefined {

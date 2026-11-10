@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from "react";
+import { useCodeWorkspaceBindingStore } from "../code/codeWorkspaceBindingStore";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import {
   blobToBase64,
@@ -50,9 +51,11 @@ import { useAgentDisplayName } from "@/lib/useAgentDisplayName";
 export function ThreadComposer({
   showTargetSelector = false,
   compact = false,
+  onStartThread,
 }: {
   showTargetSelector?: boolean;
   compact?: boolean;
+  onStartThread?: (firstMessage: string) => void;
 } = {}) {
   const runtime = useAgentChatPanelRuntime();
   const input = useComposerDraftStore((state) => state.input);
@@ -220,6 +223,7 @@ export function ThreadComposer({
       }
     }
 
+    if (!runtime.activeThread) onStartThread?.(payload.text);
     history.remember(payload.text);
     sendMessage(payload);
     setInput("");
@@ -424,9 +428,13 @@ export function ThreadComposer({
               title="Unpin workspace from thread"
               onClick={() => {
                 if (!activeThreadId) return;
+                const unpinnedRoot = workspaceContext.root;
                 clearWorkspaceRoot(activeThreadId);
                 setContextPreviewOpen(false);
                 const daemonThreadId = runtime.activeThread?.daemonThreadId;
+                const bindings = useCodeWorkspaceBindingStore.getState();
+                bindings.forgetProjectThread(unpinnedRoot, activeThreadId);
+                if (daemonThreadId) bindings.forgetProjectThread(unpinnedRoot, daemonThreadId);
                 if (daemonThreadId) void window.zorai?.agentSetThreadWorkspaceContext?.(daemonThreadId, null);
               }}
             ><ComposerIcon kind="cancel" /></button>
@@ -449,10 +457,12 @@ export function ThreadComposer({
                 <span>File contents are read from disk by tools on demand; they are not injected automatically.</span>
               </div>
             ) : null}
+          {compact ? <CodeThreadRuntimeSwitcher thread={runtime.activeThread ?? null} variant="composer" /> : null}
         </div>
       ) : activeThreadId ? (
         <div className="zorai-composer-workspace-context">
           <button type="button" className="zorai-composer-context-chip" onClick={() => void pickWorkspaceRoot()}>Pin workspace…</button>
+          {compact ? <CodeThreadRuntimeSwitcher thread={runtime.activeThread ?? null} variant="composer" /> : null}
         </div>
       ) : null}
 
@@ -624,9 +634,7 @@ export function ThreadComposer({
           </div>
 
           <div className="zorai-composer-actions__right">
-            {compact ? (
-              <CodeThreadRuntimeSwitcher thread={runtime.activeThread ?? null} variant="composer" />
-            ) : showTargetSelector ? (
+            {!compact && showTargetSelector ? (
               <label className="zorai-composer-target">
                 <select
                   className="zorai-input"

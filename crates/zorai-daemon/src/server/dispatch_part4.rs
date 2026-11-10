@@ -84,6 +84,7 @@ pub(crate) async fn dispatch_part4(
             | ClientMessage::AgentUnsubscribe
             | ClientMessage::AgentDeclareAsyncCommandCapability { .. }
             | ClientMessage::AgentGetOperationStatus { .. }
+            | ClientMessage::AgentListThreadOperations { .. }
             | ClientMessage::AgentHandoffThread { .. }
             | ClientMessage::AgentGetSubagentMetrics { .. }
             | ClientMessage::AgentGetSubsystemMetrics
@@ -1883,6 +1884,17 @@ pub(crate) async fn dispatch_part4(
                     })
                     .await?;
             }
+        }
+
+        ClientMessage::AgentListThreadOperations { thread_id } => {
+            let operations = agent.list_thread_operations(&thread_id).await;
+            framed
+                .send(DaemonMessage::AgentThreadOperations {
+                    thread_id,
+                    operations_json: serde_json::to_string(&operations)
+                        .unwrap_or_else(|_| "[]".to_string()),
+                })
+                .await?;
         }
 
         ClientMessage::AgentGetSubagentMetrics { task_id } => {
