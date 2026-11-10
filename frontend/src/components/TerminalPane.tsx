@@ -22,6 +22,7 @@ import { useTerminalRuntime } from "./terminal-pane/useTerminalRuntime";
 import { useTerminalTranscript } from "./terminal-pane/useTerminalTranscript";
 import { encodeTextToBase64, findPaneLocationValue } from "./terminal-pane/utils";
 import "@xterm/xterm/css/xterm.css";
+import { TerminalFindBar } from "./terminal-pane/TerminalFindBar";
 
 interface TerminalPaneProps {
   paneId: string;
@@ -62,7 +63,7 @@ export function TerminalPane({ paneId, sessionId, hideHeader, cwd, hideSharedCur
   const splitActive = useWorkspaceStore((state) => state.splitActive);
   const closePane = useWorkspaceStore((state) => state.closePane);
   const toggleZoom = useWorkspaceStore((state) => state.toggleZoom);
-  const toggleSearch = useWorkspaceStore((state) => state.toggleSearch);
+  const [findOpen, setFindOpen] = useState(false);
   const setPaneSessionId = useWorkspaceStore((state) => state.setPaneSessionId);
   const setPaneName = useWorkspaceStore((state) => state.setPaneName);
   const setCanvasPanelStatus = useWorkspaceStore((state) => state.setCanvasPanelStatus);
@@ -308,15 +309,23 @@ export function TerminalPane({ paneId, sessionId, hideHeader, cwd, hideSharedCur
     captureTranscript,
     paneId,
     sendRawFormFeed: (currentPaneId) => {
-      void getBridge()?.sendTerminalInput?.(currentPaneId, encodeTextToBase64("\f"));
+      const atShellPrompt = termRef.current?.buffer.active.type !== "alternate";
+      void getBridge()?.sendTerminalInput?.(currentPaneId, encodeTextToBase64(atShellPrompt ? "\u0005\u0015\f" : "\f"));
     },
-    toggleSearch,
+    toggleSearch: () => setFindOpen((open) => !open),
   });
 
   return (
     <div
       ref={wrapperRef}
       onClick={handleFocus}
+      onKeyDownCapture={(event) => {
+        if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "f") {
+          event.preventDefault();
+          event.stopPropagation();
+          setFindOpen(true);
+        }
+      }}
       tabIndex={-1}
       style={{
         width: "100%",
@@ -340,6 +349,7 @@ export function TerminalPane({ paneId, sessionId, hideHeader, cwd, hideSharedCur
 
       <div ref={containerRef} style={{ width: "100%", height: hideHeader ? "100%" : "calc(100% - 36px)" }} />
       {hideSharedCursor ? null : <SharedCursor mode={sharedCursorMode} />}
+      {findOpen ? <TerminalFindBar searchAddonRef={searchAddonRef} onClose={() => { setFindOpen(false); termRef.current?.focus(); }} /> : null}
 
       <TerminalContextMenu
         visible={contextMenu.visible}

@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 export interface TerminalContextMenuItem {
     label?: string;
     shortcut?: string;
@@ -24,11 +25,11 @@ export function TerminalContextMenu({
         return null;
     }
 
-    return (
+    return createPortal(
         <div
             onPointerDown={(event) => event.stopPropagation()}
             style={{
-                position: "absolute",
+                position: "fixed",
                 top: y,
                 left: x,
                 width: 220,
@@ -82,6 +83,7 @@ export function TerminalContextMenu({
                     </button>
                 );
             })}
-        </div>
+        </div>,
+        document.body,
     );
 }

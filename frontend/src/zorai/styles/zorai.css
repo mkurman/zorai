@@ -8926,3 +8926,10 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-workspace-statusbar .zorai-code-statusbar-toggles button:hover,
 .zorai-workspace-statusbar .zorai-code-statusbar-toggles button.is-active { background: color-mix(in srgb, var(--zorai-text) 10%, transparent); color: var(--zorai-text); }
 .zorai-workspace-statusbar .zorai-code-statusbar-toggles + span { flex: 1; min-width: 0; }
+
+.zorai-terminal-find { position: absolute; z-index: 20; top: 8px; right: 14px; display: flex; align-items: center; gap: 2px; padding: 4px; border: 1px solid var(--zorai-border-strong); border-radius: 8px; background: var(--zorai-bg-panel); box-shadow: 0 8px 24px color-mix(in srgb, var(--shade) 35%, transparent); font-family: var(--font-ui); }
+.zorai-terminal-find input { width: 200px; height: 26px; box-sizing: border-box; padding: 0 8px; border: 1px solid var(--zorai-border); border-radius: 5px; outline: 0; background: var(--zorai-bg-surface); color: var(--zorai-text); font: 12px var(--font-ui); }
+.zorai-terminal-find input:focus { border-color: var(--zorai-accent); }
+.zorai-terminal-find input.is-missing { border-color: var(--danger); }
+.zorai-terminal-find button { width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--zorai-muted); font-size: 13px; cursor: pointer; }
+.zorai-terminal-find button:hover { background: var(--zorai-bg-active); color: var(--zorai-text); }

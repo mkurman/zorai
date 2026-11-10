@@ -55,19 +55,24 @@ function persistSingleTranscript(transcript: TranscriptEntry) {
   void api.dbUpsertTranscriptIndex(transcript);
 }
 
+export function transcriptPaneFileName(paneId?: string | null): string {
+  return (paneId ?? "unknown").replace(/[\\/:*?"<>|]+/g, "_");
+}
+
 function buildFinalTranscriptFilePath(reason: TranscriptReason, paneId?: string | null) {
   const now = new Date();
   const dateStr = now.toISOString().slice(0, 10);
   const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, "");
-  const relativePath = `${TRANSCRIPT_DIR}/${dateStr}/${timeStr}_${reason}_${paneId ?? "unknown"}.log`;
+  const safePaneId = transcriptPaneFileName(paneId);
+  const relativePath = `${TRANSCRIPT_DIR}/${dateStr}/${timeStr}_${reason}_${safePaneId}.log`;
   return {
-    filename: `${dateStr}/${timeStr}_${reason}_${paneId ?? "unknown"}.log`,
+    filename: `${dateStr}/${timeStr}_${reason}_${safePaneId}.log`,
     filePath: relativePath,
   };
 }
 
 function buildLiveTranscriptFilePath(paneId?: string | null) {
-  const safePaneId = paneId ?? "unknown";
+  const safePaneId = transcriptPaneFileName(paneId);
   return {
     filename: `live/${safePaneId}.log`,
     filePath: `${LIVE_TRANSCRIPT_DIR}/${safePaneId}.log`,
