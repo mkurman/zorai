@@ -1,7 +1,6 @@
 import { LoadingPanel } from "@/components/LoadingState";
 import { MarkdownContent } from "@/components/agent-chat-panel/chat-view/markdown";
-import { MonacoReadOnlyView } from "@/components/WorkspaceCodeEditor";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { languageForWorkspacePath } from "@/zorai/features/code/codeLanguages";
 import { fetchFilePreview, fetchGitDiff } from "@/lib/agentWorkContext";
 import { getBridge } from "@/lib/bridge";
@@ -21,6 +20,8 @@ import { ViewModeToggle } from "@/components/data-viewers/ViewModeToggle";
 import { EngineDataTable } from "@/components/data-viewers/EngineDataTable";
 import { dataEngineAvailable, isEngineDataPath, isEngineOnlyDataPath } from "@/components/data-viewers/dataQuery";
 import { CodeFileIcon, CodeFolderChevron } from "@/zorai/features/code/CodeFileIcon";
+
+const MonacoReadOnlyView = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.MonacoReadOnlyView })));
 
 type PreviewSection = {
   title: string;
@@ -313,5 +314,9 @@ function PreviewText({ text, kind, path }: { text: string; kind: PreviewSection[
     return <pre className="zorai-file-preview-overlay__pre">{text}</pre>;
   }
   const language = kind === "git-diff" ? "diff" : languageForWorkspacePath(path ?? "");
-  return <MonacoReadOnlyView value={text} path={path || kind} language={language} />;
+  return (
+    <Suspense fallback={<pre className="zorai-file-preview-overlay__pre">{text}</pre>}>
+      <MonacoReadOnlyView value={text} path={path || kind} language={language} />
+    </Suspense>
+  );
 }

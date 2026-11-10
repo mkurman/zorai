@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getBridge } from "@/lib/bridge";
 import { useAgentStore } from "@/lib/agentStore";
-import { MonacoReadOnlyView, WorkspaceCodeEditor } from "@/components/WorkspaceCodeEditor";
 import { MarkdownContent } from "@/components/agent-chat-panel/chat-view/markdown";
 import { CodeDocumentPreview, codePreviewKind } from "../code/CodeDocumentPreview";
 import { CodeFileIcon, CodeFolderChevron } from "../code/CodeFileIcon";
@@ -25,6 +24,9 @@ import {
 import { isValidSkillName, joinSkillPath, parentDir, useSkillsViewStore, type OpenSkillDocument, type SkillSyncResult } from "./skillsViewStore";
 import { SkillIconButton } from "./SkillIcons";
 import type { ReactNode } from "react";
+
+const WorkspaceCodeEditor = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.WorkspaceCodeEditor })));
+const MonacoReadOnlyView = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.MonacoReadOnlyView })));
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -686,33 +688,35 @@ function DocumentPane({ root, open }: { root: string; open: OpenSkillDocument })
       {locked ? <p className="zorai-skill-pane__banner">Locked — read only, and protected from sync overwrites.</p> : null}
       {error ? <p role="alert" className="zorai-skill-pane__error">{error}</p> : null}
       <div className="zorai-skill-pane__body">
-        {loading ? (
-          <p className="zorai-empty-state">Loading…</p>
-        ) : mode === "editor" ? (
-          <WorkspaceCodeEditor
-            value={content}
-            path={`${root}/${open.path}`}
-            language={language}
-            settings={settings}
-            textareaRef={textareaRef}
-            onChange={(next) => {
-              contentRef.current = next;
-              setContent(next);
-            }}
-            onSelect={() => undefined}
-            onSave={() => void save()}
-          />
-        ) : !content.trim() ? (
-          <p className="zorai-empty-state zorai-skill-pane__empty">Nothing to preview yet.</p>
-        ) : codePreviewKind(open.path) === "markdown" ? (
-          <SkillMarkdownPreview content={content} />
-        ) : codePreviewKind(open.path) ? (
-          <div className="zorai-skill-pane__preview-host">
-            <CodeDocumentPreview path={open.path} content={content} />
-          </div>
-        ) : (
-          <MonacoReadOnlyView value={content} path={`${root}/${open.path}`} language={language} />
-        )}
+        <Suspense fallback={<p className="zorai-empty-state">Loading…</p>}>
+          {loading ? (
+            <p className="zorai-empty-state">Loading…</p>
+          ) : mode === "editor" ? (
+            <WorkspaceCodeEditor
+              value={content}
+              path={`${root}/${open.path}`}
+              language={language}
+              settings={settings}
+              textareaRef={textareaRef}
+              onChange={(next) => {
+                contentRef.current = next;
+                setContent(next);
+              }}
+              onSelect={() => undefined}
+              onSave={() => void save()}
+            />
+          ) : !content.trim() ? (
+            <p className="zorai-empty-state zorai-skill-pane__empty">Nothing to preview yet.</p>
+          ) : codePreviewKind(open.path) === "markdown" ? (
+            <SkillMarkdownPreview content={content} />
+          ) : codePreviewKind(open.path) ? (
+            <div className="zorai-skill-pane__preview-host">
+              <CodeDocumentPreview path={open.path} content={content} />
+            </div>
+          ) : (
+            <MonacoReadOnlyView value={content} path={`${root}/${open.path}`} language={language} />
+          )}
+        </Suspense>
       </div>
       {confirmDelete ? (
         <ConfirmDialog
