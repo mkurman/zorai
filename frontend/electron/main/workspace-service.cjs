@@ -7,6 +7,25 @@ const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
 const DEFAULT_MAX_FILE_BYTES = 2 * 1024 * 1024;
 const GIT_MAX_BUFFER = 8 * 1024 * 1024;
+const GIT_REPOSITORY_CHANGING_COMMANDS = new Set(['add', 'apply', 'branch', 'checkout', 'cherry-pick', 'clean', 'commit', 'merge', 'mv', 'rebase', 'reset', 'restore', 'rm', 'stash', 'switch', 'tag', 'worktree']);
+const GIT_READ_ONLY_FLAGS = new Set(['--show-current', '--list', '--format', '-l', 'list']);
+
+function changesRepository(args) {
+    if (!GIT_REPOSITORY_CHANGING_COMMANDS.has(args[0])) return false;
+    return !args.slice(1).some((arg) => GIT_READ_ONLY_FLAGS.has(arg) || arg.startsWith('--format='));
+}
+
+async function execGit(args, options = {}) {
+    const record = changesRepository(args);
+    try {
+        const result = await execFileAsync('git', args, options);
+        if (record) recordGitOutput({ cwd: options.cwd ?? '', command: `git ${args.join(' ')}`, ok: true, output: [result.stdout, result.stderr].filter((text) => text && String(text).trim()).join('\n').trim() });
+        return result;
+    } catch (error) {
+        if (record) recordGitOutput({ cwd: options.cwd ?? '', command: `git ${args.join(' ')}`, ok: false, output: error?.stderr?.trim() || error?.message || 'git failed.' });
+        throw error;
+    }
+}
 const IGNORED_DIRECTORY_NAMES = new Set([
     '.git', 'node_modules', 'target', 'dist', 'build', '.venv', '__pycache__', '.next', '.cache',
 ]);
@@ -224,7 +243,7 @@ async function deleteWorkspacePath(rootPath, relativePath, options = {}) {
 
 async function resolveGitRoot(targetPath) {
     try {
-        const { stdout } = await execFileAsync('git', ['rev-parse', '--show-toplevel'], { cwd: targetPath, encoding: 'utf8', timeout: 5000 });
+        const { stdout } = await execGit(['rev-parse', '--show-toplevel'], { cwd: targetPath, encoding: 'utf8', timeout: 5000 });
         return fs.realpathSync.native(stdout.trim());
     } catch { return null; }
 }
@@ -282,7 +301,7 @@ async function workspaceGitStatus(rootPath) {
     const root = canonicalWorkspaceRoot(rootPath);
     const gitRoot = await resolveGitRoot(root);
     if (!gitRoot || !isWithinRoot(gitRoot, root)) return [];
-    const { stdout } = await execFileAsync('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], {
+    const { stdout } = await execGit(['status', '--porcelain=v1', '-z', '--untracked-files=all'], {
         cwd: root, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER,
     });
     const records = stdout.split('\0').filter(Boolean);
@@ -325,7 +344,7 @@ async function workspaceGitListWorktrees(rootPath) {
     const root = canonicalWorkspaceRoot(rootPath);
     const gitRoot = await resolveGitRoot(root);
     if (!gitRoot) return [];
-    const { stdout } = await execFileAsync('git', ['worktree', 'list', '--porcelain'], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
+    const { stdout } = await execGit(['worktree', 'list', '--porcelain'], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
     return parseGitWorktreeList(stdout);
 }
 
@@ -339,21 +358,21 @@ async function workspaceGitCreateWorktree(rootPath, options = {}) {
     }
     const branch = typeof options.branch === 'string' ? options.branch.trim() : '';
     if (!branch) throw workspaceError('WORKSPACE_WORKTREE_BRANCH_REQUIRED', 'A branch name is required.');
-    await execFileAsync('git', ['check-ref-format', '--branch', branch], { cwd: gitRoot, encoding: 'utf8', timeout: 5000 })
+    await execGit(['check-ref-format', '--branch', branch], { cwd: gitRoot, encoding: 'utf8', timeout: 5000 })
         .catch(() => { throw workspaceError('WORKSPACE_WORKTREE_BRANCH_INVALID', `Invalid branch name: ${branch}`); });
     const baseRef = typeof options.baseRef === 'string' && options.baseRef.trim() ? options.baseRef.trim() : 'HEAD';
-    await execFileAsync('git', ['rev-parse', '--verify', `${baseRef}^{commit}`], { cwd: gitRoot, encoding: 'utf8', timeout: 5000 })
+    await execGit(['rev-parse', '--verify', `${baseRef}^{commit}`], { cwd: gitRoot, encoding: 'utf8', timeout: 5000 })
         .catch(() => { throw workspaceError('WORKSPACE_WORKTREE_BASE_INVALID', `Base revision does not resolve to a commit: ${baseRef}`); });
     const container = path.join(path.dirname(gitRoot), `${path.basename(gitRoot)}-worktrees`);
     await fs.promises.mkdir(container, { recursive: true });
     const destination = path.join(container, name);
     if (fs.existsSync(destination)) throw workspaceError('WORKSPACE_WORKTREE_EXISTS', `Worktree destination already exists: ${destination}`);
-    const branchExists = await execFileAsync('git', ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`], { cwd: gitRoot, timeout: 5000 })
+    const branchExists = await execGit(['show-ref', '--verify', '--quiet', `refs/heads/${branch}`], { cwd: gitRoot, timeout: 5000 })
         .then(() => true).catch(() => false);
     const args = branchExists
         ? ['worktree', 'add', destination, branch]
         : ['worktree', 'add', '-b', branch, destination, baseRef];
-    await execFileAsync('git', args, { cwd: gitRoot, encoding: 'utf8', timeout: 60000, maxBuffer: GIT_MAX_BUFFER })
+    await execGit(args, { cwd: gitRoot, encoding: 'utf8', timeout: 60000, maxBuffer: GIT_MAX_BUFFER })
         .catch((error) => { throw workspaceError('WORKSPACE_WORKTREE_CREATE_FAILED', error?.stderr?.trim() || error?.message || 'Git worktree creation failed.'); });
     return { root: fs.realpathSync.native(destination), branch, baseRef, worktrees: await workspaceGitListWorktrees(gitRoot) };
 }
@@ -377,17 +396,17 @@ async function workspaceGitReviewWorktree(rootPath, worktreePath) {
     const gitRoot = await resolveGitRoot(root);
     if (!gitRoot) throw workspaceError('WORKSPACE_NOT_GIT_REPOSITORY', 'Workspace is not inside a Git repository.');
     const { candidate, registered } = await resolveManagedWorktree(gitRoot, worktreePath);
-    const sourceStatus = await execFileAsync('git', ['status', '--porcelain'], { cwd: candidate, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
-    const targetStatus = await execFileAsync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
-    const sourceHead = registered.head || await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: candidate, encoding: 'utf8', timeout: 5000 }).then(({ stdout }) => stdout.trim());
-    const targetHead = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8', timeout: 5000 }).then(({ stdout }) => stdout.trim());
-    const mergeBase = await execFileAsync('git', ['merge-base', targetHead, sourceHead], { cwd: gitRoot, encoding: 'utf8', timeout: 5000 }).then(({ stdout }) => stdout.trim());
-    const commitsRaw = await execFileAsync('git', ['log', '--reverse', '--format=%H%x00%s', `${targetHead}..${sourceHead}`], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER }).then(({ stdout }) => stdout);
+    const sourceStatus = await execGit(['status', '--porcelain'], { cwd: candidate, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
+    const targetStatus = await execGit(['status', '--porcelain'], { cwd: root, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
+    const sourceHead = registered.head || await execGit(['rev-parse', 'HEAD'], { cwd: candidate, encoding: 'utf8', timeout: 5000 }).then(({ stdout }) => stdout.trim());
+    const targetHead = await execGit(['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8', timeout: 5000 }).then(({ stdout }) => stdout.trim());
+    const mergeBase = await execGit(['merge-base', targetHead, sourceHead], { cwd: gitRoot, encoding: 'utf8', timeout: 5000 }).then(({ stdout }) => stdout.trim());
+    const commitsRaw = await execGit(['log', '--reverse', '--format=%H%x00%s', `${targetHead}..${sourceHead}`], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER }).then(({ stdout }) => stdout);
     const commits = commitsRaw.split('\n').filter(Boolean).map((line) => {
         const separator = line.indexOf('\0');
         return { hash: separator >= 0 ? line.slice(0, separator) : line, subject: separator >= 0 ? line.slice(separator + 1) : '' };
     });
-    const filesRaw = await execFileAsync('git', ['diff', '--name-status', `${mergeBase}..${sourceHead}`], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER }).then(({ stdout }) => stdout);
+    const filesRaw = await execGit(['diff', '--name-status', `${mergeBase}..${sourceHead}`], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER }).then(({ stdout }) => stdout);
     const files = filesRaw.split(/\r?\n/).filter(Boolean).map((line) => {
         const [status, ...parts] = line.split('\t');
         return { status, path: parts[parts.length - 1] || '', previousPath: parts.length > 1 ? parts[0] : null };
@@ -412,9 +431,9 @@ async function workspaceGitIntegrateWorktree(rootPath, worktreePath, expectedCom
         throw workspaceError('WORKSPACE_INTEGRATION_STALE', 'The isolated commit list changed. Refresh the review before integrating.');
     }
     try {
-        await execFileAsync('git', ['cherry-pick', ...actual], { cwd: review.target.path, encoding: 'utf8', timeout: 120000, maxBuffer: GIT_MAX_BUFFER });
+        await execGit(['cherry-pick', ...actual], { cwd: review.target.path, encoding: 'utf8', timeout: 120000, maxBuffer: GIT_MAX_BUFFER });
     } catch (error) {
-        await execFileAsync('git', ['cherry-pick', '--abort'], { cwd: review.target.path, encoding: 'utf8', timeout: 30000, maxBuffer: GIT_MAX_BUFFER }).catch(() => {});
+        await execGit(['cherry-pick', '--abort'], { cwd: review.target.path, encoding: 'utf8', timeout: 30000, maxBuffer: GIT_MAX_BUFFER }).catch(() => {});
         throw workspaceError('WORKSPACE_INTEGRATION_CONFLICT', error?.stderr?.trim() || error?.message || 'Cherry-pick conflicted and was aborted.');
     }
     return {
@@ -430,9 +449,9 @@ async function workspaceGitRemoveWorktree(rootPath, worktreePath) {
     const gitRoot = await resolveGitRoot(root);
     if (!gitRoot) throw workspaceError('WORKSPACE_NOT_GIT_REPOSITORY', 'Workspace is not inside a Git repository.');
     const { candidate } = await resolveManagedWorktree(gitRoot, worktreePath);
-    const { stdout: status } = await execFileAsync('git', ['status', '--porcelain'], { cwd: candidate, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
+    const { stdout: status } = await execGit(['status', '--porcelain'], { cwd: candidate, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
     if (status.trim()) throw workspaceError('WORKSPACE_WORKTREE_DIRTY', 'The worktree has uncommitted changes and cannot be removed.');
-    await execFileAsync('git', ['worktree', 'remove', candidate], { cwd: gitRoot, encoding: 'utf8', timeout: 60000, maxBuffer: GIT_MAX_BUFFER })
+    await execGit(['worktree', 'remove', candidate], { cwd: gitRoot, encoding: 'utf8', timeout: 60000, maxBuffer: GIT_MAX_BUFFER })
         .catch((error) => { throw workspaceError('WORKSPACE_WORKTREE_REMOVE_FAILED', error?.stderr?.trim() || error?.message || 'Git worktree removal failed.'); });
     return workspaceGitListWorktrees(gitRoot);
 }
@@ -444,7 +463,7 @@ async function workspaceGitHistory(rootPath, options = {}) {
     const limit = Math.max(1, Math.min(Number(options.limit) || 50, 200));
     if (options.graph) {
         const graphLimit = Math.max(1, Math.min(Number(options.limit) || 200, 1000));
-        const { stdout } = await execFileAsync('git', ['log', '--all', '--topo-order', `-${graphLimit}`, '--date=iso-strict', '--format=%H%x00%h%x00%an%x00%ad%x00%s%x00%P%x00%D'], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
+        const { stdout } = await execGit(['log', '--all', '--topo-order', `-${graphLimit}`, '--date=iso-strict', '--format=%H%x00%h%x00%an%x00%ad%x00%s%x00%P%x00%D'], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
         return stdout.split(/\r?\n/).filter(Boolean).map((line) => {
             const [hash, shortHash, author, date, subject, parentsRaw, refsRaw] = line.split('\0');
             return {
@@ -454,7 +473,7 @@ async function workspaceGitHistory(rootPath, options = {}) {
             };
         });
     }
-    const { stdout } = await execFileAsync('git', ['log', `-${limit}`, '--date=iso-strict', '--format=%H%x00%h%x00%an%x00%ad%x00%s'], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
+    const { stdout } = await execGit(['log', `-${limit}`, '--date=iso-strict', '--format=%H%x00%h%x00%an%x00%ad%x00%s'], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
     return stdout.split(/\r?\n/).filter(Boolean).map((line) => {
         const [hash, shortHash, author, date, subject] = line.split('\0');
         return { hash, shortHash, author, date, subject };
@@ -467,12 +486,12 @@ async function workspaceGitCommitDetail(rootPath, commitHash) {
     if (!gitRoot) throw workspaceError('WORKSPACE_NOT_GIT_REPOSITORY', 'Workspace is not inside a Git repository.');
     const normalized = typeof commitHash === 'string' ? commitHash.trim() : '';
     if (!/^[0-9a-fA-F]{7,64}$/.test(normalized)) throw workspaceError('WORKSPACE_COMMIT_INVALID', 'Invalid commit hash.');
-    const { stdout: metadata } = await execFileAsync('git', ['show', '-s', '--date=iso-strict', '--format=%H%x00%an%x00%ad%x00%B', normalized], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
+    const { stdout: metadata } = await execGit(['show', '-s', '--date=iso-strict', '--format=%H%x00%an%x00%ad%x00%B', normalized], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
     const firstLineEnd = metadata.indexOf('\n');
     const header = firstLineEnd >= 0 ? metadata.slice(0, firstLineEnd) : metadata;
     const body = firstLineEnd >= 0 ? metadata.slice(firstLineEnd + 1).trim() : '';
     const [hash, author, date, subject] = header.split('\0');
-    const { stdout: filesRaw } = await execFileAsync('git', ['show', '--name-status', '--format=', normalized], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
+    const { stdout: filesRaw } = await execGit(['show', '--name-status', '--format=', normalized], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
     const files = filesRaw.split(/\r?\n/).filter(Boolean).map((line) => { const [status, ...parts] = line.split('\t'); return { status, path: parts[parts.length - 1] || '' }; });
     return { hash, author, date, subject, body, files };
 }
@@ -481,7 +500,7 @@ async function workspaceGitConflicts(rootPath) {
     const root = canonicalWorkspaceRoot(rootPath);
     const gitRoot = await resolveGitRoot(root);
     if (!gitRoot) return [];
-    const { stdout } = await execFileAsync('git', ['diff', '--name-only', '--diff-filter=U'], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
+    const { stdout } = await execGit(['diff', '--name-only', '--diff-filter=U'], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
     return stdout.split(/\r?\n/).filter(Boolean).map((filePath) => ({ path: filePath }));
 }
 
@@ -491,7 +510,7 @@ async function workspaceGitBranches(rootPath) {
     const root = canonicalWorkspaceRoot(rootPath);
     const gitRoot = await resolveGitRoot(root);
     if (!gitRoot) return [];
-    const { stdout } = await execFileAsync('git', ['branch', '--format=%(refname:short)%00%(HEAD)'], {
+    const { stdout } = await execGit(['branch', '--format=%(refname:short)%00%(HEAD)'], {
         cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER,
     });
     return stdout.split(/\r?\n/).filter(Boolean).map((line) => {
@@ -508,11 +527,11 @@ async function workspaceGitCheckout(rootPath, branch) {
     if (!normalized || !GIT_BRANCH_NAME_PATTERN.test(normalized)) {
         throw workspaceError('WORKSPACE_BRANCH_INVALID', 'Invalid branch name.');
     }
-    await execFileAsync('git', ['checkout', '--', normalized], {
+    await execGit(['checkout', '--', normalized], {
         cwd: gitRoot, encoding: 'utf8', timeout: 30000, maxBuffer: GIT_MAX_BUFFER,
     }).catch(async (error) => {
         // `git checkout -- <name>` fails for branch names that shadow paths; retry bare.
-        await execFileAsync('git', ['checkout', normalized], {
+        await execGit(['checkout', normalized], {
             cwd: gitRoot, encoding: 'utf8', timeout: 30000, maxBuffer: GIT_MAX_BUFFER,
         }).catch(() => {
             throw workspaceError('WORKSPACE_CHECKOUT_FAILED', error?.stderr?.trim() || error?.message || 'Git checkout failed.');
@@ -672,7 +691,7 @@ async function workspaceGitList(rootPath, kind) {
     const root = canonicalWorkspaceRoot(rootPath);
     const gitRoot = await resolveGitRoot(root);
     if (!gitRoot) return [];
-    const run = async (args) => (await execFileAsync('git', args, { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER })).stdout;
+    const run = async (args) => (await execGit(args, { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER })).stdout;
     const lines = (text) => text.split('\n').map((line) => line.trim()).filter(Boolean);
     if (kind === 'branches' || kind === 'localBranches') {
         const refs = kind === 'branches' ? ['refs/heads', 'refs/remotes'] : ['refs/heads'];
@@ -714,14 +733,14 @@ async function workspaceGitOverview(rootPath) {
     const root = canonicalWorkspaceRoot(rootPath);
     const gitRoot = await resolveGitRoot(root);
     if (!gitRoot) return { isRepository: false, root, gitRoot: null, branch: null, upstream: null, ahead: 0, behind: 0, stagedFiles: 0, unstagedFiles: 0 };
-    const branch = await execFileAsync('git', ['branch', '--show-current'], { cwd: gitRoot, encoding: 'utf8', timeout: 5000 })
+    const branch = await execGit(['branch', '--show-current'], { cwd: gitRoot, encoding: 'utf8', timeout: 5000 })
         .then(({ stdout }) => stdout.trim() || null).catch(() => null);
-    const upstream = await execFileAsync('git', ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'], { cwd: gitRoot, encoding: 'utf8', timeout: 5000 })
+    const upstream = await execGit(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'], { cwd: gitRoot, encoding: 'utf8', timeout: 5000 })
         .then(({ stdout }) => stdout.trim() || null).catch(() => null);
     let ahead = 0;
     let behind = 0;
     if (upstream) {
-        const counts = await execFileAsync('git', ['rev-list', '--left-right', '--count', `HEAD...${upstream}`], { cwd: gitRoot, encoding: 'utf8', timeout: 5000 })
+        const counts = await execGit(['rev-list', '--left-right', '--count', `HEAD...${upstream}`], { cwd: gitRoot, encoding: 'utf8', timeout: 5000 })
             .then(({ stdout }) => stdout.trim().split(/\s+/).map(Number)).catch(() => [0, 0]);
         ahead = Number.isFinite(counts[0]) ? counts[0] : 0;
         behind = Number.isFinite(counts[1]) ? counts[1] : 0;
@@ -751,13 +770,13 @@ async function workspaceGitCommit(rootPath, message) {
     if (!status.some((entry) => entry.indexStatus.trim() && entry.indexStatus !== '?')) {
         throw workspaceError('WORKSPACE_NOTHING_STAGED', 'There are no staged changes to commit.');
     }
-    await execFileAsync('git', ['commit', '-m', normalizedMessage], {
+    await execGit(['commit', '-m', normalizedMessage], {
         cwd: gitRoot, encoding: 'utf8', timeout: 30000, maxBuffer: GIT_MAX_BUFFER,
     }).catch((error) => {
         throw workspaceError('WORKSPACE_GIT_COMMIT_FAILED', error?.stderr?.trim() || error?.message || 'Git commit failed.');
     });
-    const { stdout: commit } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: gitRoot, encoding: 'utf8', timeout: 5000 });
-    const { stdout: subject } = await execFileAsync('git', ['log', '-1', '--pretty=%s'], { cwd: gitRoot, encoding: 'utf8', timeout: 5000 });
+    const { stdout: commit } = await execGit(['rev-parse', 'HEAD'], { cwd: gitRoot, encoding: 'utf8', timeout: 5000 });
+    const { stdout: subject } = await execGit(['log', '-1', '--pretty=%s'], { cwd: gitRoot, encoding: 'utf8', timeout: 5000 });
     return { commit: commit.trim(), subject: subject.trim(), overview: await workspaceGitOverview(root), status: await workspaceGitStatus(root) };
 }
 
@@ -766,7 +785,7 @@ async function workspaceGitStage(rootPath, relativePath) {
     const gitRoot = await resolveGitRoot(root);
     if (!gitRoot) throw workspaceError('WORKSPACE_NOT_GIT_REPOSITORY', 'Workspace is not inside a Git repository.');
     const resolved = resolveWorkspacePath(root, relativePath, { allowMissing: true });
-    await execFileAsync('git', ['add', '--', path.relative(gitRoot, resolved.absolutePath)], {
+    await execGit(['add', '--', path.relative(gitRoot, resolved.absolutePath)], {
         cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER,
     });
     return workspaceGitStatus(root);
@@ -786,7 +805,7 @@ async function workspaceGitStageMany(rootPath, relativePaths) {
     const gitRoot = await resolveGitRoot(root);
     if (!gitRoot) throw workspaceError('WORKSPACE_NOT_GIT_REPOSITORY', 'Workspace is not inside a Git repository.');
     const gitPaths = resolved.map((entry) => path.relative(gitRoot, entry.absolutePath));
-    await execFileAsync('git', ['add', '--', ...gitPaths], {
+    await execGit(['add', '--', ...gitPaths], {
         cwd: gitRoot, encoding: 'utf8', timeout: 30000, maxBuffer: GIT_MAX_BUFFER,
     });
     return workspaceGitStatus(root);
@@ -798,10 +817,10 @@ async function workspaceGitUnstage(rootPath, relativePath) {
     if (!gitRoot) throw workspaceError('WORKSPACE_NOT_GIT_REPOSITORY', 'Workspace is not inside a Git repository.');
     const resolved = resolveWorkspacePath(root, relativePath, { allowMissing: true });
     const gitPath = path.relative(gitRoot, resolved.absolutePath);
-    await execFileAsync('git', ['restore', '--staged', '--', gitPath], {
+    await execGit(['restore', '--staged', '--', gitPath], {
         cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER,
     }).catch(async () => {
-        await execFileAsync('git', ['reset', 'HEAD', '--', gitPath], {
+        await execGit(['reset', 'HEAD', '--', gitPath], {
             cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER,
         });
     });
@@ -813,10 +832,10 @@ async function workspaceGitUnstageMany(rootPath, relativePaths) {
     const gitRoot = await resolveGitRoot(root);
     if (!gitRoot) throw workspaceError('WORKSPACE_NOT_GIT_REPOSITORY', 'Workspace is not inside a Git repository.');
     const gitPaths = resolved.map((entry) => path.relative(gitRoot, entry.absolutePath));
-    await execFileAsync('git', ['restore', '--staged', '--', ...gitPaths], {
+    await execGit(['restore', '--staged', '--', ...gitPaths], {
         cwd: gitRoot, encoding: 'utf8', timeout: 30000, maxBuffer: GIT_MAX_BUFFER,
     }).catch(async () => {
-        await execFileAsync('git', ['reset', 'HEAD', '--', ...gitPaths], {
+        await execGit(['reset', 'HEAD', '--', ...gitPaths], {
             cwd: gitRoot, encoding: 'utf8', timeout: 30000, maxBuffer: GIT_MAX_BUFFER,
         });
     });
@@ -829,13 +848,13 @@ async function workspaceGitDiscard(rootPath, relativePath) {
     if (!gitRoot) throw workspaceError('WORKSPACE_NOT_GIT_REPOSITORY', 'Workspace is not inside a Git repository.');
     const resolved = resolveWorkspacePath(root, relativePath, { allowMissing: true });
     const gitPath = path.relative(gitRoot, resolved.absolutePath);
-    const tracked = await execFileAsync('git', ['ls-files', '--error-unmatch', '--', gitPath], {
+    const tracked = await execGit(['ls-files', '--error-unmatch', '--', gitPath], {
         cwd: gitRoot, encoding: 'utf8', timeout: 5000,
     }).then(() => true).catch(() => false);
     if (!tracked) {
         throw workspaceError('WORKSPACE_DISCARD_UNTRACKED', 'Untracked files must be deleted explicitly; discard only restores tracked files.');
     }
-    await execFileAsync('git', ['restore', '--worktree', '--', gitPath], {
+    await execGit(['restore', '--worktree', '--', gitPath], {
         cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER,
     });
     return workspaceGitStatus(root);
@@ -942,7 +961,7 @@ function gitPathFromWorkspace(gitRoot, absolutePath) {
 }
 
 async function gitStdout(args, cwd) {
-    const { stdout } = await execFileAsync('git', args, {
+    const { stdout } = await execGit(args, {
         cwd, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER,
     }).catch((error) => ({ stdout: typeof error?.stdout === 'string' ? error.stdout : '' }));
     return stdout;
@@ -1010,6 +1029,7 @@ module.exports = {
     workspaceGitClone,
     workspaceGitOutput,
     gitActionSteps,
+    changesRepository,
     workspaceGitCommit,
     workspaceGitCommitDetail,
     workspaceGitConflicts,

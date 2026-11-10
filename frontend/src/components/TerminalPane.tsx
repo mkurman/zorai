@@ -292,6 +292,7 @@ export function TerminalPane({ paneId, sessionId, hideHeader, cwd, hideSharedCur
   const canCopy = hasSelection;
   const canPaste = daemonState === "reachable";
   const menuItems = buildTerminalContextMenuItems({
+    layoutActions: Boolean(paneSurfaceId),
     canCopy,
     canPaste,
     copySelection,

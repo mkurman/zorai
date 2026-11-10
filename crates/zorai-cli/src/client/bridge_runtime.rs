@@ -20,12 +20,16 @@ pub async fn run_bridge(
     workspace: Option<String>,
     cols: u16,
     rows: u16,
+    attach_only: bool,
 ) -> Result<()> {
     let mut framed = connect().await?;
     let session_id = if let Some(session) = session {
         let id = session.parse().context("invalid session ID")?;
         match attach_bridge_session(&mut framed, id).await {
             Ok(attached_id) => attached_id,
+            Err(error) if attach_only && is_missing_session_error(&error) => {
+                anyhow::bail!("terminal session {id} has ended")
+            }
             Err(error) if is_missing_session_error(&error) => {
                 tracing::warn!(requested_session = %id, error = %error, "saved session missing; spawning replacement session");
                 spawn_bridge_session(

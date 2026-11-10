@@ -300,6 +300,9 @@ pub(crate) enum Commands {
         /// Initial terminal rows.
         #[arg(long, default_value_t = 24)]
         rows: u16,
+        /// Fail instead of spawning a replacement when the session no longer exists.
+        #[arg(long)]
+        attach_only: bool,
     },
 }
 

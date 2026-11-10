@@ -1,3 +1,9 @@
+const VIEW_ONLY_TERMINAL_PANE_PREFIX = 'thread-terminal-view:';
+
+function isViewOnlyTerminalPane(paneId) {
+    return typeof paneId === 'string' && paneId.startsWith(VIEW_ONLY_TERMINAL_PANE_PREFIX);
+}
+
 function createTerminalBridgeRuntime(options) {
     const {
         cloneSessionPrefix,
@@ -374,6 +380,7 @@ function createTerminalBridgeRuntime(options) {
         }
 
         if (requestedSessionId) args.push('--session', requestedSessionId);
+        if (requestedSessionId && isViewOnlyTerminalPane(paneId)) args.push('--attach-only');
         if (typeof options.shell === 'string' && options.shell) args.push('--shell', options.shell);
         if (typeof options.cwd === 'string' && options.cwd) args.push('--cwd', options.cwd);
         if (typeof options.workspaceId === 'string' && options.workspaceId) args.push('--workspace', options.workspaceId);
@@ -514,4 +521,4 @@ function createTerminalBridgeRuntime(options) {
         stopTerminalBridge,
     };
 }
-module.exports = { createTerminalBridgeRuntime };
+module.exports = { createTerminalBridgeRuntime, isViewOnlyTerminalPane };

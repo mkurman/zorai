@@ -26,6 +26,7 @@ const {
     workspaceGitClone,
     workspaceGitOutput,
     gitActionSteps,
+    changesRepository,
     workspaceGitStage,
     workspaceGitUnstage,
     workspaceGitDiff,
@@ -530,4 +531,22 @@ test('git actions manage commits, branches, stashes, tags and remotes in a real 
     const log = workspaceGitOutput();
     assert.ok(log.some((entry) => entry.command === 'git commit -m first' && entry.ok));
     assert.ok(log.some((entry) => entry.command === 'git branch -d missing' && !entry.ok));
+});
+
+test('the git output log records commands that change the repository, not read-only status checks', async () => {
+    assert.equal(changesRepository(['add', '--', 'a.txt']), true);
+    assert.equal(changesRepository(['worktree', 'list', '--porcelain']), false);
+    assert.equal(changesRepository(['branch', '--show-current']), false);
+    assert.equal(changesRepository(['branch', '--format=%(refname:short)']), false);
+    assert.equal(changesRepository(['status', '--porcelain']), false);
+
+    const { execFileSync } = require('node:child_process');
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zorai-git-log-'));
+    execFileSync('git', ['init', '-b', 'main'], { cwd: root });
+    fs.writeFileSync(path.join(root, 'tracked.txt'), 'x\n');
+    const before = workspaceGitOutput().length;
+    await workspaceGitStage(root, 'tracked.txt');
+    const added = workspaceGitOutput().slice(before);
+    assert.ok(added.some((entry) => entry.command.startsWith('git add') && entry.ok));
+    assert.ok(added.every((entry) => !entry.command.startsWith('git status')));
 });

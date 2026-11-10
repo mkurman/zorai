@@ -16,7 +16,9 @@ import { useWorkspaceEditorRequestStore } from "@/lib/workspaceEditorRequestStor
 import { openExternalFileInWorkspace } from "@/zorai/features/code/workspaceExternalFile";
 import { CodeQuickOpen } from "@/zorai/features/code/CodeQuickOpen";
 import { CodeCommandPalette } from "@/zorai/features/code/CodeCommandPalette";
-import { RUNNABLE_CODE_COMMANDS, matchesCodeBinding, shouldPassthroughCodeCommand, type CodeCommandId } from "@/zorai/features/code/codeCommands";
+import { RUNNABLE_CODE_COMMANDS, matchesCodeBinding, shouldLeaveKeyToTerminal, shouldPassthroughCodeCommand, type CodeCommandId } from "@/zorai/features/code/codeCommands";
+import { CodeBottomPanel } from "@/zorai/features/code/CodeBottomPanel";
+import { useCodeBottomPanelStore } from "@/zorai/features/code/codeBottomPanelStore";
 import { CodeIconButton } from "@/zorai/features/code/CodeIconButton";
 import { createCodeDocumentController } from "@/zorai/features/code/codeDocumentModel";
 import { createCodeFileOpenTrace } from "@/zorai/features/code/codeEditorPerformance";
@@ -1210,6 +1212,8 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
 
   const runCodeCommand = useCallback((id: CodeCommandId) => {
     if (id === "view.settings") { openSettingsTab(); return; }
+    if (id === "view.togglePanel") { useCodeBottomPanelStore.getState().toggle(); return; }
+    if (id === "view.toggleTerminal") { useCodeBottomPanelStore.getState().toggle("terminal"); return; }
     if (id === "file.quickOpen") { setCodeOverlay("quickOpen"); return; }
     if (id === "view.commandPalette") { setCodeOverlay("commands"); return; }
     if (id === "file.save") { void saveCommandRef.current(); return; }
@@ -1251,6 +1255,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       });
       if (!command) return;
       if (shouldPassthroughCodeCommand(command.id, event.target)) return;
+      if (shouldLeaveKeyToTerminal(command.id, event.target)) return;
       event.preventDefault();
       event.stopPropagation();
       runCodeCommand(command.id);
@@ -1395,6 +1400,10 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   useEffect(() => {
     setExplorerPortalHost(document.getElementById("zorai-code-explorer-host"));
   }, []);
+
+  const panelOpen = useCodeBottomPanelStore((state) => state.open);
+  const panelTab = useCodeBottomPanelStore((state) => state.tab);
+  const togglePanel = useCodeBottomPanelStore((state) => state.toggle);
 
   if (!activeThreadId) return <div className="zorai-tool-empty"><strong>Select a thread</strong><span>Workspace roots and editor context are bound to an agent thread.</span></div>;
   if (rootLoading) return <WorkspaceLoadingSkeleton root={openedRoot ?? context?.root ?? rootInput} />;
@@ -1702,6 +1711,20 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       </aside>
   );
 
+  const bottomPanel = panelOpen ? (
+    <CodeBottomPanel
+      terminalSessionKey={context?.root ? `code:${context.root}` : null}
+      cwd={context?.root ?? undefined}
+    />
+  ) : null;
+  const statusToggles = (
+    <span className="zorai-code-statusbar-toggles">
+      <button type="button" className={panelOpen && panelTab === "terminal" ? "is-active" : undefined} title="Toggle Terminal (Ctrl+`)" onClick={() => togglePanel("terminal")}>
+        <span aria-hidden="true">›_</span> Terminal
+      </button>
+    </span>
+  );
+
   const editor = (
       <section className="zorai-workspace-editor-area">
         {operationDiff ? (
@@ -1837,7 +1860,9 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                 </Suspense>
               )}
             </div>
+            {bottomPanel}
             <div className="zorai-workspace-statusbar">
+              {statusToggles}
               <span>{activeDocument.path}</span>
               <span>{activeDocument.language}{lspStatus ? ` · LSP ${lspStatus.available ? lspStatus.command ?? "ready" : "unavailable"}` : ""}</span>
             </div>
@@ -1849,7 +1874,9 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
               <span>No file selected</span>
             </nav>
             <div className="zorai-tool-empty zorai-code-editor-empty"><strong>Workspace editor</strong><span>Select a text file from Explorer. File contents are loaded on demand and never injected implicitly.</span></div>
+            {bottomPanel}
             <div className="zorai-workspace-statusbar">
+              {statusToggles}
               <span>Ready · Select a file from Explorer</span>
               <span>No language mode</span>
             </div>
