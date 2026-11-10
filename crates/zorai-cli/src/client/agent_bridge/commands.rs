@@ -201,6 +201,11 @@ where
                 .send(ClientMessage::AgentGetOperationStatus { operation_id })
                 .await?;
         }
+        AgentBridgeCommand::ListThreadOperations { thread_id } => {
+            framed
+                .send(ClientMessage::AgentListThreadOperations { thread_id })
+                .await?;
+        }
         AgentBridgeCommand::ListTasks => {
             framed.send(ClientMessage::AgentListTasks).await?;
         }

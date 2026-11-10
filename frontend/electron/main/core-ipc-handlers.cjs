@@ -42,6 +42,8 @@ function registerCoreIpcHandlers(ipcMain, options) {
         revealFsPath,
         saveVisionScreenshot,
         setWindowOpacity,
+        defaultScreenshotDirectory,
+        runContextMenuAction,
         spawnDaemon,
         terminalBridgeRuntime,
         writeFsText,
@@ -213,6 +215,16 @@ function registerCoreIpcHandlers(ipcMain, options) {
     }));
     ipcMain.handle('skills-list-documents', (_event, skillsRoot) => listSkillDocuments(skillsRoot));
     ipcMain.handle('window-isMaximized', () => windowState()?.isMaximized() ?? false);
+    ipcMain.handle('context-menu-action', (event, action, payload) => runContextMenuAction(event.sender, action, payload));
+    ipcMain.handle('screenshots-default-directory', () => defaultScreenshotDirectory());
+    ipcMain.handle('screenshots-select-directory', async (_event, current) => {
+        const selection = await dialog.showOpenDialog({
+            title: 'Screenshot Folder',
+            defaultPath: typeof current === 'string' && current.trim() ? current : defaultScreenshotDirectory(),
+            properties: ['openDirectory', 'createDirectory'],
+        });
+        return selection.canceled || !selection.filePaths?.[0] ? null : selection.filePaths[0];
+    });
     ipcMain.handle('window-set-opacity', (_event, opacity) => setWindowOpacity(opacity));
     ipcMain.handle('vision-save-screenshot', (_event, payload) => saveVisionScreenshot(payload));
     ipcMain.handle('discord-send-message', (_event, payload) => discordSendMessage(payload));

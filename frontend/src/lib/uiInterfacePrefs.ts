@@ -1,5 +1,5 @@
 import type { ThemeFonts } from "./themes";
-import type { NightModePreference, UiFontScale } from "./types";
+import type { ChatWidthPreference, NightModePreference, UiFontScale } from "./types";
 
 export const UI_FONT_SCALE_MIN = 0.75;
 export const UI_FONT_SCALE_MAX = 1.5;
@@ -38,6 +38,23 @@ export function normalizeUiFontScale(value: unknown): UiFontScale {
   }
   const clamped = Math.min(UI_FONT_SCALE_MAX, Math.max(UI_FONT_SCALE_MIN, factor));
   return Math.round(Math.round(clamped / UI_FONT_SCALE_STEP) * UI_FONT_SCALE_STEP * 1000) / 1000;
+}
+
+export const CHAT_WIDTH_OPTIONS: ReadonlyArray<{ id: ChatWidthPreference; label: string; maxWidth: string }> = [
+  { id: "narrow", label: "Narrow (620 px)", maxWidth: "620px" },
+  { id: "medium", label: "Medium (960 px)", maxWidth: "960px" },
+  { id: "wide", label: "Wide (1440 px)", maxWidth: "1440px" },
+  { id: "extra-wide", label: "Extra wide (1920 px)", maxWidth: "1920px" },
+  { id: "full", label: "Full width", maxWidth: "100%" },
+];
+
+export function normalizeChatWidth(value: unknown): ChatWidthPreference {
+  return CHAT_WIDTH_OPTIONS.some((option) => option.id === value) ? value as ChatWidthPreference : "full";
+}
+
+export function chatMaxWidth(value: unknown): string {
+  const id = normalizeChatWidth(value);
+  return CHAT_WIDTH_OPTIONS.find((option) => option.id === id)?.maxWidth ?? "100%";
 }
 
 export function normalizeNightMode(value: unknown): NightModePreference {

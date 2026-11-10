@@ -105,6 +105,9 @@ pub(super) enum AgentBridgeCommand {
     GetOperationStatus {
         operation_id: String,
     },
+    ListThreadOperations {
+        thread_id: String,
+    },
     AddTask {
         title: String,
         description: String,

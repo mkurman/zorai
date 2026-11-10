@@ -18,6 +18,7 @@ import { shouldAutoStartOperatorProfileFromConcierge } from "./conciergeEvents";
 import { useZoraiAppCommands } from "./shell/zoraiAppCommands";
 import { ZoraiShell } from "./shell/ZoraiShell";
 import { ZoraiTitleBar } from "./shell/ZoraiTitleBar";
+import { ZoraiContextMenu } from "./shell/ZoraiContextMenu";
 import { ThreadBrowserHost } from "./features/browser/ThreadBrowserHost";
 
 export function ZoraiApp() {
@@ -96,6 +97,7 @@ export function ZoraiApp() {
         <ZoraiTitleBar />
         <ZoraiShell />
       </div>
+      <ZoraiContextMenu />
       <CommandPalette />
       <TimeTravelSlider />
       <SetupOnboardingPanel />

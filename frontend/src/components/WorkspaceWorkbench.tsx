@@ -10,6 +10,7 @@ import type { editor as MonacoEditorApi } from "monaco-editor";
 import { CodeTabs } from "@/zorai/features/code/CodeTabs";
 import { RefreshIcon } from "@/zorai/shell/RefreshButton";
 import { shouldRestoreWorkspaceDocument } from "@/zorai/features/code/workspaceDocumentRestore";
+import { isCodeProjectThread, useCodeWorkspaceBindingStore } from "@/zorai/features/code/codeWorkspaceBindingStore";
 import { useWorkspaceEditorRequestStore } from "@/lib/workspaceEditorRequestStore";
 import { openExternalFileInWorkspace } from "@/zorai/features/code/workspaceExternalFile";
 import { CodeQuickOpen } from "@/zorai/features/code/CodeQuickOpen";
@@ -1231,6 +1232,8 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   useEffect(() => {
     const root = openedRoot?.trim();
     if (!root || !activeThreadId || context) return;
+    const thread = useAgentStore.getState().threads.find((entry) => entry.id === activeThreadId);
+    if (!isCodeProjectThread(useCodeWorkspaceBindingStore.getState().projectThreadIdsForRoot(root), thread)) return;
     useWorkspaceContextStore.getState().adoptRoot(activeThreadId, root);
   }, [activeThreadId, context, openedRoot]);
 

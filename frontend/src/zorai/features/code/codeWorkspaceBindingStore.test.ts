@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { StateStorage } from "zustand/middleware";
 import {
+  isCodeProjectThread,
   CODE_WORKSPACE_BINDING_STORE_NAME,
   CODE_WORKSPACE_BINDING_STORE_VERSION,
   CODE_PROJECT_THREADS_PER_ROOT_MAX,
@@ -234,5 +235,15 @@ describe("codeWorkspaceBindingStore", () => {
 
     expect(store.getState().lastRoot).toBe("/work/a");
     expect(store.getState().threadsByRoot).toEqual({ "/work/a": ["thread-1", "thread-2"] });
+  });
+});
+
+describe("isCodeProjectThread", () => {
+  it("lets the Code tab claim only its own project threads, never a thread opened from the Threads tab", () => {
+    const projectThreadIds = ["daemon-code-1", "local-draft"];
+    expect(isCodeProjectThread(projectThreadIds, { id: "local-1", daemonThreadId: "daemon-code-1" })).toBe(true);
+    expect(isCodeProjectThread(projectThreadIds, { id: "local-draft", daemonThreadId: null })).toBe(true);
+    expect(isCodeProjectThread(projectThreadIds, { id: "local-2", daemonThreadId: "daemon-research" })).toBe(false);
+    expect(isCodeProjectThread(projectThreadIds, undefined)).toBe(false);
   });
 });

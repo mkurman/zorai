@@ -214,7 +214,7 @@ pub const PROVIDER_DEFINITIONS: &[ProviderDefinition] = &[
         id: PROVIDER_ID_ANTHROPIC,
         name: "Anthropic",
         default_base_url: "https://api.anthropic.com",
-        default_model: "claude-opus-4-7",
+        default_model: "claude-opus-5-5",
         api_type: ApiType::Anthropic,
         auth_method: AuthMethod::XApiKey,
         models: ANTHROPIC_MODELS,

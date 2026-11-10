@@ -1,4 +1,4 @@
-import { getDefaultModelForProvider } from "@/lib/agentStore/providers";
+import { getDefaultModelForProvider, getProviderDefinitions } from "@/lib/agentStore/providers";
 import { useAgentStore } from "@/lib/agentStore";
 import type { AgentProviderId, AgentThread } from "@/lib/agentStore";
 import { MANAGED_SECURITY_LEVELS } from "@/lib/agentStore/settings";
@@ -30,12 +30,11 @@ export function clampContextWindowTokens(tokens: number): number {
 
 export function threadProviderIds(currentProvider?: string): string[] {
   const settings = useAgentStore.getState().agentSettings;
-  const ids = Object.keys(settings)
-    .filter((key) => {
-      const value = settings[key];
-      return value && typeof value === "object" && "model" in value && "base_url" in value;
-    })
-    .sort();
+  const configured = Object.keys(settings).filter((key) => {
+    const value = settings[key];
+    return value && typeof value === "object" && "model" in value && "base_url" in value;
+  });
+  const ids = [...new Set([...configured, ...getProviderDefinitions().map((provider) => provider.id)])].sort();
   return currentProvider && !ids.includes(currentProvider) ? [currentProvider, ...ids] : ids;
 }
 

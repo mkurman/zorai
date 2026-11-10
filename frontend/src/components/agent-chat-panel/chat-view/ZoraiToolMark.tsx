@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 const PETAL_TURNS = [0, 60, 120, 180, 240, 300];
-const PETAL = "M 50 45.82 A 37.67 37.67 0 0 1 50 11.32 A 37.67 37.67 0 0 1 50 45.82";
+const PETAL = "M12 2.2C13.9 4.8 13.9 7.6 12 9.8C10.1 7.6 10.1 4.8 12 2.2Z";
 
 export const TOOL_MARK_ENTER_DELAY_MS = 70;
 export const TOOL_MARK_LEAVE_DELAY_MS = 180;
@@ -61,26 +61,13 @@ export function ZoraiToolMark({ active }: { active: boolean }) {
       : "acp-tool-mark acp-tool-mark--leave";
 
   return (
-    <svg className={className} viewBox="8 8 84 84" aria-hidden="true">
-      <ToolMarkPaths layer="base" />
-      <ToolMarkPaths layer="trace" />
-    </svg>
-  );
-}
-
-function ToolMarkPaths({ layer }: { layer: "base" | "trace" }) {
-  return (
-    <g className={`acp-tool-mark__${layer}`}>
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
       {PETAL_TURNS.map((turn) => (
-        <path
-          key={`${layer}-${turn}`}
-          className="acp-tool-mark__line"
-          d={PETAL}
-          transform={`rotate(${turn} 50 50)`}
-          pathLength="1"
-        />
+        <g key={turn} transform={`rotate(${turn} 12 12)`}>
+          <path className="acp-tool-mark__petal" d={PETAL} />
+        </g>
       ))}
-    </g>
+    </svg>
   );
 }
 

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, clipboard, dialog, ipcMain, nativeImage, screen, shell, session } = require('electron');
+const { app, BrowserWindow, Menu, Notification, clipboard, dialog, ipcMain, nativeImage, screen, shell, session } = require('electron');
 const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 const net = require('net');
@@ -99,7 +99,9 @@ const windowRuntime = createWindowRuntime({
     clipboard,
     Menu,
     nativeImage,
+    Notification,
     electronDir: __dirname,
+    getDataDir: getZoraiDataDir,
     getMainWindow: () => mainWindow,
     logToFile,
     path,
@@ -562,6 +564,8 @@ function registerIpcHandlers() {
         },
         saveVisionScreenshot: (payload) => saveVisionScreenshot(payload, { ttlMs: VISION_SCREENSHOT_TTL_MS }),
         setWindowOpacity: windowRuntime.setWindowOpacity,
+        defaultScreenshotDirectory: windowRuntime.defaultScreenshotDirectory,
+        runContextMenuAction: windowRuntime.runContextMenuAction,
         spawnDaemon,
         terminalBridgeRuntime,
         windowState: () => mainWindow,

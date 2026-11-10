@@ -16,7 +16,7 @@ import {
   resolveCodeProjectThreadStatus,
   type CodeProjectThreadEntry,
 } from "./codeProjectThreads";
-import { useCodeWorkspaceBindingStore } from "./codeWorkspaceBindingStore";
+import { isCodeProjectThread, useCodeWorkspaceBindingStore } from "./codeWorkspaceBindingStore";
 import { CodeThreadHistoryMenu, type CodeThreadHistoryEntry } from "./CodeThreadHistoryMenu";
 import { threadTurnIsActive } from "@/components/agent-chat-panel/runtime/threadTurnState";
 const ACTIVE_GOAL_STATUSES = new Set(["queued", "planning", "running", "paused"]);
@@ -200,6 +200,7 @@ export function CodeAgentPane() {
     <div className="zorai-code-agent-pane">
       <ThreadsView
         variant="compact"
+        sessionTabFilter={(id, thread) => isCodeProjectThread(projectThreadIds, thread ?? { id })}
         compactHeaderActions={
           <CodeThreadHistoryMenu
             entries={entries}

@@ -286,7 +286,7 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   agent_aliases: { ...EMPTY_AGENT_ALIASES },
   active_provider: "openai",
   featherless: { base_url: "https://api.featherless.ai/v1", model: "meta-llama/Llama-3.3-70B-Instruct", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "chat_completions", auth_source: "api_key", context_window_tokens: null },
-  anthropic: { base_url: "https://api.anthropic.com", model: "claude-opus-4-7", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "chat_completions", auth_source: "api_key", context_window_tokens: null },
+  anthropic: { base_url: "https://api.anthropic.com", model: "claude-opus-5-5", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "chat_completions", auth_source: "api_key", context_window_tokens: null },
   openai: { base_url: "https://api.openai.com/v1", model: "gpt-5.5", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "responses", auth_source: "api_key", context_window_tokens: null },
   deepseek: { base_url: "https://api.deepseek.com", model: "deepseek-v4-pro", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "chat_completions", auth_source: "api_key", context_window_tokens: null },
   gemini: { base_url: "https://generativelanguage.googleapis.com/v1beta", model: "gemini-3.8-flash", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "chat_completions", auth_source: "api_key", context_window_tokens: null },

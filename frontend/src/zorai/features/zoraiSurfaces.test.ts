@@ -31,13 +31,13 @@ describe("Zorai feature surfaces", () => {
     expect(threadsSource).toContain("canGoBackThread");
     expect(threadsSource).toContain("goBackThread");
     expect(threadsSource).toContain("Back to parent");
-    expect(readFeature("../styles/zorai.css")).toContain(".zorai-code-agent-thread-back");
+    expect(threadsSource).toContain('extraActions={variant === "compact" ? compactHeaderActions : null}');
+    expect(threadsSource).not.toContain("zorai-code-agent-thread-header");
     expect(readFeature("./threads/ThreadCompactSessionBar.tsx")).toContain("Keep");
     expect(readFeature("./threads/ThreadCompactSessionBar.tsx")).toContain("Reject");
     expect(readFeature("./threads/ThreadCompactSessionBar.tsx")).toContain("Todos");
     expect(readFeature("./threads/ThreadCompactSessionBar.tsx")).toContain("Agents");
     expect(readFeature("../styles/zorai.css")).toContain(".zorai-compact-session");
-    expect(threadsSource).toContain("actualThreadResponderLabel(activeThread)");
     expect(threadsSource).toContain("responderStack");
     expect(threadsSource).toContain("useThreadReadStateStore");
     expect(threadsSource).toContain("fetchAgentTasks");

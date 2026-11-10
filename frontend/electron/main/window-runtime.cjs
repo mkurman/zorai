@@ -17,6 +17,41 @@ function toggleWindowDevTools(webContents) {
     webContents.openDevTools({ mode: "detach" });
 }
 
+function screenshotFileName(date = new Date()) {
+    const pad = (value) => String(value).padStart(2, "0");
+    return `zorai-${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}.png`;
+}
+
+function contextMenuRequest(params) {
+    return {
+        x: params.x,
+        y: params.y,
+        linkURL: /^https?:\/\//i.test(params.linkURL ?? '') ? params.linkURL : '',
+        isEditable: Boolean(params.isEditable),
+        canCut: Boolean(params.editFlags?.canCut),
+        canCopy: Boolean(params.editFlags?.canCopy),
+        canPaste: Boolean(params.editFlags?.canPaste),
+    };
+}
+
+function resolveScreenshotDirectory(settingsFile, fallbackDirectory, fs) {
+    try {
+        const configured = JSON.parse(fs.readFileSync(settingsFile, 'utf8'))?.settings?.screenshotDirectory;
+        return typeof configured === 'string' && configured.trim() ? configured.trim() : fallbackDirectory;
+    } catch {
+        return fallbackDirectory;
+    }
+}
+
+async function saveWindowScreenshot(webContents, { directory, clipboard, fs, path, date = new Date() }) {
+    const image = await webContents.capturePage();
+    clipboard.writeImage(image);
+    fs.mkdirSync(directory, { recursive: true });
+    const filePath = path.join(directory, screenshotFileName(date));
+    fs.writeFileSync(filePath, image.toPNG());
+    return filePath;
+}
+
 function resolveWindowFrameOptions() {
     return {
         frame: false,
@@ -51,6 +86,8 @@ function createWindowRuntime(options) {
         clipboard,
         Menu,
         nativeImage,
+        Notification,
+        getDataDir,
         getMainWindow,
         logToFile,
         path,
@@ -60,10 +97,60 @@ function createWindowRuntime(options) {
         stopAllTerminalBridges,
     } = options;
     const { resolveRendererLoadTarget } = require("./load-target.cjs");
+    const fs = require("fs");
     const appName = 'Zorai';
 
     function sendAppCommand(command) {
         getMainWindow()?.webContents.send('app-command', command);
+    }
+
+    function defaultScreenshotDirectory() {
+        return path.join(app.getPath('pictures'), appName);
+    }
+
+    async function takeScreenshot(window) {
+        try {
+            await new Promise((resolve) => setTimeout(resolve, 150));
+            const filePath = await saveWindowScreenshot(window.webContents, {
+                directory: resolveScreenshotDirectory(
+                    path.join(getDataDir(), 'settings.json'),
+                    defaultScreenshotDirectory(),
+                    fs,
+                ),
+                clipboard,
+                fs,
+                path,
+            });
+            logToFile('info', 'screenshot saved', { filePath });
+            if (Notification?.isSupported?.()) {
+                const notification = new Notification({ title: 'Screenshot saved', body: `Copied to clipboard and saved to ${filePath}` });
+                notification.on('click', () => shell.showItemInFolder(filePath));
+                notification.show();
+            }
+        } catch (error) {
+            logToFile('error', 'screenshot failed', { error: error?.message || String(error) });
+        }
+    }
+
+    function runContextMenuAction(webContents, action, payload) {
+        const window = BrowserWindow.fromWebContents(webContents);
+        if (action === 'cut' || action === 'copy' || action === 'paste' || action === 'selectAll') {
+            webContents[action]();
+            return true;
+        }
+        if (action === 'openLink' && /^https?:\/\//i.test(payload ?? '')) {
+            void shell.openExternal(payload);
+            return true;
+        }
+        if (action === 'copyLink' && typeof payload === 'string') {
+            clipboard.writeText(payload);
+            return true;
+        }
+        if (action === 'screenshot' && window) {
+            void takeScreenshot(window);
+            return true;
+        }
+        return false;
     }
 
     function buildAppMenu() {
@@ -91,6 +178,8 @@ function createWindowRuntime(options) {
                 { type: 'separator' }, { role: 'reload' }, { role: 'forceReload' },
                 { label: 'Toggle Developer Tools', accelerator: devToolsAccelerator(), click: () => toggleWindowDevTools(getMainWindow()?.webContents) },
                 { type: 'separator' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'togglefullscreen' },
+                { type: 'separator' },
+                { label: 'Take Screenshot', click: () => { const window = getMainWindow(); if (window) void takeScreenshot(window); } },
             ] },
             { label: 'Features', submenu: [
                 { label: 'Mission Console', click: () => sendAppCommand('toggle-mission') },
@@ -171,23 +260,7 @@ function createWindowRuntime(options) {
             }
         });
         mainWindow.webContents.on('context-menu', (_event, params) => {
-            const template = [];
-            if (/^https?:\/\//i.test(params.linkURL)) {
-                template.push(
-                    { label: 'Open Link', click: () => void shell.openExternal(params.linkURL) },
-                    { label: 'Copy Link', click: () => clipboard.writeText(params.linkURL) },
-                    { type: 'separator' },
-                );
-            }
-            if (params.isEditable) {
-                template.push({ role: 'cut', enabled: params.editFlags.canCut });
-            }
-            template.push({ role: 'copy', enabled: params.editFlags.canCopy });
-            if (params.isEditable) {
-                template.push({ role: 'paste', enabled: params.editFlags.canPaste });
-            }
-            template.push({ role: 'selectAll' });
-            Menu.buildFromTemplate(template).popup({ window: mainWindow });
+            mainWindow.webContents.send('context-menu-request', contextMenuRequest(params));
         });
         Menu.setApplicationMenu(buildAppMenu());
         mainWindow.once('ready-to-show', () => mainWindow.show());
@@ -209,14 +282,18 @@ function createWindowRuntime(options) {
         });
     }
 
-    return { createWindow, setWindowOpacity };
+    return { createWindow, defaultScreenshotDirectory, runContextMenuAction, setWindowOpacity };
 }
 
 module.exports = {
+    contextMenuRequest,
     createWindowRuntime,
     loadWindowIcon,
     resolveWindowFrameOptions,
     resolveWindowIcon,
+    resolveScreenshotDirectory,
+    saveWindowScreenshot,
+    screenshotFileName,
     devToolsAccelerator,
     shouldOpenDevTools,
     toggleWindowDevTools,

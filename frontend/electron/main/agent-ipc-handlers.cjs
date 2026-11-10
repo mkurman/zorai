@@ -177,6 +177,16 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
             return { ok: false, operation_id: id, error: err?.message || String(err) };
         }
     });
+    ipcMain.handle('agent-list-thread-operations', async (_event, threadId) => {
+        try {
+            return await sendAgentQuery({
+                type: 'list-thread-operations',
+                thread_id: threadId,
+            }, 'thread-operations', 30000);
+        } catch (err) {
+            return { thread_id: threadId, operations: [], error: err?.message || String(err) };
+        }
+    });
     ipcMain.handle('agent-cancel-operation', async (_event, id) => {
         try {
             sendAgentCommand({ type: 'cancel-task', task_id: id });

@@ -97,7 +97,7 @@ export function CodeThreadHistoryMenu({
     <div ref={rootRef} className="zorai-code-thread-controls">
       <button
         type="button"
-        className="zorai-code-thread-action"
+        className="zorai-thread-header__icon zorai-code-thread-action"
         title={canCreate ? "New project thread" : "Open a project first"}
         aria-label="New project thread"
         disabled={!canCreate}
@@ -108,7 +108,7 @@ export function CodeThreadHistoryMenu({
       <button
         ref={clockRef}
         type="button"
-        className="zorai-code-thread-action"
+        className="zorai-thread-header__icon zorai-code-thread-action"
         title="Project thread history"
         aria-label="Project thread history"
         aria-expanded={open}

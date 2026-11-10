@@ -71,6 +71,7 @@ const AGENT_QUERY_RESPONSE_TYPES = [
   'collaboration-sessions',
   'collaboration-vote-result',
   'operation-status',
+  'thread-operations',
   'thread-handoff-result',
   'generated-tools',
   'generated-tool-result',

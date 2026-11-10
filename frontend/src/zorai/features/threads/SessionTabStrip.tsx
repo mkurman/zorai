@@ -2,7 +2,7 @@ import { useEffect, useState, type DragEvent } from "react";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import { useAgentStore, type AgentThread } from "@/lib/agentStore";
 import { openThreadTarget } from "./openThreadTarget";
-import { sessionCloseFollowUp, useOpenSessionTabs } from "./openSessionTabs";
+import { neighborSessionId, sessionCloseFollowUp, useOpenSessionTabs } from "./openSessionTabs";
 import { threadIsUnread } from "./sessionCooperation";
 import { threadReadKey, useThreadReadStateStore } from "./threadReadStateStore";
 
@@ -112,7 +112,7 @@ export function sessionTabModel(
   };
 }
 
-export function ThreadSessionTabs() {
+export function ThreadSessionTabs({ includeSession }: { includeSession?: (id: string, thread: AgentThread | undefined) => boolean } = {}) {
   const runtime = useAgentChatPanelRuntime();
   const threads = useAgentStore((state) => state.threads);
   const openSessionIds = useOpenSessionTabs((state) => state.ids);
@@ -126,7 +126,10 @@ export function ThreadSessionTabs() {
     if (activeId) rememberOpenSession(activeId);
   }, [activeId, rememberOpenSession]);
 
-  const tabs = openSessionIds.map((id) => {
+  const visibleIds = includeSession
+    ? openSessionIds.filter((id) => includeSession(id, threads.find((item) => item.id === id || item.daemonThreadId === id)))
+    : openSessionIds;
+  const tabs = visibleIds.map((id) => {
     const thread = threads.find((item) => item.id === id || item.daemonThreadId === id);
     const active = thread?.id === activeId || id === activeId;
     const readKey = thread ? threadReadKey(thread) : null;
@@ -145,13 +148,14 @@ export function ThreadSessionTabs() {
       onSelect={(id) => void openThreadTarget(runtime, id)}
       onMove={moveOpenSession}
       onClose={(id) => {
+        const visibleNext = neighborSessionId(visibleIds, id);
         const next = closeOpenSession(id);
         const action = sessionCloseFollowUp({
           closedId: id,
           activeThreadId: runtime.activeThread?.id ?? null,
           activeDaemonThreadId: runtime.activeThread?.daemonThreadId ?? null,
-          nextOpenId: next,
-          openCount: useOpenSessionTabs.getState().ids.length,
+          nextOpenId: includeSession ? visibleNext : next,
+          openCount: includeSession ? visibleIds.length - 1 : useOpenSessionTabs.getState().ids.length,
         });
         if (action.kind === "follow") void openThreadTarget(runtime, action.id);
         if (action.kind === "clear") runtime.setActiveThread(null);

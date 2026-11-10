@@ -103,6 +103,16 @@ fn bridge_event_from_daemon_message(message: &DaemonMessage) -> Option<serde_jso
             "type": "thread-handoff-result",
             "data": result,
         })),
+        DaemonMessage::AgentThreadOperations {
+            thread_id,
+            operations_json,
+        } => Some(serde_json::json!({
+            "type": "thread-operations",
+            "data": {
+                "thread_id": thread_id,
+                "operations": serde_json::from_str::<serde_json::Value>(operations_json).unwrap_or_default(),
+            },
+        })),
         DaemonMessage::OperationStatus { snapshot } => Some(serde_json::json!({
             "type": "operation-status",
             "data": {

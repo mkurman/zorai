@@ -199,6 +199,7 @@ fn client_message_requires_startup_readiness(msg: &ClientMessage) -> bool {
             | ClientMessage::AgentUnsubscribe
             | ClientMessage::AgentDeclareAsyncCommandCapability { .. }
             | ClientMessage::AgentGetOperationStatus { .. }
+            | ClientMessage::AgentListThreadOperations { .. }
             | ClientMessage::AgentHandoffThread { .. }
             | ClientMessage::AgentGetHealthStatus
     )
@@ -242,6 +243,7 @@ fn client_message_variant_name(msg: &ClientMessage) -> &'static str {
         AgentSetConciergeConfig { .. } => "AgentSetConciergeConfig",
         AgentDeclareAsyncCommandCapability { .. } => "AgentDeclareAsyncCommandCapability",
         AgentGetOperationStatus { .. } => "AgentGetOperationStatus",
+        AgentListThreadOperations { .. } => "AgentListThreadOperations",
         AgentHandoffThread { .. } => "AgentHandoffThread",
         AgentHeartbeatGetItems => "AgentHeartbeatGetItems",
         ListAgentEvents { .. } => "ListAgentEvents",

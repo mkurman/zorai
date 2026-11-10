@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
+import { chatMaxWidth, normalizeChatWidth,
   UI_FONT_SCALE_FACTORS,
   applyUiInterfacePrefs,
   buildUiFontFamilyStack,
@@ -180,5 +180,17 @@ describe("theme appearance catalog", () => {
     expect(coerceThemeNameForAppearance("Catppuccin Latte", "dark")).toBe("Catppuccin Mocha");
     expect(coerceThemeNameForAppearance("Solarized Dark", "light")).toBe("Solarized Light");
     expect(coerceThemeNameForAppearance("One Dark", "light")).toBe("One Light");
+  });
+});
+
+describe("chat width", () => {
+  it("caps the conversation at the chosen width and keeps full width for old or unknown settings", () => {
+    expect(chatMaxWidth("narrow")).toBe("620px");
+    expect(chatMaxWidth("medium")).toBe("960px");
+    expect(chatMaxWidth("wide")).toBe("1440px");
+    expect(chatMaxWidth("extra-wide")).toBe("1920px");
+    expect(chatMaxWidth("full")).toBe("100%");
+    expect(normalizeChatWidth(undefined)).toBe("full");
+    expect(chatMaxWidth("huge")).toBe("100%");
   });
 });

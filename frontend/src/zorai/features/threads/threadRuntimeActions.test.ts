@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAgentStore, type AgentThread } from "@/lib/agentStore";
 import { clearThreadRuntimeOverlay } from "@/lib/agentStore/threadProfileMerge";
 import { applyThreadProviderModel, threadProviderIds } from "./threadRuntimeActions";
+import { hydrateProviderDefinitionsFromCatalog } from "@/lib/agentStore/providers";
 
 const agentGetThreadExecutionProfile = vi.fn();
 const agentSetThreadExecutionProfile = vi.fn();
@@ -143,6 +144,15 @@ describe("threadProviderIds", () => {
     const ids = threadProviderIds("kojo-internal");
     expect(ids[0]).toBe("kojo-internal");
     expect(ids.filter((id) => id === "kojo-internal")).toHaveLength(1);
+  });
+
+  it("lists custom providers from the daemon catalog even before they are configured in settings", () => {
+    hydrateProviderDefinitionsFromCatalog({
+      providers: [
+        { id: "local-llama.cpp", name: "Local Llama Cpp", default_base_url: "http://localhost:8000/v1", default_model: "lfm", models: [] },
+      ],
+    });
+    expect(threadProviderIds()).toContain("local-llama.cpp");
   });
 
   it("does not duplicate a provider that already has settings", () => {

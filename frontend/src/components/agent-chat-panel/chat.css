@@ -801,55 +801,43 @@
 }
 
 .acp-tool-mark {
-  width: calc(13px * var(--ui-font-scale));
-  height: calc(13px * var(--ui-font-scale));
+  width: calc(14px * var(--ui-font-scale));
+  height: calc(14px * var(--ui-font-scale));
   flex: 0 0 auto;
   overflow: visible;
+  color: var(--zorai-muted);
   opacity: 0.15;
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   transition: opacity 240ms ease;
 }
 
 .acp-tool-mark--shown {
   opacity: 1;
-  stroke: var(--zorai-text);
 }
 
 .acp-tool-mark--leave {
   transition-delay: 180ms;
 }
 
-.acp-tool-mark__line {
-  fill: none;
-  stroke-width: 1;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.acp-tool-mark__petal {
+  fill: currentColor;
+  opacity: 0.18;
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+  animation: acp-tool-mark-petal 1.2s ease-in-out infinite;
 }
 
-.acp-tool-mark__base .acp-tool-mark__line {
-  stroke: var(--zorai-muted);
-  opacity: 0.5;
-}
-
-.acp-tool-mark__trace .acp-tool-mark__line {
-  stroke: var(--zorai-text);
-  stroke-width: 5;
-  opacity: 0.7;
-  animation: acp-tool-mark-petal 2.0s ease-in-out infinite;
-}
-
-.acp-tool-mark__trace .acp-tool-mark__line:nth-child(1) { animation-delay: 0s; }
-.acp-tool-mark__trace .acp-tool-mark__line:nth-child(2) { animation-delay: 0.4s; }
-.acp-tool-mark__trace .acp-tool-mark__line:nth-child(3) { animation-delay: 0.8s; }
-.acp-tool-mark__trace .acp-tool-mark__line:nth-child(4) { animation-delay: 1.2s; }
-.acp-tool-mark__trace .acp-tool-mark__line:nth-child(5) { animation-delay: 1.6s; }
-.acp-tool-mark__trace .acp-tool-mark__line:nth-child(6) { animation-delay: 2s; }
+.acp-tool-mark g:nth-child(1) .acp-tool-mark__petal { animation-delay: 0s; }
+.acp-tool-mark g:nth-child(2) .acp-tool-mark__petal { animation-delay: 0.2s; }
+.acp-tool-mark g:nth-child(3) .acp-tool-mark__petal { animation-delay: 0.4s; }
+.acp-tool-mark g:nth-child(4) .acp-tool-mark__petal { animation-delay: 0.6s; }
+.acp-tool-mark g:nth-child(5) .acp-tool-mark__petal { animation-delay: 0.8s; }
+.acp-tool-mark g:nth-child(6) .acp-tool-mark__petal { animation-delay: 1s; }
 
 @keyframes acp-tool-mark-petal {
-  0%, 100% { opacity: 0; }
-  12% { opacity: 1; }
-  55% { opacity: 1; }
-  80% { opacity: 0; }
+  0%, 100% { opacity: 0.18; fill: currentColor; transform: scale(0.92); }
+  30% { opacity: 1; fill: var(--zorai-accent); transform: scale(1.04); }
+  60% { opacity: 0.25; fill: currentColor; transform: scale(0.92); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -858,8 +846,9 @@
     transition: none;
   }
 
-  .acp-tool-mark__trace {
-    display: none;
+  .acp-tool-mark__petal {
+    animation: none;
+    opacity: 0.6;
   }
 }
 

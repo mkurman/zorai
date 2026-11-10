@@ -195,7 +195,7 @@ pub const PROVIDERS: &[ProviderDef] = &[
         id: PROVIDER_ID_ANTHROPIC,
         name: "Anthropic",
         default_base_url: "https://api.anthropic.com",
-        default_model: "claude-opus-4-7",
+        default_model: "claude-opus-5-5",
         supported_transports: CHAT_ONLY_TRANSPORTS,
         default_transport: "chat_completions",
         supported_auth_sources: API_KEY_ONLY_AUTH_SOURCES,

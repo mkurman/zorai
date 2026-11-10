@@ -273,6 +273,28 @@ declare global {
         revision: number;
     };
 
+    type ZoraiContextMenuAction = "cut" | "copy" | "paste" | "selectAll" | "openLink" | "copyLink" | "screenshot";
+
+    type ZoraiContextMenuRequest = {
+        x: number;
+        y: number;
+        linkURL: string;
+        isEditable: boolean;
+        canCut: boolean;
+        canCopy: boolean;
+        canPaste: boolean;
+    };
+
+    type ZoraiThreadOperation = {
+        operation_id: string;
+        handle: string;
+        tool_name: string;
+        kind?: string | null;
+        state: string;
+        registered_at: number;
+        command?: string | null;
+    };
+
     type ZoraiAgentRunStatus =
         | "queued"
         | "in_progress"
@@ -767,6 +789,7 @@ declare global {
         }) => Promise<{ ok?: boolean; error?: string } | unknown>;
         agentHandoffThread?: (payload: ZoraiAgentThreadHandoffPayload) => Promise<ZoraiAgentThreadHandoffResult | { ok?: boolean; thread_id?: string | null; error?: string } | unknown>;
         agentGetOperationStatus?: (id: string) => Promise<ZoraiOperationStatusSnapshot | { ok?: boolean; operation_id?: string; error?: string } | unknown>;
+        agentListThreadOperations?: (threadId: string) => Promise<{ thread_id: string; operations: ZoraiThreadOperation[]; error?: string }>;
         agentCancelOperation?: (id: string) => Promise<{ ok?: boolean; error?: string } | unknown>;
         agentDismissParticipantSuggestion?: (payload: {
             threadId: string;
@@ -918,6 +941,8 @@ declare global {
         agentCancelTask?: (taskId: string) => Promise<unknown>;
         agentHeartbeatGetItems?: () => Promise<unknown[]>;
         setWindowOpacity?: (opacity: number) => Promise<void>;
+        screenshotsDefaultDirectory?: () => Promise<string>;
+        screenshotsSelectDirectory?: (current: string) => Promise<string | null>;
         windowMinimize?: () => void;
         windowMaximize?: () => void;
         windowClose?: () => void;
@@ -928,6 +953,8 @@ declare global {
         windowMenuItems?: (label: string) => Promise<Array<{ index: number; type: "normal" | "separator"; label: string; accelerator: string; enabled: boolean }>>;
         windowMenuInvoke?: (label: string, index: number) => Promise<boolean>;
         onWindowState?: (cb: (state: any) => void) => (() => void) | void;
+        contextMenuAction?: (action: ZoraiContextMenuAction, payload?: string) => Promise<boolean>;
+        onContextMenuRequest?: (cb: (request: ZoraiContextMenuRequest) => void) => () => void;
         getPlatform?: () => Promise<string>;
         resizeTerminalSession?: (paneId: string | null, cols: number, rows: number) => Promise<boolean>;
         listSnapshots?: (paneId: string, workspaceId?: string | null) => Promise<unknown[]>;
