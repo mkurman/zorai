@@ -42,7 +42,9 @@ export function normalizeUiFontScale(value: unknown): UiFontScale {
 
 export const CHAT_WIDTH_OPTIONS: ReadonlyArray<{ id: ChatWidthPreference; label: string; maxWidth: string }> = [
   { id: "narrow", label: "Narrow (620 px)", maxWidth: "620px" },
+  { id: "medium", label: "Medium (960 px)", maxWidth: "960px" },
   { id: "wide", label: "Wide (1440 px)", maxWidth: "1440px" },
+  { id: "extra-wide", label: "Extra wide (1920 px)", maxWidth: "1920px" },
   { id: "full", label: "Full width", maxWidth: "100%" },
 ];
 
