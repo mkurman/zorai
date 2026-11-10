@@ -201,6 +201,17 @@ where
                 .send(ClientMessage::AgentGetOperationStatus { operation_id })
                 .await?;
         }
+        AgentBridgeCommand::GenerateCommitMessage {
+            diff,
+            recent_subjects,
+        } => {
+            framed
+                .send(ClientMessage::AgentGenerateCommitMessage {
+                    diff,
+                    recent_subjects,
+                })
+                .await?;
+        }
         AgentBridgeCommand::ListThreadOperations { thread_id } => {
             framed
                 .send(ClientMessage::AgentListThreadOperations { thread_id })

@@ -19,20 +19,19 @@ export function registerCodeEditorActions(
 ): Array<{ dispose(): void }> {
   const disposables: Array<{ dispose(): void }> = [];
   disposables.push(editor.addAction({ id: "file.save", label: "Save", run: callbacks.onSave }));
-  disposables.push(editor.addAction({
-    id: "view.toggleMinimap",
-    label: "Toggle Minimap",
-    run: () => editor.updateOptions({ minimap: { enabled: !editor.getRawOptions().minimap?.enabled } }),
-  }));
-  disposables.push(editor.addAction({
-    id: "view.toggleWrap",
-    label: "Toggle Word Wrap",
-    run: () => editor.updateOptions({ wordWrap: editor.getRawOptions().wordWrap === "off" ? "on" : "off" }),
-  }));
+  disposables.push(editor.addAction({ id: "edit.undo", label: "Undo", run: () => editor.trigger("zorai", "undo", null) }));
+  disposables.push(editor.addAction({ id: "edit.redo", label: "Redo", run: () => editor.trigger("zorai", "redo", null) }));
   const builtins: Array<[string, string, string]> = [
     ["search.file", "Find in File", "actions.find"],
     ["search.replace", "Replace in File", "editor.action.startFindReplaceAction"],
-    ["navigation.line", "Go to Line", "workbench.action.gotoLine"],
+    ["navigation.line", "Go to Line", "editor.action.gotoLine"],
+    ["navigation.symbol", "Go to Symbol", "editor.action.quickOutline"],
+    ["edit.cut", "Cut", "editor.action.clipboardCutAction"],
+    ["edit.copy", "Copy", "editor.action.clipboardCopyAction"],
+    ["edit.paste", "Paste", "editor.action.clipboardPasteAction"],
+    ["edit.selectAll", "Select All", "editor.action.selectAll"],
+    ["edit.indent", "Indent Line or Selection", "editor.action.indentLines"],
+    ["edit.outdent", "Outdent Line or Selection", "editor.action.outdentLines"],
     ["navigation.definition", "Go to Definition", "editor.action.revealDefinition"],
     ["navigation.references", "Find References", "editor.action.goToReferences"],
     ["edit.deleteLine", "Delete Line", "editor.action.deleteLines"],

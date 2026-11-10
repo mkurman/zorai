@@ -177,6 +177,17 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
             return { ok: false, operation_id: id, error: err?.message || String(err) };
         }
     });
+    ipcMain.handle('agent-generate-commit-message', async (_event, diff, recentSubjects) => {
+        try {
+            return await sendAgentQuery({
+                type: 'generate-commit-message',
+                diff: String(diff ?? ''),
+                recent_subjects: Array.isArray(recentSubjects) ? recentSubjects.map(String) : [],
+            }, 'commit-message', 180000);
+        } catch (err) {
+            return { message: '', error: err?.message || String(err) };
+        }
+    });
     ipcMain.handle('agent-list-thread-operations', async (_event, threadId) => {
         try {
             return await sendAgentQuery({

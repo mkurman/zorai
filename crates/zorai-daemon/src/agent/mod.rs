@@ -30,6 +30,7 @@ mod circuit_breaker;
 pub(crate) mod claude_code_auth;
 mod cognitive_resonance_runtime;
 mod collaboration;
+mod commit_message;
 mod compaction;
 mod config;
 mod consensus;

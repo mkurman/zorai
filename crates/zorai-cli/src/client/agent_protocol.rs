@@ -108,6 +108,11 @@ pub(super) enum AgentBridgeCommand {
     ListThreadOperations {
         thread_id: String,
     },
+    GenerateCommitMessage {
+        diff: String,
+        #[serde(default)]
+        recent_subjects: Vec<String>,
+    },
     AddTask {
         title: String,
         description: String,

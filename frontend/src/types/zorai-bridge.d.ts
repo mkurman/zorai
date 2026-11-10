@@ -790,6 +790,7 @@ declare global {
         agentHandoffThread?: (payload: ZoraiAgentThreadHandoffPayload) => Promise<ZoraiAgentThreadHandoffResult | { ok?: boolean; thread_id?: string | null; error?: string } | unknown>;
         agentGetOperationStatus?: (id: string) => Promise<ZoraiOperationStatusSnapshot | { ok?: boolean; operation_id?: string; error?: string } | unknown>;
         agentListThreadOperations?: (threadId: string) => Promise<{ thread_id: string; operations: ZoraiThreadOperation[]; error?: string }>;
+        agentGenerateCommitMessage?: (diff: string, recentSubjects: string[]) => Promise<{ message: string; error?: string | null }>;
         agentCancelOperation?: (id: string) => Promise<{ ok?: boolean; error?: string } | unknown>;
         agentDismissParticipantSuggestion?: (payload: {
             threadId: string;

@@ -86,6 +86,9 @@ export const CODE_COMMANDS: CodeCommand[] = [
   command("view.toggleStickyScroll", "Toggle Sticky Scroll", "View", "text", null),
 ];
 
+export const UNWIRED_CODE_COMMANDS: ReadonlySet<CodeCommandId> = new Set(["file.reopenClosed", "view.toggleExplorer", "view.toggleAgent"]);
+export const RUNNABLE_CODE_COMMANDS = CODE_COMMANDS.filter((item) => !UNWIRED_CODE_COMMANDS.has(item.id));
+
 const byId = new Map(CODE_COMMANDS.map((item) => [item.id, item]));
 export function codeCommandById(id: string): CodeCommand | undefined { return byId.get(id as CodeCommandId); }
 

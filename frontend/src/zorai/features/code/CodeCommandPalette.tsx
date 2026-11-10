@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from "react";
-import { CODE_COMMANDS, displayCodeBinding, type CodeCommandId } from "./codeCommands";
+import { RUNNABLE_CODE_COMMANDS, displayCodeBinding, type CodeCommandId } from "./codeCommands";
 import { rankFuzzyItems } from "./codeFuzzySearch";
 import { useCodeEditorSettingsStore } from "./codeEditorSettingsStore";
 
@@ -8,13 +8,13 @@ export function CodeCommandPalette({ onRun, onClose }: { onRun: (id: CodeCommand
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const keybindings = useCodeEditorSettingsStore((state) => state.settings.keybindings);
-  const results = useMemo(() => rankFuzzyItems(query, CODE_COMMANDS.map((command) => {
+  const results = useMemo(() => rankFuzzyItems(query, RUNNABLE_CODE_COMMANDS.map((command) => {
     const currentBinding = keybindings[command.id] === undefined ? command.defaultKeybinding : keybindings[command.id];
     return { ...command, currentBinding, searchText: `${command.category} ${command.title} ${currentBinding ?? ""} ${(command.aliases ?? []).join(" ")}`, label: command.title };
   })).slice(0, 100), [keybindings, query]);
   useEffect(() => inputRef.current?.focus(), []);
   const run = (id: CodeCommandId) => { onRun(id); onClose(); };
-  return <div className="zorai-code-overlay" role="dialog" aria-label="Code command palette">
+  return <div className="zorai-code-overlay" role="dialog" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onClose(); }} aria-label="Code command palette">
     <input ref={inputRef} value={query} onChange={(event) => { setQuery(event.target.value); setActive(0); }} placeholder="Type a command…" aria-label="Code command palette" onKeyDown={(event) => {
       if (event.key === "Escape") onClose();
       if (event.key === "ArrowDown") { event.preventDefault(); setActive((value) => Math.min(results.length - 1, value + 1)); }

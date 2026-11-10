@@ -57,4 +57,16 @@ describe("workspaceFileIndex", () => {
     const second = await getWorkspaceFiles(bridge, root, { force: true });
     expect(second).toEqual(["a.ts"]);
   });
+
+  it("indexes nested folders even when an earlier caller was cancelled, as React does when it remounts an effect", async () => {
+    const root = `/tmp/zorai-nested-${Date.now()}`;
+    const entry = (path: string, isDirectory: boolean) => ({ name: path.split("/").pop() ?? path, path, isDirectory, isSymbolicLink: false, sizeBytes: 1, modifiedAt: 1 }) as ZoraiWorkspaceEntry;
+    const bridge = {
+      workspaceListDirectory: vi.fn(async (_root: string, dir: string) => dir === "" ? [entry("README.md", false), entry("data", true)] : dir === "data" ? [entry("data/questions.jsonl", false)] : []),
+    };
+    const first = getWorkspaceFiles(bridge, root);
+    const second = getWorkspaceFiles(bridge, root);
+    expect(await first).toEqual(["README.md", "data/questions.jsonl"]);
+    expect(await second).toEqual(["README.md", "data/questions.jsonl"]);
+  });
 });

@@ -307,7 +307,14 @@ pub(crate) async fn dispatch_part7(
 
         ClientMessage::AgentSetConciergeConfig { config_json } => {
             match serde_json::from_str::<crate::agent::types::ConciergeConfig>(&config_json) {
-                Ok(concierge_config) => {
+                Ok(mut concierge_config) => {
+                    let sends_prompt = serde_json::from_str::<serde_json::Value>(&config_json)
+                        .ok()
+                        .is_some_and(|value| value.get("system_prompt").is_some());
+                    if !sends_prompt {
+                        concierge_config.system_prompt =
+                            agent.get_concierge_config().await.system_prompt;
+                    }
                     agent.set_concierge_config(concierge_config).await;
                 }
                 Err(e) => {

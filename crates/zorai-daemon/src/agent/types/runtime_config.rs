@@ -549,6 +549,8 @@ pub struct ConciergeConfig {
     pub huggingface_provider: Option<String>,
     #[serde(default = "default_true")]
     pub auto_cleanup_on_navigate: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub system_prompt: Option<String>,
 }
 
 impl Default for ConciergeConfig {
@@ -567,6 +569,7 @@ impl Default for ConciergeConfig {
             openrouter_allow_fallbacks: None,
             huggingface_provider: None,
             auto_cleanup_on_navigate: true,
+            system_prompt: None,
         }
     }
 }

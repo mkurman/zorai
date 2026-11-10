@@ -339,4 +339,5 @@ pub enum ClientMessage {
     AgentBrowserResult { request_id: String, ok: bool, result_json: String },
     AgentGenerateMusic { args_json: String },
     AgentListThreadOperations { thread_id: String },
+    AgentGenerateCommitMessage { diff: String, #[serde(default)] recent_subjects: Vec<String> },
 }

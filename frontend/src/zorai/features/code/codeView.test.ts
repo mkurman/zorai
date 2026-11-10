@@ -108,9 +108,9 @@ describe("CodeRail action surface", () => {
     expect(source).toContain('requestFileView(localId, selection.path, "edit", { external: true })');
   });
 
-  it("lists recent roots from codeWorkspaceBindingStore, current first, capped at 10", () => {
-    expect(source).toContain("Object.keys(threadsByRoot)");
-    expect(source).toContain("slice(0, 10)");
+  it("lists the recent-folder history from codeWorkspaceBindingStore, not only roots that still have project threads", () => {
+    expect(source).toContain("useCodeWorkspaceBindingStore((state) => state.recentRoots)");
+    expect(source).not.toContain("Object.keys(threadsByRoot)");
     expect(source).toContain("root === lastRoot");
   });
 

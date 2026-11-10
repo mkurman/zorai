@@ -59,6 +59,7 @@ import { InterfacePanel } from "./InterfacePanel";
 import { duckDuckGoSafeSearchOptions, searchProviderOptions } from "./searchProviders";
 import { MlflowPanel } from "./MlflowPanel";
 import { PreferredSkillsEditor } from "../skills/PreferredSkillsEditor";
+import { PromptEditor } from "./PromptEditor";
 import type { ZoraiSettingsTabId } from "./settingsTabs";
 import {
   formatProviderValidationError,
@@ -245,9 +246,10 @@ function ModelPanel() {
       ) : null}
       <Panel section="Svarog" title="Identity">
         <AgentAliasRow aliasKey="swarog" name="Svarog" />
-        <SettingRow label="System Prompt" description="Primary agent identity prompt.">
-          <textarea className="zorai-input" value={agentSettings.system_prompt} onChange={(event) => updateAgentSetting("system_prompt", event.target.value)} />
-        </SettingRow>
+        <div className="zorai-setting-row zorai-setting-row--stacked">
+          <div><strong>System Prompt</strong><span>Primary agent identity prompt. Markdown is highlighted; the editor grows with long prompts.</span></div>
+          <PromptEditor label="Svarog system prompt" path="settings/svarog-system-prompt.md" value={agentSettings.system_prompt} onChange={(value) => updateAgentSetting("system_prompt", value)} />
+        </div>
         <Metric label="Backend" value="daemon" />
       </Panel>
       <Panel section="Svarog" title="Preferred skills">
@@ -571,6 +573,10 @@ function ConciergePanel() {
     <SettingsGrid>
       <Panel section="Rarog" title="Welcome agent and operational assistant">
         <AgentAliasRow aliasKey="rarog" name="Rarog" />
+        <div className="zorai-setting-row zorai-setting-row--stacked">
+          <div><strong>System Prompt</strong><span>Replaces Rarog's built-in concierge prompt. Leave empty to use the built-in one.</span></div>
+          <PromptEditor label="Rarog system prompt" path="settings/rarog-system-prompt.md" value={config.system_prompt ?? ""} onChange={(value) => patchConfig({ system_prompt: value })} />
+        </div>
         <SettingRow label="Enabled" description="Allow the concierge to brief and guide operator sessions.">
           <Switch checked={config.enabled} onChange={(checked) => patchConfig({ enabled: checked })} />
         </SettingRow>

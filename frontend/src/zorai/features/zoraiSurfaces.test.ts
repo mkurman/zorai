@@ -96,8 +96,10 @@ describe("Zorai feature surfaces", () => {
     expect(workbenchSource).toContain("shouldPassthroughCodeCommand(command.id, event.target)");
     expect(workbenchSource).toContain('setActiveEditorTabId(`file:${filePath}`)');
     expect(workbenchSource).toContain("void openFile(filePath)");
-    expect(readFeature("./code/CodeTabs.tsx")).toContain("Unpin editor");
-    expect(readFeature("./code/CodeTabs.tsx")).toContain("Pin editor");
+    expect(workbenchSource).toContain('<SessionTabStrip');
+    expect(workbenchSource).toContain("This folder is not a Git repository");
+    expect(workbenchSource).toContain("No tests found in this workspace.");
+    expect(workbenchSource).toContain("No agent changes yet.");
     expect(styleSource).toContain(".zorai-workspace-editor .minimap");
     expect(styleSource).toContain(".zorai-security-shield");
     expect(styleSource).toContain(".zorai-effort-gauge");

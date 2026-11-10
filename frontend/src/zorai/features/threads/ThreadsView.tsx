@@ -268,12 +268,8 @@ export function ThreadsView({
   if (!runtime.activeThread) {
     return (
       <div className="zorai-empty-main">
-        <div className="zorai-empty-kicker">Zorai</div>
-        <h1>Start with a thread.</h1>
-        <p>
-          Threads are the default Zorai surface. Create a conversation, bring in an agent,
-          then promote durable work into goals or workspace cards when needed.
-        </p>
+        <ZoraiBrandMark className="zorai-empty-main__brand-mark" />
+        <h1>What are we working on today?</h1>
         <div className="zorai-empty-main__composer">
           <ThreadComposer
             onStartThread={(firstMessage) => {
@@ -362,8 +358,8 @@ export function ThreadsView({
         ) : runtime.messages.length === 0 ? (
           <div className="zorai-thread-empty-state">
             <ZoraiBrandMark />
-            <strong>Start a Zorai thread</strong>
-            <span>Ask for a plan, delegate work, or turn a request into a goal.</span>
+            <strong>What are we building today?</strong>
+            <span>Ask for a plan, delegate work, or turn a request into a goal. Or just chat.</span>
           </div>
         ) : (
         <ThreadMessageActionsProvider actionsRef={messageActionsRef}>

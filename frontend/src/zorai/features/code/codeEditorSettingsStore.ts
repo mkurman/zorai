@@ -55,3 +55,22 @@ const creator = (set: (partial: Partial<Store> | ((state: Store) => Partial<Stor
 const config = (storage: StateStorage) => ({ name: CODE_EDITOR_SETTINGS_STORE_NAME, version: CODE_EDITOR_SETTINGS_STORE_VERSION, storage: createJSONStorage<{ settings: CodeEditorSettings }>(() => storage), partialize: (state: Store) => ({ settings: state.settings }), merge: (persisted: unknown, current: Store) => ({ ...current, settings: normalizeCodeEditorSettings((persisted as { settings?: unknown } | null)?.settings) }), migrate: (persisted: unknown) => ({ settings: normalizeCodeEditorSettings((persisted as { settings?: unknown } | null)?.settings) }) });
 export const createCodeEditorSettingsStore = (storage: StateStorage = memoryStorage()) => createStore<Store>()(persist(creator, config(storage)));
 export const useCodeEditorSettingsStore = create<Store>()(persist(creator, config(typeof localStorage !== "undefined" ? localStorage : memoryStorage())));
+
+export function codeSettingsToggleState(id: string, settings: CodeEditorSettings): boolean | null {
+  if (id === "view.toggleMinimap") return settings.minimap;
+  if (id === "view.toggleWrap") return settings.wordWrap !== "off";
+  if (id === "view.toggleWhitespace") return settings.renderWhitespace !== "none";
+  if (id === "view.toggleStickyScroll") return settings.stickyScroll;
+  return null;
+}
+
+export function codeSettingsCommandPatch(id: string, settings: CodeEditorSettings): Partial<CodeEditorSettings> | null {
+  if (id === "view.toggleMinimap") return { minimap: !settings.minimap };
+  if (id === "view.toggleWrap") return { wordWrap: settings.wordWrap === "off" ? CODE_EDITOR_DEFAULTS.wordWrap : "off" };
+  if (id === "view.toggleWhitespace") return { renderWhitespace: settings.renderWhitespace === "none" ? "all" : "none" };
+  if (id === "view.toggleStickyScroll") return { stickyScroll: !settings.stickyScroll };
+  if (id === "view.fontIncrease") return { fontSize: settings.fontSize + 1 };
+  if (id === "view.fontDecrease") return { fontSize: settings.fontSize - 1 };
+  if (id === "view.fontReset") return { fontSize: CODE_EDITOR_DEFAULTS.fontSize };
+  return null;
+}

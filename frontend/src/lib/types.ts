@@ -233,7 +233,7 @@ export interface TranscriptEntry {
 // ---------------------------------------------------------------------------
 export type UiFontScale = number;
 export type NightModePreference = "on" | "off" | "auto";
-export type ChatWidthPreference = "narrow" | "medium" | "wide" | "extra-wide" | "full";
+export type ChatWidthPreference = "narrow" | "medium-narrow" | "medium" | "medium-wide" | "wide" | "very-wide" | "extra-wide" | "ultra-wide" | "full";
 
 export interface ZoraiSettings {
   // Appearance

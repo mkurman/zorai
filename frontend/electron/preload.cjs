@@ -331,6 +331,7 @@ const bridgeApi = {
     agentHandoffThread: (payload) => ipcRenderer.invoke('agent-handoff-thread', payload),
     agentGetOperationStatus: (id) => ipcRenderer.invoke('agent-get-operation-status', id),
     agentListThreadOperations: (threadId) => ipcRenderer.invoke('agent-list-thread-operations', threadId),
+    agentGenerateCommitMessage: (diff, recentSubjects) => ipcRenderer.invoke('agent-generate-commit-message', diff, recentSubjects),
     agentCancelOperation: (id) => ipcRenderer.invoke('agent-cancel-operation', id),
     agentSendParticipantSuggestion: (payload) => ipcRenderer.invoke('agent-send-participant-suggestion', payload),
     agentDismissParticipantSuggestion: (payload) => ipcRenderer.invoke('agent-dismiss-participant-suggestion', payload),

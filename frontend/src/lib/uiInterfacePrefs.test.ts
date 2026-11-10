@@ -186,9 +186,13 @@ describe("theme appearance catalog", () => {
 describe("chat width", () => {
   it("caps the conversation at the chosen width and keeps full width for old or unknown settings", () => {
     expect(chatMaxWidth("narrow")).toBe("620px");
+    expect(chatMaxWidth("medium-narrow")).toBe("800px");
     expect(chatMaxWidth("medium")).toBe("960px");
+    expect(chatMaxWidth("medium-wide")).toBe("1200px");
     expect(chatMaxWidth("wide")).toBe("1440px");
+    expect(chatMaxWidth("very-wide")).toBe("1680px");
     expect(chatMaxWidth("extra-wide")).toBe("1920px");
+    expect(chatMaxWidth("ultra-wide")).toBe("2560px");
     expect(chatMaxWidth("full")).toBe("100%");
     expect(normalizeChatWidth(undefined)).toBe("full");
     expect(chatMaxWidth("huge")).toBe("100%");

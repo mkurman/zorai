@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { getBridge } from "@/lib/bridge";
 import { CodeFileIcon, CodeFolderChevron } from "./CodeFileIcon";
 import { createWorkspaceExplorerController, createWorkspaceExplorerLoader, type WorkspaceExplorerSnapshot } from "./workspaceExplorerController";
-import { filterExplorerEntries } from "./workspaceExplorerFilter";
+import { filterExplorerEntries, searchWorkspaceFiles } from "./workspaceExplorerFilter";
 
 export type WorkspaceExplorerTreeProps = {
   root: string;
@@ -10,6 +10,7 @@ export type WorkspaceExplorerTreeProps = {
   status: Map<string, string>;
   onOpen: (path: string) => void;
   refreshToken: number;
+  allFiles?: string[] | null;
 };
 
 function WorkspaceExplorerTreeNode({ entry, depth, status, onOpen, snapshot, onToggle, query = "" }: {
@@ -59,7 +60,7 @@ const EMPTY_EXPLORER_SNAPSHOT: WorkspaceExplorerSnapshot = {
   errorByPath: new Map(),
 };
 
-export function WorkspaceExplorerTree({ root, entries, status, onOpen, refreshToken }: WorkspaceExplorerTreeProps) {
+export function WorkspaceExplorerTree({ root, entries, status, onOpen, refreshToken, allFiles }: WorkspaceExplorerTreeProps) {
   const bridge = getBridge();
   const [query, setQuery] = useState("");
   const controller = useMemo(() => createWorkspaceExplorerController(createWorkspaceExplorerLoader(bridge, root)), [bridge, root]);
@@ -68,6 +69,7 @@ export function WorkspaceExplorerTree({ root, entries, status, onOpen, refreshTo
     () => filterExplorerEntries(entries, query, (path) => snapshot.childrenByPath.get(path) ?? []),
     [entries, query, snapshot],
   );
+  const fileMatches = useMemo(() => allFiles && query.trim() ? searchWorkspaceFiles(allFiles, query) : null, [allFiles, query]);
 
   useEffect(() => {
     if (refreshToken > 0) void controller.refreshExpanded();
@@ -82,7 +84,25 @@ export function WorkspaceExplorerTree({ root, entries, status, onOpen, refreshTo
         placeholder="Filter files"
         aria-label="Filter workspace files"
       />
-      <WorkspaceExplorerTreeView entries={visibleEntries} status={status} onOpen={onOpen} snapshot={snapshot} onToggle={controller.toggle} query={query} />
+      {fileMatches ? (
+        <div className="zorai-workspace-tree" role="list" aria-label="Matching files">
+          {fileMatches.length === 0 ? <div className="zorai-workspace-empty">No files match “{query.trim()}”.</div> : fileMatches.map((path) => {
+            const parts = path.split(/[\\/]/);
+            const name = parts.pop() ?? path;
+            const marker = status.get(path) ?? "";
+            return (
+              <button type="button" role="listitem" key={path} className="zorai-workspace-tree-row" style={{ paddingLeft: 8 }} title={path} onClick={() => onOpen(path)}>
+                <CodeFileIcon path={path} />
+                <span className="zorai-workspace-tree-name">{name}</span>
+                {parts.length > 0 ? <span className="zorai-workspace-tree-dir">{parts.join("/")}</span> : null}
+                {marker ? <span className="zorai-workspace-git-marker">{marker}</span> : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <WorkspaceExplorerTreeView entries={visibleEntries} status={status} onOpen={onOpen} snapshot={snapshot} onToggle={controller.toggle} query={query} />
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { WorkspaceWorkbench } from "@/components/WorkspaceWorkbench";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
@@ -43,17 +43,10 @@ const NOOP_OPEN_WORKSPACE: CodeOpenWorkspaceBoundary = () => {};
 
 export function CodeRail() {
   const lastRoot = useCodeWorkspaceBindingStore((state) => state.lastRoot);
-  const threadsByRoot = useCodeWorkspaceBindingStore((state) => state.threadsByRoot);
+  const recentRoots = useCodeWorkspaceBindingStore((state) => state.recentRoots);
   const closeRoot = useCodeWorkspaceBindingStore((state) => state.closeRoot);
   const [recentOpen, setRecentOpen] = useState(false);
   const recentRef = useRef<HTMLDivElement | null>(null);
-
-  const recentRoots = useMemo(() => {
-    const known = Object.keys(threadsByRoot);
-    if (!lastRoot) return known.slice(0, 10);
-    const rest = known.filter((root) => root !== lastRoot).slice(0, 9);
-    return lastRoot ? [lastRoot, ...rest].slice(0, 10) : rest;
-  }, [threadsByRoot, lastRoot]);
 
   useEffect(() => {
     if (!recentOpen) return;

@@ -103,6 +103,10 @@ fn bridge_event_from_daemon_message(message: &DaemonMessage) -> Option<serde_jso
             "type": "thread-handoff-result",
             "data": result,
         })),
+        DaemonMessage::AgentCommitMessageGenerated { message, error } => Some(serde_json::json!({
+            "type": "commit-message",
+            "data": { "message": message, "error": error },
+        })),
         DaemonMessage::AgentThreadOperations {
             thread_id,
             operations_json,

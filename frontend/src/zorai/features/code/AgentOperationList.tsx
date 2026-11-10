@@ -15,6 +15,11 @@ export function operationFileLabel(path: string, root: string | null | undefined
   return { name, folder: relative.startsWith("/") && parts.length <= 3 ? `/${folder}` : folder };
 }
 
+export function operationToolLabel(source: string | null | undefined): string {
+  const raw = source?.trim() || "operation";
+  return raw.split("_").filter(Boolean).map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+}
+
 export function formatOperationAge(updatedAt: number, now: number): string {
   const seconds = Math.max(0, Math.round((now - updatedAt) / 1000));
   if (seconds < 60) return "just now";
@@ -41,7 +46,7 @@ export function AgentOperationList({ groups, snapshots, root, now, onShowDiff, o
         return (
           <article key={operationId} className="zorai-agent-operation" title={operationId}>
             <header>
-              <span className="zorai-agent-operation__tool">{entries[0]?.source ?? "operation"}</span>
+              <span className="zorai-agent-operation__tool">{operationToolLabel(entries[0]?.source)}</span>
               <span className="zorai-agent-operation__meta">{entries.length} file{entries.length === 1 ? "" : "s"} · {formatOperationAge(latest, now)}</span>
             </header>
             {entries.map((entry) => {

@@ -101,11 +101,12 @@ impl ConciergeEngine {
             .as_deref()
             .unwrap_or(&config.provider)
             .to_string();
+        let base_prompt = concierge_system_prompt(&config.concierge);
         drop(config);
 
         let system_prompt = format!(
             "{}\n\n{}",
-            concierge_system_prompt(),
+            base_prompt,
             super::super::build_concierge_runtime_identity_prompt(
                 &provider_id,
                 &provider_config.model,
@@ -376,7 +377,15 @@ pub(crate) fn fast_concierge_provider_config(config: &ProviderConfig) -> Provide
     fast
 }
 
-pub(crate) fn concierge_system_prompt() -> String {
+pub(crate) fn concierge_system_prompt(concierge: &ConciergeConfig) -> String {
+    if let Some(custom) = concierge
+        .system_prompt
+        .as_deref()
+        .map(str::trim)
+        .filter(|prompt| !prompt.is_empty())
+    {
+        return custom.to_string();
+    }
     format!(
         "You are the zorai concierge — a lightweight operational assistant named {}. \
          You handle greetings, session navigation, status checks, housekeeping, \

@@ -10,6 +10,7 @@ export type CodeToolbarMenuItem = {
   danger?: boolean;
   disabled?: boolean;
   separatorBefore?: boolean;
+  checked?: boolean;
   onSelect: () => void;
 };
 
@@ -64,7 +65,8 @@ export function CodeToolbarMenu({ items }: { items: CodeToolbarMenuItem[] }) {
               <button
                 key={item.key}
                 type="button"
-                role="menuitem"
+                role={item.checked === undefined ? "menuitem" : "menuitemcheckbox"}
+                aria-checked={item.checked}
                 disabled={item.disabled}
                 className={[item.danger ? "is-danger" : "", item.separatorBefore ? "has-separator" : ""].filter(Boolean).join(" ") || undefined}
                 onClick={() => {
@@ -72,7 +74,12 @@ export function CodeToolbarMenu({ items }: { items: CodeToolbarMenuItem[] }) {
                   item.onSelect();
                 }}
               >
-                <span>{label}</span>
+                <span className="zorai-code-toolbar-menu__label">
+                  {item.checked !== undefined ? (
+                    <svg className={item.checked ? "zorai-code-toolbar-menu__check is-on" : "zorai-code-toolbar-menu__check"} viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" /></svg>
+                  ) : null}
+                  {label}
+                </span>
                 {shortcut ? <kbd>{shortcut}</kbd> : null}
               </button>
             );

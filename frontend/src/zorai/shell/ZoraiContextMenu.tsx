@@ -1,9 +1,21 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { editor as MonacoEditorApi } from "monaco-editor";
 import { getBridge } from "@/lib/bridge";
-import { buildContextMenuEntries, clampMenuPosition, selectAllScope, type ContextMenuEntry } from "./contextMenuModel";
+import { buildContextMenuEntries, clampMenuPosition, codeEditorMenuRequest, selectAllScope, type ContextMenuEntry } from "./contextMenuModel";
 import { stepMenuIndex } from "./ZoraiTitleBar";
 
-type OpenMenu = { request: ZoraiContextMenuRequest; target: Element | null; entries: ContextMenuEntry[] };
+type OpenMenu = {
+  request: ZoraiContextMenuRequest;
+  target: Element | null;
+  entries: ContextMenuEntry[];
+  codeEditor: MonacoEditorApi.ICodeEditor | null;
+};
+
+async function codeEditorAt(target: Element | null): Promise<MonacoEditorApi.ICodeEditor | null> {
+  if (!target?.closest(".monaco-editor")) return null;
+  const monaco = await import("monaco-editor/esm/vs/editor/editor.api");
+  return monaco.editor.getEditors().find((editor) => editor.getContainerDomNode().contains(target)) ?? null;
+}
 
 export function ZoraiContextMenu() {
   const bridge = getBridge();
@@ -13,14 +25,19 @@ export function ZoraiContextMenu() {
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const unsubscribe = bridge?.onContextMenuRequest?.((request) => {
+    const unsubscribe = bridge?.onContextMenuRequest?.(async (request) => {
+      const target = document.elementFromPoint(request.x, request.y);
+      const codeEditor = await codeEditorAt(target).catch(() => null);
+      const selection = codeEditor?.getSelection();
+      const effectiveRequest = codeEditor
+        ? codeEditorMenuRequest(request, {
+          hasSelection: Boolean(selection && !selection.isEmpty()),
+          readOnly: Boolean(codeEditor.getRawOptions().readOnly),
+        })
+        : request;
       setPosition(null);
       setHighlighted(-1);
-      setMenu({
-        request,
-        target: document.elementFromPoint(request.x, request.y),
-        entries: buildContextMenuEntries(request),
-      });
+      setMenu({ request: effectiveRequest, target, entries: buildContextMenuEntries(effectiveRequest), codeEditor });
     });
     return () => unsubscribe?.();
   }, [bridge]);
@@ -34,7 +51,16 @@ export function ZoraiContextMenu() {
   const run = (entry: ContextMenuEntry) => {
     if (entry.kind !== "item" || !entry.enabled || !menu) return;
     const target = menu.target;
+    const codeEditor = menu.codeEditor;
     setMenu(null);
+    if (codeEditor) {
+      codeEditor.focus();
+      const model = codeEditor.getModel();
+      if (entry.action === "selectAll" && model) {
+        codeEditor.setSelection(model.getFullModelRange());
+        return;
+      }
+    }
     if (entry.action === "selectScope") {
       const scope = selectAllScope(target);
       if (scope) window.getSelection()?.selectAllChildren(scope);
