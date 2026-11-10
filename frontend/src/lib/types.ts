@@ -233,6 +233,7 @@ export interface TranscriptEntry {
 // ---------------------------------------------------------------------------
 export type UiFontScale = number;
 export type NightModePreference = "on" | "off" | "auto";
+export type StartupViewPreference = "threads" | "code" | "goals" | "workspaces" | "last";
 export type ChatWidthPreference = "narrow" | "medium-narrow" | "medium" | "medium-wide" | "wide" | "very-wide" | "extra-wide" | "ultra-wide" | "full";
 
 export interface ZoraiSettings {
@@ -244,6 +245,7 @@ export interface ZoraiSettings {
   uiFontScale: UiFontScale;
   nightMode: NightModePreference;
   chatWidth: ChatWidthPreference;
+  startupView: StartupViewPreference;
   useCustomTerminalColors: boolean;
   customTerminalBackground: string;
   customTerminalForeground: string;
@@ -303,6 +305,7 @@ export const DEFAULT_SETTINGS: ZoraiSettings = {
   uiFontScale: 1,
   nightMode: "on",
   chatWidth: "full",
+  startupView: "threads",
   useCustomTerminalColors: false,
   customTerminalBackground: "",
   customTerminalForeground: "",

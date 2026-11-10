@@ -1484,8 +1484,8 @@
   max-width: 100%;
 }
 
-.zorai-native-thread-surface:not(.zorai-thread-surface--compact) .zorai-thread-chat-scroll > *,
-.zorai-native-thread-surface:not(.zorai-thread-surface--compact) .zorai-thread-composer > * {
+.zorai-native-thread-surface .zorai-thread-chat-scroll > *,
+.zorai-native-thread-surface .zorai-thread-composer > * {
   width: 100%;
   max-width: var(--zorai-chat-max-width, 100%);
   margin-inline: auto;
@@ -5496,7 +5496,8 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-scm-generate:disabled { opacity: .45; cursor: default; }
 .zorai-scm-generate svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
 .zorai-scm-generate[aria-busy="true"] { color: var(--zorai-accent); opacity: 1; }
-.zorai-scm-generate[aria-busy="true"] svg { animation: zorai-button-spin 1.2s linear infinite; }
+.zorai-scm-generate__spinner { animation: zorai-button-spin 0.8s linear infinite; }
+.zorai-scm-generate__spinner circle { stroke-opacity: .25; }
 .zorai-workspace-git-overview .zorai-scm-commit { padding: 5px 7px; border: 1px solid var(--zorai-accent); border-radius: 4px; background: var(--accent-soft); color: var(--zorai-accent); font-size: 10px; cursor: pointer; }
 .zorai-workspace-git-overview .zorai-scm-commit:disabled { opacity: .45; cursor: default; }
 
@@ -5513,14 +5514,23 @@ button.zorai-composer-context-chip { cursor: pointer; }
 
 .zorai-workspace-worktrees { max-height: 38%; overflow: auto; border-block: 1px solid var(--zorai-border); }
 .zorai-workspace-worktrees summary { position: sticky; top: 0; z-index: 1; padding: 7px 9px; background: var(--zorai-bg-elevated); color: var(--zorai-muted); font-size: 10px; text-transform: uppercase; cursor: pointer; }
-.zorai-workspace-worktree-create { display: grid; gap: 4px; padding: 7px; border-bottom: 1px solid var(--zorai-border); }
-.zorai-workspace-worktree-create input { min-width: 0; padding: 4px 6px; border: 1px solid var(--zorai-border); border-radius: 3px; background: var(--zorai-bg-surface); color: var(--zorai-text); font: 9px var(--font-mono); }
-.zorai-workspace-worktree-create button, .zorai-workspace-worktrees > div > button { padding: 4px 6px; border: 1px solid var(--zorai-border); border-radius: 3px; background: var(--zorai-bg-elevated); color: var(--zorai-muted); font-size: 9px; cursor: pointer; }
+.zorai-workspace-worktree-create { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 5px; padding: 8px 9px; border-bottom: 1px solid var(--zorai-border); }
+.zorai-workspace-worktree-create input { min-width: 0; height: 26px; box-sizing: border-box; padding: 0 8px; border: 1px solid var(--zorai-border-strong); border-radius: 5px; background: var(--zorai-bg-surface); color: var(--zorai-text); font: 11px var(--font-ui); }
+.zorai-workspace-worktree-create input:first-child { grid-column: 1 / -1; }
+.zorai-workspace-worktree-create input:focus-visible { outline: none; border-color: var(--zorai-accent); }
+.zorai-workspace-worktree-create button { grid-column: 1 / -1; height: 26px; border: 1px solid color-mix(in srgb, var(--zorai-accent) 45%, transparent); border-radius: 5px; background: var(--accent-soft); color: var(--zorai-accent); font: 11px var(--font-ui); cursor: pointer; }
+.zorai-workspace-worktree-create button:disabled { opacity: .45; cursor: default; }
 .zorai-worktrees > div,
-.zorai-workspace-worktrees > div:not(.zorai-workspace-worktree-create) { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; align-items: center; padding: 5px 7px; border-bottom: 1px solid var(--zorai-border); }
-.zorai-workspace-worktrees > div.active { background: var(--zorai-bg-active); }
-.zorai-workspace-worktree-path { min-width: 0; display: flex; flex-direction: column; border: 0; background: transparent; color: var(--zorai-text); text-align: left; font: 9px var(--font-mono); cursor: pointer; }
-.zorai-workspace-worktree-path span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--zorai-muted); }
+.zorai-workspace-worktrees > div:not(.zorai-workspace-worktree-create) { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; padding: 0 6px 0 0; border-bottom: 1px solid var(--zorai-border); }
+.zorai-workspace-worktrees > div:not(.zorai-workspace-worktree-create):hover { background: var(--zorai-bg-active); }
+.zorai-workspace-worktrees > div.active { background: var(--zorai-bg-active); box-shadow: inset 2px 0 var(--zorai-accent); }
+.zorai-workspace-worktrees > div > .zorai-workspace-worktree-path { min-width: 0; display: grid; gap: 1px; padding: 6px 9px; border: 0; border-radius: 0; background: transparent; color: var(--zorai-text); text-align: left; cursor: pointer; }
+.zorai-workspace-worktree-path strong { overflow: hidden; font: 600 11px var(--font-ui); text-overflow: ellipsis; white-space: nowrap; }
+.zorai-workspace-worktree-path span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--zorai-muted); font: 10px var(--font-mono); }
+.zorai-workspace-worktrees > div > button:not(.zorai-workspace-worktree-path) { padding: 2px 8px; border: 1px solid var(--zorai-border-strong); border-radius: 4px; background: transparent; color: var(--zorai-muted); font: 10px var(--font-ui); cursor: pointer; opacity: 0; }
+.zorai-workspace-worktrees > div:hover > button:not(.zorai-workspace-worktree-path),
+.zorai-workspace-worktrees > div > button:not(.zorai-workspace-worktree-path):focus-visible { opacity: 1; }
+.zorai-workspace-worktrees > div > button:not(.zorai-workspace-worktree-path):hover { border-color: var(--danger); color: var(--danger); }
 
 .zorai-workspace-editor-loading { width: 100%; height: 100%; display: grid; place-items: center; background: var(--zorai-bg-surface); color: var(--zorai-muted); font: 11px var(--font-mono); }
 
@@ -5872,7 +5882,7 @@ button.zorai-composer-context-chip { cursor: pointer; }
   right: 0;
   min-width: 240px;
   max-width: 360px;
-  max-height: 320px;
+  max-height: min(420px, calc(100vh - 160px));
   overflow-y: auto;
   padding: 4px;
   border: 1px solid var(--zorai-border);
@@ -5882,6 +5892,38 @@ button.zorai-composer-context-chip { cursor: pointer; }
   text-transform: none;
   letter-spacing: normal;
 }
+
+.zorai-code-recent-search {
+  width: 100%;
+  height: 28px;
+  box-sizing: border-box;
+  margin-bottom: 4px;
+  padding: 0 8px;
+  border: 1px solid var(--zorai-border-strong);
+  border-radius: 5px;
+  outline: 0;
+  background: var(--zorai-bg-surface);
+  color: var(--zorai-text);
+  font: inherit;
+  font-size: 11px;
+}
+
+.zorai-code-recent-search:focus { border-color: var(--zorai-accent); }
+
+.zorai-code-recent-more {
+  width: 100%;
+  height: 26px;
+  margin-top: 2px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--zorai-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.zorai-code-recent-more:hover { background: var(--zorai-bg-active); color: var(--zorai-text); }
 
 .zorai-code-recent-empty {
   padding: 8px 10px;
@@ -6599,6 +6641,14 @@ button.zorai-composer-context-chip { cursor: pointer; }
   padding: 0;
 }
 
+.zorai-thread-surface--compact .zorai-thread-composer--compact > *,
+.zorai-thread-surface--compact .zorai-thread-composer-stack > .zorai-compact-session {
+  width: 100%;
+  max-width: var(--zorai-chat-max-width, 100%);
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+
 .zorai-thread-composer--compact .zorai-composer-target {
   position: relative;
   z-index: 0;
@@ -7085,22 +7135,29 @@ button.zorai-composer-context-chip { cursor: pointer; }
 /* --- Commit graph --- */
 .zorai-commit-graph { display: flex; flex-direction: column; max-height: 340px; overflow-y: auto; border-top: 1px solid var(--zorai-border); }
 .zorai-commit-graph-error, .zorai-commit-graph-empty { padding: 8px 10px; color: var(--zorai-muted); font-size: 10px; }
-.zorai-commit-graph-row { display: flex; align-items: center; gap: 7px; min-height: 24px; padding: 0 10px; }
+.zorai-commit-graph-row { display: flex; align-items: center; gap: 7px; height: 24px; padding: 0 10px 0 6px; }
 .zorai-commit-graph-row:hover { background: var(--zorai-bg-active); }
-.zorai-commit-graph-cells { display: inline-flex; flex: 0 0 auto; }
-.zorai-commit-graph-cells i { position: relative; width: 11px; height: 24px; display: inline-block; }
-.zorai-commit-graph-cells i::before { content: ""; position: absolute; top: 0; bottom: 0; left: 5px; width: 1px; background: var(--zorai-border-strong); opacity: .55; }
-.zorai-commit-graph-cells i.is-node::before { display: none; }
-.zorai-commit-graph-cells i.is-node::after { content: ""; position: absolute; top: 50%; left: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: var(--zorai-accent); box-shadow: 0 0 0 2px var(--zorai-bg); }
-.zorai-commit-graph-cells i.is-in::before, .zorai-commit-graph-cells i.is-out::before { opacity: .9; }
+.zorai-commit-graph {
+  --zorai-graph-0: #b48ead;
+  --zorai-graph-1: #e5a64b;
+  --zorai-graph-2: #5fb3d9;
+  --zorai-graph-3: #d16d7e;
+  --zorai-graph-4: #7fbf7f;
+  --zorai-graph-5: #6c8ee6;
+  --zorai-graph-6: #d9925f;
+  --zorai-graph-7: #4fb8a3;
+}
+.zorai-commit-graph-cells { flex: 0 0 auto; display: block; overflow: hidden; }
+.zorai-commit-graph-cells path { fill: none; stroke-width: 1.6; stroke-linecap: round; }
+.zorai-commit-graph-cells circle { stroke-width: 1.6; }
 .zorai-commit-graph-hash { flex: 0 0 auto; color: var(--zorai-muted); font: 9px var(--font-mono); }
 .zorai-commit-graph-subject { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--zorai-text); font-size: 10px; }
 .zorai-commit-graph-refs { margin-left: 5px; display: inline-flex; gap: 3px; }
-.zorai-commit-graph-refs em { border: 1px solid var(--zorai-border-strong); border-radius: 3px; padding: 0 3px; color: var(--zorai-muted); font-size: 8px; font-style: normal; }
+.zorai-commit-graph-refs em { border-radius: 999px; padding: 0 6px; background: color-mix(in srgb, var(--zorai-graph-5) 28%, transparent); color: var(--zorai-text); font-size: 9px; font-style: normal; line-height: 15px; }
 .zorai-commit-graph-author { flex: 0 0 auto; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--zorai-muted); font-size: 9px; }
 .zorai-commit-graph-more { min-height: 24px; border: 0; border-top: 1px solid var(--zorai-border); background: transparent; color: var(--zorai-muted); font-size: 10px; cursor: pointer; }
 .zorai-commit-graph-more:hover { background: var(--zorai-bg-active); color: var(--zorai-text); }
-.zorai-code-commit-graph-section > summary { min-height: 26px; display: flex; align-items: center; padding: 0 10px; color: var(--zorai-muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; }
+.zorai-code-commit-graph-section > summary { min-height: 26px; display: list-item; padding: 0 10px; color: var(--zorai-muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; }
 
 /* --- Branch switcher --- */
 .zorai-code-source-heading-actions { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
@@ -7120,7 +7177,9 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-branch-switcher-button:hover { background: var(--zorai-bg-active); color: var(--zorai-text); }
 .zorai-branch-switcher-button svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .zorai-branch-switcher-button em { font-style: normal; font-size: 8px; opacity: .7; }
-.zorai-branch-switcher-menu { position: absolute; z-index: 90; top: calc(100% + 4px); right: 0; min-width: 180px; max-height: 260px; overflow-y: auto; padding: 4px; border: 1px solid var(--zorai-border); border-radius: 6px; background: var(--zorai-bg-elevated, var(--zorai-bg-panel)); box-shadow: 0 8px 24px color-mix(in srgb, var(--shade) 45%, transparent); }
+.zorai-branch-switcher-menu { position: absolute; z-index: 90; top: calc(100% + 4px); right: 0; min-width: 180px; max-height: min(320px, calc(100vh - 200px)); overflow-y: auto; padding: 4px; border: 1px solid var(--zorai-border); border-radius: 6px; background: var(--zorai-bg-elevated, var(--zorai-bg-panel)); box-shadow: 0 8px 24px color-mix(in srgb, var(--shade) 45%, transparent); }
+.zorai-branch-switcher-search { position: sticky; top: -4px; z-index: 1; width: 100%; height: 28px; box-sizing: border-box; margin-bottom: 4px; padding: 0 8px; border: 1px solid var(--zorai-border-strong); border-radius: 5px; outline: 0; background: var(--zorai-bg-surface); color: var(--zorai-text); font: inherit; font-size: 11px; box-shadow: 0 -4px 0 var(--zorai-bg-elevated, var(--zorai-bg-panel)); }
+.zorai-branch-switcher-search:focus { border-color: var(--zorai-accent); }
 .zorai-branch-switcher-error, .zorai-branch-switcher-empty { padding: 6px 8px; color: var(--zorai-muted); font-size: 10px; }
 .zorai-branch-switcher-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; border: 0; border-radius: 4px; padding: 5px 8px; background: transparent; color: var(--zorai-text); font-size: 10px; text-align: left; cursor: pointer; }
 .zorai-branch-switcher-item:hover { background: var(--zorai-bg-active, color-mix(in srgb, var(--text-primary) 6%, transparent)); }

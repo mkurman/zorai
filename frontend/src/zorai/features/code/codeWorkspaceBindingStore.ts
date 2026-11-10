@@ -16,7 +16,7 @@ export const CODE_WORKSPACE_BINDING_STORE_VERSION = 2;
  * Threads surface even after they fall off this list.
  */
 export const CODE_PROJECT_THREADS_PER_ROOT_MAX = 40;
-export const CODE_RECENT_ROOTS_MAX = 10;
+export const CODE_RECENT_ROOTS_MAX = 30;
 
 export type CodeWorkspaceBindings = {
   /** Canonical validated workspace root that was most recently opened. */

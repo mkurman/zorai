@@ -1430,7 +1430,11 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                             disabled={generatingCommitMessage || gitOverview.stagedFiles + gitOverview.unstagedFiles === 0}
                             onClick={() => void generateCommitMessage()}
                           >
-                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8zM5 2l.6 1.4L7 4l-1.4.6L5 6l-.6-1.4L3 4l1.4-.6z" /></svg>
+                            {generatingCommitMessage ? (
+                              <svg className="zorai-scm-generate__spinner" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8" /><path d="M12 4a8 8 0 0 1 8 8" /></svg>
+                            ) : (
+                              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8zM5 2l.6 1.4L7 4l-1.4.6L5 6l-.6-1.4L3 4l1.4-.6z" /></svg>
+                            )}
                           </button>
                         ) : null}
                       </div>

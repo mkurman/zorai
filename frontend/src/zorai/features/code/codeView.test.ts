@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { displayRootName } from "./codeEmptyStateModel";
+import { displayRootName, filterRecentRoots } from "./codeEmptyStateModel";
 import type { CodeOpenWorkspaceBoundary } from "./CodeView";
 
 function readSource(relativePath: string): string {
@@ -116,5 +116,14 @@ describe("CodeRail action surface", () => {
 
   it("exposes closeRoot for pruning recent entries", () => {
     expect(source).toContain("closeRoot(root)");
+  });
+});
+
+describe("recent folder search", () => {
+  it("filters recent folders by name or path, ignoring case", () => {
+    const roots = ["/mnt/e/gitlab/it/zorai", "/mnt/e/gitlab/ai/med-jev", "/home/me/Notes"];
+    expect(filterRecentRoots(roots, "MED")).toEqual(["/mnt/e/gitlab/ai/med-jev"]);
+    expect(filterRecentRoots(roots, "gitlab")).toHaveLength(2);
+    expect(filterRecentRoots(roots, "  ")).toEqual(roots);
   });
 });

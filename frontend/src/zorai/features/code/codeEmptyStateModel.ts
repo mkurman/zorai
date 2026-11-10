@@ -274,3 +274,8 @@ export function createMemoizedCodeEmptyStateController(
   }
   return { controller: createCodeEmptyStateController(deps), deps };
 }
+
+export function filterRecentRoots(roots: readonly string[], query: string): string[] {
+  const needle = query.trim().toLowerCase();
+  return needle ? roots.filter((root) => root.toLowerCase().includes(needle)) : [...roots];
+}

@@ -6,6 +6,14 @@ describe("Zorai navigation", () => {
     expect(getDefaultZoraiView()).toBe("threads");
   });
 
+  it("opens the chosen startup tab, or the last opened one, and falls back to threads for anything unknown", () => {
+    expect(getDefaultZoraiView("code")).toBe("code");
+    expect(getDefaultZoraiView("last", "goals")).toBe("goals");
+    expect(getDefaultZoraiView("last", null)).toBe("threads");
+    expect(getDefaultZoraiView("last", "nowhere")).toBe("threads");
+    expect(getDefaultZoraiView("database")).toBe("threads");
+  });
+
   it("exposes the agent-centric top-level destinations with Code above Threads", () => {
     expect(zoraiNavItems.map((item) => item.id)).toEqual([
       "code",

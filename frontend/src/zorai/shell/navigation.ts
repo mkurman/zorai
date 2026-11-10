@@ -98,8 +98,21 @@ export const zoraiNavItems: ZoraiNavItem[] = [
   },
 ];
 
-export function getDefaultZoraiView(): ZoraiViewId {
-  return "threads";
+export const LAST_ZORAI_VIEW_STORAGE_KEY = "zorai.lastView";
+
+export const STARTUP_VIEW_OPTIONS: ReadonlyArray<{ id: "threads" | "code" | "goals" | "workspaces" | "last"; label: string }> = [
+  { id: "threads", label: "Threads" },
+  { id: "code", label: "Code" },
+  { id: "goals", label: "Goals" },
+  { id: "workspaces", label: "Workspaces" },
+  { id: "last", label: "Last opened tab" },
+];
+
+export function getDefaultZoraiView(startupView?: unknown, lastView?: string | null): ZoraiViewId {
+  if (startupView === "last") {
+    return zoraiNavItems.some((item) => item.id === lastView) ? lastView as ZoraiViewId : "threads";
+  }
+  return STARTUP_VIEW_OPTIONS.some((option) => option.id === startupView && option.id !== "last") ? startupView as ZoraiViewId : "threads";
 }
 
 export type ZoraiContextPanelLabels = {

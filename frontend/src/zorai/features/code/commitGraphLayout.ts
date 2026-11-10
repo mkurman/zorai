@@ -1,76 +1,84 @@
 import { useMemo } from "react";
 import type { WorkspaceGraphCommit } from "./workspaceRefresh";
 
+export type GraphEdge = {
+  from: number;
+  to: number;
+  color: number;
+};
+
 export type GraphLane = {
-  /** Column index of the commit node. */
   lane: number;
-  /** Connections drawn above the node (parent side). */
-  inLane: number | null;
-  /** Connections drawn below the node (child side). */
-  outLanes: number[];
+  color: number;
+  incoming: GraphEdge[];
+  passing: GraphEdge[];
+  outgoing: GraphEdge[];
+  width: number;
 };
 
 export type LaidOutCommit = WorkspaceGraphCommit & { graph: GraphLane };
 
-/**
- * Assign each commit a lane and connection set for a first-parent-friendly
- * column graph. Topo-order input assumed (the loader uses --topo-order).
- *
- * Algorithm: maintain active lanes keyed by branch tip hash. Each commit:
- * 1. Takes over the lane whose tip matches its hash (or claims the lowest
- *    free lane).
- * 2. Emits its parents into free lanes (first parent keeps the commit's own
- *    lane when possible) and records connection columns for rendering.
- */
-export function layoutCommitGraph(commits: WorkspaceGraphCommit[], maxLanes = 8): LaidOutCommit[] {
-  const laneTips: Array<string | null> = Array.from({ length: maxLanes }, () => null);
-  const laneOfHash = new Map<string, number>();
+export function layoutCommitGraph(commits: WorkspaceGraphCommit[]): LaidOutCommit[] {
+  let lanes: Array<string | null> = [];
+  let colors: number[] = [];
+  let nextColor = 0;
   const rows: LaidOutCommit[] = [];
 
-  for (const commit of commits) {
-    let lane = laneOfHash.get(commit.hash) ?? -1;
-    if (lane < 0) {
-      lane = laneTips.findIndex((tip) => tip === null);
-      if (lane < 0) lane = 0; // overflow: pin to first lane, graph degrades gracefully
-    }
-    laneTips[lane] = null; // vacate: this commit consumes the lane tip
+  const freeSlot = (taken: Array<string | null>) => {
+    const index = taken.indexOf(null);
+    return index < 0 ? taken.length : index;
+  };
 
-    const outLanes: number[] = [];
+  for (const commit of commits) {
+    const before = lanes;
+    const beforeColors = colors;
+    const waiting = before.flatMap((hash, index) => (hash === commit.hash ? [index] : []));
+    const lane = waiting[0] ?? freeSlot(before);
+    const color = waiting.length > 0 ? beforeColors[lane] : nextColor++;
+
+    const after = before.slice();
+    const afterColors = beforeColors.slice();
+    for (const index of waiting) after[index] = null;
+    while (after.length <= lane) {
+      after.push(null);
+      afterColors.push(0);
+    }
+
+    const incoming: GraphEdge[] = waiting.map((index) => ({ from: index, to: lane, color: beforeColors[index] }));
+    const passing: GraphEdge[] = before.flatMap((hash, index) => (hash !== null && hash !== commit.hash ? [{ from: index, to: index, color: beforeColors[index] }] : []));
+    const outgoing: GraphEdge[] = [];
+
     commit.parents.forEach((parent, index) => {
-      let parentLane = laneOfHash.get(parent) ?? -1;
-      if (parentLane < 0) {
-        if (index === 0) {
-          parentLane = lane; // first parent continues in the same column
-        } else {
-          parentLane = laneTips.findIndex((tip) => tip === null);
-          if (parentLane < 0) parentLane = laneTips.length - 1;
-        }
+      const existing = after.indexOf(parent);
+      if (existing >= 0 && !(index === 0 && existing > lane && after[lane] === null)) {
+        outgoing.push({ from: lane, to: existing, color: index === 0 ? color : afterColors[existing] });
+        return;
       }
-      laneTips[parentLane] = parent;
-      laneOfHash.set(parent, parentLane);
-      if (!outLanes.includes(parentLane)) outLanes.push(parentLane);
+      const target = index === 0 && after[lane] === null ? lane : freeSlot(after);
+      const targetColor = target === lane ? color : nextColor++;
+      if (target === after.length) {
+        after.push(parent);
+        afterColors.push(targetColor);
+      } else {
+        after[target] = parent;
+        afterColors[target] = targetColor;
+      }
+      outgoing.push({ from: lane, to: target, color: targetColor });
     });
 
-    rows.push({ ...commit, graph: { lane, inLane: outLanes.includes(lane) ? lane : outLanes[0] ?? null, outLanes } });
+    while (after.length > 0 && after[after.length - 1] === null) {
+      after.pop();
+      afterColors.pop();
+    }
+
+    const width = Math.max(before.length, after.length, lane + 1);
+    rows.push({ ...commit, graph: { lane, color, incoming, passing, outgoing, width } });
+    lanes = after;
+    colors = afterColors;
   }
   return rows;
 }
 
-export function useCommitGraphLayout(commits: WorkspaceGraphCommit[], maxLanes = 8): LaidOutCommit[] {
-  return useMemo(() => layoutCommitGraph(commits, maxLanes), [commits, maxLanes]);
-}
-
-const GLYPHS: Record<string, string> = {
-  "0": "│", "01": "│", "10": "│", "11": "│",
-  "02": "│", "20": "│", "22": "│", "12": "│", "21": "│",
-};
-
-/** Pure glyph row builder kept out of the component for unit testing. */
-export function graphRowGlyphs(row: LaidOutCommit, laneCount: number): string[] {
-  const cells: string[] = Array.from({ length: laneCount }, () => " ");
-  cells[row.graph.lane] = "●";
-  for (const out of row.graph.outLanes) {
-    if (out !== row.graph.lane) cells[out] = GLYPHS[`${row.graph.lane}${out}`] ?? "╷";
-  }
-  return cells;
+export function useCommitGraphLayout(commits: WorkspaceGraphCommit[]): LaidOutCommit[] {
+  return useMemo(() => layoutCommitGraph(commits), [commits]);
 }

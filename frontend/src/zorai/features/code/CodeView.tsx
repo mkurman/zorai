@@ -12,7 +12,7 @@ export { CodeAgentPane } from "./CodeAgentPane";
 import { useCodeWorkspaceBindingStore } from "./codeWorkspaceBindingStore";
 import { emitCodeRailAction, subscribeCodeRailActions, type CodeRailAction } from "./codeRailActions";
 import {
-  displayRootName,
+  displayRootName, filterRecentRoots,
   type ZoraiWorkspaceSelection,
   type ZoraiWorkspaceValidatedRoot,
 } from "./codeEmptyStateModel";
@@ -41,12 +41,20 @@ export type CodeViewProps = {
  */
 const NOOP_OPEN_WORKSPACE: CodeOpenWorkspaceBoundary = () => {};
 
+const RECENT_MENU_VISIBLE = 5;
+
 export function CodeRail() {
   const lastRoot = useCodeWorkspaceBindingStore((state) => state.lastRoot);
   const recentRoots = useCodeWorkspaceBindingStore((state) => state.recentRoots);
   const closeRoot = useCodeWorkspaceBindingStore((state) => state.closeRoot);
   const [recentOpen, setRecentOpen] = useState(false);
+  const [recentQuery, setRecentQuery] = useState("");
+  const [showAllRecent, setShowAllRecent] = useState(false);
   const recentRef = useRef<HTMLDivElement | null>(null);
+
+  const filteredRecentRoots = filterRecentRoots(recentRoots, recentQuery);
+  const visibleRecentRoots = showAllRecent || recentQuery.trim() ? filteredRecentRoots : filteredRecentRoots.slice(0, RECENT_MENU_VISIBLE);
+  const hiddenRecentCount = filteredRecentRoots.length - visibleRecentRoots.length;
 
   useEffect(() => {
     if (!recentOpen) return;
@@ -95,18 +103,30 @@ export function CodeRail() {
               aria-label="Open recent folder"
               aria-expanded={recentOpen}
               aria-haspopup="menu"
-              onClick={() => setRecentOpen((value) => !value)}
+              onClick={() => {
+                setRecentQuery("");
+                setShowAllRecent(false);
+                setRecentOpen((value) => !value);
+              }}
             >
               <HistoryIcon />
             </button>
             {recentOpen ? (
               <div className="zorai-code-recent-menu" role="menu" aria-label="Recent folders">
-                {recentRoots.length === 0 ? (
+                <input
+                  className="zorai-code-recent-search"
+                  value={recentQuery}
+                  onChange={(event) => setRecentQuery(event.target.value)}
+                  placeholder="Search recent folders"
+                  aria-label="Search recent folders"
+                  autoFocus
+                />
+                {filteredRecentRoots.length === 0 ? (
                   <div className="zorai-code-recent-empty" role="menuitem" aria-disabled="true">
-                    No recent folders
+                    {recentRoots.length === 0 ? "No recent folders" : "No folders match"}
                   </div>
                 ) : (
-                  recentRoots.map((root) => {
+                  visibleRecentRoots.map((root) => {
                     const isCurrent = root === lastRoot;
                     return (
                       <div
@@ -143,6 +163,11 @@ export function CodeRail() {
                     );
                   })
                 )}
+                {hiddenRecentCount > 0 ? (
+                  <button type="button" className="zorai-code-recent-more" onClick={() => setShowAllRecent(true)}>
+                    Show {hiddenRecentCount} more
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </div>
