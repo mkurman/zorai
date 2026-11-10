@@ -1443,6 +1443,14 @@
   max-width: 100%;
 }
 
+.zorai-native-thread-surface:not(.zorai-thread-surface--compact) .zorai-thread-chat-scroll > *,
+.zorai-native-thread-surface:not(.zorai-thread-surface--compact) .zorai-thread-composer > * {
+  width: 100%;
+  max-width: var(--zorai-chat-max-width, 100%);
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+
 .zorai-thread-scroll-bottom {
   position: absolute;
   left: 50%;
@@ -4081,7 +4089,7 @@
   align-items: center;
   justify-content: center;
   gap: 24px;
-  max-width: 620px;
+  max-width: var(--zorai-chat-max-width, 620px);
   margin: 12vh auto 0;
   padding: 28px;
   text-align: center;

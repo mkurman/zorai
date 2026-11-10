@@ -6,14 +6,16 @@ import {
   getThemeByName,
   themesForAppearance,
 } from "@/lib/themes";
-import type { NightModePreference } from "@/lib/types";
+import type { ChatWidthPreference, NightModePreference } from "@/lib/types";
 import {
+  CHAT_WIDTH_OPTIONS,
   DEFAULT_UI_FONT,
   NIGHT_MODE_OPTIONS,
   UI_FONT_SCALE_MAX,
   UI_FONT_SCALE_MIN,
   UI_FONT_SCALE_STEP,
   UI_FONT_SCALE_TICKS,
+  normalizeChatWidth,
   normalizeNightMode,
   normalizeUiFontScale,
   resolveAppearance,
@@ -107,6 +109,17 @@ export function InterfacePanel() {
             value={normalizeUiFontScale(settings.uiFontScale)}
             onChange={(scale) => updateSetting("uiFontScale", scale)}
           />
+        </SettingRow>
+        <SettingRow label="Chat Width" description="Maximum width of the conversation, the composer and the empty Threads screen. Narrower columns are easier to read on wide windows.">
+          <select
+            className="zorai-input"
+            value={normalizeChatWidth(settings.chatWidth)}
+            onChange={(event) => updateSetting("chatWidth", event.target.value as ChatWidthPreference)}
+          >
+            {CHAT_WIDTH_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>{option.label}</option>
+            ))}
+          </select>
         </SettingRow>
         <SettingRow label="Night Mode" description="Default stays on. Auto follows the system appearance preference.">
           <select

@@ -42,6 +42,7 @@ import { ZoraiContextPanel } from "./ZoraiContextPanel";
 import { ZoraiBrandMark, ZoraiHamburgerIcon, ZoraiNavIcon } from "./ZoraiIcons";
 import { ZORAI_NAVIGATE_EVENT, type ZoraiNavigateDetail, type ZoraiReturnTarget } from "./zoraiNavigationEvents";
 import { useSettingsStore } from "@/lib/settingsStore";
+import { chatMaxWidth } from "@/lib/uiInterfacePrefs";
 import {
   normalizeNightMode,
   resolveAppearance,
@@ -66,6 +67,7 @@ export function ZoraiShell() {
   const [activeTool, setActiveTool] = useState<ZoraiToolId>(getDefaultZoraiTool);
   const [activeSettingsTab, setActiveSettingsTab] = useState<ZoraiSettingsTabId>(getDefaultZoraiSettingsTab);
   const nightMode = useSettingsStore((state) => state.settings.nightMode);
+  const chatWidth = useSettingsStore((state) => state.settings.chatWidth);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
   const [systemPrefersDarkScheme, setSystemPrefersDarkScheme] = useState(systemPrefersDark);
   const primaryNavItems = useMemo(
@@ -204,6 +206,7 @@ export function ZoraiShell() {
   } as CSSProperties : {
     "--zorai-rail-width": `${railWidth}px`,
     "--zorai-context-width": `${contextWidth}px`,
+    "--zorai-chat-max-width": chatMaxWidth(chatWidth),
   } as CSSProperties;
 
   const selectView = (view: ZoraiViewId) => {
