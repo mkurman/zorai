@@ -13,13 +13,24 @@ const IMAGE_FILE_MIME_TYPES = {
     '.bmp': 'image/bmp',
     '.svg': 'image/svg+xml',
 };
+const AUDIO_FILE_MIME_TYPES = {
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav',
+    '.ogg': 'audio/ogg',
+    '.oga': 'audio/ogg',
+    '.opus': 'audio/ogg',
+    '.m4a': 'audio/mp4',
+    '.aac': 'audio/aac',
+    '.flac': 'audio/flac',
+    '.weba': 'audio/webm',
+};
 
-async function readImageFileAsDataUrl(filePath) {
+async function readImageFileAsDataUrl(filePath, mimeTypes = IMAGE_FILE_MIME_TYPES) {
     if (typeof filePath !== 'string' || !filePath.trim()) return null;
     const expanded = filePath.startsWith('~/') ? path.join(os.homedir(), filePath.slice(2)) : filePath;
     const resolved = await fs.promises.realpath(expanded).catch(() => null);
     if (!resolved) return null;
-    const mimeType = IMAGE_FILE_MIME_TYPES[path.extname(resolved).toLowerCase()];
+    const mimeType = mimeTypes[path.extname(resolved).toLowerCase()];
     if (!mimeType) return null;
     const stat = await fs.promises.stat(resolved);
     if (!stat.isFile() || stat.size > IMAGE_FILE_MAX_BYTES) return null;
@@ -296,6 +307,7 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
     });
     ipcMain.handle('agent-delete-thread', async (_event, threadId) => { try { sendAgentCommand({ type: 'delete-thread', thread_id: threadId }); return true; } catch { return false; } });
     ipcMain.handle('agent-read-image-file', async (_event, filePath) => { try { return await readImageFileAsDataUrl(filePath); } catch { return null; } });
+    ipcMain.handle('agent-read-audio-file', async (_event, filePath) => { try { return await readImageFileAsDataUrl(filePath, AUDIO_FILE_MIME_TYPES); } catch { return null; } });
     ipcMain.handle('agent-rename-thread', async (_event, threadId, title) => { try { sendAgentCommand({ type: 'rename-thread', thread_id: threadId, title }); return true; } catch { return false; } });
     ipcMain.handle('agent-add-task', async (_event, payload) => {
         try {
@@ -817,4 +829,4 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
     });
 }
 
-module.exports = { registerAgentIpcHandlers };
+module.exports = { registerAgentIpcHandlers, readImageFileAsDataUrl, AUDIO_FILE_MIME_TYPES };

@@ -353,6 +353,7 @@ const bridgeApi = {
     agentDeleteThread: (threadId) => ipcRenderer.invoke('agent-delete-thread', threadId),
     agentRenameThread: (threadId, title) => ipcRenderer.invoke('agent-rename-thread', threadId, title),
     agentReadImageFile: (filePath) => ipcRenderer.invoke('agent-read-image-file', filePath),
+    agentReadAudioFile: (filePath) => ipcRenderer.invoke('agent-read-audio-file', filePath),
     agentAddTask: (payload) => ipcRenderer.invoke('agent-add-task', payload),
     agentCancelTask: (taskId) => ipcRenderer.invoke('agent-cancel-task', taskId),
     agentListTasks: () => ipcRenderer.invoke('agent-list-tasks'),
