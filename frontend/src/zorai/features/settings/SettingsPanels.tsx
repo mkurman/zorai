@@ -86,7 +86,7 @@ export const conciergeReasoningEffortOptions: Array<{ value: AgentSettings["reas
   { value: "xhigh", label: "xhigh" },
   { value: "max", label: "max" },
 ];
-const APP_VERSION = "1.0.38";
+const APP_VERSION = "1.0.39";
 const APP_AUTHOR = "Mariusz Kurman";
 const APP_GITHUB = "mkurman/zorai";
 const APP_HOMEPAGE = "zorai.app";
