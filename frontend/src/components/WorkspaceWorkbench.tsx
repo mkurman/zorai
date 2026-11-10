@@ -7,15 +7,18 @@ import { useWorkspaceStore } from "@/lib/workspaceStore";
 import { toDaemonWorkspaceContext, useWorkspaceContextStore } from "@/lib/workspaceContextStore";
 import { extractWorkspaceSymbols } from "@/lib/workspaceSymbols";
 import type { editor as MonacoEditorApi } from "monaco-editor";
-import { CodeTabs } from "@/zorai/features/code/CodeTabs";
+import { SessionTabStrip } from "@/zorai/features/threads/SessionTabStrip";
 import { RefreshIcon } from "@/zorai/shell/RefreshButton";
+import { SkillIcon } from "@/zorai/features/skills/SkillIcons";
 import { shouldRestoreWorkspaceDocument } from "@/zorai/features/code/workspaceDocumentRestore";
 import { isCodeProjectThread, useCodeWorkspaceBindingStore } from "@/zorai/features/code/codeWorkspaceBindingStore";
 import { useWorkspaceEditorRequestStore } from "@/lib/workspaceEditorRequestStore";
 import { openExternalFileInWorkspace } from "@/zorai/features/code/workspaceExternalFile";
 import { CodeQuickOpen } from "@/zorai/features/code/CodeQuickOpen";
 import { CodeCommandPalette } from "@/zorai/features/code/CodeCommandPalette";
-import { CODE_COMMANDS, matchesCodeBinding, shouldPassthroughCodeCommand, type CodeCommandId } from "@/zorai/features/code/codeCommands";
+import { RUNNABLE_CODE_COMMANDS, matchesCodeBinding, shouldLeaveKeyToTerminal, shouldPassthroughCodeCommand, type CodeCommandId } from "@/zorai/features/code/codeCommands";
+import { CodeBottomPanel } from "@/zorai/features/code/CodeBottomPanel";
+import { useCodeBottomPanelStore } from "@/zorai/features/code/codeBottomPanelStore";
 import { CodeIconButton } from "@/zorai/features/code/CodeIconButton";
 import { createCodeDocumentController } from "@/zorai/features/code/codeDocumentModel";
 import { createCodeFileOpenTrace } from "@/zorai/features/code/codeEditorPerformance";
@@ -28,7 +31,7 @@ import {
   getWorkspaceFiles,
   invalidateWorkspaceFileIndex,
 } from "@/zorai/features/code/workspaceFileIndex";
-import { useCodeEditorSettingsStore } from "@/zorai/features/code/codeEditorSettingsStore";
+import { codeSettingsCommandPatch, codeSettingsToggleState, useCodeEditorSettingsStore } from "@/zorai/features/code/codeEditorSettingsStore";
 import { createFileTab } from "@/zorai/features/code/codeEditorTabs";
 import { CodeLargeFileGate, exceedsCodeFileLimit } from "@/zorai/features/code/CodeLargeFileGate";
 import { WorkspaceExplorerTree } from "@/zorai/features/code/WorkspaceExplorerTree";
@@ -40,13 +43,16 @@ import { AgentReviewPanel } from "@/zorai/features/code/AgentReviewPanel";
 import { buildReviewPrompt, extractSpawnedSubagentId, resolveCodeReviewer, resolveReviewReport, useCodeReviewStore, waitForSubagentRun } from "@/zorai/features/code/codeReview";
 import { fetchAgentRuns } from "@/lib/agentRuns";
 import { confirmWorkspaceDiscard, runWorkspaceGitMutation } from "@/zorai/features/code/workspaceGitActions";
-import { loadWorkspaceRootState, loadWorkspaceGitState, runWorkspacePathMutation } from "@/zorai/features/code/workspaceRefresh";
+import { cachedWorkspaceRootState, loadWorkspaceRootState, loadWorkspaceGitState, rememberWorkspaceRootState, runWorkspacePathMutation } from "@/zorai/features/code/workspaceRefresh";
 import { useComposerDraftStore } from "@/zorai/features/threads/composerDraftStore";
 import { isRelativeWorkspacePath, workContextRelativePath } from "@/zorai/features/threads/compactSessionModel";
 import { AgentOperationDiffView, type AgentOperationDiffTarget } from "@/zorai/features/code/AgentOperationDiffView";
 import { CodeDocumentPreview, codePreviewKind } from "@/zorai/features/code/CodeDocumentPreview";
 import { CodeRailTabs, useCodeRailTab } from "@/zorai/features/code/CodeRailTabs";
 import { CodeToolbarMenu } from "@/zorai/features/code/CodeToolbarMenu";
+import { GitActionDialog, GitOutputDialog, type GitDialogSpec, type GitDialogValues } from "@/zorai/features/code/GitActionDialog";
+import { buildGitMenuItems, type GitListKind } from "@/zorai/features/code/gitMenu";
+import { emitCodeRailAction } from "@/zorai/features/code/codeRailActions";
 import { AgentOperationList } from "@/zorai/features/code/AgentOperationList";
 import { ViewModeToggle } from "@/components/data-viewers/ViewModeToggle";
 
@@ -82,20 +88,27 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const setIsolateAgentTasks = useWorkspaceContextStore((state) => state.setIsolateAgentTasks);
   const setIsolatedWorktreeState = useWorkspaceContextStore((state) => state.setIsolatedWorktreeState);
   const [rootInput, setRootInput] = useState(context?.root ?? activeWorkspace?.cwd ?? "");
-  const [rootEntries, setRootEntries] = useState<ZoraiWorkspaceEntry[]>([]);
-  const [rootLoading, setRootLoading] = useState(true);
+  const [initialRootState] = useState(() => cachedWorkspaceRootState(context?.root));
+  const [rootEntries, setRootEntries] = useState<ZoraiWorkspaceEntry[]>(initialRootState?.entries ?? []);
+  const [rootLoading, setRootLoading] = useState(!initialRootState);
   const [explorerRefreshToken, setExplorerRefreshToken] = useState(0);
-  const [gitStatus, setGitStatus] = useState<ZoraiWorkspaceGitStatus[]>([]);
-  const [gitOverview, setGitOverview] = useState<ZoraiWorkspaceGitOverview | null>(null);
-  const [gitHistory, setGitHistory] = useState<Array<{ hash: string; shortHash: string; author: string; date: string; subject: string }>>([]);
+  const [gitStatus, setGitStatus] = useState<ZoraiWorkspaceGitStatus[]>(initialRootState?.statuses ?? []);
+  const [gitOverview, setGitOverview] = useState<ZoraiWorkspaceGitOverview | null>(initialRootState?.overview ?? null);
+  const [gitHistory, setGitHistory] = useState<Array<{ hash: string; shortHash: string; author: string; date: string; subject: string }>>(initialRootState?.history ?? []);
   const [commitDetail, setCommitDetail] = useState<{ hash: string; author: string; date: string; subject: string; body: string; files: Array<{ status: string; path: string }> } | null>(null);
-  const [gitConflicts, setGitConflicts] = useState<Array<{ path: string }>>([]);
-  const [gitWorktrees, setGitWorktrees] = useState<ZoraiGitWorktree[]>([]);
+  const [gitConflicts, setGitConflicts] = useState<Array<{ path: string }>>(initialRootState?.conflicts ?? []);
+  const [gitWorktrees, setGitWorktrees] = useState<ZoraiGitWorktree[]>(initialRootState?.worktrees ?? []);
   const [worktreeReviews, setWorktreeReviews] = useState<Record<string, ZoraiWorktreeReview>>({});
   const [worktreeName, setWorktreeName] = useState("");
   const [worktreeBranch, setWorktreeBranch] = useState("");
   const [worktreeBaseRef, setWorktreeBaseRef] = useState("HEAD");
   const [commitMessage, setCommitMessage] = useState("");
+  const [generatingCommitMessage, setGeneratingCommitMessage] = useState(false);
+  const [gitRemoteBusy, setGitRemoteBusy] = useState<ZoraiGitAction | null>(null);
+  const [gitDialog, setGitDialog] = useState<GitDialogSpec | null>(null);
+  const [gitDialogBusy, setGitDialogBusy] = useState(false);
+  const [gitDialogError, setGitDialogError] = useState<string | null>(null);
+  const [gitOutputEntries, setGitOutputEntries] = useState<Awaited<ReturnType<NonNullable<ZoraiBridge["workspaceGitOutput"]>>> | null>(null);
   const [committing, setCommitting] = useState(false);
   const [reviewedChange, setReviewedChange] = useState<{ path: string; staged: boolean; hunks: ZoraiWorkspaceGitHunk[] } | null>(null);
   const [documents, setDocuments] = useState<Record<string, OpenDocument>>({});
@@ -134,6 +147,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const monacoEditorRef = useRef<MonacoEditorApi.IStandaloneCodeEditor | null>(null);
   const pendingNavigationRef = useRef<{ path: string; line: number; column: number } | null>(null);
   const saveCommandRef = useRef<() => Promise<boolean>>(async () => false);
+  const fileCommandsRef = useRef<Partial<Record<CodeCommandId, () => void>>>({});
   const reloadCommandRef = useRef<() => Promise<void>>(async () => {});
   const saveDocumentRef = useRef<(path: string) => Promise<boolean>>(async () => false);
   const autoSaveControllerRef = useRef(createCodeAutoSaveController((path) => saveDocumentRef.current(path)));
@@ -156,7 +170,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const statusMap = useMemo(() => new Map(gitStatus.map((entry) => [entry.path, statusLabel(entry)])), [gitStatus]);
 
   const refreshGenRef = useRef(0);
-  const loadedRootRef = useRef<string | null>(null);
+  const loadedRootRef = useRef<string | null>(initialRootState ? context?.root ?? null : null);
   const activeThreadIdRef = useRef(activeThreadId);
   const contextRootRef = useRef(context?.root);
   activeThreadIdRef.current = activeThreadId;
@@ -164,7 +178,20 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const refreshRoot = useCallback(async (root = contextRootRef.current) => {
     if (!root || !bridge?.workspaceListDirectory) return;
     const generation = ++refreshGenRef.current;
-    if (loadedRootRef.current !== root) setRootLoading(true);
+    if (loadedRootRef.current !== root) {
+      const cached = cachedWorkspaceRootState(root);
+      if (cached) {
+        loadedRootRef.current = root;
+        setRootEntries(cached.entries);
+        setGitStatus(cached.statuses);
+        setGitOverview(cached.overview);
+        setGitWorktrees(cached.worktrees);
+        setGitHistory(cached.history);
+        setGitConflicts(cached.conflicts);
+      } else {
+        setRootLoading(true);
+      }
+    }
     try {
       const state = await loadWorkspaceRootState({ ...bridge, workspaceListDirectory: bridge.workspaceListDirectory }, root);
       const currentRoot = activeThreadIdRef.current
@@ -172,6 +199,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         : undefined;
       if (generation !== refreshGenRef.current || (currentRoot && currentRoot !== root)) return;
       loadedRootRef.current = root;
+      rememberWorkspaceRootState(root, state);
       setRootEntries(state.entries);
       setGitStatus(state.statuses);
       setGitOverview(state.overview);
@@ -195,6 +223,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         ? useWorkspaceContextStore.getState().byThreadId[activeThreadIdRef.current]?.root
         : undefined;
       if (currentRoot && currentRoot !== root) return;
+      rememberWorkspaceRootState(root, { statuses: gitState.statuses, overview: gitState.overview });
       setGitStatus(gitState.statuses);
       setGitOverview(gitState.overview);
     } catch {
@@ -271,7 +300,8 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     const loadChanges = () => {
       void bridge.agentGetWorkContext!(activeDaemonThreadId).then((response: any) => {
         const workContext = response?.context ?? response;
-        setAgentChanges(Array.isArray(workContext?.entries) ? workContext.entries : []);
+        const entries: ZoraiWorkContextEntry[] = Array.isArray(workContext?.entries) ? workContext.entries : [];
+        setAgentChanges((current) => sameWorkContextEntries(current, entries) ? current : entries);
       }).catch(() => {});
     };
     loadChanges();
@@ -872,6 +902,85 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     finally { setCommitting(false); }
   };
 
+  const applyGitResult = (result: { overview: ZoraiWorkspaceGitOverview; status: ZoraiWorkspaceGitStatus[] }) => {
+    setGitStatus(result.status);
+    setGitOverview(result.overview);
+    setError(null);
+    void refreshRoot();
+  };
+
+  const runGitCommand = async (action: ZoraiGitAction, params?: Record<string, string | boolean>) => {
+    if (!context?.root || !bridge?.workspaceGitAction || gitRemoteBusy) return;
+    setGitRemoteBusy(action);
+    try {
+      applyGitResult(await bridge.workspaceGitAction(context.root, action, params));
+    } catch (reason: any) { setError(`Git failed: ${reason?.message ?? String(reason)}`); }
+    finally { setGitRemoteBusy(null); }
+  };
+
+  const openGitDialog = (spec: GitDialogSpec) => {
+    setGitDialogError(null);
+    setGitDialogBusy(false);
+    setGitDialog(spec);
+  };
+
+  const runGitDialogStep = async (step: () => Promise<void>) => {
+    setGitDialogBusy(true);
+    setGitDialogError(null);
+    try {
+      await step();
+      setGitDialog(null);
+    } catch (reason: any) { setGitDialogError(reason?.message ?? String(reason)); }
+    finally { setGitDialogBusy(false); }
+  };
+
+  const gitMenuItems = context?.root && bridge?.workspaceGitAction ? buildGitMenuItems({
+    busy: Boolean(gitRemoteBusy),
+    currentBranch: gitOverview?.branch ?? null,
+    run: (action, params) => void runGitCommand(action, params),
+    submit: (action, params) => runGitDialogStep(async () => {
+      applyGitResult(await bridge.workspaceGitAction!(context.root, action, params));
+    }),
+    openDialog: openGitDialog,
+    list: (kind: GitListKind) => (bridge.workspaceGitList?.(context.root, kind) ?? Promise.resolve([])).catch((reason: any) => {
+      setError(`Could not list ${kind}: ${reason?.message ?? String(reason)}`);
+      return [];
+    }),
+    clone: (values: GitDialogValues) => runGitDialogStep(async () => {
+      const selection = await bridge.workspaceSelectFolder?.();
+      if (!selection || selection.canceled || !selection.root) throw new Error("Choose a folder to clone into.");
+      const cloned = await bridge.workspaceGitClone!(String(values.url ?? "").trim(), selection.root.root, String(values.folder ?? "").trim() || undefined);
+      emitCodeRailAction({ kind: "open-recent", root: cloned.path });
+    }),
+    createWorktree: (values: GitDialogValues) => runGitDialogStep(async () => {
+      const result = await bridge.workspaceGitCreateWorktree!(context.root, {
+        name: String(values.name ?? "").trim(),
+        branch: String(values.branch ?? "").trim(),
+        baseRef: String(values.baseRef ?? "").trim() || undefined,
+      });
+      setGitWorktrees(result.worktrees);
+      void refreshRoot();
+    }),
+    showOutput: () => void bridge.workspaceGitOutput?.().then(setGitOutputEntries),
+  }) : null;
+
+  const generateCommitMessage = async () => {
+    if (!context?.root || !bridge?.agentGenerateCommitMessage || !bridge.workspaceGitDiff) return;
+    setGeneratingCommitMessage(true);
+    try {
+      const staged = await bridge.workspaceGitDiff(context.root, null, { staged: true });
+      const diff = staged.trim() ? staged : await bridge.workspaceGitDiff(context.root, null, { includeUntracked: true });
+      const result = await bridge.agentGenerateCommitMessage(diff, gitHistory.slice(0, 10).map((entry) => entry.subject));
+      if (result.error || !result.message.trim()) {
+        setError(`Rarog could not write a commit message: ${result.error || "empty reply"}`);
+        return;
+      }
+      setCommitMessage(result.message.trim());
+      setError(null);
+    } catch (reason: any) { setError(reason?.message ?? String(reason)); }
+    finally { setGeneratingCommitMessage(false); }
+  };
+
   const reviewHunks = async (filePath: string, staged: boolean) => {
     if (!context?.root || !bridge?.workspaceGitHunks) return;
     try {
@@ -1103,6 +1212,8 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
 
   const runCodeCommand = useCallback((id: CodeCommandId) => {
     if (id === "view.settings") { openSettingsTab(); return; }
+    if (id === "view.togglePanel") { useCodeBottomPanelStore.getState().toggle(); return; }
+    if (id === "view.toggleTerminal") { useCodeBottomPanelStore.getState().toggle("terminal"); return; }
     if (id === "file.quickOpen") { setCodeOverlay("quickOpen"); return; }
     if (id === "view.commandPalette") { setCodeOverlay("commands"); return; }
     if (id === "file.save") { void saveCommandRef.current(); return; }
@@ -1120,18 +1231,31 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       else void getBridge()?.revealFsPath?.(targetPath);
       return;
     }
-    const action = monacoEditorRef.current?.getAction(id);
-    if (action) void action.run();
+    const settingsPatch = codeSettingsCommandPatch(id, useCodeEditorSettingsStore.getState().settings);
+    if (settingsPatch) {
+      const { updateSetting } = useCodeEditorSettingsStore.getState();
+      for (const [key, value] of Object.entries(settingsPatch)) updateSetting(key as keyof typeof settingsPatch, value as never);
+      return;
+    }
+    const fileCommand = fileCommandsRef.current[id];
+    if (fileCommand) { fileCommand(); return; }
+    const editor = monacoEditorRef.current;
+    const action = editor?.getAction(id);
+    if (editor && action) {
+      editor.focus();
+      void action.run();
+    }
   }, [openSettingsTab]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const command = CODE_COMMANDS.find((item) => {
+      const command = RUNNABLE_CODE_COMMANDS.find((item) => {
         const binding = editorSettings.keybindings[item.id] === undefined ? item.defaultKeybinding : editorSettings.keybindings[item.id];
         return binding && matchesCodeBinding(binding, event);
       });
       if (!command) return;
       if (shouldPassthroughCodeCommand(command.id, event.target)) return;
+      if (shouldLeaveKeyToTerminal(command.id, event.target)) return;
       event.preventDefault();
       event.stopPropagation();
       runCodeCommand(command.id);
@@ -1148,7 +1272,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     const cached = getCachedWorkspaceFiles(root);
     if (cached) { setIndexedFiles(cached); return; }
     const controller = new AbortController();
-    void getWorkspaceFiles(bridge, root, { signal: controller.signal }).then((files) => {
+    void getWorkspaceFiles(bridge, root).then((files) => {
       if (!controller.signal.aborted) setIndexedFiles(files);
     }).catch(() => {});
     return () => controller.abort();
@@ -1187,6 +1311,32 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     setPendingDirtyClosePath(null);
     setDirtyCloseError(null);
   }, [activeThreadId, closeFile]);
+
+  fileCommandsRef.current = {
+    "file.close": () => { if (activeDocument) requestCloseFile(activeDocument.path); },
+    "file.closeOthers": () => {
+      if (!activeThreadId || !activeDocument || !context) return;
+      for (const path of context.openFiles) {
+        if (path !== activeDocument.path && !documents[path]?.dirty && !context.pinnedFiles.includes(path)) closeFile(activeThreadId, path);
+      }
+    },
+    "file.saveAll": () => {
+      for (const [path, document] of Object.entries(documents)) {
+        if (document.dirty && document.externalContent === undefined) void saveDocumentRef.current(path);
+      }
+    },
+    "file.next": () => openNeighborFile(1),
+    "file.previous": () => openNeighborFile(-1),
+    "file.pin": () => { if (activeThreadId && activeDocument) togglePinnedFile(activeThreadId, activeDocument.path); },
+  };
+  function openNeighborFile(step: 1 | -1) {
+    const files = context?.openFiles ?? [];
+    const index = activeDocument ? files.indexOf(activeDocument.path) : -1;
+    if (files.length < 2 || index < 0) return;
+    const target = files[(index + step + files.length) % files.length];
+    setActiveEditorTabId(`file:${target}`);
+    void openFile(target);
+  }
 
   useEffect(() => {
     const controller = autoSaveControllerRef.current;
@@ -1251,6 +1401,10 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     setExplorerPortalHost(document.getElementById("zorai-code-explorer-host"));
   }, []);
 
+  const panelOpen = useCodeBottomPanelStore((state) => state.open);
+  const panelTab = useCodeBottomPanelStore((state) => state.tab);
+  const togglePanel = useCodeBottomPanelStore((state) => state.toggle);
+
   if (!activeThreadId) return <div className="zorai-tool-empty"><strong>Select a thread</strong><span>Workspace roots and editor context are bound to an agent thread.</span></div>;
   if (rootLoading) return <WorkspaceLoadingSkeleton root={openedRoot ?? context?.root ?? rootInput} />;
 
@@ -1303,12 +1457,12 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                   <summary className="zorai-code-files-heading">
                     <span>Files</span>
                     <span className="zorai-code-explorer-actions">
-                      <button type="button" title="New file" aria-label="New file" onClick={(event) => { event.preventDefault(); setPathDialogError(null); setPathDialog({ operation: "file", initialPath: newPath }); }}>＋</button>
-                      <button type="button" title="New folder" aria-label="New folder" onClick={(event) => { event.preventDefault(); setPathDialogError(null); setPathDialog({ operation: "directory", initialPath: newPath }); }}>◇</button>
+                      <button type="button" title="New file" aria-label="New file" onClick={(event) => { event.preventDefault(); setPathDialogError(null); setPathDialog({ operation: "file", initialPath: newPath }); }}><SkillIcon name="newSkill" /></button>
+                      <button type="button" title="New folder" aria-label="New folder" onClick={(event) => { event.preventDefault(); setPathDialogError(null); setPathDialog({ operation: "directory", initialPath: newPath }); }}><SkillIcon name="newFolder" /></button>
                       <button type="button" title="Refresh Explorer" aria-label="Refresh Explorer" onClick={(event) => { event.preventDefault(); void refreshRoot(); }}><RefreshIcon /></button>
                     </span>
                   </summary>
-                  <WorkspaceExplorerTree root={context.root} entries={rootEntries} status={statusMap} onOpen={(path) => void openFile(path)} refreshToken={explorerRefreshToken} />
+                  <WorkspaceExplorerTree root={context.root} entries={rootEntries} status={statusMap} onOpen={(path) => void openFile(path)} refreshToken={explorerRefreshToken} allFiles={indexedFiles} />
                 </details>
                 <details className="zorai-code-workspace-actions">
                   <summary>Workspace Actions</summary>
@@ -1340,12 +1494,16 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             ) : null}
             {railTab === "scm" ? (
               <>
+                {!gitOverview?.isRepository ? (
+                  <div className="zorai-workspace-empty">{rootLoading || !gitOverview ? "Loading source control…" : "This folder is not a Git repository, so there are no changes, branches or history to show."}</div>
+                ) : null}
                 {gitOverview?.isRepository ? (
                   <details className="zorai-code-source-control" open>
                     <summary className="zorai-code-source-heading">
                       <span>Source Control ({gitOverview.stagedFiles + gitOverview.unstagedFiles})</span>
-                      <span className="zorai-code-source-heading-actions">
-                        <button type="button" title="Refresh Source Control" aria-label="Refresh Source Control" onClick={(event) => { event.preventDefault(); void refreshGitOnly(); }}><RefreshIcon /></button>
+                      <span className="zorai-code-source-heading-actions" onClick={(event) => event.preventDefault()}>
+                        <button type="button" title="Refresh Source Control" aria-label="Refresh Source Control" onClick={() => void refreshGitOnly()}><RefreshIcon /></button>
+                        {gitMenuItems ? <CodeToolbarMenu label="More source control actions" items={gitMenuItems} /> : null}
                       </span>
                     </summary>
                     <div className="zorai-workspace-git-overview">
@@ -1356,8 +1514,33 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                         <span className="zorai-scm-sync" title={`${gitOverview.ahead} commit(s) to push, ${gitOverview.behind} to pull`}>↑{gitOverview.ahead} ↓{gitOverview.behind}</span>
                       </div>
                       <span>{gitOverview.upstream ?? "no upstream"} · {gitOverview.stagedFiles} staged · {gitOverview.unstagedFiles} unstaged</span>
-                      <textarea value={commitMessage} onChange={(event) => setCommitMessage(event.target.value)} placeholder="Commit message" rows={2} maxLength={4096} />
+                      <div className="zorai-scm-message">
+                        <textarea value={commitMessage} onChange={(event) => setCommitMessage(event.target.value)} placeholder="Commit message" rows={2} maxLength={4096} disabled={generatingCommitMessage} />
+                        {bridge?.agentGenerateCommitMessage ? (
+                          <button
+                            type="button"
+                            className="zorai-scm-generate"
+                            title={gitOverview.stagedFiles > 0 ? "Generate a commit message from staged changes with Rarog" : "Generate a commit message from all changes with Rarog"}
+                            aria-label="Generate commit message with Rarog"
+                            aria-busy={generatingCommitMessage || undefined}
+                            disabled={generatingCommitMessage || gitOverview.stagedFiles + gitOverview.unstagedFiles === 0}
+                            onClick={() => void generateCommitMessage()}
+                          >
+                            {generatingCommitMessage ? (
+                              <svg className="zorai-scm-generate__spinner" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8" /><path d="M12 4a8 8 0 0 1 8 8" /></svg>
+                            ) : (
+                              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8zM5 2l.6 1.4L7 4l-1.4.6L5 6l-.6-1.4L3 4l1.4-.6z" /></svg>
+                            )}
+                          </button>
+                        ) : null}
+                      </div>
                       <button type="button" className="zorai-scm-commit" disabled={committing || !commitMessage.trim() || gitOverview.stagedFiles === 0} onClick={() => void commitStagedChanges()}>{committing ? "Committing…" : "Commit staged"}</button>
+                      {bridge?.workspaceGitAction && (gitOverview.ahead > 0 || gitOverview.behind > 0 || gitRemoteBusy) ? (
+                        <button type="button" className="zorai-scm-sync-button" disabled={Boolean(gitRemoteBusy)} title={`Pull ${gitOverview.behind} and push ${gitOverview.ahead} commit(s)`} onClick={() => void runGitCommand("sync")}>
+                          <RefreshIcon />
+                          {gitRemoteBusy ? "Working…" : `Sync Changes${gitOverview.behind > 0 ? ` ${gitOverview.behind}↓` : ""}${gitOverview.ahead > 0 ? ` ${gitOverview.ahead}↑` : ""}`}
+                        </button>
+                      ) : null}
                     </div>
                     {bridge?.agentSpawnSubagent ? (
                       <AgentReviewPanel
@@ -1454,9 +1637,12 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             ) : null}
             {railTab === "testing" ? (
               <>
+                {workspaceTests.length === 0 && testProblems.length === 0 ? (
+                  <div className="zorai-workspace-empty">No tests found in this workspace. Supported test files show up here so you can run them one by one or all at once.</div>
+                ) : null}
                 {workspaceTests.length > 0 ? (
-                  <details className="zorai-workspace-tests">
-                    <summary>Tests ({workspaceTests.length})</summary>
+                  <section className="zorai-workspace-tests" aria-label="Tests">
+                    <div className="zorai-workspace-tests__heading">Tests ({workspaceTests.length})</div>
                     <div className="zorai-workspace-test-actions">
                       <button type="button" disabled={testRun?.status === "running"} onClick={() => void runWorkspaceTest()}>Run all</button>
                       {testRun?.status === "running" ? <button type="button" onClick={() => bridge?.workspaceTestsCancel?.(testRun.runId)}>Stop</button> : null}
@@ -1475,7 +1661,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                       </div>
                     ))}
                     {testRun?.output ? <pre>{testRun.output}</pre> : null}
-                  </details>
+                  </section>
                 ) : null}
                 {testProblems.length > 0 ? (
                   <details className="zorai-workspace-problems">
@@ -1491,6 +1677,9 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             ) : null}
             {railTab === "agent" ? (
               <>
+                {operationGroups.length === 0 && agentChanges.length === 0 ? (
+                  <div className="zorai-workspace-empty">No agent changes yet. Files the agent creates or edits in this workspace show up here, with diffs you can review or revert.</div>
+                ) : null}
                 {operationGroups.length > 0 ? (
                   <details className="zorai-workspace-operation-changes" open>
                     <summary>Agent operations ({operationGroups.length})</summary>
@@ -1522,6 +1711,20 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       </aside>
   );
 
+  const bottomPanel = panelOpen ? (
+    <CodeBottomPanel
+      terminalSessionKey={context?.root ? `code:${context.root}` : null}
+      cwd={context?.root ?? undefined}
+    />
+  ) : null;
+  const statusToggles = (
+    <span className="zorai-code-statusbar-toggles">
+      <button type="button" className={panelOpen && panelTab === "terminal" ? "is-active" : undefined} title="Toggle Terminal (Ctrl+`)" onClick={() => togglePanel("terminal")}>
+        <span aria-hidden="true">›_</span> Terminal
+      </button>
+    </span>
+  );
+
   const editor = (
       <section className="zorai-workspace-editor-area">
         {operationDiff ? (
@@ -1534,18 +1737,21 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             onClose={() => setOperationDiff(null)}
           />
         ) : null}
-        <CodeTabs
+        <div className="zorai-code-tabs-shell">
+        <SessionTabStrip
+          label="Open editors"
           tabs={[
             ...(context?.openFiles ?? []).map((filePath) => ({
-              path: createFileTab(filePath, Boolean(context?.pinnedFiles.includes(filePath)), Boolean(documents[filePath]?.dirty)).id,
-              label: filePath.split(/[\\/]/).slice(-1)[0],
-              dirty: Boolean(documents[filePath]?.dirty),
+              id: createFileTab(filePath, Boolean(context?.pinnedFiles.includes(filePath)), Boolean(documents[filePath]?.dirty)).id,
+              title: `${filePath.split(/[\\/]/).slice(-1)[0]}${documents[filePath]?.dirty ? " ●" : ""}`,
               pinned: Boolean(context?.pinnedFiles.includes(filePath)),
               active: activeEditorTabId ? activeEditorTabId === `file:${filePath}` : filePath === context?.activeFile && !settingsTabOpen,
+              working: false,
+              unread: false,
             })),
-            ...(settingsTabOpen ? [{ path: "code-settings", label: "Code Settings", dirty: false, pinned: settingsTabPinned, active: activeEditorTabId === "code-settings" }] : []),
+            ...(settingsTabOpen ? [{ id: "code-settings", title: "Code Settings", pinned: settingsTabPinned, active: activeEditorTabId === "code-settings", working: false, unread: false }] : []),
           ]}
-          onActivate={(tabId) => {
+          onSelect={(tabId) => {
             if (tabId === "code-settings") { setActiveEditorTabId(tabId); return; }
             const filePath = tabId.replace(/^file:/, "");
             setActiveEditorTabId(tabId);
@@ -1559,8 +1765,12 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             if (tabId === "code-settings") { setSettingsTabPinned((pinned) => !pinned); return; }
             togglePinnedFile(activeThreadId, tabId.replace(/^file:/, ""));
           }}
-          onMove={(tabId, direction) => { if (tabId !== "code-settings") moveOpenFile(activeThreadId, tabId.replace(/^file:/, ""), direction); }}
+          onMove={(tabId, targetId, placeAfter) => {
+            if (tabId === "code-settings" || targetId === "code-settings") return;
+            moveOpenFile(activeThreadId, tabId.replace(/^file:/, ""), targetId.replace(/^file:/, ""), placeAfter);
+          }}
         />
+        </div>
         {settingsTabOpen && activeEditorTabId === "code-settings" ? <CodeSettingsView /> : activeDocument ? (
           <>
             {/* <nav className="zorai-workspace-breadcrumbs" aria-label="File breadcrumbs">
@@ -1592,8 +1802,8 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                       { key: "open-external", commandId: "file.openExternal", separatorBefore: true, onSelect: () => runCodeCommand("file.openExternal") },
                       { key: "reveal", commandId: "file.reveal", onSelect: () => runCodeCommand("file.reveal") },
                       { key: "attach", label: context?.attachedFiles.includes(activeDocument.path) ? "Detach from Agent context" : "Attach to Agent context", onSelect: () => toggleAttachedFile(activeThreadId, activeDocument.path) },
-                      { key: "wrap", commandId: "view.toggleWrap", separatorBefore: true, onSelect: () => runCodeCommand("view.toggleWrap") },
-                      { key: "minimap", commandId: "view.toggleMinimap", onSelect: () => runCodeCommand("view.toggleMinimap") },
+                      { key: "wrap", commandId: "view.toggleWrap", separatorBefore: true, checked: codeSettingsToggleState("view.toggleWrap", editorSettings) ?? undefined, onSelect: () => runCodeCommand("view.toggleWrap") },
+                      { key: "minimap", commandId: "view.toggleMinimap", checked: codeSettingsToggleState("view.toggleMinimap", editorSettings) ?? undefined, onSelect: () => runCodeCommand("view.toggleMinimap") },
                       { key: "settings", commandId: "view.settings", onSelect: () => runCodeCommand("view.settings") },
                       { key: "rename", label: "Rename file…", separatorBefore: true, onSelect: () => void renameActiveFile() },
                       { key: "delete", label: "Delete file…", danger: true, onSelect: () => void deleteActiveFile() },
@@ -1650,7 +1860,9 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                 </Suspense>
               )}
             </div>
+            {bottomPanel}
             <div className="zorai-workspace-statusbar">
+              {statusToggles}
               <span>{activeDocument.path}</span>
               <span>{activeDocument.language}{lspStatus ? ` · LSP ${lspStatus.available ? lspStatus.command ?? "ready" : "unavailable"}` : ""}</span>
             </div>
@@ -1662,12 +1874,16 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
               <span>No file selected</span>
             </nav>
             <div className="zorai-tool-empty zorai-code-editor-empty"><strong>Workspace editor</strong><span>Select a text file from Explorer. File contents are loaded on demand and never injected implicitly.</span></div>
+            {bottomPanel}
             <div className="zorai-workspace-statusbar">
+              {statusToggles}
               <span>Ready · Select a file from Explorer</span>
               <span>No language mode</span>
             </div>
           </>
         )}
+        {gitDialog ? <GitActionDialog spec={gitDialog} busy={gitDialogBusy} error={gitDialogError} onClose={() => setGitDialog(null)} /> : null}
+        {gitOutputEntries ? <GitOutputDialog entries={gitOutputEntries} onClose={() => setGitOutputEntries(null)} /> : null}
         {pathDialog ? <WorkspacePathDialog operation={pathDialog.operation} initialPath={pathDialog.initialPath} busy={pathDialogBusy} error={pathDialogError} onSubmit={submitPathDialog} onClose={() => { setPathDialog(null); setPathDialogError(null); }} /> : null}
         {codeOverlay === "quickOpen" ? (
           <CodeQuickOpen
@@ -1715,4 +1931,13 @@ function WorkspaceLoadingSkeleton({ root }: { root: string }) {
       <div className="zorai-code-loading__editor">{Array.from({ length: 12 }, (_, index) => <span key={index} style={{ width: `${34 + ((index * 17) % 52)}%` }} />)}</div>
     </div>
   );
+}
+
+function sameWorkContextEntries(current: ZoraiWorkContextEntry[], next: ZoraiWorkContextEntry[]): boolean {
+  if (current.length !== next.length) return false;
+  return current.every((entry, index) => {
+    const other = next[index];
+    return entry.path === other.path && entry.updated_at === other.updated_at && entry.operation_id === other.operation_id
+      && entry.source === other.source && entry.change_kind === other.change_kind && entry.before_hash === other.before_hash;
+  });
 }

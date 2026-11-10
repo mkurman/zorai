@@ -6,7 +6,7 @@ import {
   displayCodeBinding,
   matchesCodeBinding,
   shouldPassthroughCodeCommand,
-} from "./codeCommands";
+ RUNNABLE_CODE_COMMANDS } from "./codeCommands";
 
 const REQUIRED = [
   "file.save", "file.saveAll", "file.reload", "file.quickOpen", "search.file", "search.replace",
@@ -55,5 +55,15 @@ describe("Code command registry", () => {
     expect(shouldPassthroughCodeCommand("file.save", composer)).toBe(false);
     expect(shouldPassthroughCodeCommand("edit.copy", { tagName: "DIV" } as EventTarget)).toBe(false);
     expect(shouldPassthroughCodeCommand("edit.copy", null)).toBe(false);
+  });
+});
+
+describe("runnable code commands", () => {
+  it("keeps commands with no handler out of the palette and key handling, so Ctrl+B is not swallowed", () => {
+    const ids = RUNNABLE_CODE_COMMANDS.map((command) => command.id);
+    expect(ids).not.toContain("view.toggleExplorer");
+    expect(ids).not.toContain("file.reopenClosed");
+    expect(ids).toContain("file.close");
+    expect(ids).toContain("edit.copy");
   });
 });

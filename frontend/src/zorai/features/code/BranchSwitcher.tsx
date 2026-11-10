@@ -10,6 +10,7 @@ export function BranchSwitcher({ root, bridge, currentBranch, onSwitched }: {
   const [branches, setBranches] = useState<Array<{ name: string; isCurrent: boolean }>>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -29,6 +30,9 @@ export function BranchSwitcher({ root, bridge, currentBranch, onSwitched }: {
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [open]);
+
+  const needle = query.trim().toLowerCase();
+  const visibleBranches = needle ? branches.filter((branch) => branch.name.toLowerCase().includes(needle)) : branches;
 
   const checkout = async (branch: string) => {
     if (!bridge.workspaceGitCheckout || busy) return;
@@ -53,7 +57,10 @@ export function BranchSwitcher({ root, bridge, currentBranch, onSwitched }: {
         aria-haspopup="menu"
         aria-expanded={open}
         title="Switch branch"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          setQuery("");
+          setOpen((value) => !value);
+        }}
       >
         <BranchIcon />
         <span>{currentBranch ?? "detached"}</span>
@@ -61,9 +68,21 @@ export function BranchSwitcher({ root, bridge, currentBranch, onSwitched }: {
       </button>
       {open ? (
         <div className="zorai-branch-switcher-menu" role="menu" aria-label="Branches">
+          <input
+            className="zorai-branch-switcher-search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setOpen(false);
+              if (event.key === "Enter" && visibleBranches[0] && !visibleBranches[0].isCurrent) void checkout(visibleBranches[0].name);
+            }}
+            placeholder="Search branches"
+            aria-label="Search branches"
+            autoFocus
+          />
           {error ? <div className="zorai-branch-switcher-error" role="alert">{error}</div> : null}
-          {branches.length === 0 && !error ? <div className="zorai-branch-switcher-empty">{busy ? "Switching…" : "No branches."}</div> : null}
-          {branches.map((branch) => (
+          {visibleBranches.length === 0 && !error ? <div className="zorai-branch-switcher-empty">{busy ? "Switching…" : branches.length === 0 ? "No branches." : "No branches match."}</div> : null}
+          {visibleBranches.map((branch) => (
             <button
               type="button"
               key={branch.name}

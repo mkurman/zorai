@@ -17,6 +17,7 @@ export function buildTerminalContextMenuItems({
     paneId,
     sendRawFormFeed,
     toggleSearch,
+    layoutActions = true,
 }: {
     canCopy: boolean;
     canPaste: boolean;
@@ -32,12 +33,9 @@ export function buildTerminalContextMenuItems({
     paneId: string;
     sendRawFormFeed: (paneId: string) => void;
     toggleSearch: () => void;
+    layoutActions?: boolean;
 }): TerminalContextMenuItem[] {
-    return [
-        { label: "Copy", shortcut: "Ctrl+C", disabled: !canCopy, action: () => void copySelection() },
-        { label: "Paste", shortcut: "Ctrl+V", disabled: !canPaste, action: () => void pasteClipboard() },
-        { label: "Select All", action: () => termRef.current?.selectAll() },
-        { separator: true },
+    const layoutItems: TerminalContextMenuItem[] = layoutActions ? [
         { label: "Split Right", shortcut: "Ctrl+D", action: () => duplicateSplit("horizontal") },
         { label: "Split Down", shortcut: "Ctrl+Shift+D", action: () => duplicateSplit("vertical") },
         { label: "Split Empty Right", action: () => splitActive("horizontal") },
@@ -46,6 +44,13 @@ export function buildTerminalContextMenuItems({
         { label: "Zoom Pane", shortcut: "Ctrl+Shift+Z", action: () => toggleZoom() },
         { label: "Close Pane", shortcut: "Ctrl+Shift+W", danger: true, action: () => handleClosePane() },
         { separator: true },
+    ] : [];
+    return [
+        { label: "Copy", shortcut: "Ctrl+C", disabled: !canCopy, action: () => void copySelection() },
+        { label: "Paste", shortcut: "Ctrl+V", disabled: !canPaste, action: () => void pasteClipboard() },
+        { label: "Select All", action: () => termRef.current?.selectAll() },
+        { separator: true },
+        ...layoutItems,
         {
             label: "Clear Terminal",
             action: () => {

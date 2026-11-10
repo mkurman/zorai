@@ -20,6 +20,13 @@ const {
     workspaceGitIntegrateWorktree,
     workspaceGitRemoveWorktree,
     workspaceGitReviewWorktree,
+    workspaceGitRemote,
+    workspaceGitAction,
+    workspaceGitList,
+    workspaceGitClone,
+    workspaceGitOutput,
+    gitActionSteps,
+    changesRepository,
     workspaceGitStage,
     workspaceGitUnstage,
     workspaceGitDiff,
@@ -399,4 +406,147 @@ test('workspace git diff includes untracked files when requested and show return
     assert.equal(await workspaceGitShow(root, 'tracked.txt'), 'base\n');
     assert.equal(await workspaceGitShow(root, 'new.txt'), '');
     fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('workspace git remote actions push a new branch upstream, then pull and sync with the remote', async () => {
+    const { execFileSync } = require('node:child_process');
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), 'zorai-git-remote-'));
+    const remote = path.join(base, 'remote.git');
+    const local = path.join(base, 'local');
+    const other = path.join(base, 'other');
+    const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8' });
+    const identity = ['-c', 'user.name=Test', '-c', 'user.email=test@example.com'];
+    git(base, 'init', '--bare', '-b', 'main', remote);
+    git(base, 'clone', remote, local);
+    git(local, 'checkout', '-b', 'main');
+    fs.writeFileSync(path.join(local, 'a.txt'), 'one\n');
+    git(local, 'add', 'a.txt');
+    git(local, ...identity, 'commit', '-m', 'first');
+
+    const pushed = await workspaceGitRemote(local, 'push');
+    assert.equal(pushed.overview.upstream, 'origin/main');
+    assert.equal(pushed.overview.ahead, 0);
+
+    git(base, 'clone', remote, other);
+    fs.writeFileSync(path.join(other, 'b.txt'), 'two\n');
+    git(other, 'add', 'b.txt');
+    git(other, ...identity, 'commit', '-m', 'second');
+    git(other, 'push');
+
+    const fetched = await workspaceGitRemote(local, 'fetch');
+    assert.equal(fetched.overview.behind, 1);
+    const pulled = await workspaceGitRemote(local, 'pull');
+    assert.equal(pulled.overview.behind, 0);
+    assert.ok(fs.existsSync(path.join(local, 'b.txt')));
+
+    fs.writeFileSync(path.join(local, 'c.txt'), 'three\n');
+    git(local, 'add', 'c.txt');
+    git(local, ...identity, 'commit', '-m', 'third');
+    const synced = await workspaceGitRemote(local, 'sync');
+    assert.equal(synced.overview.ahead, 0);
+    assert.equal(git(remote, 'log', '-1', '--format=%s', 'main').trim(), 'third');
+
+    await assert.rejects(workspaceGitRemote(local, 'force-push'), /Unknown git action/);
+});
+
+test('git action steps reject option injection and unknown actions before running git', () => {
+    assert.throws(() => gitActionSteps('branchCreate', { name: '--force' }), /Invalid branch name/);
+    assert.throws(() => gitActionSteps('checkout', { ref: '-b evil' }), /Invalid ref/);
+    assert.throws(() => gitActionSteps('stashDrop', { ref: '--all' }), /Invalid stash/);
+    assert.throws(() => gitActionSteps('remoteAdd', { name: 'up', url: '--upload-pack=touch /tmp/x' }), /Invalid remote URL/);
+    assert.throws(() => gitActionSteps('commitAll', { message: '  ' }), /message is required/);
+    assert.throws(() => gitActionSteps('gc'), /Unknown git action/);
+    assert.deepEqual(gitActionSteps('commitAmend', {}), [['commit', '--amend', '--no-edit']]);
+    assert.deepEqual(gitActionSteps('stash', { includeUntracked: true, message: 'wip' }), [['stash', 'push', '--include-untracked', '-m', 'wip']]);
+});
+
+test('git actions manage commits, branches, stashes, tags and remotes in a real repository', async () => {
+    const { execFileSync } = require('node:child_process');
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), 'zorai-git-actions-'));
+    const repo = path.join(base, 'repo');
+    fs.mkdirSync(repo);
+    const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
+    git('init', '-b', 'main');
+    git('config', 'user.name', 'Test');
+    git('config', 'user.email', 'test@example.com');
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'one\n');
+    await workspaceGitAction(repo, 'commitAll', { message: 'first' });
+    assert.equal(git('log', '-1', '--format=%s'), 'first');
+
+    fs.writeFileSync(path.join(repo, 'b.txt'), 'two\n');
+    await workspaceGitAction(repo, 'commitAll', { message: 'second' });
+    await workspaceGitAction(repo, 'commitAmend', { message: 'second, amended' });
+    assert.equal(git('log', '-1', '--format=%s'), 'second, amended');
+    await workspaceGitAction(repo, 'undoCommit');
+    assert.equal(git('log', '-1', '--format=%s'), 'first');
+    assert.match(git('status', '--porcelain'), /^A  b\.txt/m);
+    await workspaceGitAction(repo, 'unstageAll');
+    assert.match(git('status', '--porcelain'), /^\?\? b\.txt/m);
+
+    await workspaceGitAction(repo, 'stash', { includeUntracked: true, message: 'parked' });
+    assert.equal(fs.existsSync(path.join(repo, 'b.txt')), false);
+    const stashes = await workspaceGitList(repo, 'stashes');
+    assert.equal(stashes[0].value, 'stash@{0}');
+    assert.match(stashes[0].label, /parked/);
+    await workspaceGitAction(repo, 'stashPop', { ref: 'stash@{0}' });
+    assert.equal(fs.existsSync(path.join(repo, 'b.txt')), true);
+    await workspaceGitAction(repo, 'discardAll');
+    assert.equal(fs.existsSync(path.join(repo, 'b.txt')), false);
+    assert.equal(git('status', '--porcelain'), '');
+
+    await workspaceGitAction(repo, 'branchCreate', { name: 'feature' });
+    assert.equal(git('branch', '--show-current'), 'feature');
+    fs.writeFileSync(path.join(repo, 'c.txt'), 'three\n');
+    await workspaceGitAction(repo, 'commitAll', { message: 'feature work' });
+    await workspaceGitAction(repo, 'checkout', { ref: 'main' });
+    await workspaceGitAction(repo, 'merge', { ref: 'feature' });
+    assert.equal(fs.existsSync(path.join(repo, 'c.txt')), true);
+    await workspaceGitAction(repo, 'branchRename', { from: 'feature', to: 'feature-done' });
+    assert.deepEqual((await workspaceGitList(repo, 'localBranches')).map((item) => item.value).sort(), ['feature-done', 'main']);
+    await workspaceGitAction(repo, 'branchDelete', { name: 'feature-done' });
+    assert.deepEqual((await workspaceGitList(repo, 'localBranches')).map((item) => item.value), ['main']);
+
+    await workspaceGitAction(repo, 'tagCreate', { name: 'v1.0.0', message: 'release' });
+    assert.deepEqual((await workspaceGitList(repo, 'tags')).map((item) => item.value), ['v1.0.0']);
+    await workspaceGitAction(repo, 'tagDelete', { name: 'v1.0.0' });
+    assert.deepEqual(await workspaceGitList(repo, 'tags'), []);
+
+    const remote = path.join(base, 'remote.git');
+    execFileSync('git', ['init', '--bare', '-b', 'main', remote]);
+    await workspaceGitAction(repo, 'remoteAdd', { name: 'upstream', url: remote });
+    await workspaceGitAction(repo, 'remoteRename', { from: 'upstream', to: 'origin' });
+    const remotes = await workspaceGitList(repo, 'remotes');
+    assert.equal(remotes[0].value, 'origin');
+    await workspaceGitAction(repo, 'pushTo', { remote: 'origin' });
+    assert.equal(execFileSync('git', ['--git-dir', remote, 'log', '-1', '--format=%s', 'main'], { encoding: 'utf8' }).trim(), 'feature work');
+
+    const cloned = await workspaceGitClone(remote, base, 'copy');
+    assert.equal(fs.existsSync(path.join(cloned.path, 'c.txt')), true);
+    await assert.rejects(workspaceGitClone(remote, base, 'copy'), /already exists/);
+
+    await workspaceGitAction(repo, 'remoteRemove', { name: 'origin' });
+    assert.deepEqual(await workspaceGitList(repo, 'remotes'), []);
+
+    await assert.rejects(workspaceGitAction(repo, 'branchDelete', { name: 'missing' }), /missing/);
+    const log = workspaceGitOutput();
+    assert.ok(log.some((entry) => entry.command === 'git commit -m first' && entry.ok));
+    assert.ok(log.some((entry) => entry.command === 'git branch -d missing' && !entry.ok));
+});
+
+test('the git output log records commands that change the repository, not read-only status checks', async () => {
+    assert.equal(changesRepository(['add', '--', 'a.txt']), true);
+    assert.equal(changesRepository(['worktree', 'list', '--porcelain']), false);
+    assert.equal(changesRepository(['branch', '--show-current']), false);
+    assert.equal(changesRepository(['branch', '--format=%(refname:short)']), false);
+    assert.equal(changesRepository(['status', '--porcelain']), false);
+
+    const { execFileSync } = require('node:child_process');
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zorai-git-log-'));
+    execFileSync('git', ['init', '-b', 'main'], { cwd: root });
+    fs.writeFileSync(path.join(root, 'tracked.txt'), 'x\n');
+    const before = workspaceGitOutput().length;
+    await workspaceGitStage(root, 'tracked.txt');
+    const added = workspaceGitOutput().slice(before);
+    assert.ok(added.some((entry) => entry.command.startsWith('git add') && entry.ok));
+    assert.ok(added.every((entry) => !entry.command.startsWith('git status')));
 });

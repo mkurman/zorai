@@ -11,7 +11,7 @@ export type CodeCommandId =
   | "edit.sortAscending" | "edit.sortDescending" | "view.toggleExplorer" | "view.toggleAgent"
   | "view.settings" | "view.commandPalette" | "view.toggleMinimap" | "view.toggleWrap"
   | "view.fontIncrease" | "view.fontDecrease" | "view.fontReset" | "view.toggleWhitespace"
-  | "view.toggleStickyScroll";
+  | "view.toggleStickyScroll" | "view.togglePanel" | "view.toggleTerminal";
 
 export type CodeIconId = "save" | "reload" | "file" | "search" | "replace" | "terminal" | "settings"
   | "palette" | "close" | "pin" | "external" | "reveal" | "minimap" | "wrap" | "text" | "edit" | "diff" | "more";
@@ -84,7 +84,12 @@ export const CODE_COMMANDS: CodeCommand[] = [
   command("view.fontReset", "Reset Editor Font Size", "View", "text", "CtrlCmd+0"),
   command("view.toggleWhitespace", "Toggle Whitespace Rendering", "View", "text", null),
   command("view.toggleStickyScroll", "Toggle Sticky Scroll", "View", "text", null),
+  command("view.togglePanel", "Toggle Panel", "View", "terminal", "CtrlCmd+J", ["output"]),
+  command("view.toggleTerminal", "Toggle Terminal", "View", "terminal", "Ctrl+`", ["shell", "console"]),
 ];
+
+export const UNWIRED_CODE_COMMANDS: ReadonlySet<CodeCommandId> = new Set(["file.reopenClosed", "view.toggleExplorer", "view.toggleAgent"]);
+export const RUNNABLE_CODE_COMMANDS = CODE_COMMANDS.filter((item) => !UNWIRED_CODE_COMMANDS.has(item.id));
 
 const byId = new Map(CODE_COMMANDS.map((item) => [item.id, item]));
 export function codeCommandById(id: string): CodeCommand | undefined { return byId.get(id as CodeCommandId); }
@@ -151,6 +156,13 @@ export function isEditableKeyboardTarget(target: EventTarget | null): boolean {
       || type === "password" || type === "tel" || type === "number" || type === "";
   }
   return Boolean(el.isContentEditable);
+}
+
+const TERMINAL_COMMANDS = new Set<CodeCommandId>(["view.togglePanel", "view.toggleTerminal", "view.commandPalette", "file.quickOpen"]);
+
+export function shouldLeaveKeyToTerminal(id: CodeCommandId, target: EventTarget | null): boolean {
+  const element = target as { closest?: (selector: string) => unknown } | null;
+  return Boolean(element?.closest?.(".zorai-code-panel__terminal, .zorai-terminal-panel")) && !TERMINAL_COMMANDS.has(id);
 }
 
 export function shouldPassthroughCodeCommand(id: CodeCommandId, target: EventTarget | null): boolean {

@@ -227,6 +227,7 @@ export function WorkspaceCodeEditor({
           onChange={(next) => onChange(next ?? "")}
           options={{
             automaticLayout: true,
+            contextmenu: false,
             minimap: { enabled: settings.minimap, renderCharacters: true, maxColumn: 72, showSlider: "mouseover", side: "right", size: "proportional" },
             fontFamily: editorFontFamily(settings),
             fontSize: settings.fontSize,
@@ -259,7 +260,7 @@ function viewerOptions(settings: CodeEditorSettings) {
     readOnly: true,
     domReadOnly: true,
     readOnlyMessage: { value: "Preview only" },
-    contextmenu: true,
+    contextmenu: false,
     dropIntoEditor: { enabled: false },
     quickSuggestions: false,
     suggestOnTriggerCharacters: false,
@@ -346,6 +347,7 @@ export function WorkspaceDiffEditor({ original, modified, language }: { original
           theme={ZORAI_MONACO_THEME}
           options={{
             automaticLayout: true,
+            contextmenu: false,
             readOnly: true,
             renderSideBySide: true,
             minimap: { enabled: false },

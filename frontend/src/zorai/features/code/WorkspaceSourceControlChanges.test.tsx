@@ -85,3 +85,28 @@ describe("WorkspaceSourceControlChanges", () => {
     expect(html).not.toContain("file-500.ts");
   });
 });
+
+describe("source control changes tree view", () => {
+  it("renders folders with file names only when the tree view was chosen, and remembers the choice", () => {
+    const stored = new Map([["zorai.code.changesView", "tree"]]);
+    const previous = (globalThis as { localStorage?: unknown }).localStorage;
+    (globalThis as { localStorage?: unknown }).localStorage = { getItem: (key: string) => stored.get(key) ?? null, setItem: (key: string, value: string) => stored.set(key, value) };
+    try {
+      const html = renderToStaticMarkup(
+        <WorkspaceSourceControlChanges
+          status={[{ path: "src/app/main.ts", indexStatus: " ", worktreeStatus: "M" } as ZoraiWorkspaceGitStatus]}
+          onOpen={async () => undefined}
+          onReview={async () => undefined}
+          onAction={async () => undefined}
+          onBulkAction={async () => undefined}
+        />,
+      );
+      expect(html).toContain("zorai-workspace-change-folder");
+      expect(html).toContain(">src/app<");
+      expect(html).not.toContain("<small>src/app</small>");
+      expect(html).toContain('aria-label="View as list"');
+    } finally {
+      (globalThis as { localStorage?: unknown }).localStorage = previous;
+    }
+  });
+});

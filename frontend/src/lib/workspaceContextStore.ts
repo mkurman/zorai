@@ -35,7 +35,7 @@ type WorkspaceContextState = {
   toggleAttachedFile: (threadId: string, filePath: string) => void;
   closeFile: (threadId: string, filePath: string) => void;
   togglePinnedFile: (threadId: string, filePath: string) => void;
-  moveOpenFile: (threadId: string, filePath: string, direction: -1 | 1) => void;
+  moveOpenFile: (threadId: string, filePath: string, targetPath: string, placeAfter: boolean) => void;
   setIsolateAgentTasks: (threadId: string, enabled: boolean) => void;
   setIsolatedWorktreeState: (threadId: string, worktreePath: string, state: "awaiting_review" | "retained" | "integrated" | "rejected") => void;
 };
@@ -218,13 +218,11 @@ export const useWorkspaceContextStore = create<WorkspaceContextState>((set, get)
       : [...current.pinnedFiles, filePath],
     updatedAt: Date.now(),
   }))),
-  moveOpenFile: (threadId, filePath, direction) => set((state) => updateContext(state, threadId, (current) => {
-    const index = current.openFiles.indexOf(filePath);
-    if (index < 0) return current;
-    const target = Math.max(0, Math.min(current.openFiles.length - 1, index + direction));
-    if (target === index) return current;
-    const openFiles = [...current.openFiles];
-    [openFiles[index], openFiles[target]] = [openFiles[target], openFiles[index]];
+  moveOpenFile: (threadId, filePath, targetPath, placeAfter) => set((state) => updateContext(state, threadId, (current) => {
+    if (filePath === targetPath || !current.openFiles.includes(filePath) || !current.openFiles.includes(targetPath)) return current;
+    const rest = current.openFiles.filter((entry) => entry !== filePath);
+    const targetIndex = rest.indexOf(targetPath) + (placeAfter ? 1 : 0);
+    const openFiles = [...rest.slice(0, targetIndex), filePath, ...rest.slice(targetIndex)];
     return { ...current, openFiles, updatedAt: Date.now() };
   })),
   setIsolatedWorktreeState: (threadId, worktreePath, lifecycle) => set((state) => updateContext(state, threadId, (current) => ({

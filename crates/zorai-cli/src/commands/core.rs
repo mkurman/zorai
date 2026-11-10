@@ -1974,8 +1974,9 @@ pub(crate) async fn run(command: Commands) -> Result<()> {
             workspace,
             cols,
             rows,
+            attach_only,
         } => {
-            client::run_bridge(session, shell, cwd, workspace, cols, rows).await?;
+            client::run_bridge(session, shell, cwd, workspace, cols, rows, attach_only).await?;
         }
         Commands::Guideline { .. }
         | Commands::Skill { .. }

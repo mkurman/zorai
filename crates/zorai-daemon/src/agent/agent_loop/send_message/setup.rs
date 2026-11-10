@@ -274,7 +274,7 @@ fn build_direct_thread_responder_config(
             openrouter_provider_order: config.concierge.openrouter_provider_order.clone(),
             openrouter_provider_ignore: config.concierge.openrouter_provider_ignore.clone(),
             openrouter_allow_fallbacks: config.concierge.openrouter_allow_fallbacks,
-            system_prompt: crate::agent::concierge::concierge_system_prompt(),
+            system_prompt: crate::agent::concierge::concierge_system_prompt(&config.concierge),
             persona_prompt: String::new(),
             tool_filter: None,
         }));

@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState, type RefObject } from "react";
 import type { ToolEventAttribution, ToolEventGroup } from "./types";
 import { MemoizedToolEventRow, sameToolEventGroup } from "./ToolEventRow";
 import { ZoraiToolMark } from "./ZoraiToolMark";
@@ -22,6 +22,25 @@ export function advanceToolTitleFrame(
   };
 }
 
+export function ToolListCollapseFooter({ headerRef, onCollapse }: {
+  headerRef: RefObject<HTMLButtonElement | null>;
+  onCollapse: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="acp-tool-list__collapse"
+      onClick={() => {
+        onCollapse();
+        requestAnimationFrame(() => headerRef.current?.scrollIntoView({ block: "nearest" }));
+      }}
+    >
+      <svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M4 10l4-4 4 4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      Collapse
+    </button>
+  );
+}
+
 export const ToolEventList = memo(function ToolEventList({
   groups,
   attribution,
@@ -32,6 +51,7 @@ export const ToolEventList = memo(function ToolEventList({
   fallbackAuthorName?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const headerRef = useRef<HTMLButtonElement | null>(null);
   const summary = summarizeToolGroups(groups);
 
   if (groups.length === 0 || !summary) {
@@ -49,6 +69,7 @@ export const ToolEventList = memo(function ToolEventList({
         </div>
       ) : null}
       <button
+        ref={headerRef}
         type="button"
         aria-expanded={expanded}
         className="acp-tool-list__header"
@@ -67,6 +88,7 @@ export const ToolEventList = memo(function ToolEventList({
           {groups.map((group) => (
             <MemoizedToolEventRow key={group.key} group={group} />
           ))}
+          <ToolListCollapseFooter headerRef={headerRef} onCollapse={() => setExpanded(false)} />
         </div>
       )}
     </div>

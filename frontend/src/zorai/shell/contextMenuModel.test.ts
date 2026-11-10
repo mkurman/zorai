@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildContextMenuEntries, clampMenuPosition, selectAllScope, SELECT_ALL_SCOPE_SELECTOR } from "./contextMenuModel";
+import { buildContextMenuEntries, clampMenuPosition, codeEditorMenuRequest, selectAllScope, SELECT_ALL_SCOPE_SELECTOR } from "./contextMenuModel";
 
 const request = { x: 10, y: 10, linkURL: "", isEditable: false, canCut: false, canCopy: true, canPaste: false };
 const labels = (entries: ReturnType<typeof buildContextMenuEntries>) =>
@@ -26,6 +26,14 @@ describe("context menu", () => {
     expect(selectAllScope(null)).toBeNull();
     expect(SELECT_ALL_SCOPE_SELECTOR.split(", ")).toContain(".zorai-message__content");
     expect(SELECT_ALL_SCOPE_SELECTOR.split(", ")).not.toContain("pre");
+  });
+
+  it("treats the code editor as editable even where the DOM reports plain text, so Select All targets the file", () => {
+    const entries = buildContextMenuEntries(codeEditorMenuRequest({ ...request, canCopy: false }, { hasSelection: true, readOnly: false }));
+    expect(entries).toContainEqual({ kind: "item", action: "selectAll", label: "Select All", enabled: true });
+    expect(entries).toContainEqual({ kind: "item", action: "copy", label: "Copy", enabled: true });
+    const readOnly = codeEditorMenuRequest(request, { hasSelection: true, readOnly: true });
+    expect([readOnly.canCut, readOnly.canPaste]).toEqual([false, false]);
   });
 
   it("flips the menu so it never opens past the window edge", () => {

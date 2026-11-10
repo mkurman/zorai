@@ -21,9 +21,13 @@ export const ZORAI_LOGO_PETAL = "M 50 45.82 A 37.67 37.67 0 0 1 50 11.32 A 37.67
 export const ZORAI_LOGO_WEDGE = "M 69.34 50 L 77.69 44.27 A 28.28 28.28 0 0 1 77.69 55.73 Z";
 const ZORAI_LOGO_TURNS = [0, 60, 120, 180, 240, 300];
 
-export function ZoraiBrandMark() {
+type ZoraiBrandMarkProps = {
+  className?: string;
+};
+
+export function ZoraiBrandMark({ className = "" }: ZoraiBrandMarkProps) {
   return (
-    <div className="zorai-brand-mark" aria-hidden="true">
+    <div className={`zorai-brand-mark ${className}`} aria-hidden="true">
       <svg className="zorai-brand-mark__svg" viewBox="0 0 100 100" focusable="false">
         <circle className="zorai-brand-mark__line" cx="50" cy="50" r="42.86" pathLength="1" />
         {ZORAI_LOGO_TURNS.map((turn) => (

@@ -22,9 +22,9 @@ export function sessionCloseFollowUp(input: {
   nextOpenId: string | null;
   openCount: number;
 }): SessionCloseFollowUp {
-  if (input.openCount === 0) return { kind: "clear" };
   const closedActive = input.closedId === input.activeThreadId
     || (input.activeDaemonThreadId != null && input.closedId === input.activeDaemonThreadId);
+  if (input.openCount === 0) return closedActive ? { kind: "clear" } : { kind: "stay" };
   if (closedActive && input.nextOpenId) return { kind: "follow", id: input.nextOpenId };
   return { kind: "stay" };
 }

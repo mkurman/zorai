@@ -96,8 +96,10 @@ describe("Zorai feature surfaces", () => {
     expect(workbenchSource).toContain("shouldPassthroughCodeCommand(command.id, event.target)");
     expect(workbenchSource).toContain('setActiveEditorTabId(`file:${filePath}`)');
     expect(workbenchSource).toContain("void openFile(filePath)");
-    expect(readFeature("./code/CodeTabs.tsx")).toContain("Unpin editor");
-    expect(readFeature("./code/CodeTabs.tsx")).toContain("Pin editor");
+    expect(workbenchSource).toContain('<SessionTabStrip');
+    expect(workbenchSource).toContain("This folder is not a Git repository");
+    expect(workbenchSource).toContain("No tests found in this workspace.");
+    expect(workbenchSource).toContain("No agent changes yet.");
     expect(styleSource).toContain(".zorai-workspace-editor .minimap");
     expect(styleSource).toContain(".zorai-security-shield");
     expect(styleSource).toContain(".zorai-effort-gauge");
@@ -211,7 +213,7 @@ describe("Zorai feature surfaces", () => {
     expect(agentPaneSource).toContain("actualThreadResponder(activeThread)");
     expect(agentPaneSource).toContain("agentId: responder.id");
     expect(agentPaneSource).toContain("agentName: responder.name");
-    expect(agentPaneSource).toContain("bindRoot(localId, root)");
+    expect(agentPaneSource).toContain("useWorkspaceContextStore.getState().adoptRoot(localId, root)");
     expect(agentPaneSource).toContain("bindRoot(entry.localThread.id, root)");
     expect(agentPaneSource).toContain("bindRoot(openedId, root)");
     expect(agentPaneSource).toContain("runtime.openThread(localId)");

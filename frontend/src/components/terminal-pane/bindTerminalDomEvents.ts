@@ -71,16 +71,13 @@ export function bindTerminalDomEvents({
 
     const menuWidth = 220;
     const menuHeight = 286;
-    const wrapperRect = wrapperRef.current?.getBoundingClientRect();
-    if (!wrapperRect) {
+    if (!wrapperRef.current) {
       return;
     }
-    const localX = event.clientX - wrapperRect.left;
-    const localY = event.clientY - wrapperRect.top;
-    const maxX = Math.max(8, wrapperRect.width - menuWidth - 8);
-    const maxY = Math.max(8, wrapperRect.height - menuHeight - 8);
-    const x = Math.min(Math.max(localX, 8), maxX);
-    const y = Math.min(Math.max(localY, 8), maxY);
+    const maxX = Math.max(8, window.innerWidth - menuWidth - 8);
+    const maxY = Math.max(8, window.innerHeight - menuHeight - 8);
+    const x = Math.min(Math.max(event.clientX, 8), maxX);
+    const y = Math.min(Math.max(event.clientY, 8), maxY);
 
     setContextMenu({ visible: true, x, y });
   };

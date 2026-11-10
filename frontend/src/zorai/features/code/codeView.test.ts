@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { displayRootName } from "./codeEmptyStateModel";
+import { displayRootName, filterRecentRoots } from "./codeEmptyStateModel";
 import type { CodeOpenWorkspaceBoundary } from "./CodeView";
 
 function readSource(relativePath: string): string {
@@ -108,13 +108,22 @@ describe("CodeRail action surface", () => {
     expect(source).toContain('requestFileView(localId, selection.path, "edit", { external: true })');
   });
 
-  it("lists recent roots from codeWorkspaceBindingStore, current first, capped at 10", () => {
-    expect(source).toContain("Object.keys(threadsByRoot)");
-    expect(source).toContain("slice(0, 10)");
+  it("lists the recent-folder history from codeWorkspaceBindingStore, not only roots that still have project threads", () => {
+    expect(source).toContain("useCodeWorkspaceBindingStore((state) => state.recentRoots)");
+    expect(source).not.toContain("Object.keys(threadsByRoot)");
     expect(source).toContain("root === lastRoot");
   });
 
   it("exposes closeRoot for pruning recent entries", () => {
     expect(source).toContain("closeRoot(root)");
+  });
+});
+
+describe("recent folder search", () => {
+  it("filters recent folders by name or path, ignoring case", () => {
+    const roots = ["/mnt/e/gitlab/it/zorai", "/mnt/e/gitlab/ai/med-jev", "/home/me/Notes"];
+    expect(filterRecentRoots(roots, "MED")).toEqual(["/mnt/e/gitlab/ai/med-jev"]);
+    expect(filterRecentRoots(roots, "gitlab")).toHaveLength(2);
+    expect(filterRecentRoots(roots, "  ")).toEqual(roots);
   });
 });

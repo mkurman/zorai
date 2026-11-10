@@ -22,6 +22,8 @@ export function CodeThreadRuntimeSwitcher({ thread, variant = "toolbar" }: Props
   const agentSettings = useAgentStore((state) => state.agentSettings);
   const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
   const subAgents = useAgentStore((state) => state.subAgents);
+  const providerAuthStates = useAgentStore((state) => state.providerAuthStates);
+  const refreshProviderAuthStates = useAgentStore((state) => state.refreshProviderAuthStates);
   const threadMessages = useAgentStore((state) => thread ? state.messages[thread.id] ?? NO_MESSAGES : NO_MESSAGES);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
@@ -46,7 +48,11 @@ export function CodeThreadRuntimeSwitcher({ thread, variant = "toolbar" }: Props
     setPickerQuery("");
   }, [threadId]);
 
-  const threadProviderIdsList = useMemo(() => threadProviderIds(), [agentSettings, open]);
+  useEffect(() => {
+    if (open) void refreshProviderAuthStates();
+  }, [open, refreshProviderAuthStates]);
+
+  const threadProviderIdsList = useMemo(() => threadProviderIds(), [agentSettings, open, providerAuthStates]);
 
   // Agent candidates: Svarog + Rarog + personas + subagents
   const agents = useMemo(() => {

@@ -6,6 +6,7 @@ import {
   CODE_WORKSPACE_BINDING_STORE_VERSION,
   CODE_PROJECT_THREADS_PER_ROOT_MAX,
   createCodeWorkspaceBindingStore,
+  normalizeCodeWorkspaceBindings,
 } from "./codeWorkspaceBindingStore";
 
 function createMemoryStorage(): StateStorage {
@@ -76,6 +77,7 @@ describe("codeWorkspaceBindingStore", () => {
       state: {
         lastRoot: "/work/a",
         threadsByRoot: { "/work/a": ["thread-2", "thread-1"] },
+        recentRoots: ["/work/a"],
       },
       version: 2,
     });
@@ -111,7 +113,25 @@ describe("codeWorkspaceBindingStore", () => {
     expect(persisted.state).toEqual({
       lastRoot: "/work/a",
       threadsByRoot: { "/work/a": ["thread-1"] },
+      recentRoots: ["/work/a"],
     });
+  });
+
+  it("keeps opened folders in the recent list even when they have no project thread or lose it", () => {
+    const store = createCodeWorkspaceBindingStore(createMemoryStorage());
+    store.getState().setLastRoot("/work/a");
+    store.getState().setLastRoot("/work/b");
+    store.getState().recordProjectThread("/work/b", "thread-1");
+    store.getState().forgetProjectThread("/work/b", "thread-1");
+    store.getState().setLastRoot("/work/a");
+    expect(store.getState().recentRoots).toEqual(["/work/a", "/work/b"]);
+    store.getState().closeRoot("/work/b");
+    expect(store.getState().recentRoots).toEqual(["/work/a"]);
+  });
+
+  it("seeds the recent list from older saves that only knew project-thread roots", () => {
+    const restored = normalizeCodeWorkspaceBindings({ lastRoot: "/work/b", threadsByRoot: { "/work/a": ["t1"], "/work/b": ["t2"] } });
+    expect(restored.recentRoots).toEqual(["/work/b", "/work/a"]);
   });
 
   it("forgets one project thread without dropping the rest of the list", () => {

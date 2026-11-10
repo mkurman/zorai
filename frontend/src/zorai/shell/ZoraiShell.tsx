@@ -37,7 +37,7 @@ import { ToolsContext, ToolsRail, ToolsView } from "../features/tools/ToolsView"
 import { getDefaultZoraiTool, type ZoraiToolId } from "../features/tools/tools";
 import { WorkspacesRail, WorkspacesView } from "../features/workspaces/WorkspacesView";
 import { SkillsRail, SkillsView } from "../features/skills/SkillsView";
-import { contextPanelLabels, getDefaultZoraiView, normalizeZoraiToolNavigation, zoraiNavItems, type ZoraiViewId } from "./navigation";
+import { contextPanelLabels, getDefaultZoraiView, LAST_ZORAI_VIEW_STORAGE_KEY, normalizeZoraiToolNavigation, zoraiNavItems, type ZoraiViewId } from "./navigation";
 import { ZoraiContextPanel } from "./ZoraiContextPanel";
 import { ZoraiBrandMark, ZoraiHamburgerIcon, ZoraiNavIcon } from "./ZoraiIcons";
 import { ZORAI_NAVIGATE_EVENT, type ZoraiNavigateDetail, type ZoraiReturnTarget } from "./zoraiNavigationEvents";
@@ -63,7 +63,10 @@ function readCompactShell() {
 }
 
 export function ZoraiShell() {
-  const [activeView, setActiveView] = useState<ZoraiViewId>(getDefaultZoraiView);
+  const [activeView, setActiveView] = useState<ZoraiViewId>(() => getDefaultZoraiView(
+    useSettingsStore.getState().settings.startupView,
+    typeof localStorage === "undefined" ? null : localStorage.getItem(LAST_ZORAI_VIEW_STORAGE_KEY),
+  ));
   const [activeTool, setActiveTool] = useState<ZoraiToolId>(getDefaultZoraiTool);
   const [activeSettingsTab, setActiveSettingsTab] = useState<ZoraiSettingsTabId>(getDefaultZoraiSettingsTab);
   const nightMode = useSettingsStore((state) => state.settings.nightMode);
@@ -203,11 +206,16 @@ export function ZoraiShell() {
   const shellStyle = activeView === "code" ? {
     "--zorai-code-explorer-width": `${effectiveCodeWidths.explorer}px`,
     "--zorai-code-agent-width": `${effectiveCodeWidths.agent}px`,
+    "--zorai-chat-max-width": chatMaxWidth(chatWidth),
   } as CSSProperties : {
     "--zorai-rail-width": `${railWidth}px`,
     "--zorai-context-width": `${contextWidth}px`,
     "--zorai-chat-max-width": chatMaxWidth(chatWidth),
   } as CSSProperties;
+
+  useEffect(() => {
+    if (typeof localStorage !== "undefined") localStorage.setItem(LAST_ZORAI_VIEW_STORAGE_KEY, activeView);
+  }, [activeView]);
 
   const selectView = (view: ZoraiViewId) => {
     setActiveView(view);

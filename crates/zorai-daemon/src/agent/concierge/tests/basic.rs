@@ -357,3 +357,19 @@ fn profile_decision_standard_welcome_when_only_optional_fields_remain() {
     let decision = profile_interview_decision(&specs, &answered, &session, 0);
     assert_eq!(decision, WelcomeProfileDecision::StandardWelcome);
 }
+
+#[test]
+fn concierge_prompt_uses_operator_override_and_falls_back_when_blank() {
+    let mut concierge = ConciergeConfig::default();
+    let built_in = concierge_system_prompt(&concierge);
+    assert!(built_in.contains("concierge"));
+
+    concierge.system_prompt = Some("  You are a terse release manager.  ".to_string());
+    assert_eq!(
+        concierge_system_prompt(&concierge),
+        "You are a terse release manager."
+    );
+
+    concierge.system_prompt = Some("   ".to_string());
+    assert_eq!(concierge_system_prompt(&concierge), built_in);
+}

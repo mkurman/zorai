@@ -6,7 +6,7 @@ import {
   getThemeByName,
   themesForAppearance,
 } from "@/lib/themes";
-import type { ChatWidthPreference, NightModePreference } from "@/lib/types";
+import type { ChatWidthPreference, StartupViewPreference, NightModePreference } from "@/lib/types";
 import {
   CHAT_WIDTH_OPTIONS,
   DEFAULT_UI_FONT,
@@ -23,6 +23,7 @@ import {
 } from "@/lib/uiInterfacePrefs";
 import { FontPicker } from "./FontPicker";
 import { BUNDLED_UI_FONTS, buildTerminalFontOptions } from "./terminalFontOptions";
+import { STARTUP_VIEW_OPTIONS } from "@/zorai/shell/navigation";
 
 export function InterfacePanel() {
   const settings = useSettingsStore((state) => state.settings);
@@ -109,6 +110,17 @@ export function InterfacePanel() {
             value={normalizeUiFontScale(settings.uiFontScale)}
             onChange={(scale) => updateSetting("uiFontScale", scale)}
           />
+        </SettingRow>
+        <SettingRow label="Open on Startup" description="Which tab Zorai shows when it opens. Last opened tab picks up where you left off.">
+          <select
+            className="zorai-input"
+            value={STARTUP_VIEW_OPTIONS.some((option) => option.id === settings.startupView) ? settings.startupView : "threads"}
+            onChange={(event) => updateSetting("startupView", event.target.value as StartupViewPreference)}
+          >
+            {STARTUP_VIEW_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>{option.label}</option>
+            ))}
+          </select>
         </SettingRow>
         <SettingRow label="Chat Width" description="Maximum width of the conversation, the composer and the empty Threads screen. Narrower columns are easier to read on wide windows.">
           <select

@@ -149,6 +149,11 @@ function registerCoreIpcHandlers(ipcMain, options) {
     ipcMain.handle('workspace-git-unstage-many', (_event, rootPath, relativePaths) => workspaceService.workspaceGitUnstageMany(rootPath, relativePaths));
     ipcMain.handle('workspace-git-branches', (_event, rootPath) => workspaceService.workspaceGitBranches(rootPath));
     ipcMain.handle('workspace-git-checkout', (_event, rootPath, branch) => workspaceService.workspaceGitCheckout(rootPath, branch));
+    ipcMain.handle('workspace-git-remote', (_event, rootPath, action) => workspaceService.workspaceGitRemote(rootPath, action));
+    ipcMain.handle('workspace-git-action', (_event, rootPath, action, params) => workspaceService.workspaceGitAction(rootPath, action, params));
+    ipcMain.handle('workspace-git-list', (_event, rootPath, kind) => workspaceService.workspaceGitList(rootPath, kind));
+    ipcMain.handle('workspace-git-clone', (_event, url, parentDir, folderName) => workspaceService.workspaceGitClone(url, parentDir, folderName));
+    ipcMain.handle('workspace-git-output', () => workspaceService.workspaceGitOutput());
     ipcMain.handle('workspace-git-discard', (_event, rootPath, relativePath) => workspaceService.workspaceGitDiscard(rootPath, relativePath));
     ipcMain.handle('workspace-git-hunks', (_event, rootPath, relativePath, runtimeOptions) => workspaceService.workspaceGitHunks(rootPath, relativePath, runtimeOptions));
     ipcMain.handle('workspace-git-apply-hunk', (_event, rootPath, relativePath, hunkId, action) => workspaceService.workspaceGitApplyHunk(rootPath, relativePath, hunkId, action));

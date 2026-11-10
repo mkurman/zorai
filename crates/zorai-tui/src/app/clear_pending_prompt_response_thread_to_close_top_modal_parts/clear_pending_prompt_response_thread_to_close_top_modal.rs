@@ -503,7 +503,8 @@ impl TuiModel {
         true
     }
     pub(crate) fn open_settings_tab(&mut self, tab: SettingsTab) {
-        if self.modal.top() != Some(modal::ModalKind::Settings) {
+        let opening = self.modal.top() != Some(modal::ModalKind::Settings);
+        if opening {
             self.modal
                 .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
         }
@@ -522,6 +523,9 @@ impl TuiModel {
             self.send_daemon_command(DaemonCommand::DatabaseGetBackend);
         } else if matches!(tab, SettingsTab::Mlflow) {
             self.send_daemon_command(DaemonCommand::GetMlflowTracingStatus);
+        }
+        if opening {
+            self.send_daemon_command(DaemonCommand::GetConfig);
         }
     }
 

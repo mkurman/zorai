@@ -14,5 +14,6 @@ describe("CodeRailTabs", () => {
     expect(html).toContain('zorai-code-rail-tabs__badge is-danger">3<');
     expect(html).not.toContain(">0<");
     expect(html).toContain('aria-selected="true"');
+    expect(html).toContain('aria-label="Source Control"');
   });
 });

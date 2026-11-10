@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { formatOperationAge, operationFileLabel } from "./AgentOperationList";
+import { formatOperationAge, operationFileLabel, operationToolLabel } from "./AgentOperationList";
 import { resolveCodeReviewer } from "./codeReview";
 
 describe("agent operation rows", () => {
+  it("names operations the way the chat tool list does, not by raw tool id", () => {
+    expect(operationToolLabel("apply_file_patch")).toBe("Apply File Patch");
+    expect(operationToolLabel("write_file")).toBe("Write File");
+    expect(operationToolLabel(undefined)).toBe("Operation");
+  });
+
   it("shows the file name first and a short folder so long artifact paths stay readable", () => {
     expect(operationFileLabel("/repo/knowledge/batches/next/README.md", "/repo")).toEqual({ name: "README.md", folder: "knowledge/batches/next" });
     expect(operationFileLabel("/home/me/.zorai/threads/t1/artifacts/specs/parent.py", "/repo")).toEqual({ name: "parent.py", folder: "…/artifacts/specs" });

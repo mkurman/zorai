@@ -30,6 +30,19 @@ export function buildContextMenuEntries(request: ZoraiContextMenuRequest): Conte
   return entries;
 }
 
+export function codeEditorMenuRequest(
+  request: ZoraiContextMenuRequest,
+  editor: { hasSelection: boolean; readOnly: boolean },
+): ZoraiContextMenuRequest {
+  return {
+    ...request,
+    isEditable: true,
+    canCut: editor.hasSelection && !editor.readOnly,
+    canCopy: editor.hasSelection,
+    canPaste: !editor.readOnly,
+  };
+}
+
 export function selectAllScope<T extends { closest: (selector: string) => T | null }>(target: T | null): T | null {
   return target?.closest(SELECT_ALL_SCOPE_SELECTOR) ?? target;
 }

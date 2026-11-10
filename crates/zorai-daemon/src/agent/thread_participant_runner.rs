@@ -717,7 +717,7 @@ impl AgentEngine {
             return Ok(ParticipantObserverResponderConfig {
                 provider_id,
                 provider_config,
-                base_prompt: crate::agent::concierge::concierge_system_prompt(),
+                base_prompt: crate::agent::concierge::concierge_system_prompt(&config.concierge),
             });
         }
 

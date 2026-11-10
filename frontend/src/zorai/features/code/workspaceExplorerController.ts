@@ -38,13 +38,13 @@ export function createWorkspaceExplorerController(
   };
   const pendingLoads = new Map<string, Promise<void>>();
   const loadGenerations = new Map<string, number>();
-  const load = (path: string): Promise<void> => {
+  const load = (path: string, quiet = false): Promise<void> => {
     const existing = pendingLoads.get(path);
     if (existing) return existing;
     const generation = (loadGenerations.get(path) ?? 0) + 1;
     loadGenerations.set(path, generation);
     const task = (async () => {
-      publish({ ...snapshot, loadingPaths: new Set([...snapshot.loadingPaths, path]), errorByPath: new Map([...snapshot.errorByPath].filter(([key]) => key !== path)) });
+      if (!quiet) publish({ ...snapshot, loadingPaths: new Set([...snapshot.loadingPaths, path]), errorByPath: new Map([...snapshot.errorByPath].filter(([key]) => key !== path)) });
       try {
         const children = await loadDirectory(path);
         if (loadGenerations.get(path) !== generation) return;
@@ -53,7 +53,7 @@ export function createWorkspaceExplorerController(
         if (loadGenerations.get(path) !== generation) return;
         publish({ ...snapshot, errorByPath: new Map(snapshot.errorByPath).set(path, reason?.message ?? String(reason)) });
       } finally {
-        if (loadGenerations.get(path) === generation) {
+        if (loadGenerations.get(path) === generation && snapshot.loadingPaths.has(path)) {
           const loadingPaths = new Set(snapshot.loadingPaths);
           loadingPaths.delete(path);
           publish({ ...snapshot, loadingPaths });
@@ -90,7 +90,17 @@ export function createWorkspaceExplorerController(
     },
     async refreshExpanded() {
       const expanded = [...snapshot.expandedPaths];
-      await Promise.all(expanded.map((path) => load(path)));
+      await Promise.all(expanded.map((path) => load(path, true)));
     },
   };
+}
+
+const explorerControllers = new Map<string, { bridge: unknown; controller: ReturnType<typeof createWorkspaceExplorerController> }>();
+
+export function workspaceExplorerControllerFor(bridge: Parameters<typeof createWorkspaceExplorerLoader>[0], root: string) {
+  const cached = explorerControllers.get(root);
+  if (cached && cached.bridge === bridge) return cached.controller;
+  const controller = createWorkspaceExplorerController(createWorkspaceExplorerLoader(bridge, root));
+  explorerControllers.set(root, { bridge, controller });
+  return controller;
 }

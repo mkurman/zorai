@@ -75,7 +75,7 @@ export function cachedWorkspaceFileIndexAge(root: string): number | null {
 export async function getWorkspaceFiles(
   bridge: WorkspaceFileIndexBridge,
   root: string,
-  options: { force?: boolean; signal?: AbortSignal } = {},
+  options: { force?: boolean } = {},
 ): Promise<string[]> {
   if (!root || !bridge.workspaceListDirectory) return [];
   if (!options.force) {
@@ -85,8 +85,8 @@ export async function getWorkspaceFiles(
   const inflight = inflightByRoot.get(root);
   if (inflight && !options.force) return inflight;
 
-  const promise = collectWorkspaceFiles(bridge, root, { signal: options.signal }).then((files) => {
-    if (!options.signal?.aborted) indexByRoot.set(root, { root, files, at: Date.now() });
+  const promise = collectWorkspaceFiles(bridge, root).then((files) => {
+    indexByRoot.set(root, { root, files, at: Date.now() });
     return files;
   }).finally(() => {
     if (inflightByRoot.get(root) === promise) inflightByRoot.delete(root);

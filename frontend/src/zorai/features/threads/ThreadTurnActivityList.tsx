@@ -1,6 +1,7 @@
-import { memo, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { MemoizedToolEventRow, sameToolEventGroup } from "@/components/agent-chat-panel/chat-view/ToolEventRow";
 import { ZoraiToolMark } from "@/components/agent-chat-panel/chat-view/ZoraiToolMark";
+import { ToolListCollapseFooter } from "@/components/agent-chat-panel/chat-view/ToolEventList";
 import type {
   OperationStatusView,
   ThreadMutationResult,
@@ -55,12 +56,14 @@ export const ThreadTurnActivityList = memo(function ThreadTurnActivityList({
   onCancelOperation: (operationId: string) => Promise<ThreadMutationResult>;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const headerRef = useRef<HTMLButtonElement | null>(null);
   if (entries.length === 0) return null;
   const { title, working, toolCount, doneCount } = summarizeTurnActivity(entries);
 
   return (
     <div className="acp-tool-list zorai-turn-activity">
       <button
+        ref={headerRef}
         type="button"
         aria-expanded={expanded}
         className="acp-tool-list__header"
@@ -103,6 +106,7 @@ export const ThreadTurnActivityList = memo(function ThreadTurnActivityList({
               </div>
             ) : null;
           })}
+          <ToolListCollapseFooter headerRef={headerRef} onCollapse={() => setExpanded(false)} />
         </div>
       ) : null}
     </div>

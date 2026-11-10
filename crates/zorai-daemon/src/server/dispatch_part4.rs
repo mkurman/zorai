@@ -85,6 +85,7 @@ pub(crate) async fn dispatch_part4(
             | ClientMessage::AgentDeclareAsyncCommandCapability { .. }
             | ClientMessage::AgentGetOperationStatus { .. }
             | ClientMessage::AgentListThreadOperations { .. }
+            | ClientMessage::AgentGenerateCommitMessage { .. }
             | ClientMessage::AgentHandoffThread { .. }
             | ClientMessage::AgentGetSubagentMetrics { .. }
             | ClientMessage::AgentGetSubsystemMetrics
@@ -1884,6 +1885,23 @@ pub(crate) async fn dispatch_part4(
                     })
                     .await?;
             }
+        }
+
+        ClientMessage::AgentGenerateCommitMessage {
+            diff,
+            recent_subjects,
+        } => {
+            let reply = match agent.generate_commit_message(&diff, &recent_subjects).await {
+                Ok(message) => DaemonMessage::AgentCommitMessageGenerated {
+                    message,
+                    error: None,
+                },
+                Err(error) => DaemonMessage::AgentCommitMessageGenerated {
+                    message: String::new(),
+                    error: Some(error.to_string()),
+                },
+            };
+            framed.send(reply).await?;
         }
 
         ClientMessage::AgentListThreadOperations { thread_id } => {

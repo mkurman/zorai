@@ -97,13 +97,14 @@ impl AgentEngine {
             .to_string();
         let safe_tools =
             crate::agent::concierge::concierge_chat_safe_tools(&config, self.data_dir.as_path());
+        let base_prompt = crate::agent::concierge::concierge_system_prompt(&config.concierge);
         drop(config);
 
         let memory_paths = memory_paths_for_scope(&self.data_dir, MAIN_AGENT_ID);
         let memory = self.memory_snapshot_for_scope(MAIN_AGENT_ID).await;
         let mut system_prompt = format!(
             "{}\n\n{} is the main builder agent. You are {}, the concierge. If you need deeper implementation work, summarize what {} should handle.\nPersistent memory files:\n- MEMORY.md: {}\n- SOUL.md: {}\n- USER.md: {}",
-            crate::agent::concierge::concierge_system_prompt(),
+            base_prompt,
             MAIN_AGENT_NAME,
             CONCIERGE_AGENT_NAME,
             MAIN_AGENT_NAME,

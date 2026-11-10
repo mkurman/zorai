@@ -2,6 +2,7 @@ import { useContext, useState } from "react";
 import { AgentChatPanelRuntimeContext } from "@/components/agent-chat-panel/runtime/context";
 import { openThreadTarget } from "@/zorai/features/threads/openThreadTarget";
 import { navigateZorai } from "@/zorai/shell/zoraiNavigationEvents";
+import { useCodeWorkspaceBindingStore } from "./codeWorkspaceBindingStore";
 import {
   codeReviewStateFor,
   formatFinding,
@@ -74,7 +75,10 @@ export function AgentReviewPanel({ root, reviewerLabel, commitWindow, onFindIssu
             {review.status === "idle" && `Reviews the last ${commitWindow} commit${commitWindow === 1 ? "" : "s"} with ${reviewerLabel}.`}
           </div>
           {review.threadId && runtime ? (
-            <button type="button" className="zorai-agent-review-configure" onClick={() => void openThreadTarget(runtime, review.threadId!)}>
+            <button type="button" className="zorai-agent-review-configure" onClick={() => {
+              useCodeWorkspaceBindingStore.getState().recordProjectThread(root, review.threadId!);
+              void openThreadTarget(runtime, review.threadId!);
+            }}>
               Open review thread
             </button>
           ) : null}

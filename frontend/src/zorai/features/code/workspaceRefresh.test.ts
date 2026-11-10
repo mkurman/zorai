@@ -105,3 +105,16 @@ describe("workspace refresh transaction", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 });
+
+describe("workspace root state cache", () => {
+  it("returns the last loaded state for a folder and merges git-only updates into it", async () => {
+    const { cachedWorkspaceRootState, rememberWorkspaceRootState } = await import("./workspaceRefresh");
+    expect(cachedWorkspaceRootState("/cache-root")).toBeNull();
+    rememberWorkspaceRootState("/cache-root", { entries: [], statuses: [], overview: null, worktrees: [], history: [{ hash: "h", shortHash: "h", author: "a", date: "", subject: "s" }], conflicts: [] });
+    rememberWorkspaceRootState("/cache-root", { statuses: [{ path: "x", index: "M", worktree: " " } as unknown as ZoraiWorkspaceGitStatus] });
+    const cached = cachedWorkspaceRootState("/cache-root");
+    expect(cached?.history).toHaveLength(1);
+    expect(cached?.statuses).toHaveLength(1);
+    expect(cachedWorkspaceRootState(null)).toBeNull();
+  });
+});

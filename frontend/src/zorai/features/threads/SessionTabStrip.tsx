@@ -12,6 +12,7 @@ export type SessionTabModel = {
   active: boolean;
   working: boolean;
   unread: boolean;
+  pinned?: boolean;
 };
 
 const SESSION_TAB_DRAG_TYPE = "application/x-zorai-session-tab";
@@ -23,11 +24,15 @@ export function SessionTabStrip({
   onSelect,
   onClose,
   onMove,
+  onTogglePin,
+  label = "Open sessions",
 }: {
   tabs: SessionTabModel[];
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
   onMove?: (id: string, targetId: string, placeAfter: boolean) => void;
+  onTogglePin?: (id: string) => void;
+  label?: string;
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [drop, setDrop] = useState<SessionTabDrop | null>(null);
@@ -44,10 +49,11 @@ export function SessionTabStrip({
   };
 
   return (
-    <nav className="zorai-session-tabs" aria-label="Open sessions">
+    <nav className="zorai-session-tabs" aria-label={label}>
       {tabs.map((tab) => {
         const classes = ["zorai-session-tab"];
         if (tab.active) classes.push("zorai-session-tab--active");
+        if (tab.pinned) classes.push("is-pinned");
         if (tab.id === draggingId) classes.push("is-dragging");
         if (drop?.id === tab.id && draggingId && draggingId !== tab.id) classes.push(drop.after ? "is-drop-after" : "is-drop-before");
         return (
@@ -78,16 +84,32 @@ export function SessionTabStrip({
             }}
             onDragEnd={endDrag}
             onAuxClick={(event) => {
-              if (event.button === 1) onClose(tab.id);
+              if (event.button === 1 && !tab.pinned) onClose(tab.id);
             }}
           >
             <button type="button" className="zorai-session-tab__main" aria-current={tab.active ? "page" : undefined} onClick={() => onSelect(tab.id)}>
               {tab.working ? <span className="zorai-thread-dot zorai-thread-dot--working" aria-hidden="true" /> : null}
               <span>{tab.title}</span>
             </button>
-            <button type="button" className="zorai-session-tab__close" aria-label={`Close ${tab.title}`} onClick={() => onClose(tab.id)}>
-              ×
-            </button>
+            {onTogglePin ? (
+              <button
+                type="button"
+                className="zorai-session-tab__pin"
+                aria-label={tab.pinned ? `Unpin ${tab.title}` : `Pin ${tab.title}`}
+                aria-pressed={Boolean(tab.pinned)}
+                title={tab.pinned ? "Unpin" : "Pin"}
+                onClick={() => onTogglePin(tab.id)}
+              >
+                <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                  <path fill="currentColor" d="M9.7 1.4H6.3l-.7 1.2.9.6v3.2L4.3 8.7v1.1h3.1V15h1.2V9.8h3.1V8.7L9.5 6.4V3.2l.9-.6-.7-1.2z" />
+                </svg>
+              </button>
+            ) : null}
+            {tab.pinned ? null : (
+              <button type="button" className="zorai-session-tab__close" aria-label={`Close ${tab.title}`} onClick={() => onClose(tab.id)}>
+                ×
+              </button>
+            )}
           </div>
         );
       })}

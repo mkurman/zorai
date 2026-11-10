@@ -369,7 +369,7 @@ fn build_direct_target(
             agent_id: CONCIERGE_AGENT_ID.to_string(),
             agent_name: CONCIERGE_AGENT_NAME.to_string(),
             memory_scope_id: CONCIERGE_AGENT_ID.to_string(),
-            base_prompt: crate::agent::concierge::concierge_system_prompt(),
+            base_prompt: crate::agent::concierge::concierge_system_prompt(&config.concierge),
             provider_id,
             model: provider_config.model,
         });

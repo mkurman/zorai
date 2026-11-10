@@ -9,6 +9,7 @@ import { OpenRouterProviderRoutingControls } from "./OpenRouterProviderRoutingCo
 import { displayAgentName } from "../../lib/agentNames";
 import { PreferredSkillsEditor } from "../../zorai/features/skills/PreferredSkillsEditor";
 import { preferredSkillScopeId } from "../../zorai/features/skills/skillLibrary";
+import { PromptEditor } from "@/zorai/features/settings/PromptEditor";
 
 const WELES_BUILTIN_SUBAGENT_ID = "weles_builtin";
 
@@ -339,17 +340,16 @@ export function SubAgentsTab() {
                             ))}
                         </select>
                     </Field>
-                    <Field label="System Prompt">
-                        <textarea
-                            className="zorai-textarea"
+                    <Field label="System Prompt" stacked>
+                        <PromptEditor
+                            label="Sub-agent system prompt"
+                            path={`settings/subagent-${editingId ?? "new"}-system-prompt.md`}
                             value={form.system_prompt}
-                            onChange={(e) => setForm({ ...form, system_prompt: e.target.value })}
-                            placeholder="Optional system prompt override"
-                            rows={3}
+                            onChange={(value) => setForm((current) => ({ ...current, system_prompt: value }))}
                         />
                     </Field>
                     {editingId ? (
-                        <Field label="Preferred Skills">
+                        <Field label="Preferred Skills" stacked>
                             <PreferredSkillsEditor agentId={preferredSkillScopeId(editingId)} agentName={form.name || editingId} />
                         </Field>
                     ) : null}
@@ -448,9 +448,9 @@ export function SubAgentsTab() {
     );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, children, stacked = false }: { label: string; children: ReactNode; stacked?: boolean }) {
     return (
-        <div className="zorai-subagents__row">
+        <div className={stacked ? "zorai-subagents__row zorai-subagents__row--stacked" : "zorai-subagents__row"}>
             <span>{label}</span>
             {children}
         </div>

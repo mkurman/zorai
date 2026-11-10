@@ -16,6 +16,7 @@ export const CODE_WORKSPACE_BINDING_STORE_VERSION = 2;
  * Threads surface even after they fall off this list.
  */
 export const CODE_PROJECT_THREADS_PER_ROOT_MAX = 40;
+export const CODE_RECENT_ROOTS_MAX = 30;
 
 export type CodeWorkspaceBindings = {
   /** Canonical validated workspace root that was most recently opened. */
@@ -26,6 +27,7 @@ export type CodeWorkspaceBindings = {
    * promoted to daemon threads yet; the daemon id is recorded once assigned.
    */
   threadsByRoot: Record<string, string[]>;
+  recentRoots: string[];
 };
 
 export type CodeWorkspaceBindingActions = {
@@ -115,9 +117,19 @@ export function normalizeCodeWorkspaceBindings(input: unknown): CodeWorkspaceBin
     }
   }
 
+  const lastRoot = trimCodeWorkspaceRoot(raw.lastRoot);
+  const recentSource = Array.isArray(raw.recentRoots) ? raw.recentRoots : [lastRoot, ...Object.keys(threadsByRoot)];
+  const recentRoots: string[] = [];
+  for (const entry of recentSource) {
+    const root = trimCodeWorkspaceRoot(entry);
+    if (root && !recentRoots.includes(root)) recentRoots.push(root);
+    if (recentRoots.length >= CODE_RECENT_ROOTS_MAX) break;
+  }
+
   return {
-    lastRoot: trimCodeWorkspaceRoot(raw.lastRoot),
+    lastRoot,
     threadsByRoot,
+    recentRoots,
   };
 }
 
@@ -188,17 +200,24 @@ function createCodeWorkspaceBindingActions(
     closeRoot(root) {
       const trimmedRoot = trimCodeWorkspaceRoot(root);
       if (!trimmedRoot) return;
-      const { threadsByRoot, lastRoot } = get();
+      const { threadsByRoot, lastRoot, recentRoots } = get();
       const next = { ...threadsByRoot };
       delete next[trimmedRoot];
       set({
         threadsByRoot: next,
         lastRoot: lastRoot === trimmedRoot ? null : lastRoot,
+        recentRoots: recentRoots.filter((entry) => entry !== trimmedRoot),
       });
     },
 
     setLastRoot(root) {
-      set({ lastRoot: trimCodeWorkspaceRoot(root) });
+      const trimmedRoot = trimCodeWorkspaceRoot(root);
+      if (!trimmedRoot) {
+        set({ lastRoot: null });
+        return;
+      }
+      const recentRoots = [trimmedRoot, ...get().recentRoots.filter((entry) => entry !== trimmedRoot)].slice(0, CODE_RECENT_ROOTS_MAX);
+      set({ lastRoot: trimmedRoot, recentRoots });
     },
 
     threadForRoot(root) {
@@ -218,13 +237,14 @@ function createCodeWorkspaceBindingActions(
       set({
         lastRoot: normalized.lastRoot,
         threadsByRoot: normalized.threadsByRoot,
+        recentRoots: normalized.recentRoots,
       });
     },
   };
 }
 
 function createInitialCodeWorkspaceBindings(): CodeWorkspaceBindings {
-  return { lastRoot: null, threadsByRoot: {} };
+  return { lastRoot: null, threadsByRoot: {}, recentRoots: [] };
 }
 
 /**
@@ -241,6 +261,7 @@ function createCodeWorkspaceBindingPersistConfig(
     partialize: (state: CodeWorkspaceBindingStore): CodeWorkspaceBindings => ({
       lastRoot: state.lastRoot,
       threadsByRoot: state.threadsByRoot,
+      recentRoots: state.recentRoots,
     }),
     merge: (persisted: unknown, current: CodeWorkspaceBindingStore): CodeWorkspaceBindingStore => ({
       ...current,

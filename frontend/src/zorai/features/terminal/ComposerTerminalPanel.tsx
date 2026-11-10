@@ -20,6 +20,15 @@ const NO_IDS: string[] = [];
 
 export function ComposerTerminalPanel({ sessionKey, cwd, workspaceId }: { sessionKey: string; cwd?: string; workspaceId?: string | null }) {
   const resize = useComposerPanelHeight(340, 160);
+  return (
+    <div ref={resize.panelRef} className="zorai-terminal-panel" style={{ height: resize.height }}>
+      <div className="zorai-composer-panel-resize" {...resize.handleProps} />
+      <TerminalSessions sessionKey={sessionKey} cwd={cwd} workspaceId={workspaceId} onHide={() => setThreadTerminalOpen(sessionKey, false)} />
+    </div>
+  );
+}
+
+export function TerminalSessions({ sessionKey, cwd, workspaceId, onHide }: { sessionKey: string; cwd?: string; workspaceId?: string | null; onHide?: () => void }) {
   const workspaces = useWorkspaceStore((state) => state.workspaces);
   const shells = useThreadTerminalStore((state) => state.shells[sessionKey] ?? NO_IDS);
   const dismissed = useThreadTerminalStore((state) => state.dismissed[sessionKey] ?? NO_IDS);
@@ -38,8 +47,7 @@ export function ComposerTerminalPanel({ sessionKey, cwd, workspaceId }: { sessio
   };
 
   return (
-    <div ref={resize.panelRef} className="zorai-terminal-panel" style={{ height: resize.height }}>
-      <div className="zorai-composer-panel-resize" {...resize.handleProps} />
+    <>
       <div className="zorai-terminal-panel__bar">
         <div className="zorai-terminal-panel__sessions" role="tablist" aria-label="Terminal sessions">
           {tabs.map((tab) => (
@@ -69,15 +77,17 @@ export function ComposerTerminalPanel({ sessionKey, cwd, workspaceId }: { sessio
           <button type="button" className="zorai-browser-panel__icon" title="New shell" aria-label="New shell" onClick={() => openThreadShell(sessionKey)}>+</button>
         </div>
         {shownCwd ? <span className="zorai-terminal-panel__cwd" title={shownCwd}>{shownCwd}</span> : null}
-        <button
-          type="button"
-          className="zorai-browser-panel__icon zorai-browser-panel__hide"
-          title="Hide terminal (the shells keep running)"
-          aria-label="Hide terminal"
-          onClick={() => setThreadTerminalOpen(sessionKey, false)}
-        >
-          ×
-        </button>
+        {onHide ? (
+          <button
+            type="button"
+            className="zorai-browser-panel__icon zorai-browser-panel__hide"
+            title="Hide terminal (the shells keep running)"
+            aria-label="Hide terminal"
+            onClick={onHide}
+          >
+            ×
+          </button>
+        ) : null}
       </div>
       {current?.kind === "agent" ? <div className="zorai-terminal-panel__note">Live view of the agent&apos;s terminal. What you type goes to the agent&apos;s shell.</div> : null}
       <div className="zorai-terminal-panel__body">
@@ -89,6 +99,6 @@ export function ComposerTerminalPanel({ sessionKey, cwd, workspaceId }: { sessio
           <button type="button" className="zorai-terminal-panel__empty" onClick={() => openThreadShell(sessionKey)}>Open a new shell</button>
         )}
       </div>
-    </div>
+    </>
   );
 }
