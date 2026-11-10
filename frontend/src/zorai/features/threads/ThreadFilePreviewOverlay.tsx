@@ -12,23 +12,28 @@ import {
   threadContextEntryKey,
 } from "./threadContextPreview";
 import { useThreadFilePreview } from "./ThreadFilePreviewContext";
+import { ImageLightbox } from "./ImageLightbox";
+import { MediaLightbox } from "./MediaLightbox";
 import { DataTable } from "@/components/data-viewers/DataTable";
 import { MermaidDiagram, MermaidEditor } from "@/components/data-viewers/MermaidDiagram";
 import { parseTabular, tabularFormatForPath } from "@/components/data-viewers/tabularData";
 import { ViewModeToggle } from "@/components/data-viewers/ViewModeToggle";
 import { EngineDataTable } from "@/components/data-viewers/EngineDataTable";
 import { dataEngineAvailable, isEngineDataPath, isEngineOnlyDataPath } from "@/components/data-viewers/dataQuery";
+import { CodeFileIcon, CodeFolderChevron } from "@/zorai/features/code/CodeFileIcon";
 
 type PreviewSection = {
   title: string;
-  kind: "git-diff" | "file-preview" | "image" | "video" | "data";
+  kind: "git-diff" | "file-preview" | "image" | "video" | "audio" | "data" | "directory";
   text: string;
   path?: string;
   truncated?: boolean;
+  entries?: ZoraiWorkspaceEntry[];
 };
 
 const IMAGE_PREVIEW_PATTERN = /\.(png|jpe?g|gif|webp|bmp|svg)$/i;
 const VIDEO_PREVIEW_PATTERN = /\.(mp4|webm|mov|m4v)$/i;
+const AUDIO_PREVIEW_PATTERN = /\.(mp3|wav|ogg|oga|opus|m4a|aac|flac|weba)$/i;
 const MARKDOWN_PREVIEW_PATTERN = /\.(md|markdown|mdx)$/i;
 const MERMAID_PREVIEW_PATTERN = /\.(mmd|mermaid)$/i;
 const TRUNCATION_SUFFIX = "\n\n[Preview truncated]";
@@ -55,14 +60,26 @@ export async function loadFilePreviewSection(path: string): Promise<PreviewSecti
       return { title: "Image preview", kind: "image", text: dataUrl, path };
     }
   }
+  if (AUDIO_PREVIEW_PATTERN.test(path)) {
+    const dataUrl = await getBridge()?.agentReadAudioFile?.(path);
+    if (dataUrl) {
+      return { title: "Audio preview", kind: "audio", text: dataUrl, path };
+    }
+  }
   if (VIDEO_PREVIEW_PATTERN.test(path)) {
-    return { title: "Video preview", kind: "video", text: fileUrlForPath(path), path };
+    return { title: "Video preview", kind: "video", text: mediaUrlForPath(path), path };
   }
   if (isEngineOnlyDataPath(path) && dataEngineAvailable()) {
     return { title: "Data preview", kind: "data", text: "", path };
   }
   const isDataFile = MERMAID_PREVIEW_PATTERN.test(path) || tabularFormatForPath(path) !== null;
   const preview = isDataFile ? await fetchFilePreview(path, DATA_PREVIEW_MAX_BYTES) : await fetchFilePreview(path);
+  if (!preview || !preview.isText) {
+    const entries = await getBridge()?.workspaceListDirectory?.(path, "").catch(() => null);
+    if (Array.isArray(entries)) {
+      return { title: `Folder · ${entries.length} item${entries.length === 1 ? "" : "s"}`, kind: "directory", text: "", path, entries };
+    }
+  }
   if (!preview) return null;
   const text = !preview.isText
     ? "Binary file preview is not available."
@@ -75,10 +92,17 @@ export async function loadFilePreviewSection(path: string): Promise<PreviewSecti
     : { title: "File preview", kind: "file-preview", text, path };
 }
 
-function fileUrlForPath(path: string): string {
+export function mediaKindForPath(path: string): "image" | "video" | "audio" | null {
+  if (IMAGE_PREVIEW_PATTERN.test(path)) return "image";
+  if (VIDEO_PREVIEW_PATTERN.test(path)) return "video";
+  if (AUDIO_PREVIEW_PATTERN.test(path)) return "audio";
+  return null;
+}
+
+export function mediaUrlForPath(path: string): string {
   const normalized = path.replace(/\\/g, "/");
   const absolute = normalized.startsWith("/") ? normalized : `/${normalized}`;
-  return `file://${encodeURI(absolute).replace(/\?/g, "%3F").replace(/#/g, "%23")}`;
+  return `zorai-media://local${encodeURI(absolute).replace(/\?/g, "%3F").replace(/#/g, "%23")}`;
 }
 
 export function ThreadFilePreviewOverlay() {
@@ -147,6 +171,18 @@ export function ThreadFilePreviewOverlay() {
 
   if (!entry) return null;
 
+  const mediaName = entry.path.split(/[\\/]/).pop() || entry.path;
+  const mediaSection = !loading && !error ? sections.find((section) => section.kind === "image" || section.kind === "video" || section.kind === "audio") : undefined;
+  if (mediaSection?.kind === "image") {
+    return <ImageLightbox src={mediaSection.text} name={mediaName} vector={/\.svg$/i.test(entry.path)} onClose={closeThreadFilePreview} />;
+  }
+  if (mediaSection?.kind === "video" || mediaSection?.kind === "audio") {
+    return <MediaLightbox src={mediaSection.text} name={mediaName} kind={mediaSection.kind} onClose={closeThreadFilePreview} />;
+  }
+  if (loading && mediaKindForPath(entry.path)) {
+    return <MediaLightbox src={null} name={mediaName} kind={mediaKindForPath(entry.path) === "video" ? "video" : "audio"} onClose={closeThreadFilePreview} />;
+  }
+
   return (
     <section className="zorai-file-preview-overlay" aria-label="File preview">
       <header className="zorai-file-preview-overlay__header">
@@ -206,7 +242,9 @@ function PreviewSectionView({ section }: { section: PreviewSection }) {
           <ViewModeToggle modes={modes} value={mode} onChange={setMode} label="File view mode" />
         ) : null}
       </div>
-      {section.kind === "data" && path ? (
+      {section.kind === "directory" ? (
+        <DirectoryListing path={path} entries={section.entries ?? []} />
+      ) : section.kind === "data" && path ? (
         <EngineDataTable path={path} />
       ) : useEngine && mode === "preview" ? (
         <EngineDataTable path={path} />
@@ -231,12 +269,45 @@ function PreviewSectionView({ section }: { section: PreviewSection }) {
   );
 }
 
+function DirectoryListing({ path, entries }: { path: string; entries: ZoraiWorkspaceEntry[] }) {
+  const { previewTarget, openThreadFilePreview } = useThreadFilePreview();
+  if (entries.length === 0) return <div className="zorai-empty">This folder is empty.</div>;
+  const base = path.replace(/[\\/]+$/, "");
+  return (
+    <ul className="zorai-file-preview-overlay__directory">
+      {entries.map((entry) => (
+        <li key={entry.path}>
+          <button
+            type="button"
+            title={`${base}/${entry.name}`}
+            disabled={!previewTarget}
+            onClick={() => previewTarget && openThreadFilePreview({ ...previewTarget.entry, path: `${base}/${entry.name}` })}
+          >
+            {entry.isDirectory ? <CodeFolderChevron expanded={false} /> : <CodeFileIcon path={entry.name} />}
+            <span>{entry.name}{entry.isDirectory ? "/" : ""}</span>
+            {!entry.isDirectory && typeof entry.sizeBytes === "number" ? <small>{formatPreviewBytes(entry.sizeBytes)}</small> : null}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function formatPreviewBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function PreviewText({ text, kind, path }: { text: string; kind: PreviewSection["kind"]; path?: string }) {
   if (kind === "image") {
     return <img className="zorai-file-preview-overlay__image" src={text} alt={path ?? ""} />;
   }
   if (kind === "video") {
     return <video className="zorai-file-preview-overlay__image" src={text} controls preload="metadata" />;
+  }
+  if (kind === "audio") {
+    return <audio className="zorai-file-preview-overlay__audio" src={text} controls preload="metadata" />;
   }
   if (text === "Binary file preview is not available.") {
     return <pre className="zorai-file-preview-overlay__pre">{text}</pre>;

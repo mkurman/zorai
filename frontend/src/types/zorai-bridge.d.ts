@@ -829,6 +829,7 @@ declare global {
         agentDeleteThread?: (threadId: string) => Promise<boolean>;
         agentRenameThread?: (threadId: string, title: string) => Promise<boolean>;
         agentReadImageFile?: (filePath: string) => Promise<string | null>;
+        agentReadAudioFile?: (filePath: string) => Promise<string | null>;
         openAICodexAuthStatus?: (options?: { refresh?: boolean }) => Promise<ZoraiOpenAICodexAuthStatus>;
         openAICodexAuthLogin?: () => Promise<ZoraiOpenAICodexAuthLogin>;
         openAICodexAuthLogout?: () => Promise<{ ok: boolean }>;

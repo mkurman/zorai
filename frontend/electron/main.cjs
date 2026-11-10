@@ -1,4 +1,5 @@
-const { app, BrowserWindow, Menu, Notification, clipboard, dialog, ipcMain, nativeImage, screen, shell, session } = require('electron');
+const { app, BrowserWindow, Menu, Notification, clipboard, dialog, ipcMain, nativeImage, net: electronNet, protocol, screen, shell, session } = require('electron');
+const { registerMediaProtocol, registerMediaSchemePrivileges } = require('./main/media-protocol.cjs');
 const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 const net = require('net');
@@ -606,9 +607,11 @@ function registerIpcHandlers() {
 }
 
 configureChromiumRuntimePaths({ app, logToFile });
+registerMediaSchemePrivileges(protocol);
 
 app.whenReady().then(async () => {
     logToFile('info', 'electron app ready');
+    registerMediaProtocol(protocol, electronNet);
     const bundledGuidelines = installBundledGuidelines({
         sourceCandidates: [
             path.join(process.resourcesPath, 'guidelines'),
