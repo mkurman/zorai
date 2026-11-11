@@ -7,7 +7,8 @@ import { chatMaxWidth, normalizeChatWidth,
   normalizeUiFontScale,
   resolveAppearance,
 } from "./uiInterfacePrefs";
-import { coerceThemeNameForAppearance, getThemeByName, themesForAppearance } from "./themes";
+import { coerceThemeNameForAppearance, defaultThemeNameForAppearance, getThemeByName, themesForAppearance } from "./themes";
+import { DEFAULT_SETTINGS } from "./types";
 import { getAppShellTheme } from "./themesAppShell";
 
 describe("uiInterfacePrefs", () => {
@@ -196,5 +197,33 @@ describe("chat width", () => {
     expect(chatMaxWidth("full")).toBe("100%");
     expect(normalizeChatWidth(undefined)).toBe("full");
     expect(chatMaxWidth("huge")).toBe("100%");
+  });
+});
+
+describe("Zorai Paper theme", () => {
+  it("uses the brand paper, ink and gold from zorai.app and the intro artwork", () => {
+    const light = getAppShellTheme("Zorai Paper", false, undefined, undefined, undefined, undefined, "light");
+    const dark = getAppShellTheme("Zorai Paper Dark", false, undefined, undefined, undefined, undefined, "dark");
+    expect(light["--bg-canvas"]).toBe("#fcf6e4");
+    expect(light["--accent"]).toBe("#89632e");
+    expect(dark["--bg-canvas"]).toBe("#2b2822");
+    expect(dark["--accent"]).toBe("#d9a548");
+  });
+
+  it("gives both editions the same tokens as an existing theme so switching never leaves stale or missing colors", () => {
+    const reference = Object.keys(getThemeByName("ClinicalGym").appShell ?? {}).sort();
+    expect(Object.keys(getThemeByName("Zorai Paper").appShell ?? {}).sort()).toEqual(reference);
+    expect(Object.keys(getThemeByName("Zorai Paper Dark").appShell ?? {}).sort()).toEqual(reference);
+  });
+
+  it("is what a new user starts with, in both night modes", () => {
+    expect(DEFAULT_SETTINGS.themeName).toBe("Zorai Paper Dark");
+    expect(defaultThemeNameForAppearance("dark")).toBe("Zorai Paper Dark");
+    expect(defaultThemeNameForAppearance("light")).toBe("Zorai Paper");
+  });
+
+  it("flips between the light and dark editions with night mode", () => {
+    expect(coerceThemeNameForAppearance("Zorai Paper", "dark")).toBe("Zorai Paper Dark");
+    expect(coerceThemeNameForAppearance("Zorai Paper Dark", "light")).toBe("Zorai Paper");
   });
 });

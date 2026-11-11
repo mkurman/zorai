@@ -12,3 +12,19 @@ export function CodeLargeFileGate({ path, sizeBytes, maxFileSizeMb, onOpenReduce
     <div><button type="button" onClick={onOpenReduced}>Open once in reduced mode</button><button type="button" onClick={onOpenExternal}>Open externally</button><button type="button" onClick={onReveal}>Reveal</button></div>
   </div>;
 }
+
+export function isBinaryFileError(reason: unknown): boolean {
+  const message = reason instanceof Error ? reason.message : String(reason ?? "");
+  return /binary files cannot be opened/i.test(message);
+}
+
+export function CodeUnsupportedFileNotice({ path, onOpenExternal, onReveal, onDismiss }: {
+  path: string; onOpenExternal: () => void; onReveal: () => void; onDismiss: () => void;
+}) {
+  const name = path.split(/[\\/]/).pop() || path;
+  return <div className="zorai-code-large-file" role="status">
+    <strong>{name} can't be opened here</strong>
+    <p>This is a binary file, and the editor only opens text. You can open it in another app instead.</p>
+    <div><button type="button" onClick={onOpenExternal}>Open externally</button><button type="button" onClick={onReveal}>Reveal</button><button type="button" onClick={onDismiss}>Dismiss</button></div>
+  </div>;
+}

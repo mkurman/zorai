@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { ZORAI_APP_DESCRIPTION, ZORAI_APP_NAME } from "./branding";
-import { ZORAI_LOGO_PETAL, ZORAI_LOGO_WEDGE } from "./shell/ZoraiIcons";
+import { ZORAI_LOGO_SPOKE } from "./shell/ZoraiIcons";
 
 describe("Zorai branding", () => {
   it("defines UI-facing app identity", () => {
@@ -19,8 +19,7 @@ describe("Zorai branding", () => {
   it("draws the in-app logo with the same geometry as the boot splash, so the brand never drifts between them", () => {
     const indexHtml = readFileSync(new URL("../../index.html", import.meta.url), "utf8");
 
-    expect(indexHtml).toContain(ZORAI_LOGO_PETAL);
-    expect(indexHtml).toContain(ZORAI_LOGO_WEDGE);
+    expect(indexHtml).toContain(ZORAI_LOGO_SPOKE);
   });
 
   it("uses Zorai for Electron-visible window and setup copy", () => {

@@ -1,6 +1,7 @@
 import type { ThemeFonts } from "./themes";
 import type { ChatWidthPreference, NightModePreference, UiFontScale } from "./types";
 
+export const BOOT_APPEARANCE_STORAGE_KEY = "zorai.bootAppearance";
 export const UI_FONT_SCALE_MIN = 0.75;
 export const UI_FONT_SCALE_MAX = 1.5;
 export const UI_FONT_SCALE_STEP = 0.025;
@@ -123,4 +124,5 @@ export function applyUiInterfacePrefs(options: {
   root.dataset.appearance = options.appearance;
   root.dataset.theme = (options.themeName ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
   root.style.colorScheme = options.appearance;
+  if (typeof localStorage !== "undefined") localStorage.setItem(BOOT_APPEARANCE_STORAGE_KEY, options.appearance);
 }

@@ -1293,6 +1293,15 @@ select.zorai-input:disabled option {
   max-width: none;
 }
 
+.zorai-prompt-field {
+  display: grid;
+  gap: 6px;
+}
+
+.zorai-prompt-field > .zorai-view-toggle {
+  justify-self: end;
+}
+
 .zorai-prompt-editor {
   height: 360px;
   min-height: 160px;
@@ -1306,6 +1315,12 @@ select.zorai-input:disabled option {
 
 .zorai-prompt-editor:focus-within {
   border-color: var(--zorai-accent);
+}
+
+.zorai-prompt-editor__preview {
+  height: 100%;
+  overflow: auto;
+  padding: 12px 16px;
 }
 
 .zorai-prompt-editor__fallback {

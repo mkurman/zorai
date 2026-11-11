@@ -1,5 +1,5 @@
-<div align="center" style="display: flex; flex-direction: row; justify-content: center; align-items: center; gap: 32px">
-  <div><img src="docs/assets/og_image.jpg" width=480/></div>
+<div align="center" style="display: flex; flex-direction: row; justify-content: center; align-items: center; gap: 32px; width: 100%">
+  <div><img src="docs/assets/og_image.jpg" width=640/></div>
   <b style="font-size: 22px">Read our docs</b>
   <div class="display: flex; flex-direction: row; gap: 4px">
     <a href="https://docs.zorai.app" style="text-decoration: none">🌐</a>

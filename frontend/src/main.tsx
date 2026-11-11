@@ -23,11 +23,17 @@ const setBootStatus = (text: string): void => {
   if (status) status.textContent = text;
 };
 
+const BOOT_INTRO_MS = 3200;
+
 const dismissBootSplash = (): void => {
   const splash = document.getElementById("zorai-boot");
   if (!splash) return;
-  splash.classList.add("zorai-boot--done");
-  window.setTimeout(() => splash.remove(), 500);
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const remaining = reducedMotion ? 0 : Math.max(0, BOOT_INTRO_MS - performance.now());
+  window.setTimeout(() => {
+    splash.classList.add("zorai-boot--done");
+    window.setTimeout(() => splash.remove(), 650);
+  }, remaining);
 };
 
 const renderRoot = (): void => {

@@ -373,42 +373,50 @@
   width: 78%;
   height: 78%;
   overflow: visible;
+  opacity: 0;
+  transform: rotate(-135deg) scale(0.4);
+  animation: zorai-brand-mark-turn 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes zorai-brand-mark-turn {
+  to { opacity: 1; transform: rotate(0deg) scale(1); }
 }
 
 .zorai-brand-mark__line {
   fill: none;
-  stroke: #fff;
-  stroke-width: 3.6;
+  stroke: var(--zorai-accent);
+  stroke-width: 9;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: zorai-brand-mark-draw 2.8s cubic-bezier(0.45, 0.02, 0.2, 1) forwards;
+  animation: zorai-brand-mark-draw 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .zorai-brand-mark--accent .zorai-brand-mark__line {
   stroke: var(--zorai-accent);
 }
 
-.zorai-brand-mark__line:nth-child(1) { animation-delay: 0.05s; }
-.zorai-brand-mark__line:nth-child(2) { animation-delay: 0.28s; }
-.zorai-brand-mark__line:nth-child(3) { animation-delay: 0.4s; }
-.zorai-brand-mark__line:nth-child(4) { animation-delay: 0.52s; }
-.zorai-brand-mark__line:nth-child(5) { animation-delay: 0.64s; }
-.zorai-brand-mark__line:nth-child(6) { animation-delay: 0.76s; }
-.zorai-brand-mark__line:nth-child(7) { animation-delay: 0.88s; }
-.zorai-brand-mark__line:nth-child(8) { animation-delay: 1.08s; }
-.zorai-brand-mark__line:nth-child(9) { animation-delay: 1.16s; }
-.zorai-brand-mark__line:nth-child(10) { animation-delay: 1.24s; }
-.zorai-brand-mark__line:nth-child(11) { animation-delay: 1.32s; }
-.zorai-brand-mark__line:nth-child(12) { animation-delay: 1.4s; }
-.zorai-brand-mark__line:nth-child(13) { animation-delay: 1.48s; }
+.zorai-brand-mark__line:nth-child(1) { animation-delay: 0s; }
+.zorai-brand-mark__line:nth-child(2) { animation-delay: 0.06s; }
+.zorai-brand-mark__line:nth-child(3) { animation-delay: 0.12s; }
+.zorai-brand-mark__line:nth-child(4) { animation-delay: 0.18s; }
+.zorai-brand-mark__line:nth-child(5) { animation-delay: 0.24s; }
+.zorai-brand-mark__line:nth-child(6) { animation-delay: 0.3s; }
+.zorai-brand-mark__line:nth-child(7) { animation-delay: 0.36s; }
+.zorai-brand-mark__line:nth-child(8) { animation-delay: 0.42s; }
 
 @keyframes zorai-brand-mark-draw {
   to { stroke-dashoffset: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .zorai-brand-mark__svg {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
   .zorai-brand-mark__line {
     animation: none;
     stroke-dashoffset: 0;

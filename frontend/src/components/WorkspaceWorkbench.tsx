@@ -10,7 +10,7 @@ import type { editor as MonacoEditorApi } from "monaco-editor";
 import { SessionTabStrip } from "@/zorai/features/threads/SessionTabStrip";
 import { RefreshIcon } from "@/zorai/shell/RefreshButton";
 import { SkillIcon } from "@/zorai/features/skills/SkillIcons";
-import { shouldRestoreWorkspaceDocument } from "@/zorai/features/code/workspaceDocumentRestore";
+import { codeMediaKind, shouldRestoreWorkspaceDocument } from "@/zorai/features/code/workspaceDocumentRestore";
 import { isCodeProjectThread, useCodeWorkspaceBindingStore } from "@/zorai/features/code/codeWorkspaceBindingStore";
 import { useWorkspaceEditorRequestStore } from "@/lib/workspaceEditorRequestStore";
 import { openExternalFileInWorkspace } from "@/zorai/features/code/workspaceExternalFile";
@@ -33,7 +33,7 @@ import {
 } from "@/zorai/features/code/workspaceFileIndex";
 import { codeSettingsCommandPatch, codeSettingsToggleState, useCodeEditorSettingsStore } from "@/zorai/features/code/codeEditorSettingsStore";
 import { createFileTab } from "@/zorai/features/code/codeEditorTabs";
-import { CodeLargeFileGate, exceedsCodeFileLimit } from "@/zorai/features/code/CodeLargeFileGate";
+import { CodeLargeFileGate, exceedsCodeFileLimit, CodeUnsupportedFileNotice, isBinaryFileError } from "@/zorai/features/code/CodeLargeFileGate";
 import { WorkspaceExplorerTree } from "@/zorai/features/code/WorkspaceExplorerTree";
 import { WorkspacePathDialog, type WorkspacePathOperation } from "@/zorai/features/code/WorkspacePathDialog";
 import { WorkspaceSourceControlChanges } from "@/zorai/features/code/WorkspaceSourceControlChanges";
@@ -55,6 +55,9 @@ import { buildGitMenuItems, type GitListKind } from "@/zorai/features/code/gitMe
 import { emitCodeRailAction } from "@/zorai/features/code/codeRailActions";
 import { AgentOperationList } from "@/zorai/features/code/AgentOperationList";
 import { ViewModeToggle } from "@/components/data-viewers/ViewModeToggle";
+import { ImageLightbox } from "@/zorai/features/threads/ImageLightbox";
+import { MediaLightbox } from "@/zorai/features/threads/MediaLightbox";
+import { mediaUrlForPath } from "@/zorai/features/threads/ThreadFilePreviewOverlay";
 
 const WorkspaceCodeEditor = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.WorkspaceCodeEditor })));
 const WorkspaceDiffEditor = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.WorkspaceDiffEditor })));
@@ -120,6 +123,8 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const [pendingDirtyClosePath, setPendingDirtyClosePath] = useState<string | null>(null);
   const [dirtyCloseError, setDirtyCloseError] = useState<string | null>(null);
   const [largeFileGate, setLargeFileGate] = useState<{ path: string; sizeBytes: number } | null>(null);
+  const [unsupportedFile, setUnsupportedFile] = useState<string | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<{ path: string; kind: "image" | "video" | "audio" } | null>(null);
   const reducedModePathsRef = useRef(new Set<string>());
   const [codeOverlay, setCodeOverlay] = useState<"quickOpen" | "commands" | null>(null);
   const [settingsTabOpen, setSettingsTabOpen] = useState(false);
@@ -492,6 +497,12 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const openGenRef = useRef(0);
   const openFile = async (filePath: string, location?: { line: number; column: number }, view: "edit" | "diff" = "edit", reducedOverride = false) => {
     if (!activeThreadId || !context?.root || !bridge?.workspaceReadFile) return;
+    setUnsupportedFile(null);
+    const mediaKind = codeMediaKind(filePath);
+    if (mediaKind) {
+      setMediaPreview({ path: `${context.root.replace(/[\\/]+$/, "")}/${filePath}`, kind: mediaKind });
+      return;
+    }
     const rootAtOpen = context.root;
     const generation = ++openGenRef.current;
     const isCurrentOpen = () => generation === openGenRef.current
@@ -591,7 +602,13 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         });
       }
     } catch (reason: any) {
-      if (isCurrentOpen()) setError(reason?.message ?? String(reason));
+      if (!isCurrentOpen()) return;
+      if (isBinaryFileError(reason)) {
+        closeFile(activeThreadId, filePath);
+        setUnsupportedFile(filePath);
+        return;
+      }
+      setError(reason?.message ?? String(reason));
     }
   };
 
@@ -1882,6 +1899,11 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             </div>
           </>
         )}
+        {mediaPreview?.kind === "image" ? (
+          <ImageLightbox src={mediaUrlForPath(mediaPreview.path)} name={mediaPreview.path.split("/").pop() || mediaPreview.path} onClose={() => setMediaPreview(null)} />
+        ) : mediaPreview ? (
+          <MediaLightbox src={mediaUrlForPath(mediaPreview.path)} name={mediaPreview.path.split("/").pop() || mediaPreview.path} kind={mediaPreview.kind} onClose={() => setMediaPreview(null)} />
+        ) : null}
         {gitDialog ? <GitActionDialog spec={gitDialog} busy={gitDialogBusy} error={gitDialogError} onClose={() => setGitDialog(null)} /> : null}
         {gitOutputEntries ? <GitOutputDialog entries={gitOutputEntries} onClose={() => setGitOutputEntries(null)} /> : null}
         {pathDialog ? <WorkspacePathDialog operation={pathDialog.operation} initialPath={pathDialog.initialPath} busy={pathDialogBusy} error={pathDialogError} onSubmit={submitPathDialog} onClose={() => { setPathDialog(null); setPathDialogError(null); }} /> : null}
@@ -1895,6 +1917,12 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         {codeOverlay === "commands" ? (
           <CodeCommandPalette onRun={runCodeCommand} onClose={() => setCodeOverlay(null)} />
         ) : null}
+        {unsupportedFile && context?.root ? <CodeUnsupportedFileNotice
+          path={unsupportedFile}
+          onOpenExternal={() => { const root = context.root; void bridge?.openFsPath?.(`${root.replace(/[\\/]$/, "")}/${unsupportedFile}`); }}
+          onReveal={() => { const root = context.root; void bridge?.revealFsPath?.(`${root.replace(/[\\/]$/, "")}/${unsupportedFile}`); }}
+          onDismiss={() => setUnsupportedFile(null)}
+        /> : null}
         {largeFileGate && context?.root ? <CodeLargeFileGate
           path={largeFileGate.path}
           sizeBytes={largeFileGate.sizeBytes}
