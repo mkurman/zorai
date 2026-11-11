@@ -211,10 +211,15 @@ pub(crate) async fn dispatch_part4(
                         .await?;
                 }
             }
-            for event in agent
+            let mut pending_events = agent
                 .pending_operator_question_events_for_thread(&thread_id)
-                .await
-            {
+                .await;
+            pending_events.extend(
+                agent
+                    .pending_thread_approval_events_for_thread(&thread_id)
+                    .await,
+            );
+            for event in pending_events {
                 if let Some((json, _)) = cap_agent_event_for_ipc(&event) {
                     framed
                         .send(DaemonMessage::AgentEvent { event_json: json })
@@ -1728,9 +1733,12 @@ pub(crate) async fn dispatch_part4(
             let _ = agent
                 .record_operator_approval_resolution(&approval_id, decision)
                 .await;
-            agent
+            if !agent
                 .handle_task_approval_resolution(&approval_id, decision)
-                .await;
+                .await
+            {
+                agent.resolve_thread_approval(&approval_id, decision).await;
+            }
             framed
                 .send(DaemonMessage::ApprovalResolved {
                     id: uuid::Uuid::nil(),

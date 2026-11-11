@@ -648,3 +648,104 @@ async fn yolo_managed_command_queues_when_governance_constraints_cannot_be_honor
         "operator YOLO must queue the same command instead of inheriting dispatch gating: {yolo:?}"
     );
 }
+
+#[cfg(unix)]
+#[tokio::test]
+async fn highest_security_level_asks_before_every_managed_command() {
+    let root = tempfile::tempdir().expect("tempdir");
+    let manager = SessionManager::new_test(root.path()).await;
+    let (session_id, _rx) = manager
+        .spawn(Some("/bin/sh".to_string()), None, None, None, 80, 24)
+        .await
+        .expect("spawn test session");
+    let request = |security_level| ManagedCommandRequest {
+        command: "rmdir -- /tmp/zorai-highest-security-probe".to_string(),
+        rationale: "remove an empty directory".to_string(),
+        allow_network: false,
+        sandbox_enabled: false,
+        security_level,
+        cwd: None,
+        language_hint: Some("shell".to_string()),
+        source: zorai_protocol::ManagedCommandSource::Agent,
+    };
+
+    let strict = manager
+        .execute_managed_command(session_id, request(zorai_protocol::SecurityLevel::Highest))
+        .await
+        .expect("managed command should return a daemon message");
+    match strict {
+        DaemonMessage::ApprovalRequired { approval, .. } => assert!(approval
+            .reasons
+            .iter()
+            .any(|reason| reason.contains("highest security level"))),
+        other => panic!("highest must ask even for low-risk commands, got {other:?}"),
+    }
+
+    let moderate = manager
+        .execute_managed_command(session_id, request(zorai_protocol::SecurityLevel::Moderate))
+        .await
+        .expect("managed command should return a daemon message");
+    assert!(
+        matches!(moderate, DaemonMessage::ManagedCommandQueued { .. }),
+        "moderate keeps running low-risk commands without asking, got {moderate:?}"
+    );
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn allow_for_session_at_highest_stops_asking_for_routine_commands_in_that_session() {
+    let root = tempfile::tempdir().expect("tempdir");
+    let manager = SessionManager::new_test(root.path()).await;
+    let (session_id, _rx) = manager
+        .spawn(Some("/bin/sh".to_string()), None, None, None, 80, 24)
+        .await
+        .expect("spawn test session");
+    let (other_session_id, _other_rx) = manager
+        .spawn(Some("/bin/sh".to_string()), None, None, None, 80, 24)
+        .await
+        .expect("spawn other session");
+    let request = |command: &str| ManagedCommandRequest {
+        command: command.to_string(),
+        rationale: format!("run {command}"),
+        allow_network: false,
+        sandbox_enabled: false,
+        security_level: zorai_protocol::SecurityLevel::Highest,
+        cwd: None,
+        language_hint: Some("shell".to_string()),
+        source: zorai_protocol::ManagedCommandSource::Agent,
+    };
+
+    let first = manager
+        .execute_managed_command(session_id, request("echo first"))
+        .await
+        .expect("managed command should return a daemon message");
+    let DaemonMessage::ApprovalRequired { approval, .. } = first else {
+        panic!("highest must ask before the first command, got {first:?}");
+    };
+    manager
+        .resolve_approval(
+            session_id,
+            &approval.approval_id,
+            zorai_protocol::ApprovalDecision::ApproveSession,
+        )
+        .await
+        .expect("approve for session");
+
+    let second = manager
+        .execute_managed_command(session_id, request("python3 -c 'print(2)'"))
+        .await
+        .expect("managed command should return a daemon message");
+    assert!(
+        matches!(second, DaemonMessage::ManagedCommandQueued { .. }),
+        "after allow-for-session, a different routine command must not ask again, got {second:?}"
+    );
+
+    let elsewhere = manager
+        .execute_managed_command(other_session_id, request("echo elsewhere"))
+        .await
+        .expect("managed command should return a daemon message");
+    assert!(
+        matches!(elsewhere, DaemonMessage::ApprovalRequired { .. }),
+        "the waiver is scoped to the approved session, got {elsewhere:?}"
+    );
+}

@@ -253,7 +253,11 @@ pub(crate) enum Commands {
 
     /// Upgrade zorai to the npm registry's current @latest release.
     #[command(alias = "update")]
-    Upgrade,
+    Upgrade {
+        /// Install without stopping the daemon and gateway; restart zorai afterwards to use the new version.
+        #[arg(long)]
+        keep_running: bool,
+    },
 
     /// Start the daemon (if not already running).
     #[command(name = "daemon")]

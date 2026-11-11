@@ -542,6 +542,7 @@ async fn concierge_welcome_request_without_declared_capability_still_returns_ope
 async fn concierge_welcome_skips_onboarding_when_hydrated_history_exists() {
     let mut config = AgentConfig::default();
     config.concierge.detail_level = crate::agent::types::ConciergeDetailLevel::Minimal;
+    config.model = "gpt-5".to_string();
 
     let mut conn = spawn_test_connection_with_config(config).await;
     let now = 1_735_000_000_000i64;
@@ -661,6 +662,7 @@ async fn concierge_welcome_skips_onboarding_when_hydrated_history_exists() {
 async fn concierge_welcome_uses_persisted_history_without_preloading_messages() {
     let mut config = AgentConfig::default();
     config.concierge.detail_level = crate::agent::types::ConciergeDetailLevel::Minimal;
+    config.model = "gpt-5".to_string();
 
     let mut conn = spawn_test_connection_with_config(config).await;
     let now = 1_735_000_000_000i64;

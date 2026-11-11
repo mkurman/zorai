@@ -7,7 +7,12 @@ use crate::commands::core::should_check_for_updates;
 fn update_alias_parses_as_upgrade_command() {
     let cli = Cli::try_parse_from(["zorai", "update"]).expect("update alias should parse");
 
-    assert!(matches!(cli.command, Some(Commands::Upgrade)));
+    assert!(matches!(
+        cli.command,
+        Some(Commands::Upgrade {
+            keep_running: false
+        })
+    ));
 }
 
 #[test]
@@ -44,9 +49,22 @@ fn checks_updates_for_user_facing_commands() {
 
 #[test]
 fn skips_update_checks_for_internal_and_upgrade_commands() {
-    assert!(!should_check_for_updates(&Commands::Upgrade));
+    assert!(!should_check_for_updates(&Commands::Upgrade {
+        keep_running: false
+    }));
     assert!(!should_check_for_updates(&Commands::Stop));
     assert!(!should_check_for_updates(&Commands::Restart));
     assert!(!should_check_for_updates(&Commands::AgentBridge));
     assert!(!should_check_for_updates(&Commands::DbBridge));
+}
+
+#[test]
+fn upgrade_keep_running_flag_parses() {
+    let cli = Cli::try_parse_from(["zorai", "upgrade", "--keep-running"])
+        .expect("keep-running flag should parse");
+
+    assert!(matches!(
+        cli.command,
+        Some(Commands::Upgrade { keep_running: true })
+    ));
 }

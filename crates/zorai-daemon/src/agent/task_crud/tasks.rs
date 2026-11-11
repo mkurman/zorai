@@ -1185,6 +1185,184 @@ impl AgentEngine {
         true
     }
 
+    pub(crate) async fn pending_thread_approval_events_for_thread(
+        &self,
+        thread_id: &str,
+    ) -> Vec<AgentEvent> {
+        self.pending_thread_approvals
+            .read()
+            .await
+            .values()
+            .filter(|(approval_thread_id, _)| approval_thread_id == thread_id)
+            .map(
+                |(approval_thread_id, approval)| AgentEvent::ApprovalRequired {
+                    thread_id: approval_thread_id.clone(),
+                    approval_id: approval.approval_id.clone(),
+                    command: approval.command.clone(),
+                    rationale: Some(approval.rationale.clone()),
+                    reasons: approval.reasons.clone(),
+                    risk_level: approval.risk_level.clone(),
+                    blast_radius: approval.blast_radius.clone(),
+                },
+            )
+            .collect()
+    }
+
+    pub(crate) async fn resolve_thread_approval(
+        self: &Arc<Self>,
+        approval_id: &str,
+        decision: zorai_protocol::ApprovalDecision,
+    ) -> bool {
+        let Some((thread_id, approval)) = self
+            .pending_thread_approvals
+            .write()
+            .await
+            .remove(approval_id)
+        else {
+            return false;
+        };
+        let session_id = approval
+            .session_id
+            .as_deref()
+            .and_then(|value| value.parse::<zorai_protocol::SessionId>().ok());
+        let approved = !matches!(decision, zorai_protocol::ApprovalDecision::Deny);
+        let mut session_rx = match (approved, session_id) {
+            (true, Some(session_id)) => self
+                .session_manager
+                .subscribe(session_id)
+                .await
+                .ok()
+                .map(|(rx, _)| rx),
+            _ => None,
+        };
+        let resolution = match session_id {
+            Some(session_id) => self
+                .session_manager
+                .resolve_approval(session_id, approval_id, decision)
+                .await
+                .map_err(|error| error.to_string()),
+            None => Err("the approval is not attached to a terminal session".to_string()),
+        };
+
+        if !approved {
+            let notice = format!(
+                "The operator denied approval for this command, so it was not executed:\n{}\n\nDo not run it again or work around the denial. Tell the operator what you were trying to do and ask how they want to proceed.",
+                approval.command
+            );
+            self.spawn_thread_approval_continuation(thread_id, notice);
+            return true;
+        }
+
+        let queued_execution_id = resolution.as_ref().ok().and_then(|messages| {
+            messages.iter().find_map(|message| match message {
+                zorai_protocol::DaemonMessage::ManagedCommandQueued { execution_id, .. } => {
+                    Some(execution_id.clone())
+                }
+                _ => None,
+            })
+        });
+        let (Some(session_id), Some(execution_id), Some(mut rx)) =
+            (session_id, queued_execution_id, session_rx.take())
+        else {
+            let reason = resolution
+                .err()
+                .unwrap_or_else(|| "the command was not queued".to_string());
+            let notice = format!(
+                "The operator approved this command, but it could not be started ({reason}):\n{}",
+                approval.command
+            );
+            self.spawn_thread_approval_continuation(thread_id, notice);
+            return true;
+        };
+
+        let engine = self.clone();
+        tokio::spawn(async move {
+            let notice = match crate::agent::tool_executor::wait_for_managed_command_outcome(
+                &mut rx,
+                session_id,
+                &execution_id,
+                600,
+                None,
+            )
+            .await
+            {
+                Ok(crate::agent::tool_executor::ManagedCommandWaitOutcome::Finished {
+                    exit_code,
+                    output_tail,
+                    ..
+                }) => format!(
+                    "The operator approved this command and it finished with exit code {}:\n{}\n\nTerminal output (tail):\n{}",
+                    exit_code.map_or_else(|| "unknown".to_string(), |code| code.to_string()),
+                    approval.command,
+                    output_tail
+                ),
+                Ok(crate::agent::tool_executor::ManagedCommandWaitOutcome::Rejected {
+                    message,
+                }) => format!(
+                    "The operator approved this command, but it was rejected ({message}):\n{}",
+                    approval.command
+                ),
+                Ok(crate::agent::tool_executor::ManagedCommandWaitOutcome::Timeout {
+                    output_tail,
+                }) => format!(
+                    "The operator approved this command; it is still running after 10 minutes:\n{}\n\nTerminal output (tail):\n{}",
+                    approval.command, output_tail
+                ),
+                Err(error) => format!(
+                    "The operator approved this command, but its result could not be read ({error}):\n{}",
+                    approval.command
+                ),
+            };
+            engine
+                .enqueue_thread_approval_continuation(&thread_id, &notice)
+                .await;
+        });
+        true
+    }
+
+    fn spawn_thread_approval_continuation(self: &Arc<Self>, thread_id: String, notice: String) {
+        let engine = self.clone();
+        tokio::spawn(async move {
+            engine
+                .enqueue_thread_approval_continuation(&thread_id, &notice)
+                .await;
+        });
+    }
+
+    async fn enqueue_thread_approval_continuation(&self, thread_id: &str, notice: &str) {
+        let agent_id = self
+            .active_agent_id_for_thread(thread_id)
+            .await
+            .unwrap_or_else(|| MAIN_AGENT_ID.to_string());
+        self.enqueue_visible_thread_continuation(
+            thread_id,
+            DeferredVisibleThreadContinuation {
+                agent_id,
+                task_id: None,
+                preferred_session_hint: None,
+                llm_user_content: format!(
+                    "An approval request from your previous tool call was resolved. This is an internal runtime continuation, not a new operator request.\n\n{notice}"
+                ),
+                queued_at_ms: 0,
+                force_compaction: false,
+                rerun_participant_observers_after_turn: true,
+                internal_delegate_sender: None,
+                internal_delegate_message: None,
+            },
+        )
+        .await;
+        if let Err(error) = self
+            .flush_deferred_visible_thread_continuations(thread_id)
+            .await
+        {
+            tracing::warn!(
+                thread_id = %thread_id,
+                error = %error,
+                "approval resolution continuation flush failed"
+            );
+        }
+    }
+
     pub(super) async fn snapshot_tasks(&self) -> Vec<AgentTask> {
         let sessions = self.session_manager.list().await;
         let config = self.config.read().await.clone();

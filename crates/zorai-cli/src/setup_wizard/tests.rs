@@ -259,6 +259,19 @@ fn web_search_setup_offers_duckduckgo_without_api_key() {
 }
 
 #[test]
+fn web_search_setup_offers_keenable_with_optional_api_key() {
+    let items = web_search_choice_items();
+    assert!(items.contains(&("Keenable", "keenable_api_key")));
+    assert_eq!(
+        web_search_provider_for_choice("keenable_api_key"),
+        Some("keenable")
+    );
+    let prompt = web_search_api_key_prompt_for_choice("keenable_api_key").expect("prompt");
+    assert!(prompt.contains("optional"));
+    assert_eq!(items.last(), Some(&("Skip", "")));
+}
+
+#[test]
 fn test_whatsapp_timeout_choice_mapping() {
     let choices = whatsapp_timeout_choices();
     assert_eq!(choices.len(), 2);

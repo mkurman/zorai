@@ -285,3 +285,14 @@
   display: grid;
   gap: 4px;
 }
+
+.zorai-setup-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.zorai-setup-choices--scroll {
+  max-height: 320px;
+  overflow: auto;
+}

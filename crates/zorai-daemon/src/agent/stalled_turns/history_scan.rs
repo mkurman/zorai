@@ -130,8 +130,15 @@ impl AgentEngine {
             .collect::<VecDeque<_>>()
         };
         let subagent_runtime = self.subagent_runtime.read().await.clone();
-        let pending_operator_question_thread_ids =
+        let mut pending_operator_question_thread_ids =
             self.pending_operator_question_thread_ids().await;
+        pending_operator_question_thread_ids.extend(
+            self.pending_thread_approvals
+                .read()
+                .await
+                .values()
+                .map(|(thread_id, _)| thread_id.clone()),
+        );
         let unanswered_tool_call_thread_ids = match self
             .history
             .thread_ids_with_unanswered_tool_calls(&scan_thread_ids)

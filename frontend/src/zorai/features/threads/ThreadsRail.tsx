@@ -1,4 +1,5 @@
 import { LoadingState, ThreadListSkeleton } from "@/components/LoadingState";
+import { ThreadNeedsActionIcon, useThreadIdsNeedingAction } from "./threadNeedsAction";
 import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { threadDateGroupLabel } from "./threadDateGroups";
 import { ThreadRowHoverCard } from "./ThreadRowHoverCard";
@@ -99,6 +100,7 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
   const updateThreadTitle = useAgentStore((state) => state.updateThreadTitle);
   const deleteThread = useAgentStore((state) => state.deleteThread);
   const lastReadAtByThread = useThreadReadStateStore((state) => state.lastReadAtByThread);
+  const threadIdsNeedingAction = useThreadIdsNeedingAction();
   const [runs, setRuns] = useState<AgentRun[]>([]);
   const runsRef = useRef(runs);
   runsRef.current = runs;
@@ -505,6 +507,7 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
           const readKey = threadReadKey(thread);
           const unread = threadIsUnread(thread, readKey ? lastReadAtByThread[readKey] ?? null : null, Boolean(active));
           const workers = workerCountForThread(thread, runs);
+          const needsAction = Boolean(thread.daemonThreadId && threadIdsNeedingAction.has(thread.daemonThreadId));
           return (
             <Fragment key={thread.daemonThreadId ?? thread.id}>
             {groupStarts ? <div className="zorai-thread-group-label">{group}</div> : null}
@@ -513,6 +516,7 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
               active={Boolean(active)}
               loading={loading}
               working={working}
+              needsAction={needsAction}
               unread={unread}
               workers={workers}
               activity={sessionActivityLabel(thread.updatedAt, now)}
@@ -602,6 +606,7 @@ function ThreadSessionRow({
   active,
   loading,
   working,
+  needsAction,
   unread,
   workers,
   activity,
@@ -616,6 +621,7 @@ function ThreadSessionRow({
   active: boolean;
   loading: boolean;
   working: boolean;
+  needsAction: boolean;
   unread: boolean;
   workers: number;
   activity: string;
@@ -629,8 +635,8 @@ function ThreadSessionRow({
   const [draft, setDraft] = useState(thread.title);
   const [hoverAnchor, setHoverAnchor] = useState<DOMRect | null>(null);
   const hoverTimerRef = useRef<number | null>(null);
-  const status = working ? "working" : active ? "active" : unread ? "unread" : "idle";
-  const statusLabel = [working ? "working" : "", unread ? "unread" : ""].filter(Boolean).join(", ");
+  const status = needsAction ? "needs-action" : working ? "working" : active ? "active" : unread ? "unread" : "idle";
+  const statusLabel = [needsAction ? "needs your action" : "", working ? "working" : "", unread ? "unread" : ""].filter(Boolean).join(", ");
 
   useEffect(() => {
     if (editing) setDraft(thread.title);
@@ -695,6 +701,7 @@ function ThreadSessionRow({
             onStartRename();
           }}
         >
+          {status === "needs-action" ? <span className="zorai-thread-needs-action-slot" title="Waiting for your approval or answer"><ThreadNeedsActionIcon /></span> : null}
           {status === "working" ? <span className="zorai-thread-dot zorai-thread-dot--working" aria-hidden="true" /> : null}
           <span className="zorai-thread-title">{thread.title}</span>
           {loading ? <LoadingState size={12} className="zorai-thread-item__spinner" /> : null}

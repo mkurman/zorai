@@ -476,19 +476,22 @@ export function useDaemonAgentEvents({
           const reasons = Array.isArray(event.reasons)
             ? event.reasons.map((reason: unknown) => String(reason))
             : [];
+          const alreadyKnown = useAgentMissionStore.getState().approvals.some((entry) => entry.id === approvalId && entry.status === "pending");
+          const approvalThreadId = typeof event.thread_id === "string" ? event.thread_id : null;
           useAgentMissionStore.getState().upsertDaemonApproval({
             id: approvalId,
             paneId: activePaneId ?? activeThreadId ?? "",
             workspaceId: activeWorkspace?.id ?? null,
             surfaceId: null,
-            sessionId: typeof event.thread_id === "string" ? event.thread_id : null,
+            sessionId: approvalThreadId,
+            threadId: approvalThreadId,
             source: "agent-task",
             command: String(event.command ?? approvalId),
             reasons: reasons.length > 0 ? reasons : ["Managed command requires approval"],
             riskLevel: normalizeApprovalRiskLevel(event.risk_level),
             blastRadius: String(event.blast_radius ?? "tool execution"),
           });
-          addNotification({
+          if (!alreadyKnown) addNotification({
             title: "Approval required",
             body: String(event.command ?? approvalId),
             subtitle: String(event.rationale ?? "Tool execution paused for operator approval"),

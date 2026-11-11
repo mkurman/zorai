@@ -8065,3 +8065,52 @@ async fn update_browser_profile_health_does_not_emit_repair_notice_for_healthy()
         "healthy browser profile updates should not emit repair notices"
     );
 }
+
+#[cfg(unix)]
+#[tokio::test]
+async fn python_execute_asks_for_approval_at_highest_security_level() {
+    let root = tempdir().expect("tempdir should succeed");
+    let manager = SessionManager::new_test(root.path()).await;
+    manager
+        .spawn(Some("/bin/sh".to_string()), None, None, None, 80, 24)
+        .await
+        .expect("spawn test session");
+    let mut config = AgentConfig::default();
+    config.managed_execution.security_level = zorai_protocol::SecurityLevel::Highest;
+    let engine = AgentEngine::new_test(manager.clone(), config, root.path()).await;
+    let (event_tx, _) = broadcast::channel(8);
+    let marker = root.path().join("python-highest-must-not-run.txt");
+
+    let tool_call = ToolCall::with_default_weles_review(
+        "tool-python-highest".to_string(),
+        ToolFunction {
+            name: "python".to_string(),
+            arguments: serde_json::json!({
+                "code": format!("import pathlib\npathlib.Path(r'{}').write_text('ran')", marker.display()),
+                "timeout_seconds": 10,
+            })
+            .to_string(),
+        },
+    );
+
+    let result = execute_tool(
+        &tool_call,
+        &engine,
+        "thread-python-highest",
+        None,
+        &manager,
+        None,
+        &event_tx,
+        root.path(),
+        &engine.http_client,
+        None,
+    )
+    .await;
+
+    assert!(
+        result.pending_approval.is_some(),
+        "python must wait for operator approval at the highest level: {}",
+        result.content
+    );
+    assert!(!marker.exists(), "python code must not run before approval");
+}

@@ -400,6 +400,10 @@ impl super::super::AgentEngine {
         let request_started = std::time::Instant::now();
         let (onboarding_done, tier) = {
             let cfg = self.config.read().await;
+            if cfg.provider.trim().is_empty() || cfg.model.trim().is_empty() {
+                tracing::info!("concierge.welcome: skipped until provider and model are set up");
+                return;
+            }
             let done = cfg.tier.onboarding_completed;
             let tier = cfg
                 .tier

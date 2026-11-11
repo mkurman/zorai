@@ -9,6 +9,10 @@ use crate::history::{ApprovalRecordRow, AuditEntryRow, GovernanceEvaluationRow};
 use serde_json::json;
 use zorai_protocol::{ApprovalPayload, SecurityLevel};
 
+const HIGHEST_LEVEL_APPROVAL_REASON: &str =
+    "highest security level requires approval for every managed command";
+const HIGHEST_LEVEL_SESSION_GRANT: &str = "highest-security-level-session-grant";
+
 fn transition_kind_str(kind: &TransitionKind) -> &'static str {
     match kind {
         TransitionKind::RunAdmission => "run_admission",
@@ -905,7 +909,22 @@ impl SessionManager {
             workspace_id.clone(),
             Some(id.to_string()),
         );
-        let verdict = evaluate_governance(&governance_input);
+        let mut verdict = evaluate_governance(&governance_input);
+        if matches!(request.security_level, SecurityLevel::Highest)
+            && matches!(
+                verdict.verdict_class,
+                VerdictClass::Allow | VerdictClass::AllowWithConstraints
+            )
+            && self
+                .find_valid_session_grant(id, HIGHEST_LEVEL_SESSION_GRANT)
+                .await
+                .is_none()
+        {
+            verdict.verdict_class = VerdictClass::RequireApproval;
+            verdict
+                .rationale
+                .push(HIGHEST_LEVEL_APPROVAL_REASON.to_string());
+        }
         let constraints = effective_constraints(&verdict);
         let can_honor = can_honor_constraints(&constraints, &request);
 
@@ -1213,6 +1232,22 @@ impl SessionManager {
             );
         }
         apply_constraints_to_request(&mut request, &pending.constraints);
+
+        if matches!(decision, ApprovalDecision::ApproveSession)
+            && pending
+                .approval
+                .reasons
+                .iter()
+                .any(|reason| reason == HIGHEST_LEVEL_APPROVAL_REASON)
+        {
+            self.store_session_grant(
+                pending.session_id,
+                approval_id,
+                HIGHEST_LEVEL_SESSION_GRANT,
+                None,
+            )
+            .await;
+        }
 
         if matches!(decision, ApprovalDecision::ApproveSession) {
             self.store_session_grant(

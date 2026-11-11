@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { CONCIERGE_AGENT_NAME, PRIMARY_AGENT_NAME } from "../lib/agentNames";
 import { ZORAI_APP_DESCRIPTION, ZORAI_APP_NAME } from "../zorai/branding";
+import { SetupWizard } from "./SetupWizard";
 
 const SETUP_PANEL_STATE_KEY = "zorai-setup-onboarding-state-v1";
 const SETUP_PANEL_VERSION = "1";
@@ -41,6 +42,7 @@ export function SetupOnboardingPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [forcedOpen, setForcedOpen] = useState(false);
+  const [wizardActive, setWizardActive] = useState(false);
   const [panelState, setPanelState] = useState<SetupPanelState>(() => readSetupPanelState());
 
   const refresh = useCallback(async () => {
@@ -88,15 +90,8 @@ export function SetupOnboardingPanel() {
     writeSetupPanelState(next);
     setPanelState(next);
     setForcedOpen(false);
+    setWizardActive(false);
   }, []);
-
-  const openGuide = useCallback(async () => {
-    if (!report?.gettingStartedPath) return;
-    const zorai = bridge() as any;
-    if (typeof zorai?.openFsPath === "function") {
-      await zorai.openFsPath(report.gettingStartedPath);
-    }
-  }, [report?.gettingStartedPath]);
 
   if (!shouldShow) return null;
 
@@ -106,10 +101,12 @@ export function SetupOnboardingPanel() {
         <div className="zorai-onboarding-stack">
           <div className="zorai-onboarding-kicker">First-run setup</div>
           <h2>{ZORAI_APP_NAME} Setup Assistant</h2>
-          <div className="zorai-onboarding-copy">
+          {wizardActive ? null : <div className="zorai-onboarding-copy">
             {report?.whatIsZorai ?? ZORAI_APP_DESCRIPTION}
-          </div>
+          </div>}
         </div>
+
+        {wizardActive ? <SetupWizard dataDir={report?.dataDir} onClose={dismiss} /> : <>
 
         <div className="zorai-onboarding-grid-2">
           <div className="zorai-onboarding-card">
@@ -188,18 +185,14 @@ export function SetupOnboardingPanel() {
           <button type="button" className="zorai-onboarding-button" onClick={() => void refresh()}>
             Re-check
           </button>
-          <button
-            type="button"
-            className="zorai-onboarding-button"
-            onClick={() => void openGuide()}
-            disabled={!report?.gettingStartedPath}
-          >
-            Open Getting Started
-          </button>
-          <button type="button" className="zorai-onboarding-button zorai-onboarding-button--primary" onClick={dismiss}>
+          <button type="button" className="zorai-onboarding-button" onClick={dismiss}>
             Dismiss
           </button>
+          <button type="button" className="zorai-onboarding-button zorai-onboarding-button--primary" onClick={() => setWizardActive(true)}>
+            Start setup
+          </button>
         </div>
+        </>}
       </div>
     </div>
   );

@@ -72,6 +72,7 @@ export interface ApprovalRequest {
   workspaceId: string | null;
   surfaceId: string | null;
   sessionId: string | null;
+  threadId?: string | null;
   source?: ApprovalSource;
   command: string;
   reasons: string[];
@@ -168,7 +169,7 @@ export interface AgentMissionState {
   setHistoryResults: (summary: string, hits: HistoryRecallHit[]) => void;
   setSymbolHits: (hits: SymbolRecallHit[]) => void;
   setSnapshots: (hits: SnapshotRecord[]) => void;
-  upsertDaemonApproval: (opts: { id: string; paneId: string; workspaceId?: string | null; surfaceId?: string | null; sessionId?: string | null; source?: ApprovalSource; command: string; reasons: string[]; riskLevel: RiskLevel; blastRadius: string }) => void;
+  upsertDaemonApproval: (opts: { id: string; paneId: string; workspaceId?: string | null; surfaceId?: string | null; sessionId?: string | null; threadId?: string | null; source?: ApprovalSource; command: string; reasons: string[]; riskLevel: RiskLevel; blastRadius: string }) => void;
   recordSessionReady: (opts: { paneId: string; workspaceId?: string | null; surfaceId?: string | null; sessionId?: string | null }) => void;
   recordCommandStarted: (opts: { paneId: string; workspaceId?: string | null; surfaceId?: string | null; sessionId?: string | null; command: string }) => void;
   recordCommandFinished: (opts: { paneId: string; workspaceId?: string | null; surfaceId?: string | null; sessionId?: string | null; command?: string | null; exitCode?: number | null; durationMs?: number | null }) => void;

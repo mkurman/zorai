@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { RefreshButton } from "@/zorai/shell/RefreshButton";
+import { UpdateCheckButton } from "@/components/UpdatePrompt";
 import { OpenRouterProviderRoutingControls } from "@/components/settings-panel/OpenRouterProviderRoutingControls";
 import { SubAgentsTab } from "@/components/settings-panel/SubAgentsTab";
 import { ModelSelector } from "@/components/settings-panel/shared";
@@ -1475,7 +1476,7 @@ function AboutPanel() {
   return (
     <SettingsGrid>
       <Panel section="About" title={`${ZORAI_APP_NAME} shell`}>
-        <Metric label="Version" value={APP_VERSION} />
+        <div className="zorai-setting-row"><div><strong>Version</strong><span>{APP_VERSION}</span></div><UpdateCheckButton /></div>
         <Metric label="Author" value={APP_AUTHOR} />
         <Metric label="GitHub" value={APP_GITHUB} />
         <Metric label="Homepage" value={APP_HOMEPAGE} />
