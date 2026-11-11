@@ -4,7 +4,7 @@ const { pathToFileURL } = require('url');
 
 const MEDIA_SCHEME = 'zorai-media';
 const MEDIA_EXTENSIONS = new Set([
-    '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg',
+    '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.ico',
     '.mp4', '.webm', '.mov', '.m4v',
     '.mp3', '.wav', '.ogg', '.oga', '.opus', '.m4a', '.aac', '.flac', '.weba',
 ]);

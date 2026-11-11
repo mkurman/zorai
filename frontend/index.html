@@ -15,123 +15,218 @@
         position: fixed;
         inset: 0;
         z-index: 99999;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 0;
-        background:
-          radial-gradient(1200px 600px at 50% -10%, rgba(119, 216, 197, 0.09), transparent 60%),
-          radial-gradient(900px 500px at 50% 110%, rgba(88, 130, 247, 0.08), transparent 60%),
-          linear-gradient(180deg, var(--bg-void) 0%, var(--bg-void) 100%);
-        color: #d9e2ef;
-        font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        background: #fcf6e4;
+        color: #34352f;
+        font-family: Georgia, "Times New Roman", serif;
         user-select: none;
         opacity: 1;
-        transition: opacity 0.45s ease;
+        transition: opacity 0.6s ease;
       }
+      #zorai-boot[data-appearance="dark"] {
+        background: #2b2822;
+        color: #ece4d3;
+      }
+      #zorai-boot .zorai-boot-art--dark,
+      #zorai-boot[data-appearance="dark"] .zorai-boot-art--light { display: none; }
+      #zorai-boot[data-appearance="dark"] .zorai-boot-art--dark { display: block; }
+      #zorai-boot[data-appearance="dark"] .zorai-boot-light {
+        background: radial-gradient(circle, rgba(232, 176, 82, 0.3), rgba(232, 176, 82, 0.08) 30%, transparent 70%);
+      }
+      #zorai-boot[data-appearance="dark"] .zorai-boot-mark__line { stroke: #d9a548; }
+      #zorai-boot[data-appearance="dark"] .zorai-boot-word { color: #ece4d3; }
+      #zorai-boot[data-appearance="dark"] .zorai-boot-tagline { color: #c99a4b; }
+      #zorai-boot[data-appearance="dark"] .zorai-boot-bar { background: rgba(217, 165, 72, 0.18); }
+      #zorai-boot[data-appearance="dark"] .zorai-boot-bar-fill { background: linear-gradient(90deg, transparent, #d9a548, transparent); }
+      #zorai-boot[data-appearance="dark"] .zorai-boot-status { color: rgba(236, 228, 211, 0.6); }
       #zorai-boot.zorai-boot--done {
         opacity: 0;
         pointer-events: none;
       }
 
-      /* Ambient animated orbs behind the logo */
-      #zorai-boot .zorai-boot-orb {
+      #zorai-boot .zorai-boot-stage {
+        position: relative;
+        width: min(100vw, calc(100vh * 1376 / 768));
+        aspect-ratio: 1376 / 768;
+      }
+      #zorai-boot .zorai-boot-art {
         position: absolute;
-        border-radius: 50%;
-        filter: blur(60px);
-        opacity: 0.5;
-        animation: zorai-boot-drift 9s ease-in-out infinite alternate;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        -webkit-mask-image:
+          linear-gradient(100deg, #000 40%, transparent 60%),
+          linear-gradient(to bottom, transparent, #000 10%, #000 90%, transparent),
+          linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+        mask-image:
+          linear-gradient(100deg, #000 40%, transparent 60%),
+          linear-gradient(to bottom, transparent, #000 10%, #000 90%, transparent),
+          linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+        -webkit-mask-size: 260% 100%, 100% 100%, 100% 100%;
+        mask-size: 260% 100%, 100% 100%, 100% 100%;
+        -webkit-mask-position: 100% 0, 0 0, 0 0;
+        mask-position: 100% 0, 0 0, 0 0;
+        -webkit-mask-composite: source-in, source-in;
+        mask-composite: intersect, intersect;
+        filter: blur(3px);
+        animation: zorai-boot-sketch 1.9s cubic-bezier(0.33, 0, 0.2, 1) 0.1s forwards;
       }
-      #zorai-boot .zorai-boot-orb--a {
-        width: 340px; height: 340px;
-        background: var(--zorai-accent-dim);
-        top: 18%; left: 30%;
-      }
-      #zorai-boot .zorai-boot-orb--b {
-        width: 300px; height: 300px;
-        background: var(--zorai-accent-dim);
-        bottom: 16%; right: 28%;
-        animation-delay: -4.5s;
-      }
-      @keyframes zorai-boot-drift {
-        from { transform: translate3d(-24px, -18px, 0) scale(1); }
-        to   { transform: translate3d(24px, 18px, 0) scale(1.08); }
+      @keyframes zorai-boot-sketch {
+        to { -webkit-mask-position: 0 0, 0 0, 0 0; mask-position: 0 0, 0 0, 0 0; filter: blur(0); }
       }
 
-      #zorai-boot .zorai-boot-logo-wrap {
-        position: relative;
-        width: 128px;
-        height: 128px;
-        display: grid;
-        place-items: center;
-        margin-bottom: 26px;
+      #zorai-boot .zorai-boot-light {
+        position: absolute;
+        left: 79.9%;
+        top: 76.5%;
+        width: 90%;
+        aspect-ratio: 1;
+        transform: translate(-50%, -50%);
+        background: radial-gradient(circle, rgba(244, 196, 104, 0.42), rgba(244, 196, 104, 0.12) 30%, transparent 70%);
+        opacity: 0;
+        animation: zorai-boot-light 2.4s ease-out 0.9s forwards;
+      }
+      @keyframes zorai-boot-light {
+        to { opacity: 1; }
+      }
+      #zorai-boot .zorai-boot-sun {
+        position: absolute;
+        left: 79.9%;
+        top: 76.5%;
+        width: 3.4%;
+        aspect-ratio: 1;
+        border-radius: 50%;
+        background: radial-gradient(circle, #f2c46a 0%, #e5b65a 55%, rgba(229, 182, 90, 0) 72%);
+        box-shadow: 0 0 2.4vw 0.8vw rgba(242, 196, 106, 0.45);
+        transform: translate(-50%, 10%);
+        opacity: 0;
+        animation:
+          zorai-boot-rise 2.2s cubic-bezier(0.22, 1, 0.36, 1) 0.8s forwards,
+          zorai-boot-pulse 3.2s ease-in-out 3s infinite alternate;
+      }
+      @keyframes zorai-boot-rise {
+        to { transform: translate(-50%, -62%); opacity: 1; }
+      }
+      @keyframes zorai-boot-pulse {
+        from { box-shadow: 0 0 2.4vw 0.8vw rgba(242, 196, 106, 0.45); }
+        to { box-shadow: 0 0 3.6vw 1.4vw rgba(242, 196, 106, 0.3); }
+      }
+
+      #zorai-boot .zorai-boot-motes {
+        position: absolute;
+        inset: 0;
+      }
+      #zorai-boot .zorai-boot-mote {
+        position: absolute;
+        left: 57%;
+        top: 52%;
+        width: 0.42%;
+        aspect-ratio: 1.8;
+        border-radius: 50%;
+        background: #d6a548;
+        opacity: 0;
+        animation: zorai-boot-mote 4.2s cubic-bezier(0.3, 0.1, 0.4, 1) infinite;
+      }
+      #zorai-boot .zorai-boot-mote:nth-child(1) { --dx: 16vw; --dy: -8vw; animation-delay: 1.2s; }
+      #zorai-boot .zorai-boot-mote:nth-child(2) { --dx: 22vw; --dy: -4vw; animation-delay: 1.6s; top: 55%; }
+      #zorai-boot .zorai-boot-mote:nth-child(3) { --dx: 13vw; --dy: 2vw; animation-delay: 2s; top: 50%; }
+      #zorai-boot .zorai-boot-mote:nth-child(4) { --dx: 26vw; --dy: -10vw; animation-delay: 2.5s; left: 55%; }
+      #zorai-boot .zorai-boot-mote:nth-child(5) { --dx: 18vw; --dy: 5vw; animation-delay: 2.9s; top: 57%; }
+      #zorai-boot .zorai-boot-mote:nth-child(6) { --dx: 10vw; --dy: -6vw; animation-delay: 3.3s; left: 59%; }
+      #zorai-boot .zorai-boot-mote:nth-child(7) { --dx: 24vw; --dy: 1vw; animation-delay: 3.7s; top: 53%; }
+      @keyframes zorai-boot-mote {
+        0% { opacity: 0; transform: translate(0, 0) rotate(0deg); }
+        15% { opacity: 0.9; }
+        100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(160deg); }
+      }
+
+      #zorai-boot .zorai-boot-brand {
+        position: absolute;
+        left: 64%;
+        top: 13%;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      #zorai-boot .zorai-boot-lockup {
+        display: flex;
+        align-items: center;
+        gap: 18px;
       }
       #zorai-boot .zorai-boot-mark {
-        width: 112px;
-        height: 112px;
+        width: 46px;
+        height: 46px;
         overflow: visible;
+        opacity: 0;
+        transform: rotate(-135deg) scale(0.4);
+        animation: zorai-boot-turn 1.5s cubic-bezier(0.16, 1, 0.3, 1) 1.5s forwards;
+      }
+      @keyframes zorai-boot-turn {
+        to { opacity: 1; transform: rotate(0deg) scale(1); }
       }
       #zorai-boot .zorai-boot-mark__line {
         fill: none;
-        stroke: #fff;
-        stroke-width: 3.15;
+        stroke: #b8862f;
+        stroke-width: 9;
         stroke-linecap: round;
-        stroke-linejoin: round;
         stroke-dasharray: 1;
         stroke-dashoffset: 1;
-        animation: zorai-boot-draw 2.8s cubic-bezier(0.45, 0.02, 0.2, 1) forwards;
+        animation: zorai-boot-draw 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
-      #zorai-boot .zorai-boot-mark__line:nth-child(1) { animation-delay: 0.05s; }
-      #zorai-boot .zorai-boot-mark__line:nth-child(2) { animation-delay: 0.28s; }
-      #zorai-boot .zorai-boot-mark__line:nth-child(3) { animation-delay: 0.4s; }
-      #zorai-boot .zorai-boot-mark__line:nth-child(4) { animation-delay: 0.52s; }
-      #zorai-boot .zorai-boot-mark__line:nth-child(5) { animation-delay: 0.64s; }
-      #zorai-boot .zorai-boot-mark__line:nth-child(6) { animation-delay: 0.76s; }
-      #zorai-boot .zorai-boot-mark__line:nth-child(7) { animation-delay: 0.88s; }
-      #zorai-boot .zorai-boot-mark__line:nth-child(8) { animation-delay: 1.08s; }
-      #zorai-boot .zorai-boot-mark__line:nth-child(9) { animation-delay: 1.16s; }
-      #zorai-boot .zorai-boot-mark__line:nth-child(10) { animation-delay: 1.24s; }
-      #zorai-boot .zorai-boot-mark__line:nth-child(11) { animation-delay: 1.32s; }
-      #zorai-boot .zorai-boot-mark__line:nth-child(12) { animation-delay: 1.4s; }
-      #zorai-boot .zorai-boot-mark__line:nth-child(13) { animation-delay: 1.48s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(1) { animation-delay: 1.5s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(2) { animation-delay: 1.56s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(3) { animation-delay: 1.62s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(4) { animation-delay: 1.68s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(5) { animation-delay: 1.74s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(6) { animation-delay: 1.8s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(7) { animation-delay: 1.86s; }
+      #zorai-boot .zorai-boot-mark__line:nth-child(8) { animation-delay: 1.92s; }
       @keyframes zorai-boot-draw {
         to { stroke-dashoffset: 0; }
       }
 
-      /* Brand wordmark */
       #zorai-boot .zorai-boot-word {
-        font-size: 34px;
-        letter-spacing: 0.32em;
-        text-indent: 0.32em; /* keeps letters optically centered with tracking */
-        /* text-transform: uppercase; */
-        background: #d9e2ef;
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
+        font-size: clamp(34px, 4.4vw, 64px);
+        line-height: 1;
+        letter-spacing: -0.04em;
+        color: #34352f;
+        opacity: 0;
+        transform: translateY(8px);
+        animation: zorai-boot-in 1.1s cubic-bezier(0.16, 1, 0.3, 1) 1.8s forwards;
       }
       #zorai-boot .zorai-boot-tagline {
-        margin-top: 10px;
-        font-size: 12px;
-        letter-spacing: 0.22em;
+        margin-top: 14px;
+        font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+        font-size: 11px;
+        letter-spacing: 0.24em;
         text-transform: uppercase;
+        white-space: nowrap;
+        color: #89632e;
+        opacity: 0;
+        animation: zorai-boot-in 1.1s cubic-bezier(0.16, 1, 0.3, 1) 2.1s forwards;
+      }
+      @keyframes zorai-boot-in {
+        to { opacity: 1; transform: none; }
       }
 
-      /* Loading bar */
       #zorai-boot .zorai-boot-bar {
-        margin-top: 34px;
-        width: 220px;
-        height: 3px;
+        margin-top: 22px;
+        width: 180px;
+        height: 2px;
         border-radius: 999px;
-        background: var(--border);
+        background: rgba(137, 99, 46, 0.16);
         overflow: hidden;
+        opacity: 0;
+        animation: zorai-boot-in 0.8s ease 2.3s forwards;
       }
       #zorai-boot .zorai-boot-bar-fill {
         height: 100%;
         width: 40%;
         border-radius: 999px;
-        background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
-        animation: zorai-boot-slide 1.4s ease-in-out infinite;
+        background: linear-gradient(90deg, transparent, #b8862f, transparent);
+        animation: zorai-boot-slide 1.6s ease-in-out infinite;
       }
       @keyframes zorai-boot-slide {
         0%   { transform: translateX(-120%); }
@@ -139,47 +234,75 @@
       }
 
       #zorai-boot .zorai-boot-status {
-        margin-top: 14px;
+        margin-top: 12px;
         min-height: 16px;
+        font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
         font-size: 12px;
-        color: var(--text-secondary);
-        transition: opacity 0.2s ease;
+        color: rgba(52, 53, 47, 0.62);
+        opacity: 0;
+        animation: zorai-boot-in 0.8s ease 2.3s forwards;
       }
 
       @media (prefers-reduced-motion: reduce) {
-        #zorai-boot .zorai-boot-orb,
-        #zorai-boot .zorai-boot-mark__line,
-        #zorai-boot .zorai-boot-bar-fill { animation: none; }
+        #zorai-boot *,
+        #zorai-boot .zorai-boot-mark__line { animation: none !important; }
+        #zorai-boot .zorai-boot-art { -webkit-mask-position: 0 0, 0 0, 0 0; mask-position: 0 0, 0 0, 0 0; filter: none; }
+        #zorai-boot .zorai-boot-light,
+        #zorai-boot .zorai-boot-mark,
+        #zorai-boot .zorai-boot-word,
+        #zorai-boot .zorai-boot-tagline,
+        #zorai-boot .zorai-boot-bar,
+        #zorai-boot .zorai-boot-status { opacity: 1; transform: none; }
+        #zorai-boot .zorai-boot-sun { opacity: 1; transform: translate(-50%, -62%); }
         #zorai-boot .zorai-boot-mark__line { stroke-dashoffset: 0; }
+        #zorai-boot .zorai-boot-mote { display: none; }
       }
     </style>
   </head>
   <body>
     <div id="zorai-boot" aria-hidden="true">
-      <div class="zorai-boot-orb zorai-boot-orb--a"></div>
-      <div class="zorai-boot-orb zorai-boot-orb--b"></div>
-      <div class="zorai-boot-logo-wrap">
-        <svg class="zorai-boot-mark" viewBox="0 0 100 100" aria-hidden="true">
-          <circle class="zorai-boot-mark__line" cx="50" cy="50" r="42.86" pathLength="1" />
-          <path class="zorai-boot-mark__line" pathLength="1" d="M 50 45.82 A 37.67 37.67 0 0 1 50 11.32 A 37.67 37.67 0 0 1 50 45.82" />
-          <path class="zorai-boot-mark__line" pathLength="1" d="M 50 45.82 A 37.67 37.67 0 0 1 50 11.32 A 37.67 37.67 0 0 1 50 45.82" transform="rotate(60 50 50)" />
-          <path class="zorai-boot-mark__line" pathLength="1" d="M 50 45.82 A 37.67 37.67 0 0 1 50 11.32 A 37.67 37.67 0 0 1 50 45.82" transform="rotate(120 50 50)" />
-          <path class="zorai-boot-mark__line" pathLength="1" d="M 50 45.82 A 37.67 37.67 0 0 1 50 11.32 A 37.67 37.67 0 0 1 50 45.82" transform="rotate(180 50 50)" />
-          <path class="zorai-boot-mark__line" pathLength="1" d="M 50 45.82 A 37.67 37.67 0 0 1 50 11.32 A 37.67 37.67 0 0 1 50 45.82" transform="rotate(240 50 50)" />
-          <path class="zorai-boot-mark__line" pathLength="1" d="M 50 45.82 A 37.67 37.67 0 0 1 50 11.32 A 37.67 37.67 0 0 1 50 45.82" transform="rotate(300 50 50)" />
-          <path class="zorai-boot-mark__line" pathLength="1" d="M 69.34 50 L 77.69 44.27 A 28.28 28.28 0 0 1 77.69 55.73 Z" />
-          <path class="zorai-boot-mark__line" pathLength="1" d="M 69.34 50 L 77.69 44.27 A 28.28 28.28 0 0 1 77.69 55.73 Z" transform="rotate(60 50 50)" />
-          <path class="zorai-boot-mark__line" pathLength="1" d="M 69.34 50 L 77.69 44.27 A 28.28 28.28 0 0 1 77.69 55.73 Z" transform="rotate(120 50 50)" />
-          <path class="zorai-boot-mark__line" pathLength="1" d="M 69.34 50 L 77.69 44.27 A 28.28 28.28 0 0 1 77.69 55.73 Z" transform="rotate(180 50 50)" />
-          <path class="zorai-boot-mark__line" pathLength="1" d="M 69.34 50 L 77.69 44.27 A 28.28 28.28 0 0 1 77.69 55.73 Z" transform="rotate(240 50 50)" />
-          <path class="zorai-boot-mark__line" pathLength="1" d="M 69.34 50 L 77.69 44.27 A 28.28 28.28 0 0 1 77.69 55.73 Z" transform="rotate(300 50 50)" />
-        </svg>
+      <div class="zorai-boot-stage">
+        <img class="zorai-boot-art zorai-boot-art--light" src="/src/assets/zora-dawn.webp" alt="" />
+        <img class="zorai-boot-art zorai-boot-art--dark" src="/src/assets/zora-dawn-black.webp" alt="" />
+        <div class="zorai-boot-light"></div>
+        <div class="zorai-boot-sun"></div>
+        <div class="zorai-boot-motes">
+          <span class="zorai-boot-mote"></span>
+          <span class="zorai-boot-mote"></span>
+          <span class="zorai-boot-mote"></span>
+          <span class="zorai-boot-mote"></span>
+          <span class="zorai-boot-mote"></span>
+          <span class="zorai-boot-mote"></span>
+          <span class="zorai-boot-mote"></span>
+        </div>
+        <div class="zorai-boot-brand">
+          <div class="zorai-boot-lockup">
+            <svg class="zorai-boot-mark" viewBox="0 0 100 100" aria-hidden="true">
+              <path class="zorai-boot-mark__line" pathLength="1" d="M 50 50 L 50 8" />
+              <path class="zorai-boot-mark__line" pathLength="1" d="M 50 50 L 50 8" transform="rotate(45 50 50)" />
+              <path class="zorai-boot-mark__line" pathLength="1" d="M 50 50 L 50 8" transform="rotate(90 50 50)" />
+              <path class="zorai-boot-mark__line" pathLength="1" d="M 50 50 L 50 8" transform="rotate(135 50 50)" />
+              <path class="zorai-boot-mark__line" pathLength="1" d="M 50 50 L 50 8" transform="rotate(180 50 50)" />
+              <path class="zorai-boot-mark__line" pathLength="1" d="M 50 50 L 50 8" transform="rotate(225 50 50)" />
+              <path class="zorai-boot-mark__line" pathLength="1" d="M 50 50 L 50 8" transform="rotate(270 50 50)" />
+              <path class="zorai-boot-mark__line" pathLength="1" d="M 50 50 L 50 8" transform="rotate(315 50 50)" />
+            </svg>
+            <div class="zorai-boot-word">Zorai</div>
+          </div>
+          <div class="zorai-boot-tagline">Daemon-first agentic runtime</div>
+          <div class="zorai-boot-bar"><div class="zorai-boot-bar-fill"></div></div>
+          <div class="zorai-boot-status" id="zorai-boot-status">Starting Zorai…</div>
+        </div>
       </div>
-      <div class="zorai-boot-word">Zorai</div>
-      <div class="zorai-boot-tagline">Daemon-first agentic runtime</div>
-      <div class="zorai-boot-bar"><div class="zorai-boot-bar-fill"></div></div>
-      <div class="zorai-boot-status" id="zorai-boot-status">Starting Zorai…</div>
     </div>
+    <script>
+      (function () {
+        var stored = null;
+        try { stored = localStorage.getItem("zorai.bootAppearance"); } catch (error) {}
+        var dark = stored ? stored === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.getElementById("zorai-boot").dataset.appearance = dark ? "dark" : "light";
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -32,7 +32,7 @@ type PreviewSection = {
   entries?: ZoraiWorkspaceEntry[];
 };
 
-const IMAGE_PREVIEW_PATTERN = /\.(png|jpe?g|gif|webp|bmp|svg)$/i;
+const IMAGE_PREVIEW_PATTERN = /\.(png|jpe?g|gif|webp|bmp|svg|ico)$/i;
 const VIDEO_PREVIEW_PATTERN = /\.(mp4|webm|mov|m4v)$/i;
 const AUDIO_PREVIEW_PATTERN = /\.(mp3|wav|ogg|oga|opus|m4a|aac|flac|weba)$/i;
 const MARKDOWN_PREVIEW_PATTERN = /\.(md|markdown|mdx)$/i;

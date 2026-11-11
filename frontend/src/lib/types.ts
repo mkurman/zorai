@@ -300,7 +300,7 @@ export interface ZoraiSettings {
 export const DEFAULT_SETTINGS: ZoraiSettings = {
   fontFamily: "Cascadia Code",
   fontSize: 14,
-  themeName: "Catppuccin Mocha",
+  themeName: "Zorai Paper Dark",
   uiFontFamily: "",
   uiFontScale: 1,
   nightMode: "on",
