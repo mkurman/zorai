@@ -222,8 +222,9 @@ install_binaries() {
     if [ "$verify_extracted_binaries" = true ]; then
       verify_binary "$binary_name"
     fi
-    cp "$EXTRACT_DIR/$binary_name" "$INSTALL_DIR/$binary_name"
-    chmod 755 "$INSTALL_DIR/$binary_name"
+    cp "$EXTRACT_DIR/$binary_name" "$INSTALL_DIR/.$binary_name.new"
+    chmod 755 "$INSTALL_DIR/.$binary_name.new"
+    mv -f "$INSTALL_DIR/.$binary_name.new" "$INSTALL_DIR/$binary_name"
   done
 
   {

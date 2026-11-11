@@ -707,3 +707,37 @@ async fn generate_welcome_regenerates_when_persisted_welcome_is_stale() {
         .expect("welcome should be returned");
     assert_ne!(result.0, "persisted welcome");
 }
+
+#[tokio::test]
+async fn welcome_waits_for_setup_and_keeps_onboarding_for_after_it() {
+    let root = tempdir().unwrap();
+    let manager = SessionManager::new_test(root.path()).await;
+    let mut config = AgentConfig::default();
+    config.model = String::new();
+    config.tier.onboarding_completed = false;
+    config.concierge.detail_level = ConciergeDetailLevel::Minimal;
+    let engine = AgentEngine::new_test(manager, config, root.path()).await;
+    engine.concierge.initialize(&engine.threads).await;
+    let mut events = engine.subscribe();
+
+    engine.request_concierge_welcome().await;
+
+    assert!(
+        events.try_recv().is_err(),
+        "no welcome should be shown before a provider and model are configured"
+    );
+    assert!(
+        !engine.config.read().await.tier.onboarding_completed,
+        "onboarding must still be pending so it runs once setup is done"
+    );
+
+    engine.config.write().await.model = "gpt-5".to_string();
+    engine.request_concierge_welcome().await;
+
+    let mut welcomed = false;
+    while let Ok(event) = events.try_recv() {
+        welcomed |= matches!(event, AgentEvent::ConciergeWelcome { .. });
+    }
+    assert!(welcomed, "welcome should appear once setup is complete");
+    assert!(engine.config.read().await.tier.onboarding_completed);
+}

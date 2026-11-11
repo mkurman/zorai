@@ -1937,4 +1937,258 @@ mod tests {
         );
         assert_eq!(continuations[0].task_id.as_deref(), Some(task.id.as_str()));
     }
+
+    async fn thread_approval_test_engine(
+        root: &std::path::Path,
+    ) -> (Arc<AgentEngine>, Arc<Mutex<Vec<String>>>) {
+        let manager = SessionManager::new_test(root).await;
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind thread approval test server");
+        let addr = listener.local_addr().expect("thread approval addr");
+        let request_bodies = Arc::new(Mutex::new(Vec::<String>::new()));
+        tokio::spawn({
+            let request_bodies = request_bodies.clone();
+            async move {
+                while let Ok((mut socket, _)) = listener.accept().await {
+                    let request_bodies = request_bodies.clone();
+                    tokio::spawn(async move {
+                        let body = read_http_request_body(&mut socket)
+                            .await
+                            .expect("read thread approval request");
+                        request_bodies
+                            .lock()
+                            .expect("request bodies lock")
+                            .push(body);
+                        let response = concat!(
+                            "HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\nconnection: close\r\n\r\n",
+                            "data: {\"choices\":[{\"delta\":{\"content\":\"noted\"}}]}\n\n",
+                            "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":1}}\n\n",
+                            "data: [DONE]\n\n"
+                        );
+                        let _ = socket.write_all(response.as_bytes()).await;
+                    });
+                }
+            }
+        });
+        let mut config = AgentConfig::default();
+        config.provider = PROVIDER_ID_OPENAI.to_string();
+        config.base_url = format!("http://{addr}/v1");
+        config.model = "gpt-5.4-mini".to_string();
+        config.api_key = "test-key".to_string();
+        config.auth_source = AuthSource::ApiKey;
+        config.api_transport = ApiTransport::ChatCompletions;
+        config.auto_retry = false;
+        config.max_retries = 0;
+        config.max_tool_loops = 1;
+        let engine = AgentEngine::new_test(manager, config, root).await;
+        (engine, request_bodies)
+    }
+
+    async fn pause_thread_on_approval(
+        engine: &Arc<AgentEngine>,
+        thread_id: &str,
+        command: &str,
+    ) -> String {
+        let now = now_millis();
+        engine.threads.write().await.insert(
+            thread_id.to_string(),
+            AgentThread {
+                id: thread_id.to_string(),
+                agent_name: None,
+                title: "Thread approval".to_string(),
+                messages: vec![AgentMessage::user("run the command", now), {
+                    let mut paused = AgentMessage::user(
+                        "Managed command requires approval before execution.",
+                        now,
+                    );
+                    paused.role = MessageRole::Assistant;
+                    paused
+                }],
+                pinned: false,
+                upstream_thread_id: None,
+                upstream_transport: None,
+                upstream_provider: None,
+                upstream_model: None,
+                upstream_assistant_id: None,
+                created_at: now,
+                updated_at: now,
+                total_input_tokens: 0,
+                total_output_tokens: 0,
+            },
+        );
+        let (session_id, _rx) = engine
+            .session_manager
+            .spawn(Some("/bin/bash".to_string()), None, None, None, 80, 24)
+            .await
+            .expect("spawn test session");
+        let message = engine
+            .session_manager
+            .execute_managed_command(
+                session_id,
+                zorai_protocol::ManagedCommandRequest {
+                    command: command.to_string(),
+                    rationale: "test".to_string(),
+                    allow_network: false,
+                    sandbox_enabled: false,
+                    security_level: zorai_protocol::SecurityLevel::Highest,
+                    cwd: None,
+                    language_hint: None,
+                    source: zorai_protocol::ManagedCommandSource::Agent,
+                },
+            )
+            .await
+            .expect("managed command");
+        let zorai_protocol::DaemonMessage::ApprovalRequired { approval, .. } = message else {
+            panic!("expected an approval request, got {message:?}");
+        };
+        engine.pending_thread_approvals.write().await.insert(
+            approval.approval_id.clone(),
+            (
+                thread_id.to_string(),
+                ToolPendingApproval {
+                    approval_id: approval.approval_id.clone(),
+                    execution_id: approval.execution_id.clone(),
+                    command: command.to_string(),
+                    rationale: "test".to_string(),
+                    risk_level: approval.risk_level.clone(),
+                    blast_radius: approval.blast_radius.clone(),
+                    reasons: approval.reasons.clone(),
+                    session_id: Some(session_id.to_string()),
+                },
+            ),
+        );
+        approval.approval_id
+    }
+
+    async fn wait_for_request(request_bodies: &Arc<Mutex<Vec<String>>>) -> String {
+        let found = timeout(Duration::from_secs(10), async {
+            loop {
+                if let Some(body) = request_bodies
+                    .lock()
+                    .expect("request bodies lock")
+                    .iter()
+                    .find(|body| body.contains("An approval request from your previous tool call"))
+                {
+                    return body.clone();
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+        })
+        .await;
+        found.unwrap_or_else(|_| {
+            let bodies = request_bodies.lock().expect("request bodies lock");
+            let tails: Vec<String> = bodies
+                .iter()
+                .map(|body| {
+                    body.chars()
+                        .rev()
+                        .take(400)
+                        .collect::<String>()
+                        .chars()
+                        .rev()
+                        .collect()
+                })
+                .collect();
+            panic!(
+                "thread should resume with the approval notice; saw {} requests: {tails:#?}",
+                bodies.len()
+            )
+        })
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn denied_thread_approval_tells_the_agent_and_resumes_the_thread() {
+        let root = tempdir().expect("tempdir should succeed");
+        let (engine, request_bodies) = thread_approval_test_engine(root.path()).await;
+        let marker = root.path().join("denied-marker");
+        let command = format!("touch {}", marker.display());
+        let approval_id = pause_thread_on_approval(&engine, "thread-approval-deny", &command).await;
+
+        assert!(
+            engine
+                .resolve_thread_approval(&approval_id, zorai_protocol::ApprovalDecision::Deny)
+                .await
+        );
+
+        let body = wait_for_request(&request_bodies).await;
+        assert!(
+            body.contains("denied approval"),
+            "agent must be told about the denial: {body}"
+        );
+        assert!(
+            body.contains("denied-marker"),
+            "the denied command must be named: {body}"
+        );
+        assert!(!marker.exists(), "a denied command must not run");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn approved_thread_approval_runs_the_command_and_returns_its_result() {
+        let root = tempdir().expect("tempdir should succeed");
+        let (engine, request_bodies) = thread_approval_test_engine(root.path()).await;
+        let approval_id = pause_thread_on_approval(
+            &engine,
+            "thread-approval-approve",
+            "echo approved-output-marker",
+        )
+        .await;
+
+        assert!(
+            engine
+                .resolve_thread_approval(
+                    &approval_id,
+                    zorai_protocol::ApprovalDecision::ApproveOnce
+                )
+                .await
+        );
+
+        let body = wait_for_request(&request_bodies).await;
+        assert!(
+            body.contains("exit code 0"),
+            "agent must get the command result: {body}"
+        );
+        assert!(
+            body.contains("approved-output-marker"),
+            "agent must see the command output: {body}"
+        );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn pending_thread_approval_is_replayed_for_its_thread_until_resolved() {
+        let root = tempdir().expect("tempdir should succeed");
+        let (engine, _request_bodies) = thread_approval_test_engine(root.path()).await;
+        let approval_id =
+            pause_thread_on_approval(&engine, "thread-approval-replay", "echo replay").await;
+
+        let replayed = engine
+            .pending_thread_approval_events_for_thread("thread-approval-replay")
+            .await;
+        assert!(
+            matches!(
+                replayed.as_slice(),
+                [AgentEvent::ApprovalRequired { approval_id: replayed_id, thread_id, .. }]
+                    if replayed_id == &approval_id && thread_id == "thread-approval-replay"
+            ),
+            "a reloaded client must get the pending approval back: {replayed:?}"
+        );
+        assert!(engine
+            .pending_thread_approval_events_for_thread("another-thread")
+            .await
+            .is_empty());
+
+        engine
+            .resolve_thread_approval(&approval_id, zorai_protocol::ApprovalDecision::Deny)
+            .await;
+        assert!(
+            engine
+                .pending_thread_approval_events_for_thread("thread-approval-replay")
+                .await
+                .is_empty(),
+            "a resolved approval must not come back after reload"
+        );
+    }
 }

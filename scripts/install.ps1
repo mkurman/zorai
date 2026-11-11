@@ -240,7 +240,12 @@ function Install-Binaries {
             throw "Expected extracted binary not found: $bin"
         }
 
-        Copy-Item -Path $sourcePath -Destination (Join-Path $InstallDir $bin) -Force
+        $targetPath = Join-Path $InstallDir $bin
+        Remove-Item -Path "$targetPath.old" -Force -ErrorAction SilentlyContinue
+        if (Test-Path $targetPath) {
+            Move-Item -Path $targetPath -Destination "$targetPath.old" -Force
+        }
+        Copy-Item -Path $sourcePath -Destination $targetPath -Force
         Write-Host "  Installed: $bin"
     }
 

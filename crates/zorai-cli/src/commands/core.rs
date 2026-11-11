@@ -61,14 +61,22 @@ fn command_startup_action(
 ) -> DefaultStartupAction {
     if matches!(
         command,
-        Commands::Stop | Commands::Restart | Commands::Upgrade
+        Commands::Stop | Commands::Restart | Commands::Upgrade { .. }
     ) {
         return DefaultStartupAction::ShowHelp;
     }
 
     match probe {
         setup_wizard::SetupProbe::DaemonUnavailable => DefaultStartupAction::StartDaemonAndRetry,
-        setup_wizard::SetupProbe::NeedsSetup if !matches!(command, Commands::Setup) => {
+        setup_wizard::SetupProbe::NeedsSetup
+            if !matches!(
+                command,
+                Commands::Setup
+                    | Commands::AgentBridge
+                    | Commands::DbBridge
+                    | Commands::Bridge { .. }
+            ) =>
+        {
             DefaultStartupAction::RunSetup
         }
         setup_wizard::SetupProbe::NeedsSetup | setup_wizard::SetupProbe::Ready => {
@@ -1009,9 +1017,28 @@ mod tests {
     }
 
     #[test]
+    fn desktop_bridges_skip_the_interactive_setup_so_the_gui_can_run_its_own() {
+        for command in [Commands::AgentBridge, Commands::DbBridge] {
+            assert_eq!(
+                command_startup_action(&command, SetupProbe::NeedsSetup),
+                DefaultStartupAction::ShowHelp
+            );
+            assert_eq!(
+                command_startup_action(&command, SetupProbe::DaemonUnavailable),
+                DefaultStartupAction::StartDaemonAndRetry
+            );
+        }
+    }
+
+    #[test]
     fn command_startup_does_not_start_daemon_for_upgrade() {
         assert_eq!(
-            command_startup_action(&Commands::Upgrade, SetupProbe::DaemonUnavailable),
+            command_startup_action(
+                &Commands::Upgrade {
+                    keep_running: false
+                },
+                SetupProbe::DaemonUnavailable
+            ),
             DefaultStartupAction::ShowHelp
         );
     }
@@ -1929,8 +1956,12 @@ pub(crate) async fn run(command: Commands) -> Result<()> {
         Commands::Restart => {
             update::run_restart()?;
         }
-        Commands::Upgrade => {
-            update::run_upgrade()?;
+        Commands::Upgrade { keep_running } => {
+            if keep_running {
+                update::run_upgrade_keep_running()?;
+            } else {
+                update::run_upgrade()?;
+            }
         }
         Commands::StartDaemon => {
             setup_wizard::ensure_daemon_running().await?;

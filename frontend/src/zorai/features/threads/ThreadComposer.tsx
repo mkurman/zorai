@@ -21,6 +21,7 @@ import { applyComposerTextareaSize } from "./composerTextareaSize";
 import { ThreadComposerQueue } from "./ThreadComposerQueue";
 import { queuedComposerDraft } from "./composerQueue";
 import { OperatorQuestionDock } from "@/components/OperatorQuestionDock";
+import { AgentApprovalOverlay } from "@/components/AgentApprovalOverlay";
 import { useDaemonPromptQueue } from "./useDaemonPromptQueue";
 import { getBridge } from "@/lib/bridge";
 import { pushToast } from "@/lib/toastStore";
@@ -488,6 +489,7 @@ export function ThreadComposer({
       ) : null}
 
       <OperatorQuestionDock inline threadId={runtime.activeThread?.daemonThreadId ?? null} />
+      <AgentApprovalOverlay inline threadId={runtime.activeThread?.daemonThreadId ?? null} />
 
       <ThreadComposerQueue
         items={queue.queuedMessages}

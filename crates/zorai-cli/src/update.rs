@@ -502,13 +502,62 @@ pub(crate) async fn print_upgrade_notice_if_available(current_version: &str) {
     });
 }
 
-pub(crate) fn run_upgrade() -> Result<()> {
+fn current_upgrade_plan() -> Result<UpgradePlan> {
     let install_source_env = std::env::var("ZORAI_INSTALL_SOURCE").ok();
     let current_exe = std::env::current_exe().context("failed to resolve current zorai path")?;
-    let plan = build_upgrade_plan(detect_install_source(
+    build_upgrade_plan(detect_install_source(
         install_source_env.as_deref(),
         &current_exe,
-    ))?;
+    ))
+}
+
+fn run_direct_upgrade(command_name: &str, args: &[String], install_dir: &Path) -> Result<()> {
+    let mut command = Command::new(command_name);
+    command
+        .args(args)
+        .stdin(Stdio::null())
+        .env("ZORAI_INSTALL_DIR", install_dir.display().to_string());
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x08000000);
+    }
+
+    let status = command.status().with_context(|| {
+        format!(
+            "failed to launch the direct installer via {command_name}; rerun the platform install script manually"
+        )
+    })?;
+
+    if !status.success() {
+        bail!("direct installer failed ({status})");
+    }
+
+    Ok(())
+}
+
+pub(crate) fn run_upgrade_keep_running() -> Result<()> {
+    match current_upgrade_plan()? {
+        UpgradePlan::Npm => {
+            println!("Upgrading zorai via npm...");
+            run_npm_upgrade()?;
+        }
+        UpgradePlan::DirectInstaller {
+            install_dir,
+            command,
+            args,
+        } => {
+            println!("Upgrading zorai via direct installer...");
+            run_direct_upgrade(&command, &args, &install_dir)?;
+        }
+    }
+    println!("Upgrade installed. Restart zorai to use the new version.");
+    Ok(())
+}
+
+pub(crate) fn run_upgrade() -> Result<()> {
+    let plan = current_upgrade_plan()?;
 
     execute_upgrade_plan(
         plan,

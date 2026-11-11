@@ -728,6 +728,11 @@ impl<'a> SendMessageRunner<'a> {
                 self.engine
                     .mark_task_awaiting_approval(task_id, &self.tid, pending_approval)
                     .await;
+            } else {
+                self.engine.pending_thread_approvals.write().await.insert(
+                    pending_approval.approval_id.clone(),
+                    (self.tid.clone(), pending_approval.clone()),
+                );
             }
             let _ = self.engine.event_tx.send(AgentEvent::ApprovalRequired {
                 thread_id: self.tid.clone(),

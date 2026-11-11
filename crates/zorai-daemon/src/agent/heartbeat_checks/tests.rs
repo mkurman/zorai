@@ -212,6 +212,7 @@ async fn make_test_engine(
         active_operator_sessions: RwLock::new(HashMap::new()),
         pending_operator_approvals: RwLock::new(HashMap::new()),
         pending_approval_commands: RwLock::new(HashMap::new()),
+        pending_thread_approvals: RwLock::new(HashMap::new()),
         critique_approval_continuations: Mutex::new(HashMap::new()),
         policy_escalation_session_grants: RwLock::new(HashSet::new()),
         task_approval_rules: RwLock::new(Vec::new()),

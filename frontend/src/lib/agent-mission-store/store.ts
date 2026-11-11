@@ -214,6 +214,7 @@ export const useAgentMissionStore = create<AgentMissionState>((set, get) => ({
         workspaceId: opts.workspaceId ?? null,
         surfaceId: opts.surfaceId ?? null,
         sessionId: opts.sessionId ?? null,
+        threadId: opts.threadId ?? null,
         source: opts.source,
         command: opts.command,
         reasons: opts.reasons,

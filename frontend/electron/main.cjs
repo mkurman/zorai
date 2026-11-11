@@ -61,6 +61,7 @@ const workspaceService = require('./main/workspace-service.cjs');
 const { createWorkspaceWatcher } = require('./main/workspace-watch-service.cjs');
 const { createLspRuntime } = require('./main/lsp-runtime.cjs');
 const { createTestRuntime } = require('./main/test-runtime.cjs');
+const { createUpdateRuntime } = require('./main/update-runtime.cjs');
 
 const DAEMON_NAME = 'zorai-daemon';
 const CLI_NAME = 'zorai';
@@ -74,6 +75,7 @@ let mainWindow = null;
 const workspaceWatchers = new Map();
 const lspRuntime = createLspRuntime();
 const testRuntime = createTestRuntime((webContents, event) => webContents.send('workspace-test-event', event));
+const updateRuntime = createUpdateRuntime({ app, getCliPath, logToFile });
 // Module-level reference to sendAgentCommand (set during registerIpcHandlers)
 let sendAgentCommandFn = null;
 
@@ -593,6 +595,10 @@ function registerIpcHandlers() {
     });
     registerDbIpcHandlers(ipcMain, { sendDbAckCommand, sendDbQuery });
 
+    ipcMain.handle('app-update-check', () => updateRuntime.check());
+    ipcMain.handle('app-update-install', () => updateRuntime.install());
+    ipcMain.handle('app-update-restart', () => updateRuntime.restart());
+
     whatsAppRuntime.registerWhatsAppIpcHandlers(ipcMain, { sendAgentCommand, sendAgentQuery }, async (config) => {
         const { assertValidWhatsAppConnectConfig } = await whatsAppRuntime.getDesktopWhatsAppLinkingHelpers();
         assertValidWhatsAppConnectConfig(config);
@@ -664,6 +670,7 @@ app.on('before-quit', () => {
     }
     whatsAppRuntime.stopWhatsAppRuntime();
     cleanupDiscordClient();
+    updateRuntime.stopDaemonIfUpdated();
 });
 
 app.on('will-quit', () => {

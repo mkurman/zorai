@@ -221,6 +221,7 @@ pub struct AgentEngine {
     pub(super) active_operator_sessions: RwLock<HashMap<String, u64>>,
     pub(super) pending_operator_approvals: RwLock<HashMap<String, PendingApprovalObservation>>,
     pub(super) pending_approval_commands: RwLock<HashMap<String, String>>,
+    pub(super) pending_thread_approvals: RwLock<HashMap<String, (String, ToolPendingApproval)>>,
     pub(super) critique_approval_continuations:
         Mutex<HashMap<String, CritiqueApprovalContinuation>>,
     pub(super) policy_escalation_session_grants: RwLock<HashSet<String>>,
@@ -494,6 +495,7 @@ impl AgentEngine {
             active_operator_sessions: RwLock::new(HashMap::new()),
             pending_operator_approvals: RwLock::new(HashMap::new()),
             pending_approval_commands: RwLock::new(HashMap::new()),
+            pending_thread_approvals: RwLock::new(HashMap::new()),
             critique_approval_continuations: Mutex::new(HashMap::new()),
             policy_escalation_session_grants: RwLock::new(HashSet::new()),
             task_approval_rules: RwLock::new(Vec::new()),

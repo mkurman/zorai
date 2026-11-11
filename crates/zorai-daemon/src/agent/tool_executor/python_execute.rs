@@ -18,6 +18,38 @@ pub(crate) async fn execute_python_execute(
         .get("timeout_seconds")
         .and_then(|value| value.as_u64())
         .unwrap_or(30);
+    let requires_approval = matches!(
+        agent.config.read().await.managed_execution.security_level,
+        SecurityLevel::Highest
+    );
+    if requires_approval {
+        let quoted = shlex::try_quote(code)
+            .map_err(|error| anyhow::anyhow!("python code cannot be shell-quoted: {error}"))?;
+        let mut managed_args = args.clone();
+        if let Some(map) = managed_args.as_object_mut() {
+            map.remove("code");
+            map.insert(
+                "command".to_string(),
+                serde_json::Value::String(format!("python3 -c {quoted}")),
+            );
+            map.entry("rationale")
+                .or_insert_with(|| serde_json::Value::String("Run Python code".to_string()));
+            map.insert(
+                "language_hint".to_string(),
+                serde_json::Value::String("python".to_string()),
+            );
+        }
+        return execute_managed_command(
+            &managed_args,
+            agent,
+            session_manager,
+            session_id,
+            &agent.event_tx,
+            thread_id,
+            cancel_token,
+        )
+        .await;
+    }
     let timeout_secs = requested_timeout.min(600);
     let auto_background = requested_timeout > 600;
     let wait_for_completion = if auto_background {

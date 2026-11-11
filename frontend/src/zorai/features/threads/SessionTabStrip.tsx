@@ -5,6 +5,7 @@ import { openThreadTarget } from "./openThreadTarget";
 import { neighborSessionId, sessionCloseFollowUp, useOpenSessionTabs } from "./openSessionTabs";
 import { threadIsUnread } from "./sessionCooperation";
 import { threadReadKey, useThreadReadStateStore } from "./threadReadStateStore";
+import { ThreadNeedsActionIcon, useThreadIdsNeedingAction } from "./threadNeedsAction";
 
 export type SessionTabModel = {
   id: string;
@@ -12,6 +13,7 @@ export type SessionTabModel = {
   active: boolean;
   working: boolean;
   unread: boolean;
+  needsAction?: boolean;
   pinned?: boolean;
 };
 
@@ -88,7 +90,7 @@ export function SessionTabStrip({
             }}
           >
             <button type="button" className="zorai-session-tab__main" aria-current={tab.active ? "page" : undefined} onClick={() => onSelect(tab.id)}>
-              {tab.working ? <span className="zorai-thread-dot zorai-thread-dot--working" aria-hidden="true" /> : null}
+              {tab.needsAction ? <span className="zorai-thread-needs-action-slot" title="Waiting for your approval or answer"><ThreadNeedsActionIcon /></span> : tab.working ? <span className="zorai-thread-dot zorai-thread-dot--working" aria-hidden="true" /> : null}
               <span>{tab.title}</span>
             </button>
             {onTogglePin ? (
@@ -142,6 +144,7 @@ export function ThreadSessionTabs({ includeSession }: { includeSession?: (id: st
   const closeOpenSession = useOpenSessionTabs((state) => state.close);
   const moveOpenSession = useOpenSessionTabs((state) => state.move);
   const lastReadAtByThread = useThreadReadStateStore((state) => state.lastReadAtByThread);
+  const threadIdsNeedingAction = useThreadIdsNeedingAction();
   const activeId = runtime.activeThread?.id ?? null;
 
   useEffect(() => {
@@ -155,13 +158,16 @@ export function ThreadSessionTabs({ includeSession }: { includeSession?: (id: st
     const thread = threads.find((item) => item.id === id || item.daemonThreadId === id);
     const active = thread?.id === activeId || id === activeId;
     const readKey = thread ? threadReadKey(thread) : null;
-    return sessionTabModel(
-      id,
-      threads,
-      activeId,
-      Boolean(active && runtime.isStreamingResponse),
-      thread ? threadIsUnread(thread, readKey ? lastReadAtByThread[readKey] ?? null : null, Boolean(active)) : false,
-    );
+    return {
+      ...sessionTabModel(
+        id,
+        threads,
+        activeId,
+        Boolean(active && runtime.isStreamingResponse),
+        thread ? threadIsUnread(thread, readKey ? lastReadAtByThread[readKey] ?? null : null, Boolean(active)) : false,
+      ),
+      needsAction: threadIdsNeedingAction.has(thread?.daemonThreadId ?? id),
+    };
   });
 
   return (

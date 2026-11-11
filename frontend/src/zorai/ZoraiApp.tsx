@@ -8,6 +8,7 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { SetupOnboardingPanel } from "@/components/SetupOnboardingPanel";
 import { TimeTravelSlider } from "@/components/TimeTravelSlider";
 import { ToastViewport } from "@/components/ToastViewport";
+import { UpdatePrompt } from "@/components/UpdatePrompt";
 import { getBridge } from "@/lib/bridge";
 import { useAgentStore } from "@/lib/agentStore";
 import { useAuditStore } from "@/lib/auditStore";
@@ -106,6 +107,7 @@ export function ZoraiApp() {
       <OperatorQuestionOverlay />
       <ConciergeToast />
       <ToastViewport />
+      <UpdatePrompt />
       <ThreadBrowserHost />
     </AgentChatPanelProvider>
   );
