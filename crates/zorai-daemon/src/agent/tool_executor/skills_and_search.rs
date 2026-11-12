@@ -716,6 +716,7 @@ pub(crate) async fn execute_web_search(
     tavily_api_key: &str,
     firecrawl_api_key: &str,
     keenable_api_key: &str,
+    youcom_api_key: &str,
     duckduckgo_region: &str,
     duckduckgo_safe_search: &str,
 ) -> Result<String> {
@@ -760,6 +761,16 @@ pub(crate) async fn execute_web_search(
                         &request.query,
                         request.max_results,
                         keenable_api_key,
+                    )
+                    .await
+                }
+                "youcom" => {
+                    execute_youcom_search(
+                        http_client,
+                        &request.query,
+                        request.max_results,
+                        youcom_api_key,
+                        duckduckgo_safe_search,
                     )
                     .await
                 }
@@ -808,6 +819,7 @@ where
         "tavily" if !tavily_api_key.is_empty() => "tavily",
         "firecrawl" if !firecrawl_api_key.is_empty() => "firecrawl",
         "keenable" => "keenable",
+        "youcom" => "youcom",
         "duckduckgo" | "ddg" => "duckduckgo",
         _ => "ddg",
     };
@@ -1019,6 +1031,122 @@ pub(crate) fn format_keenable_search_results(query: &str, json: &serde_json::Val
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
+
+    if results.is_empty() {
+        format!("No web results found for: {query}")
+    } else {
+        format!("Web results for \"{query}\":\n\n{}", results.join("\n\n"))
+    }
+}
+
+pub(crate) const YOUCOM_FREE_SEARCH_URL: &str = "https://api.you.com/v1/agents/search";
+pub(crate) const YOUCOM_KEYED_SEARCH_URL: &str = "https://ydc-index.io/v1/search";
+pub(crate) const YOUCOM_USER_AGENT: &str = "youdotcom-integration/mkurman-zorai";
+
+/// Resolve the You.com key: the `youcom_api_key` setting, then `YDC_API_KEY`.
+pub(crate) fn resolve_youcom_api_key(config_key: &str, env_key: Option<String>) -> String {
+    let config_key = config_key.trim();
+    if !config_key.is_empty() {
+        return config_key.to_string();
+    }
+    env_key
+        .map(|key| key.trim().to_string())
+        .unwrap_or_default()
+}
+
+/// Map Zorai's DuckDuckGo-style safe search setting onto You.com's values.
+pub(crate) fn youcom_safesearch_param(safe_search: &str) -> &'static str {
+    match safe_search.trim().to_ascii_lowercase().as_str() {
+        "off" => "off",
+        "strict" => "strict",
+        _ => "moderate",
+    }
+}
+
+/// Without a key, You.com serves a free keyless tier (GET, up to 50 results).
+/// With a key, the Web Search API is used (POST with `X-API-Key`).
+pub(crate) fn build_youcom_search_request(
+    http_client: &reqwest::Client,
+    query: &str,
+    max_results: u64,
+    api_key: &str,
+    safe_search: &str,
+) -> reqwest::RequestBuilder {
+    let api_key = api_key.trim();
+    let safesearch = youcom_safesearch_param(safe_search);
+    if api_key.is_empty() {
+        let count = max_results.clamp(1, 50).to_string();
+        http_client
+            .get(YOUCOM_FREE_SEARCH_URL)
+            .header("User-Agent", YOUCOM_USER_AGENT)
+            .query(&[
+                ("query", query),
+                ("count", count.as_str()),
+                ("safesearch", safesearch),
+            ])
+    } else {
+        let body = serde_json::json!({
+            "query": query,
+            "count": max_results.clamp(1, 100),
+            "safesearch": safesearch,
+        });
+        http_client
+            .post(YOUCOM_KEYED_SEARCH_URL)
+            .header("User-Agent", YOUCOM_USER_AGENT)
+            .header("X-API-Key", api_key)
+            .json(&body)
+    }
+}
+
+async fn execute_youcom_search(
+    http_client: &reqwest::Client,
+    query: &str,
+    max_results: u64,
+    api_key: &str,
+    safe_search: &str,
+) -> Result<String> {
+    let api_key = resolve_youcom_api_key(api_key, std::env::var("YDC_API_KEY").ok());
+    let resp = build_youcom_search_request(http_client, query, max_results, &api_key, safe_search)
+        .send()
+        .await?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        anyhow::bail!(
+            "You.com API returned {status}: {}",
+            safe_text_excerpt(&text, 200)
+        );
+    }
+
+    let json: serde_json::Value = resp.json().await?;
+    Ok(format_youcom_search_results(query, &json, max_results))
+}
+
+pub(crate) fn format_youcom_search_results(
+    query: &str,
+    json: &serde_json::Value,
+    max_results: u64,
+) -> String {
+    let web = json["results"]["web"].as_array().into_iter().flatten();
+    let news = json["results"]["news"].as_array().into_iter().flatten();
+    let results = web
+        .chain(news)
+        .filter(|r| r["url"].as_str().is_some_and(|u| !u.is_empty()))
+        .take(max_results as usize)
+        .map(|r| {
+            let title = r["title"].as_str().unwrap_or("(no title)");
+            let url = r["url"].as_str().unwrap_or("");
+            let text = r["description"]
+                .as_str()
+                .filter(|d| !d.trim().is_empty())
+                .or_else(|| r["snippets"].get(0).and_then(|s| s.as_str()))
+                .unwrap_or("");
+            let snippet = safe_snippet_preview(text, 300);
+            let published_at = r["page_age"].as_str();
+            format_result_with_metadata(title, url, &snippet, published_at)
+        })
+        .collect::<Vec<_>>();
 
     if results.is_empty() {
         format!("No web results found for: {query}")

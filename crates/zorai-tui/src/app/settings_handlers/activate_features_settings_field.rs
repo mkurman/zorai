@@ -9,6 +9,7 @@ impl TuiModel {
                     "duckduckgo" | "ddg" => "exa",
                     "exa" => "tavily",
                     "tavily" => "keenable",
+                    "keenable" => "youcom",
                     _ => "none",
                 };
                 self.config.search_provider = next.to_string();
@@ -39,6 +40,9 @@ impl TuiModel {
             "keenable_api_key" => self
                 .settings
                 .start_editing("keenable_api_key", &self.config.keenable_api_key.clone()),
+            "youcom_api_key" => self
+                .settings
+                .start_editing("youcom_api_key", &self.config.youcom_api_key.clone()),
             "search_max_results" => self.settings.start_editing(
                 "search_max_results",
                 &self.config.search_max_results.to_string(),

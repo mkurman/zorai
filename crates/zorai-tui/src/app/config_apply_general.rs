@@ -111,6 +111,7 @@ impl TuiModel {
         self.config.exa_api_key = config_string(json, "exa_api_key", "exa_api_key");
         self.config.tavily_api_key = config_string(json, "tavily_api_key", "tavily_api_key");
         self.config.keenable_api_key = config_string(json, "keenable_api_key", "keenable_api_key");
+        self.config.youcom_api_key = config_string(json, "youcom_api_key", "youcom_api_key");
         self.config.search_max_results =
             config_u32(json, "search_max_results", "search_max_results", 8);
         self.config.search_timeout_secs =

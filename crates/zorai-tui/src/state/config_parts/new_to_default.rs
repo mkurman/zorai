@@ -49,6 +49,7 @@ impl ConfigState {
             exa_api_key: String::new(),
             tavily_api_key: String::new(),
             keenable_api_key: String::new(),
+            youcom_api_key: String::new(),
             search_max_results: 8,
             search_timeout_secs: 20,
             browse_provider: "auto".to_string(),

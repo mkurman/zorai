@@ -966,8 +966,8 @@ export function AgentTab({
                         <SettingRow label="Search Provider">
                             <SelectInput
                                 value={settings.search_provider}
-                                options={["none", "firecrawl", "exa", "tavily", "keenable"]}
-                                onChange={(value) => updateSetting("search_provider", value as "none" | "firecrawl" | "exa" | "tavily" | "keenable")}
+                                options={["none", "firecrawl", "exa", "tavily", "keenable", "youcom"]}
+                                onChange={(value) => updateSetting("search_provider", value as "none" | "firecrawl" | "exa" | "tavily" | "keenable" | "youcom")}
                             />
                         </SettingRow>
                         <SettingRow label="Firecrawl API Key">
@@ -981,6 +981,9 @@ export function AgentTab({
                         </SettingRow>
                         <SettingRow label="Keenable API Key">
                             <PasswordInput value={settings.keenable_api_key} onChange={(value) => updateSetting("keenable_api_key", value)} placeholder="optional" />
+                        </SettingRow>
+                        <SettingRow label="You.com API Key">
+                            <PasswordInput value={settings.youcom_api_key} onChange={(value) => updateSetting("youcom_api_key", value)} placeholder="optional" />
                         </SettingRow>
                         <SettingRow label="Search Max Results">
                             <NumberInput value={settings.search_max_results} min={1} max={20}
