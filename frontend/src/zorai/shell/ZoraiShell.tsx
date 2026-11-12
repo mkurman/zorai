@@ -45,6 +45,7 @@ import { refreshPluginUi, usePluginUiStore } from "@/zorai/features/plugins/plug
 import { pinnedRailIds, pluginNameFromRailId, usePluginPrefsStore } from "@/zorai/features/plugins/pluginPrefsStore";
 import { ZoraiContextPanel } from "./ZoraiContextPanel";
 import { ZoraiBrandMark, ZoraiHamburgerIcon, ZoraiNavIcon } from "./ZoraiIcons";
+import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import { ZORAI_NAVIGATE_EVENT, type ZoraiNavigateDetail, type ZoraiReturnTarget } from "./zoraiNavigationEvents";
 import { useSettingsStore } from "@/lib/settingsStore";
 import { chatMaxWidth } from "@/lib/uiInterfacePrefs";
@@ -121,6 +122,21 @@ export function ZoraiShell() {
   );
   const contextLabels = contextPanelLabels(activeView);
 
+  const runtime = useAgentChatPanelRuntime();
+  const threadsViewThreadRef = useRef<string | null>(null);
+  const previousViewRef = useRef(activeView);
+  useEffect(() => {
+    const previous = previousViewRef.current;
+    previousViewRef.current = activeView;
+    if (activeView === "code") return;
+    const remembered = threadsViewThreadRef.current;
+    if (previous === "code" && remembered && remembered !== runtime.activeThreadId && runtime.threads.some((thread) => thread.id === remembered)) {
+      runtime.openThread(remembered);
+      return;
+    }
+    threadsViewThreadRef.current = runtime.activeThreadId;
+  }, [activeView, runtime.activeThreadId]);
+
   useEffect(() => {
     const onNavigate = (event: Event) => {
       const detail = (event as CustomEvent<ZoraiNavigateDetail>).detail;
@@ -170,6 +186,13 @@ export function ZoraiShell() {
       if (resizeTimer !== undefined) clearTimeout(resizeTimer);
     };
   }, []);
+
+  const contextBoundaryViewRef = useRef(activeView);
+  useLayoutEffect(() => {
+    const previous = contextBoundaryViewRef.current;
+    contextBoundaryViewRef.current = activeView;
+    if ((previous === "code") !== (activeView === "code")) useShellLayoutStore.getState().crossCodeBoundary(activeView === "code");
+  }, [activeView]);
 
   useEffect(() => {
     if (activeView !== "code" || useShellLayoutStore.getState().codeContextAutoOpened) return;

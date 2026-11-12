@@ -7,6 +7,7 @@
 :root[data-backdrop] .zorai-workspace-workbench,
 :root[data-backdrop] .zorai-shell.zorai-shell--code,
 :root[data-backdrop] .zorai-shell--code .zorai-workspace-editor-area,
+:root[data-backdrop] .zorai-code-editor-empty,
 :root[data-backdrop] .zorai-shell,
 :root[data-backdrop] .zorai-thread-surface,
 :root[data-backdrop] .zorai-thread-chat,

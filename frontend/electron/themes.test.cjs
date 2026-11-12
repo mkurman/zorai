@@ -209,10 +209,14 @@ test('bundled background presets are listed from the first existing folder and c
     fs.mkdirSync(presets);
     fs.writeFileSync(path.join(presets, 'deep-sea.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
     fs.writeFileSync(path.join(presets, 'notes.txt'), 'x');
+    fs.writeFileSync(path.join(presets, 'zorai-under-the-birch.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
     const listed = listPresetBackgrounds([path.join(root, 'missing'), presets]);
-    assert.deepEqual(listed, [{ name: 'Deep Sea', path: path.join(presets, 'deep-sea.svg') }]);
+    assert.deepEqual(listed, [
+        { name: 'Under The Birch', path: path.join(presets, 'zorai-under-the-birch.svg'), favorite: true },
+        { name: 'Deep Sea', path: path.join(presets, 'deep-sea.svg'), favorite: false },
+    ]);
     assert.deepEqual(listPresetBackgrounds([path.join(root, 'missing')]), []);
-    const id = store.save({ theme: theme('Sea'), backgroundSource: listed[0].path });
+    const id = store.save({ theme: theme('Sea'), backgroundSource: listed[1].path });
     assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'themes', id, 'theme.json'), 'utf8')).background.image, 'background.svg');
     assert.equal(fs.existsSync(path.join(presets, 'deep-sea.svg')), true);
 });

@@ -36,3 +36,26 @@ describe("shell layout store", () => {
     expect(state.contextWidths.threads).toBe(SHELL_CONTEXT_MIN_WIDTH);
   });
 });
+
+describe("context panel across Code and other views", () => {
+  beforeEach(() => useShellLayoutStore.setState({ contextOpen: false, codeContextOpen: null, otherContextOpen: null }));
+
+  it("does not carry Code's open agent panel into Threads when Threads had it closed", () => {
+    const store = useShellLayoutStore.getState();
+    store.crossCodeBoundary(true);
+    store.setContextOpen(true);
+    store.crossCodeBoundary(false);
+    expect(useShellLayoutStore.getState().contextOpen).toBe(false);
+  });
+
+  it("brings back each side's own choice when switching back and forth", () => {
+    const store = useShellLayoutStore.getState();
+    store.setContextOpen(true);
+    store.crossCodeBoundary(true);
+    store.setContextOpen(false);
+    store.crossCodeBoundary(false);
+    expect(useShellLayoutStore.getState().contextOpen).toBe(true);
+    store.crossCodeBoundary(true);
+    expect(useShellLayoutStore.getState().contextOpen).toBe(false);
+  });
+});

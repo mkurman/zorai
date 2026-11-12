@@ -57,6 +57,8 @@ export function applyLayout(layout: LayoutSnapshot): void {
     contextWidths: finiteWidths(layout.contextWidths),
     railOpen: layout.railOpen !== false,
     contextOpen: layout.contextOpen === true,
+    codeContextOpen: layout.contextOpen === true,
+    otherContextOpen: layout.contextOpen === true,
   });
   shell.markCodeContextAutoOpened();
   const code = useCodeLayoutStore.getState();

@@ -148,11 +148,13 @@ function listPresetBackgrounds(presetDirs) {
     if (!dir) return [];
     return fs.readdirSync(dir)
         .filter((file) => BACKGROUND_EXTENSIONS.includes(path.extname(file).toLowerCase()))
-        .sort()
         .map((file) => {
             const stem = path.basename(file, path.extname(file));
-            return { name: stem.replace(/[-_]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()), path: path.join(dir, file) };
-        });
+            const favorite = stem.startsWith('zorai-');
+            const label = favorite ? stem.slice('zorai-'.length) : stem;
+            return { name: label.replace(/[-_]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()), path: path.join(dir, file), favorite };
+        })
+        .sort((a, b) => Number(b.favorite) - Number(a.favorite) || path.basename(a.path).localeCompare(path.basename(b.path)));
 }
 
 function createThemeStore({ rootDir }) {

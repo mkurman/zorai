@@ -1043,7 +1043,7 @@ declare global {
         themesFetchGallery?: (url: string) => Promise<Array<{ name: string; url: string; author: string; description: string; appearance: "dark" | "light" | null }>>;
         themesRevealCustomCss?: () => Promise<void>;
         themesPickBackground?: () => Promise<string | null>;
-        themesPresetBackgrounds?: () => Promise<Array<{ name: string; path: string }>>;
+        themesPresetBackgrounds?: () => Promise<Array<{ name: string; path: string; favorite?: boolean }>>;
         themesWindowAppearance?: () => Promise<{ seeThroughAtLaunch: boolean; seeThrough: boolean }>;
         themesSetSeeThrough?: (seeThrough: boolean) => Promise<{ seeThroughAtLaunch: boolean; seeThrough: boolean }>;
         onThemesChanged?: (cb: () => void) => () => void;

@@ -12,10 +12,13 @@ type ShellLayoutStore = {
   railOpen: boolean;
   contextOpen: boolean;
   codeContextAutoOpened: boolean;
+  codeContextOpen: boolean | null;
+  otherContextOpen: boolean | null;
   lastWorkView: string | null;
   setRailOpen: (open: OpenUpdate) => void;
   setContextOpen: (open: OpenUpdate) => void;
   markCodeContextAutoOpened: () => void;
+  crossCodeBoundary: (enteringCode: boolean) => void;
   railWidths: Record<string, number>;
   contextWidths: Record<string, number>;
   setRailWidth: (view: string, width: number) => void;
@@ -35,10 +38,15 @@ export const useShellLayoutStore = create<ShellLayoutStore>()(
       railOpen: true,
       contextOpen: false,
       codeContextAutoOpened: false,
+      codeContextOpen: null,
+      otherContextOpen: null,
       lastWorkView: null,
       setRailOpen: (open) => set((state) => ({ railOpen: typeof open === "function" ? open(state.railOpen) : open })),
       setContextOpen: (open) => set((state) => ({ contextOpen: typeof open === "function" ? open(state.contextOpen) : open })),
       markCodeContextAutoOpened: () => set({ codeContextAutoOpened: true }),
+      crossCodeBoundary: (enteringCode) => set((state) => enteringCode
+        ? { otherContextOpen: state.contextOpen, contextOpen: state.codeContextOpen ?? state.contextOpen }
+        : { codeContextOpen: state.contextOpen, contextOpen: state.otherContextOpen ?? false }),
       railWidths: {},
       contextWidths: {},
       setRailWidth: (view, width) => set((state) => ({

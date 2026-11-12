@@ -33,6 +33,9 @@ function RangeField({ label, value, min, max, step, format, onChange }: { label:
   );
 }
 
+const PRESET_COLUMNS = 4;
+const PRESET_ROWS_COLLAPSED = 2;
+
 export function ThemeEditor({ source, onClose, onSaved }: { source: TerminalTheme; onClose: () => void; onSaved: (theme: TerminalTheme) => void }) {
   const seeThroughAtLaunch = useUserThemesStore((state) => state.seeThroughAtLaunch);
   const savedThemes = useUserThemesStore((state) => state.themes);
@@ -47,7 +50,8 @@ export function ThemeEditor({ source, onClose, onSaved }: { source: TerminalThem
   const companions = knownThemes.filter((theme) => theme.appearance !== draft.appearance && theme.user?.id !== draft.id);
   const baseFonts = BUILTIN_THEMES.find((theme) => theme.name === draft.base)?.fonts;
   const [systemFonts, setSystemFonts] = useState<string[]>([]);
-  const [presets, setPresets] = useState<Array<{ name: string; path: string }>>([]);
+  const [presets, setPresets] = useState<Array<{ name: string; path: string; favorite?: boolean }>>([]);
+  const [showAllPresets, setShowAllPresets] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -157,8 +161,9 @@ export function ThemeEditor({ source, onClose, onSaved }: { source: TerminalThem
             : <span>No background image</span>}
         </div>
         {presets.length ? (
+          <>
           <div className="zorai-theme-editor__presets" role="list" aria-label="Built-in backgrounds">
-            {presets.map((preset) => (
+            {(showAllPresets ? presets : presets.slice(0, PRESET_ROWS_COLLAPSED * PRESET_COLUMNS)).map((preset) => (
               <button
                 key={preset.path}
                 type="button"
@@ -170,10 +175,17 @@ export function ThemeEditor({ source, onClose, onSaved }: { source: TerminalThem
                 style={{ backgroundImage: `url("${mediaUrlForPath(preset.path)}")` }}
                 onClick={() => update({ backgroundSource: preset.path, backgroundPath: preset.path })}
               >
+                {preset.favorite ? <b aria-label="Zorai artwork">★</b> : null}
                 <span>{preset.name}</span>
               </button>
             ))}
           </div>
+          {presets.length > PRESET_ROWS_COLLAPSED * PRESET_COLUMNS ? (
+            <button type="button" className="zorai-ghost-button zorai-theme-editor__presets-more" aria-expanded={showAllPresets} onClick={() => setShowAllPresets((value) => !value)}>
+              {showAllPresets ? "Show fewer" : `Show all ${presets.length}`}
+            </button>
+          ) : null}
+          </>
         ) : null}
         <div className="zorai-theme-editor__image">
           <span title={draft.backgroundPath ?? undefined}>{draft.backgroundPath ? draft.backgroundPath.split(/[\\/]/).pop() : "No image"}</span>

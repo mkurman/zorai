@@ -64,7 +64,7 @@ describe("WorkspaceSourceControlChanges", () => {
     const stagedRows = (html: string) => (html.match(/Review hunks for/g) ?? []).length;
     expect(stagedRows(normal)).toBe(3);
     expect(stagedRows(rerendered)).toBe(3);
-    expect(normal.match(/<section>/g)?.length).toBe(2);
+    expect(normal.match(/<details open="">/g)?.length).toBe(2);
     expect(rerendered).toBe(normal);
   });
 

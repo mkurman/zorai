@@ -1549,6 +1549,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                   <div className="zorai-workspace-empty">{rootLoading || !gitOverview ? "Loading source control…" : "This folder is not a Git repository, so there are no changes, branches or history to show."}</div>
                 ) : null}
                 {gitOverview?.isRepository ? (
+                  <>
                   <details className="zorai-code-source-control" open>
                     <summary className="zorai-code-source-heading">
                       <span>Source Control ({gitOverview.stagedFiles + gitOverview.unstagedFiles})</span>
@@ -1593,6 +1594,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                         </button>
                       ) : null}
                     </div>
+                  </details>
                     {bridge?.agentSpawnSubagent ? (
                       <AgentReviewPanel
                         root={context.root}
@@ -1602,7 +1604,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                         onPrefillAgentInput={prefillAgentInput}
                       />
                     ) : null}
-                  </details>
+                  </>
                 ) : null}
                 <WorkspaceSourceControlChanges status={gitStatus} onOpen={(path) => openFile(path, undefined, "diff")} onReview={reviewHunks} onAction={runGitAction} onBulkAction={runBulkGitAction} />
                 {reviewedChange ? (
