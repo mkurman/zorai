@@ -2408,7 +2408,9 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   grid-template-columns: minmax(0, 1fr);
-  background: var(--zorai-bg-panel);
+  background: linear-gradient(var(--zorai-bg-panel), var(--zorai-bg-panel)), color-mix(in srgb, var(--zorai-backdrop-solid, var(--zorai-bg-panel)) 92%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   color: var(--zorai-text);
 }
 
@@ -2420,7 +2422,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
-  background: var(--zorai-bg-panel);
+  background: transparent;
 }
 
 .zorai-file-preview-overlay__header h2 {
