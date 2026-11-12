@@ -5453,6 +5453,7 @@
 }
 
 .zorai-workspace-tree-row:hover { background: var(--zorai-bg-active); }
+.zorai-workspace-tree-row--ignored { color: var(--zorai-muted); }
 .zorai-workspace-chevron { width: 10px; color: var(--zorai-muted); }
 .zorai-workspace-file-icon { width: 12px; color: var(--zorai-accent-secondary); }
 .zorai-workspace-tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -5610,7 +5611,10 @@
 }
 .zorai-workspace-raw-diff { max-height: 32%; overflow: auto; border-top: 1px solid var(--zorai-border); padding: 6px 10px; }
 .zorai-workspace-raw-diff pre { white-space: pre; font: 11px/1.5 var(--font-mono); color: var(--zorai-text); }
-.zorai-workspace-error { position: absolute; left: 12px; right: 12px; bottom: 12px; padding: 9px 12px; border: 1px solid var(--danger); border-radius: 6px; background: color-mix(in srgb, var(--danger) 16%, var(--zorai-bg-panel)); color: var(--zorai-text); font-size: 12px; }
+.zorai-workspace-error { position: absolute; left: 12px; right: 12px; bottom: 12px; display: flex; align-items: flex-start; gap: 10px; padding: 9px 12px; border: 1px solid var(--danger); border-radius: 6px; background: color-mix(in srgb, var(--danger) 16%, var(--zorai-bg-panel)); color: var(--zorai-text); font-size: 12px; }
+.zorai-workspace-error > span { flex: 1; min-width: 0; max-height: 8.5em; overflow: auto; overflow-wrap: anywhere; }
+.zorai-workspace-error > button { flex: none; padding: 0 4px; border: 0; background: transparent; color: var(--zorai-muted); font-size: 16px; line-height: 1; cursor: pointer; }
+.zorai-workspace-error > button:hover { color: var(--zorai-text); }
 
 @media (max-width: 900px) {
   .zorai-workspace-workbench { grid-template-columns: minmax(180px, 34%) minmax(0, 1fr); }

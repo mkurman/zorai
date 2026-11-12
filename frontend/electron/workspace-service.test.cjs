@@ -141,6 +141,42 @@ test('workspace git discard refuses untracked deletion', async () => {
     fs.rmSync(root, { recursive: true, force: true });
 });
 
+test('a freshly initialised repository shows as a repository with empty history, not an error', async () => {
+    const root = tempWorkspace();
+    require('node:child_process').execFileSync('git', ['init', '-b', 'main'], { cwd: root });
+    assert.deepEqual(await workspaceGitHistory(root, { limit: 50 }), []);
+    assert.deepEqual(await workspaceGitHistory(root, { graph: true }), []);
+    fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('gitignored entries are flagged so Explorer can mute them, and nothing is flagged outside a repository', async () => {
+    const root = tempWorkspace();
+    fs.mkdirSync(path.join(root, 'generated'));
+    fs.mkdirSync(path.join(root, 'src'));
+    fs.writeFileSync(path.join(root, '.gitignore'), 'generated/\n*.log\n');
+    fs.writeFileSync(path.join(root, 'debug.log'), 'x');
+    let flagged = Object.fromEntries((await listWorkspaceDirectory(root, '')).map((entry) => [entry.name, entry.isGitIgnored]));
+    assert.deepEqual(flagged, { generated: false, src: false, '.gitignore': false, 'debug.log': false });
+    require('node:child_process').execFileSync('git', ['init', '-b', 'main'], { cwd: root });
+    flagged = Object.fromEntries((await listWorkspaceDirectory(root, '')).map((entry) => [entry.name, entry.isGitIgnored]));
+    assert.deepEqual(flagged, { generated: true, src: false, '.gitignore': false, 'debug.log': true });
+    fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('staging many paths skips ones a newer .gitignore excludes instead of failing the whole batch', async () => {
+    const root = tempWorkspace();
+    const runGit = (...args) => require('node:child_process').execFileSync('git', args, { cwd: root, encoding: 'utf8' });
+    runGit('init', '-b', 'main');
+    fs.mkdirSync(path.join(root, 'logs'));
+    fs.writeFileSync(path.join(root, 'logs', 'run.log'), 'x');
+    fs.writeFileSync(path.join(root, 'keep.txt'), 'x');
+    fs.writeFileSync(path.join(root, '.gitignore'), 'logs/\n');
+    const status = await require('./main/workspace-service.cjs').workspaceGitStageMany(root, ['logs/run.log', 'keep.txt', '.gitignore']);
+    assert.deepEqual(runGit('diff', '--cached', '--name-only').trim().split('\n').sort(), ['.gitignore', 'keep.txt']);
+    assert.ok(!status.some((entry) => entry.path.startsWith('logs/')));
+    fs.rmSync(root, { recursive: true, force: true });
+});
+
 test('unified diff parser returns stable structured hunks', () => {
     const diff = [
         'diff --git a/file.txt b/file.txt',

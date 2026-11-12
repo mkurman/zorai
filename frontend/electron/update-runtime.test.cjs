@@ -104,3 +104,37 @@ test('a failed install leaves the running daemon alone on quit', async () => {
     assert.equal(runtime.stopDaemonIfUpdated(), false);
     assert.deepEqual(stops, []);
 });
+
+test('restarting the daemon stops it and starts it again without relaunching the app', async () => {
+    const app = fakeApp();
+    const invocations = [];
+    const runtime = createUpdateRuntime({
+        app,
+        getCliPath: () => '/opt/zorai/zorai',
+        exists: () => true,
+        env: {},
+        platform: 'linux',
+        execFileImpl: (file, args, _options, callback) => { invocations.push(args); callback(null, 'done', ''); },
+    });
+    const result = await runtime.restartDaemon();
+    assert.deepEqual(invocations, [['stop'], ['daemon']]);
+    assert.equal(result.ok, true);
+    assert.deepEqual(app.calls, []);
+});
+
+test('a daemon that fails to start again is reported, not shown as restarted', async () => {
+    const runtime = createUpdateRuntime({
+        app: fakeApp(),
+        getCliPath: () => '/opt/zorai/zorai',
+        exists: () => true,
+        env: {},
+        platform: 'linux',
+        execFileImpl: (file, args, _options, callback) => {
+            if (args[0] === 'daemon') callback(new Error('exit 1'), '', 'daemon failed to bind socket');
+            else callback(null, '', '');
+        },
+    });
+    const result = await runtime.restartDaemon();
+    assert.equal(result.ok, false);
+    assert.match(result.output, /failed to bind socket/);
+});

@@ -634,15 +634,59 @@ pub async fn validate_provider_connection(
     if !response.status().is_success() {
         let status = response.status();
         let text = response.text().await.unwrap_or_default();
+        if probe_model_rejected_after_auth(status, &text, def.default_model) {
+            return Ok(None);
+        }
         anyhow::bail!("Validation failed: {} - {}", status, text);
     }
 
     Ok(None)
 }
 
+fn probe_model_rejected_after_auth(status: reqwest::StatusCode, body: &str, model: &str) -> bool {
+    matches!(status.as_u16(), 400 | 404) && !model.is_empty() && body.contains(model)
+}
+
 #[cfg(test)]
 mod helper_tests {
     use super::*;
+
+    #[test]
+    fn a_retired_probe_model_does_not_fail_a_key_the_provider_accepted() {
+        let openrouter = r#"{"error":{"message":"arcee-ai/trinity-large-thinking is no longer available on OpenRouter: no provider serves this model anymore.","code":404}}"#;
+        assert!(probe_model_rejected_after_auth(
+            reqwest::StatusCode::NOT_FOUND,
+            openrouter,
+            "arcee-ai/trinity-large-thinking"
+        ));
+        let anthropic =
+            r#"{"type":"error","error":{"type":"not_found_error","message":"model: claude-old"}}"#;
+        assert!(probe_model_rejected_after_auth(
+            reqwest::StatusCode::NOT_FOUND,
+            anthropic,
+            "claude-old"
+        ));
+    }
+
+    #[test]
+    fn auth_failures_and_wrong_urls_still_fail_validation() {
+        let unauthorized = r#"{"error":{"message":"Invalid API key for model gpt-x"}}"#;
+        assert!(!probe_model_rejected_after_auth(
+            reqwest::StatusCode::UNAUTHORIZED,
+            unauthorized,
+            "gpt-x"
+        ));
+        assert!(!probe_model_rejected_after_auth(
+            reqwest::StatusCode::NOT_FOUND,
+            "<html>404 Not Found</html>",
+            "gpt-x"
+        ));
+        assert!(!probe_model_rejected_after_auth(
+            reqwest::StatusCode::NOT_FOUND,
+            "anything",
+            ""
+        ));
+    }
 
     fn write_custom_auth(yaml: &str) -> (tempfile::TempDir, std::path::PathBuf) {
         let temp_dir = tempfile::tempdir().expect("tempdir");

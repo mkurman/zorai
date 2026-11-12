@@ -63,7 +63,7 @@ export interface ContextSnapshot {
   userMemoryChars: number;
 }
 
-export type ApprovalSource = "local-terminal" | "terminal-bridge" | "agent-task";
+export type ApprovalSource = "local-terminal" | "terminal-bridge" | "agent-task" | "developer-preview";
 
 export interface ApprovalRequest {
   id: string;

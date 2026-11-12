@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { getBridge } from "@/lib/bridge";
 import { useAgentStore } from "@/lib/agentStore";
 import { useWorkspaceStore } from "@/lib/workspaceStore";
+import { useUpdateStore } from "@/components/UpdatePrompt";
 import type { ZoraiNavigateDetail } from "./zoraiNavigationEvents";
 import { navigateZorai } from "./zoraiNavigationEvents";
 
@@ -10,6 +11,7 @@ export type ZoraiAppCommandResolution =
   | { kind: "palette" }
   | { kind: "time-travel" }
   | { kind: "new-thread" }
+  | { kind: "check-updates" }
   | { kind: "navigate"; detail: ZoraiNavigateDetail };
 
 const MENU_COMMANDS: Record<string, ZoraiAppCommandResolution> = {
@@ -17,6 +19,8 @@ const MENU_COMMANDS: Record<string, ZoraiAppCommandResolution> = {
   "toggle-search": { kind: "navigate", detail: { view: "threads", focusSearch: true } },
   "toggle-settings": { kind: "navigate", detail: { view: "settings" } },
   about: { kind: "navigate", detail: { view: "settings", settingsTab: "about" } },
+  "check-updates": { kind: "check-updates" },
+  "developer-tools": { kind: "navigate", detail: { view: "settings", settingsTab: "developer" } },
   "new-workspace": { kind: "navigate", detail: { view: "workspaces" } },
   "new-surface": { kind: "new-thread" },
   "toggle-sidebar": { kind: "navigate", detail: { toggleContext: true } },
@@ -48,6 +52,11 @@ export function handleZoraiAppCommand(command: string): boolean {
   }
   if (resolution.kind === "time-travel") {
     useWorkspaceStore.getState().toggleTimeTravel();
+    return true;
+  }
+  if (resolution.kind === "check-updates") {
+    navigateZorai({ view: "settings", settingsTab: "about" });
+    void useUpdateStore.getState().check(true);
     return true;
   }
   if (resolution.kind === "new-thread") {

@@ -2148,3 +2148,55 @@ fn ollama_model_detail_without_vision_does_not_report_vision() {
     );
     assert!(!features.vision);
 }
+
+async fn validate_openrouter_against(status_line: &'static str, body: String) -> Result<()> {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind validation listener");
+    let addr = listener.local_addr().expect("validation listener addr");
+    let server = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.expect("accept validation request");
+        let mut buf = [0_u8; 8192];
+        let _ = tokio::io::AsyncReadExt::read(&mut stream, &mut buf).await;
+        let response = format!(
+            "HTTP/1.1 {status_line}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+            body.len(),
+            body
+        );
+        tokio::io::AsyncWriteExt::write_all(&mut stream, response.as_bytes())
+            .await
+            .expect("write validation response");
+    });
+    let result = validate_provider_connection(
+        zorai_shared::providers::PROVIDER_ID_OPENROUTER,
+        &format!("http://{addr}/api/v1"),
+        "sk-or-key",
+        AuthSource::ApiKey,
+    )
+    .await
+    .map(|_| ());
+    server.await.expect("validation server task");
+    result
+}
+
+#[tokio::test]
+async fn validation_passes_when_only_the_built_in_probe_model_was_retired() {
+    let model = get_provider_definition(zorai_shared::providers::PROVIDER_ID_OPENROUTER)
+        .expect("openrouter definition")
+        .default_model;
+    let body = format!(
+        "{{\"error\":{{\"message\":\"{model} is no longer available on OpenRouter\",\"code\":404}}}}"
+    );
+    validate_openrouter_against("404 Not Found", body)
+        .await
+        .expect("a retired probe model must not fail a key the provider accepted");
+}
+
+#[tokio::test]
+async fn validation_still_fails_for_a_rejected_key() {
+    let body = "{\"error\":{\"message\":\"No auth credentials found\",\"code\":401}}".to_string();
+    let err = validate_openrouter_against("401 Unauthorized", body)
+        .await
+        .expect_err("a rejected key must fail validation");
+    assert!(err.to_string().contains("401"));
+}

@@ -598,6 +598,7 @@ function registerIpcHandlers() {
     ipcMain.handle('app-update-check', () => updateRuntime.check());
     ipcMain.handle('app-update-install', () => updateRuntime.install());
     ipcMain.handle('app-update-restart', () => updateRuntime.restart());
+    ipcMain.handle('app-restart-daemon', () => updateRuntime.restartDaemon());
 
     whatsAppRuntime.registerWhatsAppIpcHandlers(ipcMain, { sendAgentCommand, sendAgentQuery }, async (config) => {
         const { assertValidWhatsAppConnectConfig } = await whatsAppRuntime.getDesktopWhatsAppLinkingHelpers();

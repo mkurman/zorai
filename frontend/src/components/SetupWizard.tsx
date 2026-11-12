@@ -6,6 +6,7 @@ import {
   SETUP_TIERS,
   WEB_SEARCH_CHOICES,
   defaultSecurityLevel,
+  filterSetupModels,
   gatewayWrites,
   isLocalProvider,
   providerAuthWrites,
@@ -19,7 +20,8 @@ const STEPS = ["Experience", "Provider", "Authentication", "Model", "Safety", "W
 
 type Validation = { state: "idle" | "testing" | "ok" | "failed"; message?: string };
 
-async function applyWrites(writes: SetupConfigWrite[]) {
+async function applyWrites(writes: SetupConfigWrite[], dryRun = false) {
+  if (dryRun) return;
   const bridge = getBridge();
   for (const write of writes) await bridge?.agentSetConfigItem?.(write.keyPath, write.value);
 }
@@ -28,7 +30,7 @@ function Choice({ selected, label, onSelect }: { selected: boolean; label: strin
   return <button type="button" className={["zorai-onboarding-button", selected ? "zorai-onboarding-button--selected" : ""].filter(Boolean).join(" ")} aria-pressed={selected} onClick={onSelect}>{label}</button>;
 }
 
-export function SetupWizard({ dataDir, onClose }: { dataDir?: string; onClose: () => void }) {
+export function SetupWizard({ dataDir, onClose, dryRun = false }: { dataDir?: string; onClose: () => void; dryRun?: boolean }) {
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +41,7 @@ export function SetupWizard({ dataDir, onClose }: { dataDir?: string; onClose: (
   const [apiKey, setApiKey] = useState("");
   const [models, setModels] = useState<Array<{ id: string; name?: string }>>([]);
   const [modelsError, setModelsError] = useState<string | null>(null);
+  const [modelQuery, setModelQuery] = useState("");
   const [model, setModel] = useState("");
   const [validation, setValidation] = useState<Validation>({ state: "idle" });
   const [security, setSecurity] = useState<string>(defaultSecurityLevel("newcomer"));
@@ -52,6 +55,7 @@ export function SetupWizard({ dataDir, onClose }: { dataDir?: string; onClose: (
     const query = providerQuery.trim().toLowerCase();
     return query ? providers.filter((item) => `${item.provider_name} ${item.provider_id}`.toLowerCase().includes(query)) : providers;
   }, [providerQuery, providers]);
+  const visibleModels = useMemo(() => filterSetupModels(models, modelQuery, provider?.model ?? ""), [modelQuery, models, provider?.model]);
   const webChoice = WEB_SEARCH_CHOICES.find((item) => item.id === webSearch) ?? null;
 
   useEffect(() => {
@@ -68,6 +72,7 @@ export function SetupWizard({ dataDir, onClose }: { dataDir?: string; onClose: (
     const result = await getBridge()?.agentFetchModels?.(target.provider_id, target.base_url, key) as { models?: Array<{ id: string; name?: string }>; error?: string } | undefined;
     if (result?.error) setModelsError(result.error);
     setModels(result?.models ?? []);
+    setModelQuery("");
   };
 
   const validate = async (target: SetupProvider, key: string, authSource: string) => {
@@ -81,10 +86,10 @@ export function SetupWizard({ dataDir, onClose }: { dataDir?: string; onClose: (
     setError(null);
     try {
       if (step === 0) {
-        await getBridge()?.agentSetTierOverride?.(tier);
+        if (!dryRun) await getBridge()?.agentSetTierOverride?.(tier);
         setSecurity(defaultSecurityLevel(tier));
       } else if (step === 2 && provider) {
-        await applyWrites(providerAuthWrites(provider, apiKey));
+        await applyWrites(providerAuthWrites(provider, apiKey), dryRun);
         const key = apiKey.trim();
         const authSource = key ? "api_key" : provider.auth_source;
         setModel(provider.model);
@@ -92,17 +97,17 @@ export function SetupWizard({ dataDir, onClose }: { dataDir?: string; onClose: (
         if (!isLocalProvider(provider.provider_id) && (provider.authenticated || key)) void validate(provider, key, authSource);
         else setValidation({ state: "idle" });
       } else if (step === 3 && model && model !== provider?.model) {
-        await applyWrites([{ keyPath: "/model", value: model }]);
+        await applyWrites([{ keyPath: "/model", value: model }], dryRun);
       } else if (step === 4) {
-        await applyWrites([{ keyPath: "/managed_execution/security_level", value: security }]);
+        await applyWrites([{ keyPath: "/managed_execution/security_level", value: security }], dryRun);
       } else if (step === 5 && webSearch !== "skip") {
         const writes = webSearchWrites(webSearch, webSearchKey);
         if (!writes) throw new Error(`${webChoice?.label ?? "This provider"} needs an API key.`);
-        await applyWrites(writes);
+        await applyWrites(writes, dryRun);
       } else if (step === 6 && gateway !== "skip") {
         const writes = gatewayWrites(gateway, gatewayToken);
         if (writes.length === 0) throw new Error("Enter a bot token, or choose Skip.");
-        await applyWrites(writes);
+        await applyWrites(writes, dryRun);
       }
       setStep((value) => Math.min(value + 1, STEPS.length - 1));
     } catch (reason) {
@@ -152,9 +157,10 @@ export function SetupWizard({ dataDir, onClose }: { dataDir?: string; onClose: (
         {validation.state === "ok" ? <div className="zorai-onboarding-copy">Connection successful.</div> : null}
         {validation.state === "failed" ? <div className="zorai-onboarding-error">Connection test failed: {validation.message}</div> : null}
         {modelsError ? <div className="zorai-onboarding-copy zorai-onboarding-copy--sm">Could not fetch models: {modelsError}</div> : null}
+        {models.length > 0 ? <input className="zorai-onboarding-input" type="search" placeholder="Search models" aria-label="Search models" value={modelQuery} onChange={(event) => setModelQuery(event.target.value)} /> : null}
         <div className="zorai-setup-choices zorai-setup-choices--scroll">
           <Choice selected={model === provider.model} label={`Keep default${provider.model ? ` (${provider.model})` : ""}`} onSelect={() => setModel(provider.model)} />
-          {models.filter((item) => item.id !== provider.model).map((item) => <Choice key={item.id} selected={model === item.id} label={item.name && item.name !== item.id ? `${item.name} · ${item.id}` : item.id} onSelect={() => setModel(item.id)} />)}
+          {visibleModels.map((item) => <Choice key={item.id} selected={model === item.id} label={item.name && item.name !== item.id ? `${item.name} · ${item.id}` : item.id} onSelect={() => setModel(item.id)} />)}
         </div>
       </> : null}
 
@@ -199,12 +205,13 @@ export function SetupWizard({ dataDir, onClose }: { dataDir?: string; onClose: (
 
     <div className="zorai-onboarding-actions zorai-onboarding-actions--split">
       <div className="zorai-onboarding-actions__group">
+        {dryRun && step < STEPS.length - 1 ? <button type="button" className="zorai-onboarding-button" onClick={onClose}>Close test</button> : null}
         {step > 0 && step < STEPS.length - 1 ? <button type="button" className="zorai-onboarding-button" disabled={busy} onClick={() => setStep((value) => value - 1)}>Back</button> : null}
       </div>
       <div className="zorai-onboarding-actions__group">
         {step < STEPS.length - 1
           ? <button type="button" className="zorai-onboarding-button zorai-onboarding-button--primary" disabled={busy || !canContinue} onClick={() => void next()}>{busy ? "Saving…" : "Continue"}</button>
-          : <button type="button" className="zorai-onboarding-button zorai-onboarding-button--primary" onClick={() => { void getBridge()?.agentRequestConciergeWelcome?.(); onClose(); }}>Finish</button>}
+          : <button type="button" className="zorai-onboarding-button zorai-onboarding-button--primary" onClick={() => { if (!dryRun) void getBridge()?.agentRequestConciergeWelcome?.(); onClose(); }}>Finish</button>}
       </div>
     </div>
   </>;

@@ -96,6 +96,43 @@ fn probe_command_spec(target: ProcessTarget, windows: bool) -> ProcessCommandSpe
     }
 }
 
+fn running_pids(target: ProcessTarget) -> Result<Vec<u32>> {
+    let spec = probe_command_spec(target, false);
+    let output = Command::new(&spec.program)
+        .args(&spec.args)
+        .output()
+        .with_context(|| format!("failed to probe {}", process_label(target)))?;
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(|line| line.trim().parse::<u32>().ok())
+        .filter(|pid| !process_is_zombie(*pid))
+        .collect())
+}
+
+fn pid_is_alive(pid: u32) -> bool {
+    match Command::new("ps")
+        .args(["-o", "state=", "-p", &pid.to_string()])
+        .output()
+    {
+        Ok(output) => {
+            let state = String::from_utf8_lossy(&output.stdout);
+            !state.trim().is_empty() && !state_is_zombie(&state)
+        }
+        Err(_) => false,
+    }
+}
+
+fn wait_for_pids_exit(target: ProcessTarget, pids: &[u32], timeout: Duration) -> Result<()> {
+    let deadline = std::time::Instant::now() + timeout;
+    while pids.iter().any(|pid| pid_is_alive(*pid)) {
+        if std::time::Instant::now() >= deadline {
+            bail!("timed out waiting for {} to exit", process_label(target));
+        }
+        std::thread::sleep(PROCESS_POLL_INTERVAL);
+    }
+    Ok(())
+}
+
 fn process_is_running(target: ProcessTarget) -> Result<bool> {
     let windows = cfg!(windows);
     let spec = probe_command_spec(target, windows);
@@ -180,8 +217,14 @@ fn wait_for_process_exit(target: ProcessTarget, timeout: Duration) -> Result<()>
 
 fn stop_all_zorai_processes() -> Result<()> {
     for target in [ProcessTarget::Gateway, ProcessTarget::Daemon] {
-        terminate_process(target)?;
-        wait_for_process_exit(target, PROCESS_STOP_TIMEOUT)?;
+        if cfg!(windows) {
+            terminate_process(target)?;
+            wait_for_process_exit(target, PROCESS_STOP_TIMEOUT)?;
+        } else {
+            let pids = running_pids(target)?;
+            terminate_process(target)?;
+            wait_for_pids_exit(target, &pids, PROCESS_STOP_TIMEOUT)?;
+        }
     }
     Ok(())
 }
@@ -651,6 +694,41 @@ mod tests {
         assert_eq!(daemon_probe.args, vec!["-x", "zorai-daemon"]);
         assert_eq!(gateway_probe.program, "pgrep");
         assert_eq!(gateway_probe.args, vec!["-x", "zorai-gateway"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn stop_waits_only_for_the_processes_it_killed_not_a_replacement_started_meanwhile() {
+        let mut stopped = Command::new("sleep")
+            .arg("30")
+            .spawn()
+            .expect("spawn sleep");
+        let mut replacement = Command::new("sleep")
+            .arg("30")
+            .spawn()
+            .expect("spawn sleep");
+        let stopped_pid = stopped.id();
+        stopped.kill().expect("kill sleep");
+        stopped.wait().expect("reap sleep");
+
+        wait_for_pids_exit(
+            ProcessTarget::Daemon,
+            &[stopped_pid],
+            Duration::from_millis(500),
+        )
+        .expect("an exited process must not keep stop waiting");
+        let err = wait_for_pids_exit(
+            ProcessTarget::Daemon,
+            &[replacement.id()],
+            Duration::from_millis(300),
+        )
+        .expect_err("a process that is still alive must time out");
+        assert!(err
+            .to_string()
+            .contains("timed out waiting for zorai-daemon"));
+
+        replacement.kill().expect("kill replacement");
+        replacement.wait().expect("reap replacement");
     }
 
     #[test]

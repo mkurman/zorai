@@ -288,8 +288,12 @@
 
 .zorai-setup-choices {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.zorai-setup-choices > .zorai-onboarding-button {
+  text-align: left;
 }
 
 .zorai-setup-choices--scroll {

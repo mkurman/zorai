@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { KATEX_DELIMITERS, isRelativeFileHref, localFilePathFromHref, markdownRenderMode, protectMathSegments } from "./markdown";
+import { KATEX_DELIMITERS, isRelativeFileHref, localFilePathFromHref, markdownRenderMode, protectMathSegments, resolveRelativeFileLink } from "./markdown";
 
 describe("markdownRenderMode", () => {
   it("skips markdown while streaming so each token does not re-parse the whole bubble", () => {
@@ -95,5 +95,29 @@ describe("localFilePathFromHref", () => {
     expect(isRelativeFileHref("https://example.com")).toBe(false);
     expect(isRelativeFileHref("mailto:op@example.com")).toBe(false);
     expect(isRelativeFileHref("/abs/path.md")).toBe(false);
+  });
+});
+
+describe("resolveRelativeFileLink", () => {
+  const workspace = "/home/me/project";
+  const threadDir = "/home/me/.zorai/threads/thread_1";
+
+  it("opens thread inventory files such as generated media even when the thread has no workspace", async () => {
+    const exists = async (path: string) => path === `${threadDir}/artifacts/media/clip.mp4`;
+    await expect(resolveRelativeFileLink("artifacts/media/clip.mp4", [threadDir], exists)).resolves.toBe(`${threadDir}/artifacts/media/clip.mp4`);
+  });
+
+  it("falls back to the thread folder when the workspace does not contain the linked file", async () => {
+    const exists = async (path: string) => path.startsWith(threadDir);
+    await expect(resolveRelativeFileLink("artifacts/media/clip.mp4", [workspace, threadDir], exists)).resolves.toBe(`${threadDir}/artifacts/media/clip.mp4`);
+  });
+
+  it("prefers the workspace when the file exists there, and uses it when neither has the file", async () => {
+    await expect(resolveRelativeFileLink("src/main.rs", [workspace, threadDir], async () => true)).resolves.toBe(`${workspace}/src/main.rs`);
+    await expect(resolveRelativeFileLink("src/main.rs", [workspace, threadDir], async () => false)).resolves.toBe(`${workspace}/src/main.rs`);
+  });
+
+  it("reports nothing to open when there is no folder to resolve against", async () => {
+    await expect(resolveRelativeFileLink("artifacts/media/clip.mp4", [], async () => true)).resolves.toBeNull();
   });
 });

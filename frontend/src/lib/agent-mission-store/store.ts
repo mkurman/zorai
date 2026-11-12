@@ -223,6 +223,9 @@ export const useAgentMissionStore = create<AgentMissionState>((set, get) => ({
         status: "pending",
         handledAt: null,
       };
+      if (approval.source === "developer-preview") {
+        return { approvals: [approval, ...state.approvals.filter((entry) => entry.id !== opts.id)] };
+      }
       const event = buildApprovalOperationalEvent(approval, "approval-requested");
       const approvals = limitItems([approval, ...state.approvals.filter((entry) => entry.id !== opts.id)], MAX_APPROVALS);
       const operationalEvents = limitItems([event, ...state.operationalEvents], MAX_OPERATIONAL_EVENTS);
@@ -235,6 +238,9 @@ export const useAgentMissionStore = create<AgentMissionState>((set, get) => ({
     set((state) => {
       const approval = state.approvals.find((entry) => entry.id === id);
       if (!approval) return state;
+      if (approval.source === "developer-preview") {
+        return { approvals: state.approvals.filter((entry) => entry.id !== id) };
+      }
 
       const approvals = state.approvals.map((entry) => entry.id === id ? { ...entry, status } : entry);
       const sessionAllowlist = { ...state.sessionAllowlist };

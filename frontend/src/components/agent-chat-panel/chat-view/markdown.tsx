@@ -71,16 +71,41 @@ export function localFilePathFromHref(href: string | undefined, root?: string | 
   return path.replace(/#.*$/, "").replace(/:\d+(?::\d+)?$/, "") || null;
 }
 
-async function activeThreadWorkspaceRoot(): Promise<string | null> {
+async function activeThreadLinkRoots(): Promise<string[]> {
   const { activeThreadId, threads } = useAgentStore.getState();
-  if (!activeThreadId) return null;
+  if (!activeThreadId) return [];
+  const roots: string[] = [];
   const localRoot = useWorkspaceContextStore.getState().byThreadId[activeThreadId]?.root;
-  if (localRoot) return localRoot;
   const daemonThreadId = threads.find((thread) => thread.id === activeThreadId)?.daemonThreadId;
-  if (!daemonThreadId) return null;
-  const reply = await getBridge()?.agentGetThreadWorkspaceContext?.(daemonThreadId);
-  const root = (reply?.context as { root?: unknown } | null | undefined)?.root;
-  return typeof root === "string" && root ? root : null;
+  if (localRoot) {
+    roots.push(localRoot);
+  } else if (daemonThreadId) {
+    const reply = await getBridge()?.agentGetThreadWorkspaceContext?.(daemonThreadId);
+    const root = (reply?.context as { root?: unknown } | null | undefined)?.root;
+    if (typeof root === "string" && root) roots.push(root);
+  }
+  const dataDir = daemonThreadId ? await getBridge()?.getDataDir?.() : null;
+  if (dataDir) roots.push(`${dataDir.replace(/[\\/]+$/, "")}/threads/${daemonThreadId}`);
+  return roots;
+}
+
+async function localPathExists(path: string): Promise<boolean> {
+  const slash = path.lastIndexOf("/");
+  if (slash <= 0) return false;
+  const entries = await getBridge()?.workspaceListDirectory?.(path.slice(0, slash), "").catch(() => null);
+  return Boolean(entries?.some((entry) => entry.name === path.slice(slash + 1)));
+}
+
+export async function resolveRelativeFileLink(
+  href: string,
+  roots: string[],
+  exists: (path: string) => Promise<boolean>,
+): Promise<string | null> {
+  const candidates = roots.map((root) => localFilePathFromHref(href, root)).filter((path): path is string => Boolean(path));
+  for (const candidate of candidates) {
+    if (await exists(candidate)) return candidate;
+  }
+  return candidates[0] ?? null;
 }
 
 function MarkdownLink({ href, children }: { href?: string; children?: ReactNode }) {
@@ -101,12 +126,11 @@ function MarkdownLink({ href, children }: { href?: string; children?: ReactNode 
         if (!href) return;
         event.preventDefault();
         if (filePreview && isRelativeFileHref(href)) {
-          void activeThreadWorkspaceRoot().then((root) => {
-            const resolved = localFilePathFromHref(href, root);
+          void activeThreadLinkRoots().then((roots) => resolveRelativeFileLink(href, roots, localPathExists)).then((resolved) => {
             if (resolved) {
               openPreview(resolved);
             } else {
-              pushToast(`Cannot open ${href}: this thread has no workspace folder to resolve it against.`, "error");
+              pushToast(`Cannot open ${href}: this thread has no workspace or thread folder to resolve it against.`, "error");
             }
           });
           return;

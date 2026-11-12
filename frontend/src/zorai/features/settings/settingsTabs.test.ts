@@ -26,7 +26,7 @@ describe("Zorai settings tabs", () => {
       ["Capabilities", ["Tools", "Skills", "Web", "Audio & Images", "Memory"]],
       ["Automation", ["Heartbeat", "Proactivity", "Workflows", "Gateway"]],
       ["Runtime", ["Chat", "Compaction", "Execution", "Safety", "MLflow"]],
-      ["System", ["Storage", "Plugins", "Interface", "Import", "About"]],
+      ["System", ["Storage", "Plugins", "Interface", "Import", "About", "Developer Tools"]],
     ]);
   });
 });

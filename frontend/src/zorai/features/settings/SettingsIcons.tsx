@@ -155,6 +155,14 @@ const ICON_PATHS: Record<ZoraiSettingsIconId, ReactNode> = {
       <path d="M12 7.5v.5" />
     </>
   ),
+  bug: (
+    <>
+      <rect x="7" y="8" width="10" height="12" rx="5" />
+      <path d="M9 8V6a3 3 0 0 1 6 0v2" />
+      <path d="M12 12v8" />
+      <path d="M3 13h4M17 13h4M4 8l3 2M20 8l-3 2M4 19l3-2M20 19l-3-2" />
+    </>
+  ),
 };
 
 export function SettingsIcon({ icon }: { icon: ZoraiSettingsIconId }) {

@@ -198,7 +198,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       }
     }
     try {
-      const state = await loadWorkspaceRootState({ ...bridge, workspaceListDirectory: bridge.workspaceListDirectory }, root);
+      const { gitError, ...state } = await loadWorkspaceRootState({ ...bridge, workspaceListDirectory: bridge.workspaceListDirectory }, root);
       const currentRoot = activeThreadIdRef.current
         ? useWorkspaceContextStore.getState().byThreadId[activeThreadIdRef.current]?.root
         : undefined;
@@ -211,6 +211,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       setGitWorktrees(state.worktrees);
       setGitHistory(state.history);
       setGitConflicts(state.conflicts);
+      if (gitError) setError(gitError);
       setExplorerRefreshToken((token) => token + 1);
     } finally {
       if (generation === refreshGenRef.current) setRootLoading(false);
@@ -1939,7 +1940,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
           onDiscard={() => discardAndCloseFile(pendingDirtyClosePath)}
           onSave={() => { void saveDocumentRef.current(pendingDirtyClosePath).then((saved) => { if (saved) discardAndCloseFile(pendingDirtyClosePath); }); }}
         /> : null}
-        {error ? <div className="zorai-workspace-error">{error}</div> : null}
+        {error ? <div className="zorai-workspace-error" role="alert"><span>{error}</span><button type="button" aria-label="Dismiss error" title="Dismiss" onClick={() => setError(null)}>×</button></div> : null}
       </section>
   );
 

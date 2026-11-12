@@ -27,6 +27,14 @@ describe("WorkspaceExplorerTree", () => {
     expect(html).toContain("zorai-workspace-git-marker");
   });
 
+  it("mutes gitignored entries but still lists them so they stay openable", () => {
+    const ignored = { name: "generated", path: "generated", isDirectory: true, isGitIgnored: true } as ZoraiWorkspaceEntry;
+    const html = renderToStaticMarkup(<WorkspaceExplorerTreeView entries={[ignored, directory]} status={new Map()} onOpen={() => undefined} snapshot={emptySnapshot} onToggle={async () => undefined} />);
+
+    expect(html.match(/zorai-workspace-tree-row--ignored/g)).toHaveLength(1);
+    expect(html).toContain(">generated<");
+  });
+
   it("retains expanded descendants and reloads each after a refresh token transaction", async () => {
     const loads = vi.fn(async (path: string) => path === "src" ? [nestedDirectory] : [nestedFile]);
     const controller = createWorkspaceExplorerController(loads);

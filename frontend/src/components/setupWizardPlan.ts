@@ -81,3 +81,9 @@ export function gatewayWrites(platform: string, token: string): SetupConfigWrite
     { keyPath: `/gateway/${platform}_token`, value },
   ];
 }
+
+export function filterSetupModels<T extends { id: string; name?: string }>(models: T[], query: string, defaultModel: string): T[] {
+  const needle = query.trim().toLowerCase();
+  const rest = models.filter((item) => item.id !== defaultModel);
+  return needle ? rest.filter((item) => `${item.name ?? ""} ${item.id}`.toLowerCase().includes(needle)) : rest;
+}
