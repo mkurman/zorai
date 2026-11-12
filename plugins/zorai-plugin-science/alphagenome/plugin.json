@@ -73,5 +73,24 @@
   },
   "skills": [
     "skills/alphagenome.md"
-  ]
+  ],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with AlphaGenome",
+        "prompt": "Use the alphagenome plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?",
+            "placeholder": "score the splicing effect of chr17:43045712 C>T"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

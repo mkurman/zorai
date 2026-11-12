@@ -48,7 +48,7 @@ export function ConciergeToast() {
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",
-            background: "var(--bg-void)",
+            background: "var(--zorai-backdrop-solid, var(--bg-void))",
             border: "1px solid var(--accent)",
             borderRadius: 8,
             padding: 16,

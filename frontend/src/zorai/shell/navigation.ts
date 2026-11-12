@@ -9,6 +9,7 @@ export type ZoraiViewId =
   | "tools"
   | "skills"
   | "activity"
+  | "plugins"
   | "settings";
 
 export type ZoraiNavItem = {
@@ -28,6 +29,7 @@ export type ZoraiNavIconId =
   | "tools"
   | "skills"
   | "activity"
+  | "plugins"
   | "settings"
   | "nightMode"
   | "lightMode";
@@ -90,6 +92,13 @@ export const zoraiNavItems: ZoraiNavItem[] = [
     description: "Review events, approvals, notifications, and audit state.",
   },
   {
+    id: "plugins",
+    label: "Plugins",
+    railLabel: "Plugin Panels",
+    icon: "plugins",
+    description: "Panels and commands added by installed plugins.",
+  },
+  {
     id: "settings",
     label: "Settings",
     railLabel: "Settings",
@@ -99,6 +108,8 @@ export const zoraiNavItems: ZoraiNavItem[] = [
 ];
 
 export const LAST_ZORAI_VIEW_STORAGE_KEY = "zorai.lastView";
+
+export const RAIL_ITEM_IDS = zoraiNavItems.filter((item) => item.id !== "settings").map((item) => item.id);
 
 export const STARTUP_VIEW_OPTIONS: ReadonlyArray<{ id: "threads" | "code" | "goals" | "workspaces" | "last"; label: string }> = [
   { id: "threads", label: "Threads" },

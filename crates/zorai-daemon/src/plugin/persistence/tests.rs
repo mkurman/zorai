@@ -313,3 +313,33 @@ async fn auth_status_is_expiring_soon_when_access_token_nearly_expires_without_r
     let status = persistence.get_auth_status("oauth-plugin").await.unwrap();
     assert_eq!(status, "expiring_soon");
 }
+
+#[tokio::test]
+async fn reinstall_records_the_new_source_but_startup_discovery_never_erases_a_known_one() {
+    let persistence = PluginPersistence::new(make_test_history().await);
+    persistence
+        .upsert_plugin(&sample_record("calendar"))
+        .await
+        .unwrap();
+
+    let mut reinstalled = sample_record("calendar");
+    reinstalled.install_source = "local:/repo/plugins/zorai-plugin-gmail-calendar".to_string();
+    reinstalled.version = "1.2.0".to_string();
+    persistence.upsert_plugin(&reinstalled).await.unwrap();
+    let plugin = persistence.get_plugin("calendar").await.unwrap().unwrap();
+    assert_eq!(
+        plugin.install_source,
+        "local:/repo/plugins/zorai-plugin-gmail-calendar"
+    );
+    assert_eq!(plugin.version, "1.2.0");
+
+    persistence
+        .upsert_plugin(&sample_record("calendar"))
+        .await
+        .unwrap();
+    let plugin = persistence.get_plugin("calendar").await.unwrap().unwrap();
+    assert_eq!(
+        plugin.install_source,
+        "local:/repo/plugins/zorai-plugin-gmail-calendar"
+    );
+}

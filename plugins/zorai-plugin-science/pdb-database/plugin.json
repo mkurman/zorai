@@ -40,5 +40,23 @@
   },
   "skills": [
     "skills/pdb-database.md"
-  ]
+  ],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with Pdb Database",
+        "prompt": "Use the pdb-database plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

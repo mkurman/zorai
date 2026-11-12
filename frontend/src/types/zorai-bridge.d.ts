@@ -465,6 +465,59 @@ declare global {
         language: string;
     };
 
+    type ZoraiPluginUiInput = { key: string; label: string; placeholder: string; default: string };
+
+    type ZoraiPluginUiCommand = {
+        id: string;
+        title: string;
+        endpoint: string;
+        prompt: string | null;
+        params: Record<string, unknown>;
+        inputs: ZoraiPluginUiInput[];
+        output: "panel" | "composer" | "toast";
+        placement: Array<"palette" | "composer">;
+    };
+
+    type ZoraiPluginUiPanel =
+        | { id: string; title: string; kind: "markdown"; endpoint: string; params: Record<string, unknown>; inputs: ZoraiPluginUiInput[] }
+        | { id: string; title: string; kind: "web"; url: string; permissions: Array<"composer" | "toast"> };
+
+    type ZoraiPluginUiManifest = {
+        name: string;
+        version: string;
+        description: string;
+        dirName: string;
+        commands: ZoraiPluginUiCommand[];
+        panels: ZoraiPluginUiPanel[];
+        problems: string[];
+        icon?: { kind: "image"; url: string } | { kind: "glyph"; text: string } | null;
+    };
+
+    type ZoraiUserThemeFile = {
+        name: string;
+        author?: string;
+        appearance: "dark" | "light";
+        base?: string;
+        colors?: Record<string, string>;
+        appShell?: Record<string, string>;
+        fonts?: { ui?: string; mono?: string; display?: string };
+        pair?: string;
+        corners?: "default" | "square";
+        borderStrength?: number;
+        background?: { image?: string; blur?: number; dim?: number };
+        surfaceOpacity?: number;
+        seeThrough?: boolean;
+    };
+
+    type ZoraiUserThemeRecord = {
+        id: string;
+        dir: string;
+        theme: ZoraiUserThemeFile | null;
+        css: string | null;
+        backgroundPath: string | null;
+        error: string | null;
+    };
+
     type ZoraiWorkspaceEntry = {
         name: string;
         path: string;
@@ -925,6 +978,13 @@ declare global {
         pluginGetSettings?: (name: string) => Promise<{ plugin_name: string; settings: Array<{ key: string; value: string; is_secret: boolean }> }>;
         pluginUpdateSettings?: (pluginName: string, key: string, value: string, isSecret: boolean) => Promise<{ ok?: boolean; error?: string }>;
         pluginTestConnection?: (name: string) => Promise<{ plugin_name: string; success: boolean; message: string }>;
+        pluginUiManifests?: () => Promise<ZoraiPluginUiManifest[]>;
+        pluginCliInstall?: (spec: string) => Promise<{ ok: boolean; output: string }>;
+        pluginCliUpdate?: (installSource: string) => Promise<{ ok: boolean; output: string }>;
+        pluginCliRemove?: (name: string) => Promise<{ ok: boolean; output: string }>;
+        pluginUpdateSource?: (installSource: string) => Promise<{ spec?: string; reason?: string }>;
+        pluginPickFolder?: () => Promise<string | null>;
+        pluginApiCall?: (pluginName: string, endpointName: string, params: Record<string, unknown>) => Promise<{ plugin_name: string; endpoint_name: string; success: boolean; result: string; error_type?: string | null }>;
         readClipboardText?: () => Promise<string | null>;
         getPathForFile?: (file: File) => string;
         writeClipboardText?: (text: string) => Promise<void>;
@@ -969,6 +1029,24 @@ declare global {
         appUpdateInstall?: () => Promise<{ ok: boolean; output: string }>;
         appUpdateRestart?: () => Promise<void>;
         appRestartDaemon?: () => Promise<{ ok: boolean; output: string }>;
+        appSetMenuAccelerators?: (overrides: Record<string, string>) => Promise<boolean>;
+        themesList?: () => Promise<{ dir: string; themes: ZoraiUserThemeRecord[]; customCss?: { path: string; css: string | null } }>;
+        themesSave?: (payload: { id?: string | null; theme: ZoraiUserThemeFile; css?: string | null; backgroundSource?: string | null }) => Promise<string>;
+        themesDelete?: (id: string) => Promise<boolean>;
+        themesImport?: () => Promise<ZoraiUserThemeRecord | null>;
+        themesExport?: (id: string) => Promise<string | null>;
+        themesOpenFolder?: () => Promise<string>;
+        themesOpenCustomCss?: () => Promise<string>;
+        themesFetchUrl?: (url: string) => Promise<{ token: string; sourceUrl: string; record: ZoraiUserThemeRecord }>;
+        themesInstallStaged?: (token: string) => Promise<ZoraiUserThemeRecord>;
+        themesDiscardStaged?: (token: string) => Promise<boolean>;
+        themesFetchGallery?: (url: string) => Promise<Array<{ name: string; url: string; author: string; description: string; appearance: "dark" | "light" | null }>>;
+        themesRevealCustomCss?: () => Promise<void>;
+        themesPickBackground?: () => Promise<string | null>;
+        themesPresetBackgrounds?: () => Promise<Array<{ name: string; path: string }>>;
+        themesWindowAppearance?: () => Promise<{ seeThroughAtLaunch: boolean; seeThrough: boolean }>;
+        themesSetSeeThrough?: (seeThrough: boolean) => Promise<{ seeThroughAtLaunch: boolean; seeThrough: boolean }>;
+        onThemesChanged?: (cb: () => void) => () => void;
         windowMenuItems?: (label: string) => Promise<Array<{ index: number; type: "normal" | "separator"; label: string; accelerator: string; enabled: boolean }>>;
         windowMenuInvoke?: (label: string, index: number) => Promise<boolean>;
         onWindowState?: (cb: (state: any) => void) => (() => void) | void;

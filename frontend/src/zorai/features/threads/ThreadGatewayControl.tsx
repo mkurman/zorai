@@ -8,9 +8,12 @@ import {
   linkedGatewayChat,
   type GatewayChat,
 } from "./gatewayChatModel";
+import { ThreadSidePanel, useThreadPanelStore } from "./threadSidePanel";
 
 export function ThreadGatewayControl({ daemonThreadId, icon }: { daemonThreadId: string | null | undefined; icon?: ReactNode }) {
-  const [open, setOpen] = useState(false);
+  const open = useThreadPanelStore((state) => state.open === "gateway");
+  const togglePanel = useThreadPanelStore((state) => state.toggle);
+  const closePanel = useThreadPanelStore((state) => state.close);
   const [chats, setChats] = useState<GatewayChat[]>([]);
   const [loading, setLoading] = useState(false);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
@@ -69,14 +72,14 @@ export function ThreadGatewayControl({ daemonThreadId, icon }: { daemonThreadId:
         title={linked ? `Linked to ${gatewayChatLabel(linked)}` : icon ? "Continue on gateway" : undefined}
         onClick={() => {
           if (!open) void loadChats();
-          setOpen((value) => !value);
+          togglePanel("gateway");
         }}
       >
         {icon ?? (linked ? `↔ ${gatewayChatLabel(linked)}` : "Continue on gateway")}
       </button>
       {open ? (
-        <div className="zorai-handoff-popover">
-          <div className="zorai-section-label">Continue on gateway</div>
+        <ThreadSidePanel title="Continue on a messaging app" subtitle="Link this thread to a gateway chat" onClose={() => closePanel("gateway")}>
+        <div className="zorai-handoff-popover zorai-handoff-popover--panel">
           {!daemonThreadId ? (
             <p className="zorai-inline-error">
               Send the first message to create the daemon thread before linking it to a gateway chat.
@@ -126,6 +129,7 @@ export function ThreadGatewayControl({ daemonThreadId, icon }: { daemonThreadId:
             </div>
           ) : null}
         </div>
+        </ThreadSidePanel>
       ) : null}
     </div>
   );

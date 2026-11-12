@@ -82,5 +82,24 @@
   },
   "skills": [
     "skills/reactome.md"
-  ]
+  ],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with Reactome",
+        "prompt": "Use the reactome plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?",
+            "placeholder": "run pathway enrichment for BRCA1, BRCA2 and PALB2"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

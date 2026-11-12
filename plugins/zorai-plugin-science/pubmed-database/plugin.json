@@ -23,5 +23,23 @@
   },
   "skills": [
     "skills/pubmed-database.md"
-  ]
+  ],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with Pubmed Database",
+        "prompt": "Use the pubmed-database plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

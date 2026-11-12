@@ -116,8 +116,9 @@ describe("Zorai feature surfaces", () => {
     const agentPaneSource = readFeature("./code/CodeAgentPane.tsx");
     const historyMenuSource = readFeature("./code/CodeThreadHistoryMenu.tsx");
 
-    expect(shellSource).toContain("const codeAgentOpenedRef = useRef(false)");
-    expect(shellSource).toContain('if (activeView !== "code" || codeAgentOpenedRef.current) return');
+    expect(readFeature("../shell/shellLayoutStore.ts")).toContain("codeContextAutoOpened: false,");
+    expect(shellSource).toContain('if (activeView !== "code" || useShellLayoutStore.getState().codeContextAutoOpened) return');
+    expect(shellSource).toContain("useShellLayoutStore.getState().markCodeContextAutoOpened()");
     expect(shellSource).toContain("setContextOpen(true)");
     expect(codeSource).toContain('export { CodeAgentPane } from "./CodeAgentPane"');
     expect(readFeature("./threads/ThreadComposer.tsx")).toContain('CodeThreadRuntimeSwitcher');
@@ -315,7 +316,8 @@ describe("Zorai feature surfaces", () => {
     const iconSource = readFeature("../shell/ZoraiIcons.tsx");
     const styleSource = readFileSync(new URL("../styles/zorai.css", import.meta.url), "utf8");
 
-    expect(shellSource).toContain("const [railOpen, setRailOpen] = useState(true)");
+    expect(readFeature("../shell/shellLayoutStore.ts")).toContain("railOpen: true,");
+    expect(shellSource).toContain("const railOpen = useShellLayoutStore((state) => state.railOpen)");
     expect(shellSource).toContain("zorai-rail-toggle");
     expect(shellSource).toContain("ZoraiHamburgerIcon");
     expect(shellSource).toContain("aria-expanded={railOpen}");

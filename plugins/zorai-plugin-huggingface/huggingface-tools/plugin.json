@@ -60,5 +60,24 @@
       }
     }
   },
-  "skills": ["skills/huggingface-tools.md"]
+  "skills": ["skills/huggingface-tools.md"],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with Hugging Face tools",
+        "prompt": "Use the huggingface-tools plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?",
+            "placeholder": "show the schema of HuggingFaceFW/fineweb with DuckDB"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

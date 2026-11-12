@@ -136,6 +136,13 @@ function renderIconPath(icon: ZoraiNavIconId) {
       </>
     );
   }
+  if (icon === "plugins") {
+    return (
+      <>
+        <path d="M9 4h4v3a2 2 0 1 0 4 0V4h3v6h-3a2 2 0 1 0 0 4h3v6h-6v-3a2 2 0 1 0-4 0v3H4v-6h3a2 2 0 1 0 0-4H4V4h5" />
+      </>
+    );
+  }
 
   if (icon === "nightMode") {
     return <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />;

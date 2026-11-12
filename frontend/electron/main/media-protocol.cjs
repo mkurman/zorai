@@ -21,9 +21,10 @@ function isServableMediaPath(filePath) {
     return typeof filePath === 'string' && MEDIA_EXTENSIONS.has(path.extname(filePath).toLowerCase());
 }
 
-function registerMediaSchemePrivileges(protocol) {
+function registerMediaSchemePrivileges(protocol, extraSchemes = []) {
     protocol.registerSchemesAsPrivileged([
         { scheme: MEDIA_SCHEME, privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true } },
+        ...extraSchemes,
     ]);
 }
 

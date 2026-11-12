@@ -155,6 +155,12 @@ const ICON_PATHS: Record<ZoraiSettingsIconId, ReactNode> = {
       <path d="M12 7.5v.5" />
     </>
   ),
+  keyboard: (
+    <>
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10" />
+    </>
+  ),
   bug: (
     <>
       <rect x="7" y="8" width="10" height="12" rx="5" />

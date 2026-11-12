@@ -6,7 +6,16 @@ export const SHELL_RAIL_MIN_WIDTH = 180;
 export const SHELL_CONTEXT_DEFAULT_WIDTH = 318;
 export const SHELL_CONTEXT_MIN_WIDTH = 260;
 
+type OpenUpdate = boolean | ((current: boolean) => boolean);
+
 type ShellLayoutStore = {
+  railOpen: boolean;
+  contextOpen: boolean;
+  codeContextAutoOpened: boolean;
+  lastWorkView: string | null;
+  setRailOpen: (open: OpenUpdate) => void;
+  setContextOpen: (open: OpenUpdate) => void;
+  markCodeContextAutoOpened: () => void;
   railWidths: Record<string, number>;
   contextWidths: Record<string, number>;
   setRailWidth: (view: string, width: number) => void;
@@ -23,6 +32,13 @@ function without(widths: Record<string, number>, view: string): Record<string, n
 export const useShellLayoutStore = create<ShellLayoutStore>()(
   persist(
     (set) => ({
+      railOpen: true,
+      contextOpen: false,
+      codeContextAutoOpened: false,
+      lastWorkView: null,
+      setRailOpen: (open) => set((state) => ({ railOpen: typeof open === "function" ? open(state.railOpen) : open })),
+      setContextOpen: (open) => set((state) => ({ contextOpen: typeof open === "function" ? open(state.contextOpen) : open })),
+      markCodeContextAutoOpened: () => set({ codeContextAutoOpened: true }),
       railWidths: {},
       contextWidths: {},
       setRailWidth: (view, width) => set((state) => ({

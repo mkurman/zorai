@@ -52,5 +52,24 @@
   },
   "skills": [
     "skills/uniprot.md"
-  ]
+  ],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with UniProt",
+        "prompt": "Use the uniprot plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?",
+            "placeholder": "find reviewed human entries for BRCA1"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

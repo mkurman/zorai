@@ -7,6 +7,7 @@ type ThreadTerminalState = {
   viewing: Record<string, string | null>;
   shells: Record<string, string[]>;
   dismissed: Record<string, string[]>;
+  shellCwds: Record<string, string>;
 };
 
 export type ThreadTerminalTab =
@@ -19,7 +20,7 @@ export type AgentTerminalSession = {
   cwd: string | null;
 };
 
-export const useThreadTerminalStore = create<ThreadTerminalState>(() => ({ open: {}, viewing: {}, shells: {}, dismissed: {} }));
+export const useThreadTerminalStore = create<ThreadTerminalState>(() => ({ open: {}, viewing: {}, shells: {}, dismissed: {}, shellCwds: {} }));
 
 let shellSerial = 0;
 
@@ -32,12 +33,13 @@ export function viewThreadTerminal(sessionKey: string, tabId: string | null) {
   useThreadTerminalStore.setState((state) => ({ viewing: { ...state.viewing, [sessionKey]: tabId } }));
 }
 
-export function openThreadShell(sessionKey: string): string {
+export function openThreadShell(sessionKey: string, cwd?: string): string {
   shellSerial += 1;
   const id = `shell-${Date.now().toString(36)}-${shellSerial}`;
   useThreadTerminalStore.setState((state) => ({
     shells: { ...state.shells, [sessionKey]: [...(state.shells[sessionKey] ?? []), id] },
     viewing: { ...state.viewing, [sessionKey]: id },
+    shellCwds: cwd ? { ...state.shellCwds, [id]: cwd } : state.shellCwds,
   }));
   return id;
 }

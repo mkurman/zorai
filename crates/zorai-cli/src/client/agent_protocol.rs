@@ -484,6 +484,12 @@ pub(super) enum AgentBridgeCommand {
     PluginOAuthStart {
         name: String,
     },
+    #[serde(rename = "plugin-api-call")]
+    PluginApiCallCmd {
+        plugin_name: String,
+        endpoint_name: String,
+        params: String,
+    },
     WhatsAppLinkStart,
     WhatsAppLinkStop,
     WhatsAppLinkStatus,

@@ -4,6 +4,7 @@ import type { ThreadMutationResult } from "@/components/agent-chat-panel/runtime
 import type { ThreadAgentOption } from "./threadHandoffModel";
 import { retainBusySuggestions, suggestionActionLabel, type SuggestionAction } from "./suggestionBusy";
 import { useAgentDisplayName } from "@/lib/useAgentDisplayName";
+import { ThreadSidePanel } from "./threadSidePanel";
 
 export function ThreadParticipantsDrawer({
   thread,
@@ -33,20 +34,12 @@ export function ThreadParticipantsDrawer({
   const [busySuggestions, setBusySuggestions] = useState<Record<string, SuggestionAction>>({});
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
-  const closeRef = useRef<HTMLButtonElement>(null);
-
   useEffect(() => {
     mountedRef.current = true;
-    closeRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
     return () => {
       mountedRef.current = false;
-      window.removeEventListener("keydown", onKeyDown);
     };
-  }, [onClose]);
+  }, []);
 
   useEffect(() => {
     if (!agentOptions.some((option) => option.id === agentId)) {
@@ -112,26 +105,8 @@ export function ThreadParticipantsDrawer({
   };
 
   return (
-    <div className="zorai-participants-drawer__backdrop" role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onClose();
-    }}>
-      <section
-        className="zorai-participants-drawer"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="zorai-participants-title"
-      >
-        <header className="zorai-context-header">
-          <div>
-            <div className="zorai-context-title" id="zorai-participants-title">Thread Participants</div>
-            <div className="zorai-context-subtitle">Collaboration</div>
-          </div>
-          <button ref={closeRef} type="button" className="zorai-icon-button zorai-participants-drawer__close" onClick={onClose}>
-            x
-          </button>
-        </header>
-
-        <div className="zorai-context-body">
+    <ThreadSidePanel title="Thread participants" subtitle="Agents that follow this thread and suggest replies" onClose={onClose}>
+        <div className="zorai-context-body zorai-participants-panel">
         <div className="zorai-thread-context-stack">
         {error ? <p className="zorai-inline-error" role="alert">{error}</p> : null}
 
@@ -314,7 +289,6 @@ export function ThreadParticipantsDrawer({
         </section>
         </div>
         </div>
-      </section>
-    </div>
+    </ThreadSidePanel>
   );
 }

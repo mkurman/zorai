@@ -22,5 +22,23 @@
   },
   "skills": [
     "skills/ucsc-conservation-and-tfbs.md"
-  ]
+  ],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with Ucsc Conservation And Tfbs",
+        "prompt": "Use the ucsc-conservation-and-tfbs plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

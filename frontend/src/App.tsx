@@ -3,6 +3,8 @@ import { startAgentWorkspaceReclaim } from "./lib/agentWorkspaceReclaim";
 import { startAutoSave } from "./lib/sessionPersistence";
 import { coerceThemeNameForAppearance, getThemeByName } from "./lib/themes";
 import { applyAppShellTheme, getAppShellTheme } from "./lib/themesAppShell";
+import { adjustBorders, themeBackdrop, translucentShell } from "./lib/userThemes";
+import { applyCustomCss, applyThemeEffects, startUserThemeDiscovery, useUserThemesStore } from "./zorai/features/themes/userThemesStore";
 import {
   applyUiInterfacePrefs,
   normalizeNightMode,
@@ -13,6 +15,7 @@ import {
 import { useSettingsStore } from "./lib/settingsStore";
 import { useWorkspaceStore } from "./lib/workspaceStore";
 import { ZoraiApp } from "./zorai/ZoraiApp";
+import { ThemeBackdropVideo } from "./zorai/features/themes/ThemeBackdropVideo";
 
 export default function App() {
   const createWorkspace = useWorkspaceStore((state) => state.createWorkspace);
@@ -20,6 +23,13 @@ export default function App() {
   const settings = useSettingsStore((state) => state.settings);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
   const [systemPrefersDarkScheme, setSystemPrefersDarkScheme] = useState(systemPrefersDark);
+  const userThemesLoaded = useUserThemesStore((state) => state.loaded);
+  const userThemes = useUserThemesStore((state) => state.themes);
+  const themePreview = useUserThemesStore((state) => state.preview);
+  const seeThroughAtLaunch = useUserThemesStore((state) => state.seeThroughAtLaunch);
+  const customCss = useUserThemesStore((state) => state.customCss);
+
+  useEffect(() => startUserThemeDiscovery(), []);
 
   useEffect(() => {
     if (workspaces.length === 0) {
@@ -47,25 +57,29 @@ export default function App() {
       systemPrefersDarkScheme,
     );
     const themeName = coerceThemeNameForAppearance(settings.themeName, appearance);
-    applyAppShellTheme(
-      getAppShellTheme(
-        themeName,
-        settings.useCustomTerminalColors,
-        settings.customTerminalBackground,
-        settings.customTerminalForeground,
-        settings.customTerminalCursor,
-        settings.customTerminalSelection,
-        appearance,
-      ),
-    );
+    const activeThemeName = themePreview?.name ?? themeName;
+    const activeTheme = getThemeByName(activeThemeName);
+    const shell = adjustBorders(getAppShellTheme(
+      activeThemeName,
+      settings.useCustomTerminalColors,
+      settings.customTerminalBackground,
+      settings.customTerminalForeground,
+      settings.customTerminalCursor,
+      settings.customTerminalSelection,
+      themePreview?.appearance ?? appearance,
+    ), activeTheme.user?.borderStrength ?? 1);
+    const backdrop = themeBackdrop(activeTheme, seeThroughAtLaunch);
+    applyAppShellTheme(translucentShell(shell, backdrop, activeTheme.user?.surfaceOpacity ?? 1));
+    applyThemeEffects(activeTheme, backdrop, shell);
+    applyCustomCss(customCss);
     applyUiInterfacePrefs({
       uiFontFamily: settings.uiFontFamily,
       uiFontScale: normalizeUiFontScale(settings.uiFontScale),
-      appearance,
-      themeName,
-      themeFonts: getThemeByName(themeName).fonts,
+      appearance: themePreview?.appearance ?? appearance,
+      themeName: activeThemeName,
+      themeFonts: activeTheme.fonts,
     });
-    if (themeName !== settings.themeName) {
+    if (userThemesLoaded && themeName !== settings.themeName) {
       updateSetting("themeName", themeName);
     }
   }, [
@@ -80,7 +94,17 @@ export default function App() {
     settings.nightMode,
     systemPrefersDarkScheme,
     updateSetting,
+    userThemesLoaded,
+    userThemes,
+    themePreview,
+    seeThroughAtLaunch,
+    customCss,
   ]);
 
-  return <ZoraiApp />;
+  return (
+    <>
+      <ThemeBackdropVideo />
+      <ZoraiApp />
+    </>
+  );
 }

@@ -659,6 +659,25 @@ where
             });
             emit_agent_event(&msg.to_string())?;
         }
+        Some(Ok(DaemonMessage::PluginApiCallResult {
+            operation_id,
+            plugin_name,
+            endpoint_name,
+            success,
+            result,
+            error_type,
+        })) => {
+            let msg = serde_json::json!({
+                "type": "plugin-api-call-result",
+                "operation_id": operation_id,
+                "plugin_name": plugin_name,
+                "endpoint_name": endpoint_name,
+                "success": success,
+                "result": result,
+                "error_type": error_type,
+            });
+            emit_agent_event(&msg.to_string())?;
+        }
         Some(Ok(DaemonMessage::PluginTestConnectionResult {
             plugin_name,
             success,

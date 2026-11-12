@@ -280,5 +280,48 @@
       "update_attendance"
     ],
     "readiness_endpoint": "check_health"
+  },
+  "ui": {
+    "commands": [
+      {
+        "id": "meeting-prep",
+        "title": "Prepare for a meeting",
+        "prompt": "Use the calendar plugin to find {{meeting}} and prepare me for it: attendees, agenda, related emails and open questions.",
+        "inputs": [
+          {
+            "key": "meeting",
+            "label": "Which meeting",
+            "placeholder": "my next meeting"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ],
+    "panels": [
+      {
+        "id": "events",
+        "title": "Events",
+        "endpoint": "list_events",
+        "inputs": [
+          {
+            "key": "time_min",
+            "label": "From",
+            "placeholder": "2026-01-01T00:00:00Z"
+          },
+          {
+            "key": "time_max",
+            "label": "To",
+            "placeholder": "2026-01-08T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "id": "calendars",
+        "title": "Calendars",
+        "endpoint": "list_calendars"
+      }
+    ]
   }
 }

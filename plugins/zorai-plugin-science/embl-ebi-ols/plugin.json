@@ -22,5 +22,23 @@
   },
   "skills": [
     "skills/embl-ebi-ols.md"
-  ]
+  ],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with Embl Ebi Ols",
+        "prompt": "Use the embl-ebi-ols plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

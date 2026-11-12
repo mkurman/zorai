@@ -4,6 +4,8 @@
  * CommandLog, Settings, ShellProfile, Transcript.
  */
 
+import { EMPTY_ITEM_LAYOUT, type ItemLayout } from "./itemLayout";
+
 // ---------------------------------------------------------------------------
 // Identifiers
 // ---------------------------------------------------------------------------
@@ -246,6 +248,10 @@ export interface ZoraiSettings {
   nightMode: NightModePreference;
   chatWidth: ChatWidthPreference;
   startupView: StartupViewPreference;
+  railLayout: ItemLayout;
+  composerLayout: ItemLayout;
+  shortcuts: Record<string, string>;
+  themeGalleryUrl: string;
   useCustomTerminalColors: boolean;
   customTerminalBackground: string;
   customTerminalForeground: string;
@@ -306,6 +312,10 @@ export const DEFAULT_SETTINGS: ZoraiSettings = {
   nightMode: "on",
   chatWidth: "full",
   startupView: "threads",
+  railLayout: EMPTY_ITEM_LAYOUT,
+  composerLayout: EMPTY_ITEM_LAYOUT,
+  shortcuts: {},
+  themeGalleryUrl: "",
   useCustomTerminalColors: false,
   customTerminalBackground: "",
   customTerminalForeground: "",

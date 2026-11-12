@@ -402,7 +402,7 @@ fn media_page_includes_audio_section_when_enabled() {
         .find(|l| l.spans.iter().any(|s| s.content.contains("SPEECH-TO-TEXT")));
     assert!(
         audio_header.is_some(),
-        "Speech-to-text section header should appear on the Audio & Images page"
+        "Speech-to-text section header should appear on the Multimedia page"
     );
 }
 

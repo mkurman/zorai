@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import { useCodeWorkspaceBindingStore } from "../code/codeWorkspaceBindingStore";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import {
@@ -16,6 +16,11 @@ import type { ComposerAttachment } from "@/components/agent-chat-panel/chat-view
 import { useAgentStore } from "@/lib/agentStore";
 import { useWorkspaceContextStore } from "@/lib/workspaceContextStore";
 import { useComposerDraftStore } from "./composerDraftStore";
+import { COMPOSER_TOOL_IDS, type ComposerToolId } from "./composerToolLayout";
+import { runPluginCommand, usePluginUiStore } from "@/zorai/features/plugins/pluginUiStore";
+import { visibleItemIds } from "@/lib/itemLayout";
+import { useSettingsStore } from "@/lib/settingsStore";
+import { shortcutCombo, shortcutMatches } from "@/zorai/features/shortcuts/appShortcuts";
 import { useComposerInputHistory } from "./composerInputHistory";
 import { applyComposerTextareaSize } from "./composerTextareaSize";
 import { ThreadComposerQueue } from "./ThreadComposerQueue";
@@ -59,6 +64,13 @@ export function ThreadComposer({
   onStartThread?: (firstMessage: string) => void;
 } = {}) {
   const runtime = useAgentChatPanelRuntime();
+  const composerLayout = useSettingsStore((state) => state.settings.composerLayout);
+  const pluginUi = usePluginUiStore((state) => state.plugins);
+  const pluginComposerCommands = useMemo(() => pluginUi.flatMap((plugin) => plugin.commands
+    .filter((command) => command.placement.includes("composer"))
+    .map((command) => ({ plugin, command }))), [pluginUi]);
+  const voiceShortcut = useSettingsStore((state) => shortcutCombo(state.settings.shortcuts, "thread.recordVoice"));
+  const voiceShortcutHint = voiceShortcut ? ` (${voiceShortcut})` : "";
   const input = useComposerDraftStore((state) => state.input);
   const setInput = useComposerDraftStore((state) => state.setInput);
   const agentSettings = useAgentStore((state) => state.agentSettings);
@@ -266,13 +278,12 @@ export function ThreadComposer({
     sketch.forgetAll();
   };
 
-  // Ctrl+M toggles voice recording from anywhere in the thread surface
+  // The voice shortcut (Ctrl+M by default) toggles recording from anywhere in the thread surface
   // (including while typing in the textarea — that's where you want it most).
   const toggleRecordingRef = useRef<() => Promise<void>>(async () => {});
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (!event.ctrlKey || event.shiftKey || event.metaKey || event.altKey) return;
-      if (event.code !== "KeyM") return;
+      if (!shortcutMatches("thread.recordVoice", event)) return;
       if (!voiceCaptureAvailable) return;
       event.preventDefault();
       void toggleRecordingRef.current();
@@ -393,6 +404,124 @@ export function ThreadComposer({
   };
 
   toggleRecordingRef.current = toggleRecording;
+
+  const composerTools: Record<ComposerToolId, ReactNode> = {
+    attach: (
+      <button
+        key="attach"
+        type="button"
+        className="zorai-composer-icon-button"
+        title="Attach files"
+        aria-label="Attach files"
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <ComposerIcon kind="attach" />
+      </button>
+    ),
+    sketch: (
+      <button
+        key="sketch"
+        type="button"
+        className={[
+          "zorai-composer-icon-button",
+          sketch.sketchOpen ? "zorai-composer-icon-button--toggled" : "",
+          !sketch.sketchOpen && sketch.hasDraft ? "zorai-composer-icon-button--has-draft" : "",
+        ].filter(Boolean).join(" ")}
+        title={sketch.annotating ? "Finish the image annotation first" : sketch.sketchOpen ? "Hide sketchpad (keeps a draft)" : sketch.hasDraft ? "Open sketch draft" : "Draw a sketch"}
+        aria-label={sketch.sketchOpen ? "Hide sketchpad" : "Draw a sketch"}
+        aria-pressed={sketch.sketchOpen}
+        disabled={sketch.annotating}
+        onClick={() => {
+          if (!sketch.sketchOpen) showOnlyPanel("sketch");
+          sketch.toggleSketch();
+        }}
+      >
+        <ComposerIcon kind="sketch" />
+      </button>
+    ),
+    browser: browserAvailable && browserSessionKey ? (
+      <button
+        key="browser"
+        type="button"
+        className={[
+          "zorai-composer-icon-button",
+          browserSession?.panelOpen ? "zorai-composer-icon-button--toggled" : "",
+          !browserSession?.panelOpen && browserSession?.agentUsed ? "zorai-composer-icon-button--has-draft" : "",
+          (browserSession?.agentBusy ?? 0) > 0 ? "zorai-composer-icon-button--busy" : "",
+        ].filter(Boolean).join(" ")}
+        title={browserSession?.panelOpen ? "Hide browser" : browserSession?.agentUsed ? "Show the browser Zorai is using" : "Open browser"}
+        aria-label={browserSession?.panelOpen ? "Hide browser" : "Open browser"}
+        aria-pressed={Boolean(browserSession?.panelOpen)}
+        disabled={sketch.annotating}
+        onClick={() => {
+          if (!browserSession?.panelOpen) showOnlyPanel("browser");
+          setBrowserPanelOpen(browserSessionKey, !browserSession?.panelOpen);
+        }}
+      >
+        <ComposerIcon kind="browser" />
+      </button>
+    ) : null,
+    terminal: terminalAvailable && browserSessionKey ? (
+      <button
+        key="terminal"
+        type="button"
+        className={["zorai-composer-icon-button", terminalOpen ? "zorai-composer-icon-button--toggled" : ""].filter(Boolean).join(" ")}
+        title={terminalOpen ? "Hide terminal" : "Open terminal"}
+        aria-label={terminalOpen ? "Hide terminal" : "Open terminal"}
+        aria-pressed={terminalOpen}
+        disabled={sketch.annotating}
+        onClick={() => {
+          if (!terminalOpen) showOnlyPanel("terminal");
+          setThreadTerminalOpen(browserSessionKey, !terminalOpen);
+        }}
+      >
+        <ComposerIcon kind="terminal" />
+      </button>
+    ) : null,
+    security: (
+      <div key="security" className="zorai-composer-mode">
+        <ManagedSecurityShield />
+      </div>
+    ),
+    voice: voiceCaptureAvailable ? (
+      <button
+        key="voice"
+        type="button"
+        className={["zorai-composer-icon-button", isRecording ? "zorai-composer-icon-button--recording" : ""].filter(Boolean).join(" ")}
+        title={isRecording ? `Stop recording${voiceShortcutHint}` : isTranscribing ? "Transcribing…" : `Record voice message${voiceShortcutHint}`}
+        aria-label={isRecording ? "Stop recording" : "Record voice message"}
+        disabled={isTranscribing}
+        onClick={() => void toggleRecording()}
+      >
+        <ComposerIcon kind="mic" />
+        {isRecording ? <span className="zorai-composer-rec-dot" aria-hidden="true" /> : null}
+      </button>
+    ) : null,
+    autoplay: ttsAvailable ? (
+      <button
+        key="autoplay"
+        type="button"
+        role="switch"
+        aria-checked={agentSettings.audio_tts_auto_speak}
+        className={[
+          "zorai-composer-icon-button zorai-composer-autoplay",
+          agentSettings.audio_tts_auto_speak ? "zorai-composer-icon-button--toggled" : "",
+        ].filter(Boolean).join(" ")}
+        title={agentSettings.audio_tts_auto_speak ? "Auto-play new replies: ON — click to disable" : "Auto-play new replies: OFF — click to enable"}
+        aria-label="Toggle auto-play of new assistant replies"
+        onClick={() => {
+          const next = !agentSettings.audio_tts_auto_speak;
+          updateAgentSetting("audio_tts_auto_speak", next);
+          pushToast(next ? "Auto-play enabled — new replies will be read aloud." : "Auto-play disabled.", "info");
+        }}
+      >
+        <ComposerIcon kind="autoplay" />
+        <span className="zorai-composer-autoplay__state" aria-hidden="true">
+          {agentSettings.audio_tts_auto_speak ? "on" : "off"}
+        </span>
+      </button>
+    ) : null,
+  };
 
   return (
     <div
@@ -530,109 +659,12 @@ export function ThreadComposer({
                 event.target.value = "";
               }}
             />
-            <button
-              type="button"
-              className="zorai-composer-icon-button"
-              title="Attach files"
-              aria-label="Attach files"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <ComposerIcon kind="attach" />
-            </button>
-            <button
-              type="button"
-              className={[
-                "zorai-composer-icon-button",
-                sketch.sketchOpen ? "zorai-composer-icon-button--toggled" : "",
-                !sketch.sketchOpen && sketch.hasDraft ? "zorai-composer-icon-button--has-draft" : "",
-              ].filter(Boolean).join(" ")}
-              title={sketch.annotating ? "Finish the image annotation first" : sketch.sketchOpen ? "Hide sketchpad (keeps a draft)" : sketch.hasDraft ? "Open sketch draft" : "Draw a sketch"}
-              aria-label={sketch.sketchOpen ? "Hide sketchpad" : "Draw a sketch"}
-              aria-pressed={sketch.sketchOpen}
-              disabled={sketch.annotating}
-              onClick={() => {
-                if (!sketch.sketchOpen) showOnlyPanel("sketch");
-                sketch.toggleSketch();
-              }}
-            >
-              <ComposerIcon kind="sketch" />
-            </button>
-            {browserAvailable && browserSessionKey ? (
-              <button
-                type="button"
-                className={[
-                  "zorai-composer-icon-button",
-                  browserSession?.panelOpen ? "zorai-composer-icon-button--toggled" : "",
-                  !browserSession?.panelOpen && browserSession?.agentUsed ? "zorai-composer-icon-button--has-draft" : "",
-                  (browserSession?.agentBusy ?? 0) > 0 ? "zorai-composer-icon-button--busy" : "",
-                ].filter(Boolean).join(" ")}
-                title={browserSession?.panelOpen ? "Hide browser" : browserSession?.agentUsed ? "Show the browser Zorai is using" : "Open browser"}
-                aria-label={browserSession?.panelOpen ? "Hide browser" : "Open browser"}
-                aria-pressed={Boolean(browserSession?.panelOpen)}
-                disabled={sketch.annotating}
-                onClick={() => {
-                  if (!browserSession?.panelOpen) showOnlyPanel("browser");
-                  setBrowserPanelOpen(browserSessionKey, !browserSession?.panelOpen);
-                }}
-              >
-                <ComposerIcon kind="browser" />
+            {visibleItemIds(COMPOSER_TOOL_IDS, composerLayout).map((id) => composerTools[id])}
+            {pluginComposerCommands.map(({ plugin, command }) => (
+              <button key={`${plugin.name}/${command.id}`} type="button" className="zorai-composer-plugin-button" title={`${plugin.name}: ${command.title}`} onClick={() => runPluginCommand(plugin, command)}>
+                {command.title}
               </button>
-            ) : null}
-            {terminalAvailable && browserSessionKey ? (
-              <button
-                type="button"
-                className={["zorai-composer-icon-button", terminalOpen ? "zorai-composer-icon-button--toggled" : ""].filter(Boolean).join(" ")}
-                title={terminalOpen ? "Hide terminal" : "Open terminal"}
-                aria-label={terminalOpen ? "Hide terminal" : "Open terminal"}
-                aria-pressed={terminalOpen}
-                disabled={sketch.annotating}
-                onClick={() => {
-                  if (!terminalOpen) showOnlyPanel("terminal");
-                  setThreadTerminalOpen(browserSessionKey, !terminalOpen);
-                }}
-              >
-                <ComposerIcon kind="terminal" />
-              </button>
-            ) : null}
-            <div className="zorai-composer-mode">
-              <ManagedSecurityShield />
-            </div>
-            {voiceCaptureAvailable ? (
-              <button
-                type="button"
-                className={["zorai-composer-icon-button", isRecording ? "zorai-composer-icon-button--recording" : ""].filter(Boolean).join(" ")}
-                title={isRecording ? "Stop recording (Ctrl+M)" : isTranscribing ? "Transcribing…" : "Record voice message (Ctrl+M)"}
-                aria-label={isRecording ? "Stop recording" : "Record voice message"}
-                disabled={isTranscribing}
-                onClick={() => void toggleRecording()}
-              >
-                <ComposerIcon kind="mic" />
-                {isRecording ? <span className="zorai-composer-rec-dot" aria-hidden="true" /> : null}
-              </button>
-            ) : null}
-            {ttsAvailable ? (
-              <button
-                type="button"
-                role="switch"
-                aria-checked={agentSettings.audio_tts_auto_speak}
-                className={[
-                  "zorai-composer-icon-button zorai-composer-autoplay",
-                  agentSettings.audio_tts_auto_speak ? "zorai-composer-icon-button--toggled" : "",
-                ].filter(Boolean).join(" ")}
-                title={agentSettings.audio_tts_auto_speak ? "Auto-play new replies: ON — click to disable" : "Auto-play new replies: OFF — click to enable"}
-                aria-label="Toggle auto-play of new assistant replies"
-                onClick={() => {
-                  const next = !agentSettings.audio_tts_auto_speak;
-                  updateAgentSetting("audio_tts_auto_speak", next);
-                  pushToast(next ? "Auto-play enabled — new replies will be read aloud." : "Auto-play disabled.", "info");
-                }}
-              >
-                <ComposerIcon kind="autoplay" />
-                <span className="zorai-composer-autoplay__state" aria-hidden="true">
-                  {agentSettings.audio_tts_auto_speak ? "on" : "off"}
-                </span>
-              </button>
-            ) : null}
+            ))}
           </div>
 
           <div className="zorai-composer-actions__right">
@@ -671,9 +703,9 @@ export function ThreadComposer({
               </label>
             ) : null}
             <div className="zorai-composer-mode">
-              {runtime.activeThread ? <ThreadEffortGauge key={runtime.activeThread.id} thread={runtime.activeThread} /> : null}
+              {runtime.activeThread && !composerLayout.hidden.includes("effort") ? <ThreadEffortGauge key={runtime.activeThread.id} thread={runtime.activeThread} /> : null}
             </div>
-            <ComposerContextCircle key={runtime.activeThread?.id ?? "none"} thread={runtime.activeThread ?? null} messages={runtime.messages} />
+            {composerLayout.hidden.includes("context") ? null : <ComposerContextCircle key={runtime.activeThread?.id ?? "none"} thread={runtime.activeThread ?? null} messages={runtime.messages} />}
             {queue.editingId ? (
               <>
                 <button

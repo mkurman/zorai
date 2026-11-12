@@ -1,4 +1,5 @@
-import { useEffect, useState, type DragEvent } from "react";
+import { useEffect, useState, type CSSProperties, type DragEvent } from "react";
+import { threadTint, tintColor, useTintStore } from "@/zorai/features/tints/tintStore";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import { useAgentStore, type AgentThread } from "@/lib/agentStore";
 import { openThreadTarget } from "./openThreadTarget";
@@ -15,6 +16,7 @@ export type SessionTabModel = {
   unread: boolean;
   needsAction?: boolean;
   pinned?: boolean;
+  tint?: string | null;
 };
 
 const SESSION_TAB_DRAG_TYPE = "application/x-zorai-session-tab";
@@ -56,12 +58,14 @@ export function SessionTabStrip({
         const classes = ["zorai-session-tab"];
         if (tab.active) classes.push("zorai-session-tab--active");
         if (tab.pinned) classes.push("is-pinned");
+        if (tab.tint) classes.push("zorai-session-tab--tinted");
         if (tab.id === draggingId) classes.push("is-dragging");
         if (drop?.id === tab.id && draggingId && draggingId !== tab.id) classes.push(drop.after ? "is-drop-after" : "is-drop-before");
         return (
           <div
             key={tab.id}
             className={classes.join(" ")}
+            style={tab.tint ? { "--zorai-tint": tab.tint } as CSSProperties : undefined}
             title={tab.title}
             draggable={Boolean(onMove)}
             onDragStart={(event) => {
@@ -145,6 +149,7 @@ export function ThreadSessionTabs({ includeSession }: { includeSession?: (id: st
   const moveOpenSession = useOpenSessionTabs((state) => state.move);
   const lastReadAtByThread = useThreadReadStateStore((state) => state.lastReadAtByThread);
   const threadIdsNeedingAction = useThreadIdsNeedingAction();
+  const threadTints = useTintStore((state) => state.threads);
   const activeId = runtime.activeThread?.id ?? null;
 
   useEffect(() => {
@@ -167,6 +172,7 @@ export function ThreadSessionTabs({ includeSession }: { includeSession?: (id: st
         thread ? threadIsUnread(thread, readKey ? lastReadAtByThread[readKey] ?? null : null, Boolean(active)) : false,
       ),
       needsAction: threadIdsNeedingAction.has(thread?.daemonThreadId ?? id),
+      tint: tintColor(thread ? threadTint(threadTints, thread) : threadTints[id]),
     };
   });
 

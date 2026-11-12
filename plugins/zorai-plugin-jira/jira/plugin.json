@@ -222,5 +222,44 @@
       "update_work_item_status"
     ],
     "readiness_endpoint": "check_health"
+  },
+  "ui": {
+    "commands": [
+      {
+        "id": "issue",
+        "title": "Look up issue",
+        "endpoint": "get_issue",
+        "inputs": [
+          {
+            "key": "issue_key",
+            "label": "Issue key",
+            "placeholder": "PROJ-123"
+          }
+        ],
+        "output": "panel",
+        "placement": [
+          "palette"
+        ]
+      }
+    ],
+    "panels": [
+      {
+        "id": "my-issues",
+        "title": "My open issues",
+        "endpoint": "list_issues",
+        "inputs": [
+          {
+            "key": "jql",
+            "label": "JQL",
+            "default": "assignee = currentUser() AND resolution = Unresolved ORDER BY updated DESC"
+          }
+        ]
+      },
+      {
+        "id": "projects",
+        "title": "Projects",
+        "endpoint": "list_projects"
+      }
+    ]
   }
 }

@@ -51,7 +51,7 @@ const {
     resolveFsPath,
     writeFsText,
 } = require('./main/fs-git.cjs');
-const { listInstalledPlugins, loadInstalledPluginScripts } = require('./main/plugins.cjs');
+const { getPluginsRootDir, listInstalledPlugins, loadInstalledPluginScripts } = require('./main/plugins.cjs');
 const { getAvailableShells, getSystemFonts, getSystemMonitorSnapshot } = require('./main/system-runtime.cjs');
 const { createTerminalBridgeRuntime } = require('./main/terminal-bridge-runtime.cjs');
 const { createWhatsAppRuntime } = require('./main/whatsapp-runtime.cjs');
@@ -62,6 +62,9 @@ const { createWorkspaceWatcher } = require('./main/workspace-watch-service.cjs')
 const { createLspRuntime } = require('./main/lsp-runtime.cjs');
 const { createTestRuntime } = require('./main/test-runtime.cjs');
 const { createUpdateRuntime } = require('./main/update-runtime.cjs');
+const { createThemeStore, registerThemeIpcHandlers, seeThroughWindowOptions } = require('./main/themes.cjs');
+const { pluginSchemePrivileges, readPluginUiManifests, registerPluginProtocol } = require('./main/plugin-ui.cjs');
+const { registerPluginCliIpcHandlers } = require('./main/plugin-cli.cjs');
 
 const DAEMON_NAME = 'zorai-daemon';
 const CLI_NAME = 'zorai';
@@ -96,6 +99,9 @@ const terminalBridgeRuntime = createTerminalBridgeRuntime({
     spawn,
     spawnDaemon,
 });
+const themeStore = createThemeStore({ rootDir: ensureZoraiDataDir });
+const seeThroughAtLaunch = themeStore.readWindowAppearance().seeThrough;
+
 const windowRuntime = createWindowRuntime({
     app,
     BrowserWindow,
@@ -114,6 +120,7 @@ const windowRuntime = createWindowRuntime({
     },
     shell,
     stopAllTerminalBridges: terminalBridgeRuntime.stopAllTerminalBridges,
+    windowAppearanceOptions: seeThroughAtLaunch ? seeThroughWindowOptions(process.platform) : {},
 });
 
 async function convertWhatsAppQrToDataUrl(qrPayload) {
@@ -599,6 +606,23 @@ function registerIpcHandlers() {
     ipcMain.handle('app-update-install', () => updateRuntime.install());
     ipcMain.handle('app-update-restart', () => updateRuntime.restart());
     ipcMain.handle('app-restart-daemon', () => updateRuntime.restartDaemon());
+    registerThemeIpcHandlers(ipcMain, {
+        store: themeStore,
+        dialog,
+        shell,
+        BrowserWindow,
+        seeThroughAtLaunch,
+        presetDirs: [path.join(__dirname, '..', 'public', 'theme-backgrounds'), path.join(__dirname, '..', 'dist', 'theme-backgrounds')],
+    });
+    ipcMain.handle('app-set-menu-accelerators', (_event, overrides) => windowRuntime.setMenuAccelerators(overrides));
+    ipcMain.handle('plugin-ui-manifests', () => readPluginUiManifests(getPluginsRootDir()));
+    registerPluginCliIpcHandlers(ipcMain, { execFileImpl: require('child_process').execFile, getCliPath, dialog, logToFile });
+    ipcMain.handle('plugin-api-call', (_event, pluginName, endpointName, params) => sendAgentQuery({
+        type: 'plugin-api-call',
+        plugin_name: String(pluginName ?? ''),
+        endpoint_name: String(endpointName ?? ''),
+        params: JSON.stringify(params && typeof params === 'object' ? params : {}),
+    }, 'plugin-api-call-result', 30000));
 
     whatsAppRuntime.registerWhatsAppIpcHandlers(ipcMain, { sendAgentCommand, sendAgentQuery }, async (config) => {
         const { assertValidWhatsAppConnectConfig } = await whatsAppRuntime.getDesktopWhatsAppLinkingHelpers();
@@ -614,11 +638,12 @@ function registerIpcHandlers() {
 }
 
 configureChromiumRuntimePaths({ app, logToFile });
-registerMediaSchemePrivileges(protocol);
+registerMediaSchemePrivileges(protocol, [pluginSchemePrivileges()]);
 
 app.whenReady().then(async () => {
     logToFile('info', 'electron app ready');
     registerMediaProtocol(protocol, electronNet);
+    registerPluginProtocol(protocol, electronNet, getPluginsRootDir);
     const bundledGuidelines = installBundledGuidelines({
         sourceCandidates: [
             path.join(process.resourcesPath, 'guidelines'),
