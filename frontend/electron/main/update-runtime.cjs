@@ -26,7 +26,7 @@ function resolveUpgradeCliPath({ env, platform, exePath, getCliPath, exists }) {
     candidates.push(path.join(path.dirname(exePath), exeName));
     if (platform === 'darwin') candidates.push(path.resolve(path.dirname(exePath), '..', '..', '..', exeName));
     candidates.push(getCliPath());
-    return candidates.find((candidate) => exists(candidate)) ?? null;
+    return candidates.find((candidate) => candidate !== exePath && exists(candidate)) ?? null;
 }
 
 function runCli(execFileImpl, cliPath, args) {
@@ -68,6 +68,9 @@ function createUpdateRuntime({
         },
         install() {
             if (installing) return installing;
+            if (platform === 'darwin' && app.getPath('exe').startsWith('/Volumes/')) {
+                return Promise.resolve({ ok: false, output: 'zorai is running from the disk image. Drag it to Applications, open it from there, then update.' });
+            }
             const resolved = cliPath();
             installing = (resolved
                 ? runCli(execFileImpl, resolved, ['upgrade', '--keep-running'])

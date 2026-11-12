@@ -1480,6 +1480,9 @@ function DeveloperToolsPanel() {
 
   return (
     <SettingsGrid>
+      <Panel section="Developer Tools" title="Daemon">
+        <DaemonRestartRow />
+      </Panel>
       <Panel section="Developer Tools" title="Fake events">
         <SettingRow label="Setup wizard" description="Walk through first-run setup. Provider lists, model lists, and connection tests are real; no answers are saved.">
           <button type="button" className="zorai-ghost-button" onClick={() => setSetupOpen(true)}>Open test setup</button>
@@ -1493,7 +1496,6 @@ function DeveloperToolsPanel() {
         <SettingRow label="Thread approval" description={activeThreadId ? "An approval for the current thread: a banner here, the card above the composer in the thread." : "Open a thread first; this approval is attached to the current thread."}>
           <button type="button" className="zorai-ghost-button" disabled={!activeThreadId} onClick={() => showApproval("thread")}>Show</button>
         </SettingRow>
-        <DaemonRestartRow />
         <SettingRow label="Update prompt" description="Pretends version 99.0.0 is available. Install waits briefly, then succeeds or fails; nothing is downloaded and restart only closes the prompt.">
           <div className="zorai-panel__heading-actions">
             <button type="button" className="zorai-ghost-button" onClick={() => useUpdateStore.getState().simulate("success", APP_VERSION)}>Succeeds</button>
@@ -1530,7 +1532,7 @@ function DaemonRestartRow() {
     : phase === "restarting" ? "Stopping and starting the daemon…"
     : phase === "done" ? "The daemon was restarted. The app reconnects on its own."
     : phase === "failed" ? `Restart failed: ${output}`
-    : "Stops the background daemon and starts it again. This one is real, not a fake event.";
+    : "Stops the background daemon and starts it again.";
   return (
     <SettingRow label="Restart daemon" description={description}>
       {phase === "confirm" ? (
