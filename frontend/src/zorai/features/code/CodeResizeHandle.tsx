@@ -1,4 +1,5 @@
 import { useRef, type KeyboardEvent, type PointerEvent } from "react";
+import { trackPointerDrag } from "@/lib/pointerDrag";
 
 export type CodeResizePanel = "explorer" | "agent";
 
@@ -25,34 +26,22 @@ export function CodeResizeHandle({
   onChange,
   onReset,
 }: CodeResizeHandleProps) {
-  const dragRef = useRef<{ pointerId: number; startX: number; startValue: number } | null>(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
   const label = labelOverride ?? (panel === "explorer" ? "Resize Explorer" : "Resize Code Agent");
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
-    dragRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startValue: value,
-    };
-    event.currentTarget.setPointerCapture(event.pointerId);
-    event.currentTarget.classList.add("is-dragging");
-  };
-
-  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    const handle = event.currentTarget;
+    const startX = event.clientX;
+    const startValue = value;
     const direction = panel === "explorer" ? 1 : -1;
-    onChange(clamp(drag.startValue + ((event.clientX - drag.startX) * direction), min, max));
-  };
-
-  const stopDragging = (event: PointerEvent<HTMLDivElement>) => {
-    if (dragRef.current?.pointerId !== event.pointerId) return;
-    dragRef.current = null;
-    event.currentTarget.classList.remove("is-dragging");
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
+    handle.classList.add("is-dragging");
+    trackPointerDrag(
+      (move) => onChangeRef.current(clamp(startValue + ((move.clientX - startX) * direction), min, max)),
+      () => handle.classList.remove("is-dragging"),
+    );
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -78,9 +67,6 @@ export function CodeResizeHandle({
       aria-valuenow={Math.round(value)}
       tabIndex={0}
       onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={stopDragging}
-      onPointerCancel={stopDragging}
       onKeyDown={onKeyDown}
       onDoubleClick={onReset}
     >

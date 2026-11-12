@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { getBridge } from "@/lib/bridge";
+import { trackPointerDrag } from "@/lib/pointerDrag";
 import { TerminalSessions } from "../terminal/ComposerTerminalPanel";
 import { clampCodePanelHeight, useCodeBottomPanelStore, type CodeBottomPanelTab } from "./codeBottomPanelStore";
 
@@ -16,7 +17,6 @@ export function CodeBottomPanel({ terminalSessionKey, cwd }: {
 }) {
   const { tab, height, show, close, setHeight } = useCodeBottomPanelStore();
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const dragRef = useRef<{ pointerId: number; startY: number; startHeight: number; available: number } | null>(null);
 
   return (
     <div ref={panelRef} className="zorai-code-panel" style={{ height }}>
@@ -27,16 +27,13 @@ export function CodeBottomPanel({ terminalSessionKey, cwd }: {
         aria-label="Resize panel"
         onPointerDown={(event) => {
           const area = panelRef.current?.parentElement;
-          dragRef.current = { pointerId: event.pointerId, startY: event.clientY, startHeight: height, available: area?.getBoundingClientRect().height ?? window.innerHeight };
-          event.currentTarget.setPointerCapture(event.pointerId);
+          if (event.button !== 0) return;
+          event.preventDefault();
+          const startY = event.clientY;
+          const startHeight = height;
+          const available = area?.getBoundingClientRect().height ?? window.innerHeight;
+          trackPointerDrag((move) => setHeight(clampCodePanelHeight(startHeight + startY - move.clientY, available)));
         }}
-        onPointerMove={(event) => {
-          const drag = dragRef.current;
-          if (!drag || drag.pointerId !== event.pointerId) return;
-          setHeight(clampCodePanelHeight(drag.startHeight + drag.startY - event.clientY, drag.available));
-        }}
-        onPointerUp={() => { dragRef.current = null; }}
-        onPointerCancel={() => { dragRef.current = null; }}
       />
       <div className="zorai-code-panel__bar" role="tablist" aria-label="Panel">
         {TABS.map((item) => (

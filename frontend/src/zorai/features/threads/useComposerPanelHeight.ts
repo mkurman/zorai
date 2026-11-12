@@ -1,4 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { trackPointerDrag } from "@/lib/pointerDrag";
 
 const COMPOSER_BOTTOM_GAP_PX = 8;
 const RESERVED_MESSAGES_PX = 120;
@@ -20,7 +21,6 @@ export function composerPanelMaxHeight(params: {
 export function useComposerPanelHeight(initialHeight: number, minHeight: number) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [height, setHeight] = useState(initialHeight);
-  const dragRef = useRef<{ pointerId: number; startY: number; startHeight: number; maxHeight: number } | null>(null);
 
   const maxHeight = useCallback(() => {
     const panel = panelRef.current;
@@ -53,25 +53,13 @@ export function useComposerPanelHeight(initialHeight: number, minHeight: number)
     onPointerDown: (event: PointerEvent<HTMLDivElement>) => {
       if (event.button !== 0) return;
       event.preventDefault();
-      event.currentTarget.setPointerCapture(event.pointerId);
-      dragRef.current = {
-        pointerId: event.pointerId,
-        startY: event.clientY,
-        startHeight: panelRef.current?.offsetHeight ?? height,
-        maxHeight: maxHeight(),
-      };
-    },
-    onPointerMove: (event: PointerEvent<HTMLDivElement>) => {
-      const drag = dragRef.current;
-      if (!drag || drag.pointerId !== event.pointerId) return;
-      const next = drag.startHeight + (drag.startY - event.clientY);
-      setHeight(Math.round(Math.min(drag.maxHeight, Math.max(minHeight, next))));
-    },
-    onPointerUp: () => {
-      dragRef.current = null;
-    },
-    onPointerCancel: () => {
-      dragRef.current = null;
+      const startY = event.clientY;
+      const startHeight = panelRef.current?.offsetHeight ?? height;
+      const limit = maxHeight();
+      trackPointerDrag((move) => {
+        const next = startHeight + (startY - move.clientY);
+        setHeight(Math.round(Math.min(limit, Math.max(minHeight, next))));
+      });
     },
     onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
       if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
