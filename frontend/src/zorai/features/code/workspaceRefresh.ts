@@ -26,16 +26,21 @@ export type WorkspaceRefreshBridge = Pick<ZoraiBridge,
   "workspaceGitConflicts"
 > & Required<Pick<ZoraiBridge, "workspaceListDirectory">>;
 
-export async function loadWorkspaceRootState(bridge: WorkspaceRefreshBridge, root: string): Promise<WorkspaceRootState> {
+export async function loadWorkspaceRootState(bridge: WorkspaceRefreshBridge, root: string): Promise<WorkspaceRootState & { gitError: string | null }> {
+  let gitError: string | null = null;
+  const optional = <T,>(load: Promise<T> | undefined, fallback: T): Promise<T> => (load ?? Promise.resolve(fallback)).catch((reason) => {
+    gitError ??= reason?.message ?? String(reason);
+    return fallback;
+  });
   const [entries, statuses, overview, worktrees, history, conflicts] = await Promise.all([
     bridge.workspaceListDirectory(root, ""),
-    bridge.workspaceGitStatus?.(root) ?? Promise.resolve([]),
-    bridge.workspaceGitOverview?.(root) ?? Promise.resolve(null),
-    bridge.workspaceGitListWorktrees?.(root) ?? Promise.resolve([]),
-    bridge.workspaceGitHistory?.(root, { limit: 50 }) ?? Promise.resolve([]),
-    bridge.workspaceGitConflicts?.(root) ?? Promise.resolve([]),
+    optional(bridge.workspaceGitStatus?.(root), []),
+    optional(bridge.workspaceGitOverview?.(root), null),
+    optional(bridge.workspaceGitListWorktrees?.(root), []),
+    optional(bridge.workspaceGitHistory?.(root, { limit: 50 }), []),
+    optional(bridge.workspaceGitConflicts?.(root), []),
   ]);
-  return { entries, statuses, overview, worktrees, history, conflicts };
+  return { entries, statuses, overview, worktrees, history, conflicts, gitError };
 }
 
 export async function runWorkspacePathMutation<T>(mutate: () => Promise<T>, refreshRoot: () => Promise<void>): Promise<T> {

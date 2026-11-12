@@ -24,7 +24,7 @@ export async function resolveApprovalAtSource(
 ): Promise<boolean> {
   const decision = daemonDecision(status);
 
-  if (approval.source === "local-terminal") {
+  if (approval.source === "local-terminal" || approval.source === "developer-preview") {
     return true;
   }
   if (approval.source === "terminal-bridge") {
@@ -52,6 +52,7 @@ export function shouldBypassApprovalPrompt(
   terminalSecurityLevel: string,
   managedSecurityLevel: string,
 ): boolean {
+  if (approval.source === "developer-preview") return false;
   if (approval.source === "agent-task") return managedSecurityLevel === "yolo";
   if (approval.source === "terminal-bridge" || approval.source === "local-terminal") {
     return terminalSecurityLevel === "yolo";

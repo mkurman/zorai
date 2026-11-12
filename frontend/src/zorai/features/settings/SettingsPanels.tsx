@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { RefreshButton } from "@/zorai/shell/RefreshButton";
-import { UpdateCheckButton } from "@/components/UpdatePrompt";
+import { UpdateCheckButton, useUpdateStore } from "@/components/UpdatePrompt";
+import { SetupWizard } from "@/components/SetupWizard";
+import { useAgentMissionStore } from "@/lib/agentMissionStore";
+import { previewApproval, type PreviewApprovalKind } from "./developerTools";
 import { OpenRouterProviderRoutingControls } from "@/components/settings-panel/OpenRouterProviderRoutingControls";
 import { SubAgentsTab } from "@/components/settings-panel/SubAgentsTab";
 import { ModelSelector } from "@/components/settings-panel/shared";
@@ -87,7 +90,7 @@ export const conciergeReasoningEffortOptions: Array<{ value: AgentSettings["reas
   { value: "xhigh", label: "xhigh" },
   { value: "max", label: "max" },
 ];
-const APP_VERSION = "1.0.41";
+const APP_VERSION = "1.0.42";
 const APP_AUTHOR = "Mariusz Kurman";
 const APP_GITHUB = "mkurman/zorai";
 const APP_HOMEPAGE = "zorai.app";
@@ -147,6 +150,7 @@ const SETTINGS_TAB_PANELS: Record<ZoraiSettingsTabId, () => ReactNode> = {
   interface: InterfacePanel,
   migration: MigrationTab,
   about: AboutPanel,
+  developer: DeveloperToolsPanel,
 };
 
 export function SettingsTabPanel({ activeTab }: { activeTab: ZoraiSettingsTabId }) {
@@ -1466,6 +1470,78 @@ function PluginsPanel() {
         ))}
       </Panel>
     </SettingsGrid>
+  );
+}
+
+function DeveloperToolsPanel() {
+  const [setupOpen, setSetupOpen] = useState(false);
+  const activeThreadId = useAgentStore((state) => state.threads.find((thread) => thread.id === state.activeThreadId)?.daemonThreadId ?? null);
+  const showApproval = (kind: PreviewApprovalKind) => useAgentMissionStore.getState().upsertDaemonApproval(previewApproval(kind, activeThreadId));
+
+  return (
+    <SettingsGrid>
+      <Panel section="Developer Tools" title="Fake events">
+        <SettingRow label="Setup wizard" description="Walk through first-run setup. Provider lists, model lists, and connection tests are real; no answers are saved.">
+          <button type="button" className="zorai-ghost-button" onClick={() => setSetupOpen(true)}>Open test setup</button>
+        </SettingRow>
+        <SettingRow label="Command approval" description="A routine approval with no thread, shown as the full-screen prompt.">
+          <button type="button" className="zorai-ghost-button" onClick={() => showApproval("routine")}>Show</button>
+        </SettingRow>
+        <SettingRow label="High-impact approval" description="A critical-risk approval, to check the warning variant.">
+          <button type="button" className="zorai-ghost-button" onClick={() => showApproval("high-impact")}>Show</button>
+        </SettingRow>
+        <SettingRow label="Thread approval" description={activeThreadId ? "An approval for the current thread: a banner here, the card above the composer in the thread." : "Open a thread first; this approval is attached to the current thread."}>
+          <button type="button" className="zorai-ghost-button" disabled={!activeThreadId} onClick={() => showApproval("thread")}>Show</button>
+        </SettingRow>
+        <DaemonRestartRow />
+        <SettingRow label="Update prompt" description="Pretends version 99.0.0 is available. Install waits briefly, then succeeds or fails; nothing is downloaded and restart only closes the prompt.">
+          <div className="zorai-panel__heading-actions">
+            <button type="button" className="zorai-ghost-button" onClick={() => useUpdateStore.getState().simulate("success", APP_VERSION)}>Succeeds</button>
+            <button type="button" className="zorai-ghost-button" onClick={() => useUpdateStore.getState().simulate("failure", APP_VERSION)}>Fails</button>
+          </div>
+        </SettingRow>
+      </Panel>
+      {setupOpen ? (
+        <div className="zorai-onboarding-backdrop">
+          <div className="zorai-onboarding-dialog">
+            <div className="zorai-onboarding-stack">
+              <div className="zorai-onboarding-kicker">Test run: nothing is saved</div>
+              <h2>{ZORAI_APP_NAME} Setup Assistant</h2>
+            </div>
+            <SetupWizard dryRun onClose={() => setSetupOpen(false)} />
+          </div>
+        </div>
+      ) : null}
+    </SettingsGrid>
+  );
+}
+
+function DaemonRestartRow() {
+  const [phase, setPhase] = useState<"idle" | "confirm" | "restarting" | "done" | "failed">("idle");
+  const [output, setOutput] = useState("");
+  const restart = async () => {
+    setPhase("restarting");
+    const result = await getBridge()?.appRestartDaemon?.();
+    setOutput(result?.output ?? "The desktop bridge cannot restart the daemon.");
+    setPhase(result?.ok ? "done" : "failed");
+  };
+  const description = phase === "confirm"
+    ? "Running agent tasks and terminal sessions owned by the daemon will be interrupted. Restart now?"
+    : phase === "restarting" ? "Stopping and starting the daemon…"
+    : phase === "done" ? "The daemon was restarted. The app reconnects on its own."
+    : phase === "failed" ? `Restart failed: ${output}`
+    : "Stops the background daemon and starts it again. This one is real, not a fake event.";
+  return (
+    <SettingRow label="Restart daemon" description={description}>
+      {phase === "confirm" ? (
+        <div className="zorai-panel__heading-actions">
+          <button type="button" className="zorai-ghost-button" onClick={() => setPhase("idle")}>Cancel</button>
+          <button type="button" className="zorai-ghost-button" onClick={() => void restart()}>Restart</button>
+        </div>
+      ) : (
+        <button type="button" className="zorai-ghost-button" disabled={phase === "restarting"} onClick={() => setPhase("confirm")}>{phase === "restarting" ? "Restarting…" : "Restart daemon"}</button>
+      )}
+    </SettingRow>
   );
 }
 

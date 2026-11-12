@@ -61,7 +61,7 @@ describe("workspace refresh transaction", () => {
     expect(bridge.workspaceGitOverview).toHaveBeenCalledWith("/workspace");
   });
 
-  it("propagates rejected IPC/Git responses so callers surface errors instead of stale state", async () => {
+  it("fails the load when the file list cannot be read, but reports Git failures without hiding the files", async () => {
     const failing = {
       workspaceListDirectory: vi.fn(async () => { throw new Error("workspace IPC rejected"); }),
       workspaceGitStatus: vi.fn(async () => []),
@@ -82,7 +82,10 @@ describe("workspace refresh transaction", () => {
       workspaceGitConflicts: vi.fn(async () => []),
     };
 
-    await expect(loadWorkspaceRootState(failingOverview as never, "/workspace")).rejects.toThrow("git status failed");
+    const partial = await loadWorkspaceRootState({ ...failingOverview, workspaceListDirectory: vi.fn(async () => [{ path: "a.ts", name: "a.ts", isDirectory: false }]) } as never, "/workspace");
+    expect(partial.entries).toEqual([{ path: "a.ts", name: "a.ts", isDirectory: false }]);
+    expect(partial.overview).toBeNull();
+    expect(partial.gitError).toBe("git status failed");
   });
 
   it("tolerates optional Git bridge channels being absent without failing the Explorer load", async () => {

@@ -222,6 +222,7 @@ function createWindowRuntime(options) {
                 { label: 'System Monitor', click: () => sendAppCommand('toggle-system-monitor') },
                 { label: 'Execution Canvas', click: () => sendAppCommand('toggle-canvas') },
                 { label: 'Time Travel Snapshots', click: () => sendAppCommand('toggle-time-travel') },
+                { label: 'Developer Tools', click: () => sendAppCommand('developer-tools') },
             ] },
             { label: 'Window', submenu: [
                 { label: 'Split Right', accelerator: 'Ctrl+D', click: () => sendAppCommand('split-right') },
@@ -229,7 +230,10 @@ function createWindowRuntime(options) {
                 { label: 'Zoom Pane', accelerator: 'Ctrl+Shift+Z', click: () => sendAppCommand('toggle-zoom') },
                 { type: 'separator' }, { role: 'minimize' }, { role: 'close' },
             ] },
-            { label: 'Help', submenu: [{ label: 'About', click: () => sendAppCommand('about') }] },
+            { label: 'Help', submenu: [
+                { label: 'Check for Updates…', click: () => sendAppCommand('check-updates') },
+                { label: 'About', click: () => sendAppCommand('about') },
+            ] },
         ]);
     }
 

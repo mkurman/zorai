@@ -35,10 +35,13 @@ export function UpdatePromptCard({ state, onUpdate, onRestart, onDismiss }: {
 }
 
 type ManualCheck = "idle" | "checking" | "current" | "failed";
+type UpdateSimulation = "success" | "failure";
 
 interface UpdateStore {
   state: UpdatePromptState;
   manualCheck: ManualCheck;
+  simulation: UpdateSimulation | null;
+  simulate: (outcome: UpdateSimulation, currentVersion: string) => void;
   check: (manual?: boolean) => Promise<void>;
   install: () => Promise<void>;
   restart: () => void;
@@ -48,6 +51,8 @@ interface UpdateStore {
 export const useUpdateStore = create<UpdateStore>((set, get) => ({
   state: { phase: "hidden" },
   manualCheck: "idle",
+  simulation: null,
+  simulate: (outcome, currentVersion) => set({ simulation: outcome, state: { phase: "available", currentVersion, latestVersion: "99.0.0" } }),
   check: async (manual = false) => {
     if (manual) set({ manualCheck: "checking" });
     const status = await getBridge()?.appUpdateCheck?.();
@@ -63,7 +68,10 @@ export const useUpdateStore = create<UpdateStore>((set, get) => ({
     if (current.phase === "hidden") return;
     const versions = { currentVersion: current.currentVersion, latestVersion: current.latestVersion };
     set({ state: { phase: "installing", ...versions } });
-    const result = await getBridge()?.appUpdateInstall?.();
+    const simulation = get().simulation;
+    const result = simulation
+      ? await new Promise<{ ok: boolean; output: string }>((resolve) => setTimeout(() => resolve({ ok: simulation === "success", output: "Simulated installer failure: nothing was downloaded or changed." }), 1500))
+      : await getBridge()?.appUpdateInstall?.();
     set({ state: result?.ok
       ? { phase: "installed", ...versions }
       : { phase: "failed", ...versions, output: result?.output || "The desktop bridge does not support updates." } });
@@ -71,10 +79,14 @@ export const useUpdateStore = create<UpdateStore>((set, get) => ({
   restart: () => {
     const current = get().state;
     if (current.phase === "hidden") return;
+    if (get().simulation) {
+      set({ simulation: null, state: { phase: "hidden" } });
+      return;
+    }
     set({ state: { phase: "restarting", currentVersion: current.currentVersion, latestVersion: current.latestVersion } });
     void getBridge()?.appUpdateRestart?.();
   },
-  dismiss: () => set({ state: { phase: "hidden" } }),
+  dismiss: () => set({ simulation: null, state: { phase: "hidden" } }),
 }));
 
 export function UpdatePrompt() {

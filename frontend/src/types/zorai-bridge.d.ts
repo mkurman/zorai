@@ -472,6 +472,7 @@ declare global {
         isSymbolicLink: boolean;
         sizeBytes: number | null;
         modifiedAt: number | null;
+        isGitIgnored?: boolean;
     };
 
     type ZoraiWorkspaceGitStatus = {
@@ -967,6 +968,7 @@ declare global {
         appUpdateCheck?: () => Promise<{ currentVersion: string; latestVersion: string | null; updateAvailable: boolean; error?: string }>;
         appUpdateInstall?: () => Promise<{ ok: boolean; output: string }>;
         appUpdateRestart?: () => Promise<void>;
+        appRestartDaemon?: () => Promise<{ ok: boolean; output: string }>;
         windowMenuItems?: (label: string) => Promise<Array<{ index: number; type: "normal" | "separator"; label: string; accelerator: string; enabled: boolean }>>;
         windowMenuInvoke?: (label: string, index: number) => Promise<boolean>;
         onWindowState?: (cb: (state: any) => void) => (() => void) | void;

@@ -30,7 +30,7 @@ function WorkspaceExplorerTreeNode({ entry, depth, status, onOpen, snapshot, onT
   const activate = () => entry.isDirectory ? onToggle(entry.path) : Promise.resolve(onOpen(entry.path));
 
   return <div>
-    <button type="button" role="treeitem" aria-expanded={entry.isDirectory ? expanded : undefined} aria-disabled={loading || undefined} className="zorai-workspace-tree-row" style={{ paddingLeft: 8 + depth * 14 }} onClick={() => void activate()}>
+    <button type="button" role="treeitem" aria-expanded={entry.isDirectory ? expanded : undefined} aria-disabled={loading || undefined} className={entry.isGitIgnored ? "zorai-workspace-tree-row zorai-workspace-tree-row--ignored" : "zorai-workspace-tree-row"} style={{ paddingLeft: 8 + depth * 14 }} onClick={() => void activate()}>
       {entry.isDirectory ? <span className="zorai-workspace-chevron"><CodeFolderChevron expanded={expanded} /></span> : null}
       {!entry.isDirectory ? <CodeFileIcon path={entry.path} /> : null}
       <span className="zorai-workspace-tree-name">{entry.name}</span>

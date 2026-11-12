@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultSecurityLevel, gatewayWrites, providerAuthWrites, webSearchWrites, type SetupProvider } from "./setupWizardPlan";
+import { defaultSecurityLevel, filterSetupModels, gatewayWrites, providerAuthWrites, webSearchWrites, type SetupProvider } from "./setupWizardPlan";
 
 const openai: SetupProvider = { provider_id: "openai", provider_name: "OpenAI", base_url: "https://api.openai.com/v1", model: "gpt-5", auth_source: "api_key", authenticated: false };
 
@@ -51,5 +51,24 @@ describe("GUI setup writes the same daemon config as `zorai setup`", () => {
     expect(defaultSecurityLevel("newcomer")).toBe("highest");
     expect(defaultSecurityLevel("familiar")).toBe("moderate");
     expect(defaultSecurityLevel("expert")).toBe("lowest");
+  });
+});
+
+describe("setup model search", () => {
+  const models = [
+    { id: "gpt-5", name: "GPT-5" },
+    { id: "claude-opus-5-5", name: "Claude Opus 5.5" },
+    { id: "claude-haiku-5-5", name: "Claude Haiku 5.5" },
+  ];
+
+  it("narrows long provider model lists by name or id, case-insensitively", () => {
+    expect(filterSetupModels(models, "OPUS", "").map((item) => item.id)).toEqual(["claude-opus-5-5"]);
+    expect(filterSetupModels(models, "haiku-5", "").map((item) => item.id)).toEqual(["claude-haiku-5-5"]);
+    expect(filterSetupModels(models, "  ", "")).toHaveLength(3);
+  });
+
+  it("leaves the provider default out because it is always offered as 'Keep default'", () => {
+    expect(filterSetupModels(models, "", "gpt-5").map((item) => item.id)).toEqual(["claude-opus-5-5", "claude-haiku-5-5"]);
+    expect(filterSetupModels(models, "gpt", "gpt-5")).toEqual([]);
   });
 });

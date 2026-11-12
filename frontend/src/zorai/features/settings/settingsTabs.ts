@@ -32,6 +32,7 @@ export const zoraiSettingsTabs = [
   { id: "interface", group: "system", icon: "palette", title: "Interface", description: "UI appearance, typography, and terminal shell preferences." },
   { id: "migration", group: "system", icon: "import", title: "Import", description: "Bring configuration over from Hermes or OpenClaw." },
   { id: "about", group: "system", icon: "info", title: "About", description: "Local runtime identity and shell status." },
+  { id: "developer", group: "system", icon: "bug", title: "Developer Tools", description: "Try setup, approvals, and update prompts with fake events that change nothing." },
 ] as const;
 
 export type ZoraiSettingsTabId = (typeof zoraiSettingsTabs)[number]["id"];

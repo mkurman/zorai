@@ -277,6 +277,7 @@ const bridgeApi = {
     appUpdateCheck: () => ipcRenderer.invoke('app-update-check'),
     appUpdateInstall: () => ipcRenderer.invoke('app-update-install'),
     appUpdateRestart: () => ipcRenderer.invoke('app-update-restart'),
+    appRestartDaemon: () => ipcRenderer.invoke('app-restart-daemon'),
     windowMenuItems: (label) => ipcRenderer.invoke('window-menu-items', label),
     windowMenuInvoke: (label, index) => ipcRenderer.invoke('window-menu-invoke', label, index),
     setWindowOpacity: (opacity) => ipcRenderer.invoke('window-set-opacity', opacity),

@@ -143,9 +143,10 @@ async function listWorkspaceDirectory(rootPath, relativePath = '', options = {})
     const stats = fs.statSync(resolved.absolutePath);
     if (!stats.isDirectory()) throw workspaceError('WORKSPACE_NOT_DIRECTORY', `${relativePath} is not a directory.`);
     const includeIgnored = options.includeIgnored === true;
-    const entries = await fs.promises.readdir(resolved.absolutePath, { withFileTypes: true });
+    const entries = (await fs.promises.readdir(resolved.absolutePath, { withFileTypes: true }))
+        .filter((entry) => includeIgnored || !IGNORED_DIRECTORY_NAMES.has(entry.name));
+    const gitIgnored = await gitIgnoredNames(resolved.absolutePath, entries.map((entry) => entry.name));
     return entries
-        .filter((entry) => includeIgnored || !IGNORED_DIRECTORY_NAMES.has(entry.name))
         .map((entry) => {
             const absolutePath = path.join(resolved.absolutePath, entry.name);
             let itemStats = null;
@@ -157,9 +158,16 @@ async function listWorkspaceDirectory(rootPath, relativePath = '', options = {})
                 isSymbolicLink: entry.isSymbolicLink(),
                 sizeBytes: itemStats?.size ?? null,
                 modifiedAt: itemStats?.mtimeMs ?? null,
+                isGitIgnored: gitIgnored.has(entry.name),
             };
         })
         .sort((a, b) => Number(b.isDirectory) - Number(a.isDirectory) || a.name.localeCompare(b.name));
+}
+
+async function gitIgnoredNames(directory, names) {
+    if (names.length === 0) return new Set();
+    const output = await runGitWithInput(['check-ignore', '-z', '--stdin'], directory, `${names.join('\0')}\0`).catch(() => '');
+    return new Set(output.split('\0').filter(Boolean));
 }
 
 async function statWorkspaceFile(rootPath, relativePath) {
@@ -473,6 +481,9 @@ async function workspaceGitHistory(rootPath, options = {}) {
             };
         });
     }
+    const hasCommits = await execGit(['rev-parse', '--verify', '--quiet', 'HEAD'], { cwd: gitRoot, encoding: 'utf8', timeout: 5000 })
+        .then(() => true, () => false);
+    if (!hasCommits) return [];
     const { stdout } = await execGit(['log', `-${limit}`, '--date=iso-strict', '--format=%H%x00%h%x00%an%x00%ad%x00%s'], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
     return stdout.split(/\r?\n/).filter(Boolean).map((line) => {
         const [hash, shortHash, author, date, subject] = line.split('\0');
@@ -804,10 +815,14 @@ async function workspaceGitStageMany(rootPath, relativePaths) {
     const { root, resolved } = relativeGitPathsOrThrow(rootPath, relativePaths);
     const gitRoot = await resolveGitRoot(root);
     if (!gitRoot) throw workspaceError('WORKSPACE_NOT_GIT_REPOSITORY', 'Workspace is not inside a Git repository.');
-    const gitPaths = resolved.map((entry) => path.relative(gitRoot, entry.absolutePath));
-    await execGit(['add', '--', ...gitPaths], {
-        cwd: gitRoot, encoding: 'utf8', timeout: 30000, maxBuffer: GIT_MAX_BUFFER,
-    });
+    const requested = resolved.map((entry) => path.relative(gitRoot, entry.absolutePath));
+    const ignored = await gitIgnoredNames(gitRoot, requested);
+    const gitPaths = requested.filter((gitPath) => !ignored.has(gitPath));
+    if (gitPaths.length > 0) {
+        await execGit(['add', '--', ...gitPaths], {
+            cwd: gitRoot, encoding: 'utf8', timeout: 30000, maxBuffer: GIT_MAX_BUFFER,
+        });
+    }
     return workspaceGitStatus(root);
 }
 

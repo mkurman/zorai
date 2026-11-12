@@ -92,6 +92,14 @@ function createUpdateRuntime({
             }
             return true;
         },
+        async restartDaemon() {
+            const resolved = cliPath();
+            if (!resolved) return { ok: false, output: 'The zorai CLI was not found, so the daemon cannot be restarted from here.' };
+            const stopped = await runCli(execFileImpl, resolved, ['stop']);
+            const started = await runCli(execFileImpl, resolved, ['daemon']);
+            logToFile?.(started.ok ? 'info' : 'error', 'daemon restart finished', { stop: stopped.output, start: started.output });
+            return { ok: started.ok, output: [stopped.output, started.output].filter(Boolean).join('\n') };
+        },
         async restart() {
             const resolved = cliPath();
             if (resolved) await runCli(execFileImpl, resolved, ['stop']);

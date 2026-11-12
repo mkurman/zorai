@@ -39,6 +39,14 @@ describe("Zorai window-frame app commands", () => {
     });
   });
 
+  it("opens Developer Tools from the Features menu and checks for updates from Help", () => {
+    expect(resolveZoraiAppCommand("developer-tools")).toEqual({ kind: "navigate", detail: { view: "settings", settingsTab: "developer" } });
+    expect(resolveZoraiAppCommand("check-updates")).toEqual({ kind: "check-updates" });
+    const menus = readFileSync(new URL("../../../electron/main/window-runtime.cjs", import.meta.url), "utf8");
+    expect(menus).toMatch(/label: 'Features'[\s\S]*sendAppCommand\('developer-tools'\)[\s\S]*label: 'Window'/);
+    expect(menus).toMatch(/label: 'Help'[\s\S]*sendAppCommand\('check-updates'\)/);
+  });
+
   it("leaves terminal edit commands to the terminal listener", () => {
     expect(resolveZoraiAppCommand("copy")).toEqual({ kind: "unhandled" });
     expect(resolveZoraiAppCommand("paste")).toEqual({ kind: "unhandled" });

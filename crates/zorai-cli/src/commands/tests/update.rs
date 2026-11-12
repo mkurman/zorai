@@ -68,3 +68,12 @@ fn upgrade_keep_running_flag_parses() {
         Some(Commands::Upgrade { keep_running: true })
     ));
 }
+
+#[test]
+fn desktop_daemon_restart_commands_parse() {
+    let stop = Cli::try_parse_from(["zorai", "stop"]).expect("the desktop app runs `zorai stop`");
+    assert!(matches!(stop.command, Some(Commands::Stop)));
+    let start =
+        Cli::try_parse_from(["zorai", "daemon"]).expect("the desktop app runs `zorai daemon`");
+    assert!(matches!(start.command, Some(Commands::StartDaemon)));
+}
