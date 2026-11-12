@@ -101,9 +101,20 @@ const ELEVENLABS_MODELS: ModelDefinition[] = [
 ];
 
 const GEMINI_MODELS: ModelDefinition[] = [
+  { id: "gemini-4-carbon", name: "Gemini 4 Carbon", contextWindow: 1_048_576, modalities: M_MULTI },
+  { id: "gemini-4-argon", name: "Gemini 4 Argon", contextWindow: 1_048_576, modalities: M_MULTI },
+  { id: "gemini-4-hydrogen", name: "Gemini 4 Hydrogen", contextWindow: 1_048_576, modalities: M_MULTI },
   { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash", contextWindow: 1_048_576, modalities: M_MULTI },
-  { id: "gemini-3.1-pro", name: "Gemini 3.1 Pro", contextWindow: 1_048_576, modalities: M_MULTI },
-  { id: "gemini-3.1-flash-image", name: "Gemini 3.1 Flash Image", contextWindow: 1_048_576, modalities: M_TI },
+  { id: "gemini-3.6-flash", name: "Gemini 3.6 Flash", contextWindow: 1_048_576, modalities: M_MULTI },
+  { id: "gemini-3.5-flash-lite", name: "Gemini 3.5 Flash-Lite", contextWindow: 1_048_576, modalities: M_MULTI },
+  { id: "gemini-3.1-flash-lite", name: "Gemini 3.1 Flash-Lite", contextWindow: 1_048_576, modalities: M_MULTI },
+  { id: "gemini-3.1-pro-preview", name: "Gemini 3.1 Pro", contextWindow: 1_048_576, modalities: M_MULTI },
+  { id: "gemini-3-flash-preview", name: "Gemini 3 Flash", contextWindow: 1_048_576, modalities: M_MULTI },
+  { id: "gemini-nano-banana-2.1", name: "Nano Banana 2.1", contextWindow: 1_048_576, modalities: M_TI },
+  { id: "gemini-3.1-flash-image", name: "Nano Banana 2", contextWindow: 1_048_576, modalities: M_TI },
+  { id: "gemini-3.1-flash-lite-image", name: "Nano Banana 2 Lite", contextWindow: 1_048_576, modalities: M_TI },
+  { id: "gemini-3-pro-image", name: "Nano Banana Pro", contextWindow: 1_048_576, modalities: M_TI },
+  { id: "gemini-2.5-flash-image", name: "Nano Banana", contextWindow: 1_048_576, modalities: M_TI },
 ];
 
 const DEEPSEEK_MODELS: ModelDefinition[] = [
@@ -490,7 +501,7 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
   { id: "anthropic", name: "Anthropic", defaultBaseUrl: "https://api.anthropic.com", defaultModel: "claude-opus-5-5", apiType: "anthropic", authMethod: "x-api-key", models: ANTHROPIC_MODELS, supportsModelFetch: false, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: false },
   { id: "openai", name: "OpenAI / ChatGPT", defaultBaseUrl: "https://api.openai.com/v1", defaultModel: "gpt-5.5", apiType: "openai", authMethod: "bearer", models: OPENAI_API_MODELS, supportsModelFetch: true, supportedTransports: RESPONSES_AND_CHAT_TRANSPORTS, defaultTransport: "responses", supportedAuthSources: OPENAI_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
   { id: "deepseek", name: "DeepSeek", defaultBaseUrl: "https://api.deepseek.com", defaultModel: "deepseek-v4-pro", apiType: "openai", authMethod: "bearer", models: DEEPSEEK_MODELS, supportsModelFetch: true, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: false },
-  { id: "gemini", name: "Gemini", defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta", defaultModel: "gemini-3.8-flash", apiType: "gemini", authMethod: "x-goog-api-key", models: GEMINI_MODELS, supportsModelFetch: false, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
+  { id: "gemini", name: "Gemini", defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta", defaultModel: "gemini-4-carbon", apiType: "gemini", authMethod: "x-goog-api-key", models: GEMINI_MODELS, supportsModelFetch: false, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
   { id: "xai", name: "xAI", defaultBaseUrl: "https://api.x.ai/v1", defaultModel: "grok-4.7", apiType: "openai", authMethod: "bearer", models: XAI_MODELS, supportsModelFetch: true, supportedTransports: RESPONSES_AND_CHAT_TRANSPORTS, defaultTransport: "responses", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
   { id: "muse", name: "Muse", defaultBaseUrl: "https://api.meta.ai/v1", defaultModel: "muse-spark-1.3", apiType: "openai", authMethod: "bearer", models: MUSE_MODELS, supportsModelFetch: true, supportedTransports: RESPONSES_AND_CHAT_TRANSPORTS, defaultTransport: "responses", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: true },
   { id: "kojo", name: "Kojo", defaultBaseUrl: "https://api.kojo.sh/v1", defaultModel: "kojo", apiType: "openai", authMethod: "bearer", models: KOJO_MODELS, supportsModelFetch: true, supportedTransports: CHAT_ONLY_TRANSPORTS, defaultTransport: "chat_completions", supportedAuthSources: API_KEY_ONLY_AUTH_SOURCES, defaultAuthSource: "api_key", supportsResponseContinuity: false },

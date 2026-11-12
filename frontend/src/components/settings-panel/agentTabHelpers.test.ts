@@ -131,7 +131,10 @@ test("video generation catalogs list only daemon-supported models with the daemo
     "wan2.5-t2v-preview",
     "wan2.2-t2v-plus",
   ]);
-  expect(videoGenerationModelOptions("gemini").map((model) => model.id)).toEqual(["gemini-omni-1.1-flash"]);
+  expect(videoGenerationModelOptions("gemini").map((model) => model.id)).toEqual([
+    "gemini-omni-1.2-flash",
+    "gemini-omni-1.1-flash",
+  ]);
   expect(videoGenerationModelOptions("openai")).toEqual([]);
   expect(videoGenerationModelOptions("openrouter")).toEqual([]);
 });
@@ -176,5 +179,6 @@ test("music generation offers only providers the daemon can call and defaults to
   expect(normalizeMusicGenerationModelForProviderChange("minimax", "lyria-3.5")).toBe("music-3.0");
   expect(normalizeMusicGenerationModelForProviderChange("gemini", "music_v2")).toBe("lyria-3.5");
   expect(normalizeMusicGenerationModelForProviderChange("gemini", "lyria-3-clip-preview")).toBe("lyria-3-clip-preview");
+  expect(normalizeMusicGenerationModelForProviderChange("gemini", "lyria-3-pro-preview")).toBe("lyria-3-pro-preview");
   expect(normalizeMusicGenerationModelForProviderChange("", "music_v2")).toBe("");
 });

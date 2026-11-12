@@ -51,7 +51,7 @@ pub(super) fn provider_specific_default_video_model(provider_id: &str) -> Option
     match video_generation_route(provider_id)? {
         VideoGenerationRoute::MiniMax => Some("MiniMax-Hailuo-2.3"),
         VideoGenerationRoute::DashScopeWan => Some("wan2.7-t2v"),
-        VideoGenerationRoute::GeminiOmni => Some("gemini-omni-1.1-flash"),
+        VideoGenerationRoute::GeminiOmni => Some("gemini-omni-1.2-flash"),
         VideoGenerationRoute::OpenRouter => None,
     }
 }
@@ -567,8 +567,12 @@ async fn persist_generated_video_for_thread(
     include_prompt_message: bool,
 ) -> Result<String> {
     let payload: serde_json::Value = serde_json::from_str(result_json)?;
-    let provider = video_arg_str(&payload, "provider").unwrap_or("unknown").to_string();
-    let model = video_arg_str(&payload, "model").unwrap_or("unknown").to_string();
+    let provider = video_arg_str(&payload, "provider")
+        .unwrap_or("unknown")
+        .to_string();
+    let model = video_arg_str(&payload, "model")
+        .unwrap_or("unknown")
+        .to_string();
     let mime_type = video_arg_str(&payload, "mime_type")
         .unwrap_or(DEFAULT_VIDEO_MIME_TYPE)
         .to_string();
@@ -661,12 +665,26 @@ pub(crate) async fn execute_generate_video(
 
     let generated = match route {
         VideoGenerationRoute::OpenRouter => {
-            generate_openrouter_video(&client, &provider_id, &provider_config, args, prompt, deadline)
-                .await?
+            generate_openrouter_video(
+                &client,
+                &provider_id,
+                &provider_config,
+                args,
+                prompt,
+                deadline,
+            )
+            .await?
         }
         VideoGenerationRoute::MiniMax => {
-            generate_minimax_video(&client, &provider_id, &provider_config, args, prompt, deadline)
-                .await?
+            generate_minimax_video(
+                &client,
+                &provider_id,
+                &provider_config,
+                args,
+                prompt,
+                deadline,
+            )
+            .await?
         }
         VideoGenerationRoute::DashScopeWan => {
             generate_dashscope_wan_video(
@@ -904,7 +922,9 @@ mod tests {
         let result: serde_json::Value = serde_json::from_str(result).expect("result is JSON");
         let path = result["path"].as_str().expect("result has a saved path");
         assert!(
-            path.contains("/threads/") && path.contains("/artifacts/media/") && path.ends_with(".mp4"),
+            path.contains("/threads/")
+                && path.contains("/artifacts/media/")
+                && path.ends_with(".mp4"),
             "video should be saved as an mp4 in the thread media dir, got {path}"
         );
         assert_eq!(tokio::fs::read(path).await.unwrap(), expected_bytes);
@@ -933,7 +953,10 @@ mod tests {
     async fn openrouter_video_job_is_polled_until_complete_then_saved_into_the_thread() {
         let root = tempfile::tempdir().unwrap();
         let (base, seen) = spawn_video_provider_mock(vec![
-            json_response("/v1/videos", serde_json::json!({ "id": "job-1", "status": "pending" })),
+            json_response(
+                "/v1/videos",
+                serde_json::json!({ "id": "job-1", "status": "pending" }),
+            ),
             json_response(
                 "/v1/videos/job-1",
                 serde_json::json!({ "id": "job-1", "status": "in_progress" }),
@@ -974,7 +997,9 @@ mod tests {
         assert!(requests[0].contains("\"model\":\"acme/video-1\""));
         assert!(requests[0].contains("\"duration\":4"));
         assert!(
-            requests[3].to_ascii_lowercase().contains("authorization: bearer sk-video"),
+            requests[3]
+                .to_ascii_lowercase()
+                .contains("authorization: bearer sk-video"),
             "the content URL is on the provider origin, so the download must be authenticated"
         );
     }
@@ -1143,8 +1168,10 @@ mod tests {
 
         assert_thread_shows_generated_video(&engine, &thread_id, &result, b"omni-mp4").await;
         let create = seen.lock().unwrap()[0].clone();
-        assert!(create.to_ascii_lowercase().contains("x-goog-api-key: sk-video"));
-        assert!(create.contains("\"model\":\"gemini-omni-1.1-flash\""));
+        assert!(create
+            .to_ascii_lowercase()
+            .contains("x-goog-api-key: sk-video"));
+        assert!(create.contains("\"model\":\"gemini-omni-1.2-flash\""));
         assert!(create.contains("\"resolution\":\"720p\""));
     }
 
@@ -1168,7 +1195,12 @@ mod tests {
         )
         .await
         .expect_err("openai has no video API");
-        assert!(error.to_string().contains("does not support video generation"), "{error}");
+        assert!(
+            error
+                .to_string()
+                .contains("does not support video generation"),
+            "{error}"
+        );
         assert!(seen.lock().unwrap().is_empty());
     }
 
@@ -1192,7 +1224,10 @@ mod tests {
         )
         .await
         .expect_err("openrouter has no default video model");
-        assert!(error.to_string().contains("no video generation model"), "{error}");
+        assert!(
+            error.to_string().contains("no video generation model"),
+            "{error}"
+        );
         assert!(seen.lock().unwrap().is_empty());
     }
 
@@ -1225,7 +1260,10 @@ mod tests {
             "output": { "task_status": "FAILED", "code": "DataInspectionFailed", "message": "unsafe" }
         }))
         .unwrap_err();
-        assert_eq!(wan.to_string(), "DashScope error DataInspectionFailed: unsafe");
+        assert_eq!(
+            wan.to_string(),
+            "DashScope error DataInspectionFailed: unsafe"
+        );
     }
 
     #[test]

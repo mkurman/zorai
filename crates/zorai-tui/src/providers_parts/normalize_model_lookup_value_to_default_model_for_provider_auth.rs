@@ -503,7 +503,7 @@ pub const PROVIDERS: &[ProviderDef] = &[
         id: PROVIDER_ID_GEMINI,
         name: "Gemini",
         default_base_url: "https://generativelanguage.googleapis.com/v1beta",
-        default_model: "gemini-3.8-flash",
+        default_model: "gemini-4-carbon",
         supported_transports: CHAT_ONLY_TRANSPORTS,
         default_transport: "chat_completions",
         supported_auth_sources: API_KEY_ONLY_AUTH_SOURCES,

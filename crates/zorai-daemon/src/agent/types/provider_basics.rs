@@ -325,20 +325,86 @@ pub const CURSOR_MODELS: &[ModelDefinition] = &[
 
 pub const GEMINI_MODELS: &[ModelDefinition] = &[
     ModelDefinition {
+        id: "gemini-4-carbon",
+        name: "Gemini 4 Carbon",
+        context_window: 1_048_576,
+        modalities: MULTIMODAL,
+    },
+    ModelDefinition {
+        id: "gemini-4-argon",
+        name: "Gemini 4 Argon",
+        context_window: 1_048_576,
+        modalities: MULTIMODAL,
+    },
+    ModelDefinition {
+        id: "gemini-4-hydrogen",
+        name: "Gemini 4 Hydrogen",
+        context_window: 1_048_576,
+        modalities: MULTIMODAL,
+    },
+    ModelDefinition {
         id: "gemini-3.8-flash",
         name: "Gemini 3.8 Flash",
         context_window: 1_048_576,
         modalities: MULTIMODAL,
     },
     ModelDefinition {
-        id: "gemini-3.1-pro",
+        id: "gemini-3.6-flash",
+        name: "Gemini 3.6 Flash",
+        context_window: 1_048_576,
+        modalities: MULTIMODAL,
+    },
+    ModelDefinition {
+        id: "gemini-3.5-flash-lite",
+        name: "Gemini 3.5 Flash-Lite",
+        context_window: 1_048_576,
+        modalities: MULTIMODAL,
+    },
+    ModelDefinition {
+        id: "gemini-3.1-flash-lite",
+        name: "Gemini 3.1 Flash-Lite",
+        context_window: 1_048_576,
+        modalities: MULTIMODAL,
+    },
+    ModelDefinition {
+        id: "gemini-3.1-pro-preview",
         name: "Gemini 3.1 Pro",
         context_window: 1_048_576,
         modalities: MULTIMODAL,
     },
     ModelDefinition {
+        id: "gemini-3-flash-preview",
+        name: "Gemini 3 Flash",
+        context_window: 1_048_576,
+        modalities: MULTIMODAL,
+    },
+    ModelDefinition {
+        id: "gemini-nano-banana-2.1",
+        name: "Nano Banana 2.1",
+        context_window: 1_048_576,
+        modalities: TEXT_IMAGE,
+    },
+    ModelDefinition {
         id: "gemini-3.1-flash-image",
-        name: "Gemini 3.1 Flash Image",
+        name: "Nano Banana 2",
+        context_window: 1_048_576,
+        modalities: TEXT_IMAGE,
+    },
+    ModelDefinition {
+        id: "gemini-3.1-flash-lite-image",
+        name: "Nano Banana 2 Lite",
+        context_window: 1_048_576,
+        modalities: TEXT_IMAGE,
+    },
+    ModelDefinition {
+        id: "gemini-3-pro-image",
+        name: "Nano Banana Pro",
+        context_window: 1_048_576,
+        modalities: TEXT_IMAGE,
+    },
+    ModelDefinition {
+        id: "gemini-2.5-flash-image",
+        name: "Nano Banana",
         context_window: 1_048_576,
         modalities: TEXT_IMAGE,
     },
