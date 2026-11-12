@@ -15,12 +15,19 @@ vi.mock("react", async () => {
     useRef: (value: unknown) => ({ current: value }),
     useState: (initial: unknown) => {
       const index = hookState.call++;
-      return [hookState.values.has(index) ? hookState.values.get(index) : index === 0 ? true : initial, vi.fn()];
+      return [hookState.values.has(index) ? hookState.values.get(index) : initial, vi.fn()];
     },
   };
 });
 
 vi.mock("@/lib/useAgentDisplayName", () => ({ useAgentDisplayName: () => (nameOrId: string) => nameOrId }));
+vi.mock("./threadSidePanel", () => {
+  const state = { open: "handoff", toggle: vi.fn(), show: vi.fn(), close: vi.fn() };
+  return {
+    useThreadPanelStore: (selector: (value: typeof state) => unknown) => selector(state),
+    ThreadSidePanel: ({ children }: { children: ReactNode }) => children,
+  };
+});
 
 import { ThreadHandoffControl } from "./ThreadHandoffControl";
 
@@ -83,8 +90,8 @@ describe("ThreadHandoffControl", () => {
   });
 
   it("uses advanced reason and summary overrides", async () => {
-    hookState.values.set(2, "Escalate for specialist review");
-    hookState.values.set(3, "Continue with a security audit");
+    hookState.values.set(1, "Escalate for specialist review");
+    hookState.values.set(2, "Continue with a security audit");
     const { tree, onPush } = renderControl();
     const button = findElements(tree, "button").find((entry) => elementText(entry) === "Hand off");
 

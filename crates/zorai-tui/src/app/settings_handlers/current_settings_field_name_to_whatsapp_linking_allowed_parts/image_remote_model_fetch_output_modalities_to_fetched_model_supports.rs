@@ -197,7 +197,10 @@ impl TuiModel {
                 model("wan2.5-t2v-preview", "Wan 2.5 T2V Preview"),
                 model("wan2.2-t2v-plus", "Wan 2.2 T2V Plus"),
             ],
-            PROVIDER_ID_GEMINI => vec![model("gemini-omni-1.1-flash", "Gemini Omni 1.1 Flash")],
+            PROVIDER_ID_GEMINI => vec![
+                model("gemini-omni-1.2-flash", "Gemini Omni 1.2 Flash"),
+                model("gemini-omni-1.1-flash", "Gemini Omni 1.1 Flash"),
+            ],
             _ => Vec::new(),
         }
     }
@@ -229,6 +232,7 @@ impl TuiModel {
             PROVIDER_ID_GEMINI => vec![
                 model("lyria-3.5", "Lyria 3.5 (full songs)"),
                 model("lyria-3-clip-preview", "Lyria 3 Clip (30 s)"),
+                model("lyria-3-pro-preview", "Lyria 3 Pro (full songs)"),
             ],
             PROVIDER_ID_MINIMAX | PROVIDER_ID_MINIMAX_CODING_PLAN => vec![
                 model("music-3.0", "MiniMax Music 3.0"),

@@ -37,9 +37,15 @@ import { ToolsContext, ToolsRail, ToolsView } from "../features/tools/ToolsView"
 import { getDefaultZoraiTool, type ZoraiToolId } from "../features/tools/tools";
 import { WorkspacesRail, WorkspacesView } from "../features/workspaces/WorkspacesView";
 import { SkillsRail, SkillsView } from "../features/skills/SkillsView";
-import { contextPanelLabels, getDefaultZoraiView, LAST_ZORAI_VIEW_STORAGE_KEY, normalizeZoraiToolNavigation, zoraiNavItems, type ZoraiViewId } from "./navigation";
+import { contextPanelLabels, getDefaultZoraiView, LAST_ZORAI_VIEW_STORAGE_KEY, normalizeZoraiToolNavigation, RAIL_ITEM_IDS, zoraiNavItems, type ZoraiNavItem, type ZoraiViewId } from "./navigation";
+import { visibleItemIds } from "@/lib/itemLayout";
+import { useAppShortcuts } from "@/zorai/features/shortcuts/useAppShortcuts";
+import { openPinnedPlugin, PluginCommandHost, PluginIcon, PluginsRail, PluginsView } from "@/zorai/features/plugins/PluginsView";
+import { refreshPluginUi, usePluginUiStore } from "@/zorai/features/plugins/pluginUiStore";
+import { pinnedRailIds, pluginNameFromRailId, usePluginPrefsStore } from "@/zorai/features/plugins/pluginPrefsStore";
 import { ZoraiContextPanel } from "./ZoraiContextPanel";
 import { ZoraiBrandMark, ZoraiHamburgerIcon, ZoraiNavIcon } from "./ZoraiIcons";
+import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import { ZORAI_NAVIGATE_EVENT, type ZoraiNavigateDetail, type ZoraiReturnTarget } from "./zoraiNavigationEvents";
 import { useSettingsStore } from "@/lib/settingsStore";
 import { chatMaxWidth } from "@/lib/uiInterfacePrefs";
@@ -53,6 +59,8 @@ type GoalOpenRequest = {
   id: string;
   nonce: number;
 };
+
+type RailEntry = { kind: "view"; id: string; item: ZoraiNavItem } | { kind: "plugin"; id: string; plugin: ZoraiPluginUiManifest };
 
 const COMPACT_SHELL_QUERY = "(max-width: 900px)";
 
@@ -73,10 +81,8 @@ export function ZoraiShell() {
   const chatWidth = useSettingsStore((state) => state.settings.chatWidth);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
   const [systemPrefersDarkScheme, setSystemPrefersDarkScheme] = useState(systemPrefersDark);
-  const primaryNavItems = useMemo(
-    () => zoraiNavItems.filter((item) => item.id !== "settings"),
-    [],
-  );
+  const railLayout = useSettingsStore((state) => state.settings.railLayout);
+
   const settingsNavItem = useMemo(
     () => zoraiNavItems.find((item) => item.id === "settings") ?? zoraiNavItems[zoraiNavItems.length - 1],
     [],
@@ -97,16 +103,17 @@ export function ZoraiShell() {
     return () => media.removeEventListener("change", sync);
   }, []);
   const [activeDatabaseTable, setActiveDatabaseTable] = useState<string | null>(null);
-  const [railOpen, setRailOpen] = useState(true);
+  const railOpen = useShellLayoutStore((state) => state.railOpen);
+  const setRailOpen = useShellLayoutStore((state) => state.setRailOpen);
   const [compactShell, setCompactShell] = useState(readCompactShell);
   const wasCompactShell = useRef(false);
-  const [contextOpen, setContextOpen] = useState(false);
+  const contextOpen = useShellLayoutStore((state) => state.contextOpen);
+  const setContextOpen = useShellLayoutStore((state) => state.setContextOpen);
   const [viewportWidth, setViewportWidth] = useState(() => typeof window === "undefined" ? 1600 : window.innerWidth);
   const explorerPreferredWidth = useCodeLayoutStore((state) => state.explorerPreferredWidth);
   const agentPreferredWidth = useCodeLayoutStore((state) => state.agentPreferredWidth);
   const setExplorerPreferredWidth = useCodeLayoutStore((state) => state.setExplorerPreferredWidth);
   const setAgentPreferredWidth = useCodeLayoutStore((state) => state.setAgentPreferredWidth);
-  const codeAgentOpenedRef = useRef(false);
   const [returnTarget, setReturnTarget] = useState<ZoraiReturnTarget | null>(null);
   const [goalOpenRequest, setGoalOpenRequest] = useState<GoalOpenRequest | null>(null);
   const activeItem = useMemo(
@@ -114,6 +121,21 @@ export function ZoraiShell() {
     [activeView],
   );
   const contextLabels = contextPanelLabels(activeView);
+
+  const runtime = useAgentChatPanelRuntime();
+  const threadsViewThreadRef = useRef<string | null>(null);
+  const previousViewRef = useRef(activeView);
+  useEffect(() => {
+    const previous = previousViewRef.current;
+    previousViewRef.current = activeView;
+    if (activeView === "code") return;
+    const remembered = threadsViewThreadRef.current;
+    if (previous === "code" && remembered && remembered !== runtime.activeThreadId && runtime.threads.some((thread) => thread.id === remembered)) {
+      runtime.openThread(remembered);
+      return;
+    }
+    threadsViewThreadRef.current = runtime.activeThreadId;
+  }, [activeView, runtime.activeThreadId]);
 
   useEffect(() => {
     const onNavigate = (event: Event) => {
@@ -165,11 +187,18 @@ export function ZoraiShell() {
     };
   }, []);
 
-  useEffect(() => {
-    if (activeView !== "code" || codeAgentOpenedRef.current) return;
-    codeAgentOpenedRef.current = true;
-    setContextOpen(true);
+  const contextBoundaryViewRef = useRef(activeView);
+  useLayoutEffect(() => {
+    const previous = contextBoundaryViewRef.current;
+    contextBoundaryViewRef.current = activeView;
+    if ((previous === "code") !== (activeView === "code")) useShellLayoutStore.getState().crossCodeBoundary(activeView === "code");
   }, [activeView]);
+
+  useEffect(() => {
+    if (activeView !== "code" || useShellLayoutStore.getState().codeContextAutoOpened) return;
+    useShellLayoutStore.getState().markCodeContextAutoOpened();
+    setContextOpen(true);
+  }, [activeView, setContextOpen]);
 
   const effectiveCodeWidths = useMemo(() => resolveCodePanelWidths({
     viewportWidth,
@@ -215,7 +244,23 @@ export function ZoraiShell() {
 
   useEffect(() => {
     if (typeof localStorage !== "undefined") localStorage.setItem(LAST_ZORAI_VIEW_STORAGE_KEY, activeView);
+    if (activeView !== "settings") useShellLayoutStore.setState({ lastWorkView: activeView });
   }, [activeView]);
+
+  useAppShortcuts({ onToggleNightMode: toggleNightMode });
+  useEffect(() => { void refreshPluginUi(); }, []);
+  const focusPlugin = usePluginUiStore((state) => state.focusPlugin);
+  const pinnedNames = usePluginPrefsStore((state) => state.pinned);
+  const pluginManifests = usePluginUiStore((state) => state.plugins);
+  const railEntries = useMemo(() => visibleItemIds([...RAIL_ITEM_IDS, ...pinnedRailIds(pinnedNames)], railLayout).flatMap((id): RailEntry[] => {
+    const pluginName = pluginNameFromRailId(id);
+    if (pluginName) {
+      const plugin = pluginManifests.find((entry) => entry.name === pluginName);
+      return plugin ? [{ kind: "plugin" as const, id, plugin }] : [];
+    }
+    const item = zoraiNavItems.find((entry) => entry.id === id);
+    return item ? [{ kind: "view" as const, id, item }] : [];
+  }), [pinnedNames, pluginManifests, railLayout]);
 
   const selectView = (view: ZoraiViewId) => {
     setActiveView(view);
@@ -255,19 +300,36 @@ export function ZoraiShell() {
             <ZoraiBrandMark />
           </div>
           <div className="zorai-global-items">
-            {primaryNavItems.map((item) => (
+            {railEntries.map((entry) => entry.kind === "view" ? (
               <button
                 type="button"
-                key={item.id}
+                key={entry.id}
                 className={[
                   "zorai-global-item",
-                  item.id === activeView ? "zorai-global-item--active" : "",
+                  entry.item.id === activeView && !(entry.item.id === "plugins" && focusPlugin) ? "zorai-global-item--active" : "",
                 ].filter(Boolean).join(" ")}
-                onClick={() => selectView(item.id)}
-                title={item.label}
-                aria-label={item.label}
+                onClick={() => {
+                  if (entry.item.id === "plugins") usePluginUiStore.setState({ focusPlugin: null });
+                  selectView(entry.item.id);
+                }}
+                title={entry.item.label}
+                aria-label={entry.item.label}
               >
-                <ZoraiNavIcon icon={item.icon} />
+                <ZoraiNavIcon icon={entry.item.icon} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                key={entry.id}
+                className={["zorai-global-item", "zorai-global-item--plugin", activeView === "plugins" && focusPlugin === entry.plugin.name ? "zorai-global-item--active" : ""].filter(Boolean).join(" ")}
+                onClick={() => {
+                  openPinnedPlugin(entry.plugin.name);
+                  selectView("plugins");
+                }}
+                title={entry.plugin.name}
+                aria-label={`${entry.plugin.name} plugin`}
+              >
+                <PluginIcon plugin={entry.plugin} size={22} />
               </button>
             ))}
             <div className="zorai-global-items-footer">
@@ -345,6 +407,7 @@ export function ZoraiShell() {
           <div className="zorai-main-body">{renderMain(activeView, activeTool, setActiveTool, activeSettingsTab, setActiveSettingsTab, goalOpenRequest, activeDatabaseTable, selectDatabaseTable, returnTarget, returnToTarget)}</div>
           <OperatorQuestionDock />
         </main>
+        <PluginCommandHost />
 
         {activeView === "code" && contextOpen ? (
           <CodeResizeHandle
@@ -399,6 +462,7 @@ function renderRail(
   if (view === "tools") return <ToolsRail activeTool={activeTool} onSelectTool={setActiveTool} />;
   if (view === "skills") return <SkillsRail />;
   if (view === "activity") return <ActivityRail />;
+  if (view === "plugins") return <PluginsRail />;
   return <SettingsRail activeTab={activeSettingsTab} onSelectTab={setActiveSettingsTab} />;
 }
 
@@ -422,6 +486,7 @@ function renderMain(
   if (view === "tools") return <ToolsView activeTool={activeTool} onSelectTool={setActiveTool} />;
   if (view === "skills") return <SkillsView />;
   if (view === "activity") return <ActivityView />;
+  if (view === "plugins") return <PluginsView />;
   return <SettingsView activeTab={activeSettingsTab} onSelectTab={setActiveSettingsTab} />;
 }
 

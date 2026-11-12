@@ -329,5 +329,40 @@
       "star_message"
     ],
     "readiness_endpoint": "check_health"
+  },
+  "ui": {
+    "commands": [
+      {
+        "id": "search",
+        "title": "Search mail",
+        "endpoint": "search_messages",
+        "inputs": [
+          {
+            "key": "query",
+            "label": "Search",
+            "placeholder": "from:alice has:attachment"
+          }
+        ],
+        "output": "panel",
+        "placement": [
+          "palette"
+        ]
+      }
+    ],
+    "panels": [
+      {
+        "id": "inbox",
+        "title": "Inbox",
+        "endpoint": "list_inbox",
+        "params": {
+          "max_results": "20"
+        }
+      },
+      {
+        "id": "labels",
+        "title": "Labels",
+        "endpoint": "list_labels"
+      }
+    ]
   }
 }

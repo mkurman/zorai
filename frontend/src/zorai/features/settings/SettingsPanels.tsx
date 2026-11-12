@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { RefreshButton } from "@/zorai/shell/RefreshButton";
+import { matchesPluginSearch, sortPluginsByFavorite, usePluginPrefsStore } from "@/zorai/features/plugins/pluginPrefsStore";
+import { refreshPluginUi } from "@/zorai/features/plugins/pluginUiStore";
+import { ShortcutsPanel } from "@/zorai/features/shortcuts/ShortcutsPanel";
 import { UpdateCheckButton, useUpdateStore } from "@/components/UpdatePrompt";
 import { SetupWizard } from "@/components/SetupWizard";
 import { useAgentMissionStore } from "@/lib/agentMissionStore";
@@ -90,7 +93,7 @@ export const conciergeReasoningEffortOptions: Array<{ value: AgentSettings["reas
   { value: "xhigh", label: "xhigh" },
   { value: "max", label: "max" },
 ];
-const APP_VERSION = "1.0.42";
+const APP_VERSION = "1.0.43";
 const APP_AUTHOR = "Mariusz Kurman";
 const APP_GITHUB = "mkurman/zorai";
 const APP_HOMEPAGE = "zorai.app";
@@ -148,6 +151,7 @@ const SETTINGS_TAB_PANELS: Record<ZoraiSettingsTabId, () => ReactNode> = {
   storage: StoragePanel,
   plugins: PluginsPanel,
   interface: InterfacePanel,
+  shortcuts: ShortcutsPanel,
   migration: MigrationTab,
   about: AboutPanel,
   developer: DeveloperToolsPanel,
@@ -1408,15 +1412,71 @@ function PluginsPanel() {
   const settingsValues = usePluginStore((state) => state.settingsValues);
   const selectPlugin = usePluginStore((state) => state.selectPlugin);
   const updateSetting = usePluginStore((state) => state.updateSetting);
-  const installPlugin = usePluginStore((state) => state.installPlugin);
-  const uninstallPlugin = usePluginStore((state) => state.uninstallPlugin);
   const testConnection = usePluginStore((state) => state.testConnection);
   const startOAuth = usePluginStore((state) => state.startOAuth);
   const testResult = usePluginStore((state) => state.testResult);
   const actionMessage = usePluginStore((state) => state.actionMessage);
-  const [newPluginDir, setNewPluginDir] = useState("");
-  const [newPluginSource, setNewPluginSource] = useState("");
   const pluginUpdateSettings = updateSetting;
+  const bridge = getBridge();
+  const [installSpec, setInstallSpec] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [busyTitle, setBusyTitle] = useState("");
+  const [cliResult, setCliResult] = useState<{ ok: boolean; title: string; detail: string; output: string } | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+  const [pluginQuery, setPluginQuery] = useState("");
+  const favoritePlugins = usePluginPrefsStore((state) => state.favorites);
+  const listedPlugins = sortPluginsByFavorite(plugins, favoritePlugins).filter((plugin) => matchesPluginSearch(plugin, pluginQuery));
+  const [updateSources, setUpdateSources] = useState<Record<string, { spec?: string; reason?: string }>>({});
+  const sourceKey = plugins.map((plugin) => `${plugin.name}=${plugin.install_source}`).join("|");
+
+  useEffect(() => {
+    let active = true;
+    if (!bridge?.pluginUpdateSource) return;
+    void Promise.all(plugins.map(async (plugin) => [plugin.name, await bridge.pluginUpdateSource!(plugin.install_source)] as const))
+      .then((entries) => { if (active) setUpdateSources(Object.fromEntries(entries)); });
+    return () => { active = false; };
+  }, [sourceKey]);
+
+  const runCli = async (key: string, title: string, action: () => Promise<{ ok: boolean; output: string }>, progress = "Working…", failure = `${title} failed`) => {
+    const before = new Map(usePluginStore.getState().plugins.map((plugin) => [plugin.name, plugin.version]));
+    setBusy(key);
+    setBusyTitle(progress);
+    setCliResult(null);
+    try {
+      const result = await action();
+      await fetchPlugins();
+      await refreshPluginUi();
+      const after = usePluginStore.getState().plugins;
+      const changes = [
+        ...after.filter((plugin) => before.has(plugin.name) && before.get(plugin.name) !== plugin.version).map((plugin) => `${plugin.name} ${before.get(plugin.name)} → ${plugin.version}`),
+        ...after.filter((plugin) => !before.has(plugin.name)).map((plugin) => `added ${plugin.name} ${plugin.version}`),
+      ];
+      const detail = changes.length ? changes.join(", ") : key.startsWith("update") ? "Already up to date." : "";
+      setCliResult({ ok: result.ok, title: result.ok ? title : failure, detail, output: result.output });
+      return result.ok;
+    } catch (reason) {
+      setCliResult({ ok: false, title: failure, detail: "", output: reason instanceof Error ? reason.message : String(reason) });
+      return false;
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const updatablePlugins = plugins.filter((plugin) => updateSources[plugin.name]?.spec);
+  const updateAll = () => runCli("update-all", "Plugins updated", async () => {
+    const outputs: string[] = [];
+    let ok = true;
+    const seen = new Set<string>();
+    for (const plugin of updatablePlugins) {
+      const spec = updateSources[plugin.name]?.spec ?? "";
+      if (seen.has(spec)) continue;
+      seen.add(spec);
+      const result = await bridge!.pluginCliUpdate!(plugin.install_source);
+      ok = ok && result.ok;
+      outputs.push(result.output);
+    }
+    return { ok, output: outputs.join("\n") };
+  }, "Updating plugins…", "Some plugin updates failed");
 
   useEffect(() => {
     if (plugins.length === 0 && !loading) void fetchPlugins();
@@ -1427,18 +1487,20 @@ function PluginsPanel() {
     const valueFor = (key: string) => settingsValues.find((entry) => entry.key === key)?.value ?? "";
     return (
       <SettingsGrid>
-        <Panel section="Plugins" title={selectedPlugin}>
-          <button type="button" className="zorai-ghost-button" onClick={() => void selectPlugin(null)}>Back</button>
+        <Panel section="Plugins" title={selectedPlugin} actions={<button type="button" className="zorai-ghost-button zorai-plugin-back" onClick={() => void selectPlugin(null)}>← All plugins</button>}>
+          {plugin ? <p className="zorai-plugin-detail__meta">v{plugin.version} · {plugin.endpoint_count} endpoints · auth {plugin.auth_status.replace(/_/g, " ")}{plugin.description ? ` · ${plugin.description}` : ""}</p> : null}
           {settingsSchema.length === 0 ? <p className="zorai-empty-state">No editable plugin settings.</p> : settingsSchema.map((field) => (
             <SettingRow key={field.key} label={`${field.label}${field.required ? " *" : ""}`} description={field.description ?? field.key}>
               <input className="zorai-input" type={field.secret ? "password" : "text"} defaultValue={valueFor(field.key)} onBlur={(event) => void pluginUpdateSettings(selectedPlugin, field.key, event.target.value, field.secret)} />
             </SettingRow>
           ))}
-          {plugin?.has_api ? <button type="button" className="zorai-ghost-button" onClick={() => void testConnection(selectedPlugin)}>Test Connection</button> : null}
-          {plugin?.has_auth ? <button type="button" className="zorai-ghost-button" onClick={() => void startOAuth(selectedPlugin)}>{plugin.auth_status === "not_configured" ? "Connect" : "Reconnect"}</button> : null}
-          <button type="button" className="zorai-ghost-button" onClick={() => void uninstallPlugin(selectedPlugin)}>Remove plugin</button>
-          {testResult ? <p className="zorai-empty-state">{testResult.success ? "OK" : "Failed"}: {testResult.message}</p> : null}
-          {actionMessage ? <p className="zorai-empty-state">{actionMessage}</p> : null}
+          <div className="zorai-plugin-detail__actions">
+            {plugin?.has_api ? <button type="button" className="zorai-ghost-button" onClick={() => void testConnection(selectedPlugin)}>Test connection</button> : null}
+            {plugin?.has_auth ? <button type="button" className="zorai-ghost-button" onClick={() => void startOAuth(selectedPlugin)}>{plugin.auth_status === "not_configured" ? "Connect account" : "Reconnect account"}</button> : null}
+            <button type="button" className="zorai-ghost-button zorai-plugin-detail__remove" onClick={() => { setConfirmRemove(selectedPlugin); void selectPlugin(null); }}>Remove plugin…</button>
+          </div>
+          {testResult ? <div className={testResult.success ? "zorai-theme-notice" : "zorai-theme-errors"} role="status"><span>{testResult.success ? "Connection works" : "Connection failed"}: {testResult.message}</span></div> : null}
+          {actionMessage ? <div className="zorai-theme-notice" role="status"><span>{actionMessage}</span></div> : null}
         </Panel>
       </SettingsGrid>
     );
@@ -1447,27 +1509,94 @@ function PluginsPanel() {
   return (
     <SettingsGrid>
       <Panel section="Plugins" title="Installed extensions" actions={<RefreshButton busy={loading} label={loading ? "Refreshing..." : "Refresh plugins"} onClick={() => void fetchPlugins()} />}>
-        <SettingRow label="Add plugin" description="Register an installed plugin directory with the daemon.">
-          <div className="zorai-inline-fields">
-            <input className="zorai-input" value={newPluginDir} onChange={(event) => setNewPluginDir(event.target.value)} placeholder="dir-name" />
-            <input className="zorai-input" value={newPluginSource} onChange={(event) => setNewPluginSource(event.target.value)} placeholder="install source" />
-            <button type="button" className="zorai-ghost-button" onClick={() => {
-              void installPlugin(newPluginDir, newPluginSource).then(() => {
-                setNewPluginDir("");
-                setNewPluginSource("");
-              });
-            }}>Add</button>
-          </div>
+        <SettingRow label="Install plugin" description="An npm package name, a GitHub address (github:owner/repo or a github.com link), or a folder that contains a plugin.json. Packages with several plugins install all of them.">
+          {bridge?.pluginCliInstall ? (
+            <form className="zorai-remote-theme__form" onSubmit={(event) => {
+              event.preventDefault();
+              const spec = installSpec.trim();
+              if (!spec) return;
+              void runCli("install", "Plugin installed", () => bridge.pluginCliInstall!(spec), `Installing ${spec}…`, "Install failed").then((ok) => { if (ok) setInstallSpec(""); });
+            }}>
+              <input className="zorai-input" value={installSpec} disabled={busy !== null} onChange={(event) => setInstallSpec(event.target.value)} placeholder="zorai-plugin-jira or github:owner/repo" spellCheck={false} />
+              <button type="button" className="zorai-ghost-button" disabled={busy !== null} onClick={() => void bridge.pluginPickFolder?.().then((folder) => { if (folder) setInstallSpec(folder); })}>Folder…</button>
+              <button type="submit" className="zorai-ghost-button" disabled={busy !== null || !installSpec.trim()}>{busy === "install" ? "Installing…" : "Install"}</button>
+            </form>
+          ) : <span className="zorai-empty-state">Installing plugins needs the desktop app.</span>}
         </SettingRow>
+        {updatablePlugins.length > 1 ? (
+          <SettingRow label="Update all" description={`Reinstall ${updatablePlugins.length} plugins from where they were installed. Enabled or disabled state and settings are kept.`}>
+            <button type="button" className="zorai-ghost-button" disabled={busy !== null} onClick={() => void updateAll()}>{busy === "update-all" ? "Updating…" : "Update all"}</button>
+          </SettingRow>
+        ) : null}
+        {busy ? (
+          <div className="zorai-toast zorai-update-prompt" role="status" aria-live="polite">
+            <strong>{busyTitle}</strong>
+            <p>You can keep working. Plugins install in the background.</p>
+          </div>
+        ) : cliResult ? (
+          <div className="zorai-toast zorai-update-prompt" role={cliResult.ok ? "status" : "alert"} aria-live="polite">
+            <strong>{cliResult.title}</strong>
+            {cliResult.ok
+              ? (cliResult.detail ? <p>{cliResult.detail}</p> : null)
+              : <pre>{cliResult.output.split("\n").slice(-6).join("\n")}</pre>}
+            <div><button type="button" className="is-primary" onClick={() => setCliResult(null)}>{cliResult.ok ? "OK" : "Dismiss"}</button></div>
+          </div>
+        ) : null}
         {error ? <p className="zorai-empty-state">{error}</p> : null}
         {actionMessage ? <p className="zorai-empty-state">{actionMessage}</p> : null}
-        {plugins.length === 0 && !loading ? <p className="zorai-empty-state">No plugins are currently reported by the plugin daemon.</p> : plugins.map((plugin) => (
-          <SettingRow key={plugin.name} label={plugin.name} description={`${plugin.version} / ${plugin.endpoint_count} endpoints / auth ${plugin.auth_status}`}>
-            <Switch checked={plugin.enabled} onChange={(checked) => void toggleEnabled(plugin.name, checked)} />
-            <button type="button" className="zorai-ghost-button" onClick={() => void selectPlugin(plugin.name)}>Edit</button>
-            <button type="button" className="zorai-ghost-button" onClick={() => void uninstallPlugin(plugin.name)}>Remove</button>
-          </SettingRow>
-        ))}
+        {plugins.length > 4 ? (
+          <input className="zorai-input zorai-plugin-search zorai-plugin-settings-search" value={pluginQuery} placeholder={`Search ${plugins.length} installed plugins`} aria-label="Search installed plugins" onChange={(event) => setPluginQuery(event.target.value)} />
+        ) : null}
+        {plugins.length > 0 && listedPlugins.length === 0 ? <p className="zorai-empty-state">No installed plugins match “{pluginQuery}”.</p> : null}
+        {plugins.length === 0 && !loading ? <p className="zorai-empty-state">No plugins are installed yet.</p> : listedPlugins.map((plugin) => {
+          const update = updateSources[plugin.name];
+          const source = plugin.install_source.replace(/^local:/, "").replace(/^npm:/, "npm ").replace(/^github:/, "GitHub ") || "unknown source";
+          return (
+            <SettingRow
+              key={plugin.name}
+              label={favoritePlugins.includes(plugin.name) ? `★ ${plugin.name}` : plugin.name}
+              description={confirmRemove === plugin.name
+                ? "Remove this plugin, its settings and its files? This cannot be undone."
+                : `v${plugin.version} · ${plugin.endpoint_count} endpoints · auth ${plugin.auth_status.replace(/_/g, " ")} · ${source === "local" ? "source unknown" : `from ${source}`}`}
+            >
+              {confirmRemove === plugin.name ? (
+                <div className="zorai-panel__heading-actions">
+                  <button type="button" className="zorai-ghost-button" disabled={busy !== null} onClick={() => setConfirmRemove(null)}>Cancel</button>
+                  <button type="button" className="zorai-ghost-button" disabled={busy !== null} onClick={() => void runCli(`remove:${plugin.name}`, `${plugin.name} removed`, () => bridge!.pluginCliRemove!(plugin.name), `Removing ${plugin.name}…`, `Couldn't remove ${plugin.name}`).finally(() => setConfirmRemove(null))}>{busy === `remove:${plugin.name}` ? "Removing…" : "Remove"}</button>
+                </div>
+              ) : (
+                <div className="zorai-panel__heading-actions zorai-plugin-row-actions">
+                  <Switch checked={plugin.enabled} onChange={(checked) => void toggleEnabled(plugin.name, checked)} />
+                  <button type="button" className="zorai-ghost-button" disabled={busy !== null} onClick={() => void selectPlugin(plugin.name)}>Edit</button>
+                  {update?.spec ? (
+                    <button
+                      type="button"
+                      className="zorai-ghost-button"
+                      disabled={busy !== null}
+                      title={`Reinstall from ${update.spec}`}
+                      onClick={() => void runCli(`update:${plugin.name}`, `${plugin.name} updated`, () => bridge!.pluginCliUpdate!(plugin.install_source), `Updating ${plugin.name}…`, `${plugin.name} update failed`)}
+                    >
+                      {busy === `update:${plugin.name}` ? "Updating…" : "Update"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="zorai-ghost-button"
+                      disabled={busy !== null || !bridge?.pluginPickFolder}
+                      title={`${update?.reason ?? ""} Pick the folder to update from; it is remembered for next time.`.trim()}
+                      onClick={() => void bridge!.pluginPickFolder!().then((folder) => {
+                        if (folder) void runCli(`update:${plugin.name}`, `${plugin.name} updated`, () => bridge!.pluginCliInstall!(folder), `Updating ${plugin.name}…`, `${plugin.name} update failed`);
+                      })}
+                    >
+                      {busy === `update:${plugin.name}` ? "Updating…" : "Update from…"}
+                    </button>
+                  )}
+                  <button type="button" className="zorai-ghost-button" disabled={busy !== null || !bridge?.pluginCliRemove} onClick={() => setConfirmRemove(plugin.name)}>Remove…</button>
+                </div>
+              )}
+            </SettingRow>
+          );
+        })}
       </Panel>
     </SettingsGrid>
   );
@@ -1480,6 +1609,9 @@ function DeveloperToolsPanel() {
 
   return (
     <SettingsGrid>
+      <Panel section="Developer Tools" title="Daemon">
+        <DaemonRestartRow />
+      </Panel>
       <Panel section="Developer Tools" title="Fake events">
         <SettingRow label="Setup wizard" description="Walk through first-run setup. Provider lists, model lists, and connection tests are real; no answers are saved.">
           <button type="button" className="zorai-ghost-button" onClick={() => setSetupOpen(true)}>Open test setup</button>
@@ -1493,7 +1625,6 @@ function DeveloperToolsPanel() {
         <SettingRow label="Thread approval" description={activeThreadId ? "An approval for the current thread: a banner here, the card above the composer in the thread." : "Open a thread first; this approval is attached to the current thread."}>
           <button type="button" className="zorai-ghost-button" disabled={!activeThreadId} onClick={() => showApproval("thread")}>Show</button>
         </SettingRow>
-        <DaemonRestartRow />
         <SettingRow label="Update prompt" description="Pretends version 99.0.0 is available. Install waits briefly, then succeeds or fails; nothing is downloaded and restart only closes the prompt.">
           <div className="zorai-panel__heading-actions">
             <button type="button" className="zorai-ghost-button" onClick={() => useUpdateStore.getState().simulate("success", APP_VERSION)}>Succeeds</button>
@@ -1530,7 +1661,7 @@ function DaemonRestartRow() {
     : phase === "restarting" ? "Stopping and starting the daemon…"
     : phase === "done" ? "The daemon was restarted. The app reconnects on its own."
     : phase === "failed" ? `Restart failed: ${output}`
-    : "Stops the background daemon and starts it again. This one is real, not a fake event.";
+    : "Stops the background daemon and starts it again.";
   return (
     <SettingRow label="Restart daemon" description={description}>
       {phase === "confirm" ? (

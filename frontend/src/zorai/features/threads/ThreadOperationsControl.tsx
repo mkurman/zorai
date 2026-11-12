@@ -3,6 +3,7 @@ import { getBridge } from "@/lib/bridge";
 import type { AgentMessage } from "@/lib/agentStore";
 import { formatOperationAge, latestMessageMentioningOperation } from "./threadOperationsModel";
 import { revealThreadMessage } from "./useThreadMessageWindow";
+import { ThreadSidePanel, useThreadPanelStore } from "./threadSidePanel";
 
 const THREAD_OPERATIONS_POLL_MS = 5000;
 
@@ -11,7 +12,9 @@ export function ThreadOperationsControl({ daemonThreadId, messages, icon }: {
   messages: AgentMessage[];
   icon: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const open = useThreadPanelStore((state) => state.open === "operations");
+  const togglePanel = useThreadPanelStore((state) => state.toggle);
+  const closePanel = useThreadPanelStore((state) => state.close);
   const [operations, setOperations] = useState<ZoraiThreadOperation[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -59,15 +62,15 @@ export function ThreadOperationsControl({ daemonThreadId, messages, icon }: {
         title={label}
         onClick={() => {
           if (!open) void load();
-          setOpen((value) => !value);
+          togglePanel("operations");
         }}
       >
         {icon}
         {count > 0 ? <span className="zorai-thread-header__badge">{count}</span> : null}
       </button>
       {open ? (
-        <div className="zorai-handoff-popover">
-          <div className="zorai-section-label">Background operations</div>
+        <ThreadSidePanel title="Background operations" subtitle="Long-running tools started in this thread" onClose={() => closePanel("operations")}>
+        <div className="zorai-handoff-popover zorai-handoff-popover--panel">
           {!daemonThreadId ? (
             <p>This thread has not started on the daemon yet.</p>
           ) : count === 0 ? (
@@ -101,6 +104,7 @@ export function ThreadOperationsControl({ daemonThreadId, messages, icon }: {
           )}
           {error ? <p className="zorai-inline-error" role="alert">{error}</p> : null}
         </div>
+        </ThreadSidePanel>
       ) : null}
     </div>
   );

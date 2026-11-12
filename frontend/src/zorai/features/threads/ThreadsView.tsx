@@ -1,5 +1,7 @@
 import { LoadingState } from "@/components/LoadingState";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type UIEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type UIEvent } from "react";
+import { threadTint, tintStyle, useTintStore } from "@/zorai/features/tints/tintStore";
+import { shortcutMatches } from "@/zorai/features/shortcuts/appShortcuts";
 import { MemoizedToolEventRow } from "@/components/agent-chat-panel/chat-view/ToolEventRow";
 import { ToolEventList } from "@/components/agent-chat-panel/chat-view/ToolEventList";
 import { buildDisplayItems } from "@/components/agent-chat-panel/chat-view/helpers";
@@ -52,6 +54,7 @@ import { DelegatedSessionSlot } from "./DelegatedSessionBar";
 import { ThreadSessionTabs } from "./SessionTabStrip";
 import { threadMessageItemKey } from "./threadMessageWindow";
 import { ThreadMessageMeasure, useThreadMessageWindow } from "./useThreadMessageWindow";
+import { useThreadPanelStore } from "./threadSidePanel";
 
 export { ThreadsRail } from "./ThreadsRail";
 
@@ -85,7 +88,10 @@ export function ThreadsView({
   const threadLoadingByThreadId = useThreadLoadingStore((state) => state.byThreadId);
   const runtime = useAgentChatPanelRuntime();
   const [pinLimitResult, setPinLimitResult] = useState<ZoraiThreadMessagePinResult | null>(null);
-  const [participantsOpen, setParticipantsOpen] = useState(false);
+  const participantsOpen = useThreadPanelStore((state) => state.open === "participants");
+  const closeThreadPanel = useThreadPanelStore((state) => state.close);
+  const activeThreadKey = runtime.activeThread?.id ?? null;
+  useEffect(() => () => useThreadPanelStore.getState().close(), [activeThreadKey]);
   const [pinnedToBottom, setPinnedToBottom] = useState(true);
   const [readTasks, setReadTasks] = useState<AgentQueueTask[]>([]);
   const subAgents = useAgentStore((state) => state.subAgents);
@@ -140,8 +146,7 @@ export function ThreadsView({
   //   Ctrl+L — speak/stop the latest assistant message
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (!event.ctrlKey || event.shiftKey || event.metaKey || event.altKey) return;
-      if (event.code !== "KeyL") return;
+      if (!shortcutMatches("thread.speakLatest", event)) return;
       const target = event.target as HTMLElement | null;
       if (target && (target.tagName === "TEXTAREA" || target.tagName === "INPUT" || target.isContentEditable)) {
         return;
@@ -261,6 +266,8 @@ export function ThreadsView({
     onReleaseFollow: () => setPinnedToBottom(false),
   });
 
+  const activeTint = useTintStore((state) => (runtime.activeThread ? threadTint(state.threads, runtime.activeThread) : undefined));
+
   if (showConversationSkeleton && !runtime.activeThread) {
     return <ThreadConversationSkeleton />;
   }
@@ -332,7 +339,10 @@ export function ThreadsView({
     unpin: (threadId, messageId) => { void runtime.unpinMessageForCompaction(activeThreadIdForActions ?? threadId, messageId); },
   };
   return (
-    <section className={["zorai-thread-surface", "zorai-native-thread-surface", variant === "compact" ? "zorai-thread-surface--compact" : ""].filter(Boolean).join(" ")}>
+    <section
+      className={["zorai-thread-surface", "zorai-native-thread-surface", variant === "compact" ? "zorai-thread-surface--compact" : "", activeTint ? "zorai-tinted-surface" : ""].filter(Boolean).join(" ")}
+      style={tintStyle(activeTint) as CSSProperties | undefined}
+    >
       <ThreadSessionTabs includeSession={sessionTabFilter} />
       <ThreadHeader
         thread={runtime.activeThread}
@@ -344,11 +354,11 @@ export function ThreadsView({
         onReturnTarget={variant === "compact" ? runtime.goBackThread : onReturnTarget}
         onPushHandoff={runtime.pushHandoff}
         onReturnHandoff={runtime.returnHandoff}
-        onOpenParticipants={() => setParticipantsOpen(true)}
+        onOpenParticipants={() => useThreadPanelStore.getState().toggle("participants")}
         messages={runtime.messages}
         extraActions={variant === "compact" ? compactHeaderActions : null}
       />
-      {variant === "full" ? <ParticipantStrip thread={runtime.activeThread} onOpen={() => setParticipantsOpen(true)} /> : null}
+      {variant === "full" ? <ParticipantStrip thread={runtime.activeThread} onOpen={() => useThreadPanelStore.getState().toggle("participants")} /> : null}
 
       <div className="zorai-thread-chat">
         <DelegatedSessionSlot />
@@ -441,7 +451,7 @@ export function ThreadsView({
       </div>
 
       <div className="zorai-thread-composer-stack">
-        {variant === "compact" ? <ThreadCompactSessionBar /> : null}
+        <ThreadCompactSessionBar reviewActions={variant === "compact"} />
         <ThreadComposer showTargetSelector={variant === "compact"} compact={variant === "compact"} />
       </div>
 
@@ -452,7 +462,7 @@ export function ThreadsView({
         <ThreadParticipantsDrawer
           thread={runtime.activeThread}
           agentOptions={agentOptions}
-          onClose={() => setParticipantsOpen(false)}
+          onClose={() => closeThreadPanel("participants")}
           onUpsert={runtime.upsertParticipant}
           onDeactivate={runtime.deactivateParticipant}
           onSendSuggestion={runtime.sendParticipantSuggestion}

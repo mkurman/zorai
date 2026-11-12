@@ -22,5 +22,23 @@
   },
   "skills": [
     "skills/protein-sequence-similarity-search.md"
-  ]
+  ],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with Protein Sequence Similarity Search",
+        "prompt": "Use the protein-sequence-similarity-search plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

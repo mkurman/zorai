@@ -76,5 +76,24 @@
   },
   "skills": [
     "skills/ensembl.md"
-  ]
+  ],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with Ensembl",
+        "prompt": "Use the ensembl plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?",
+            "placeholder": "resolve TP53 to Ensembl IDs and show its canonical transcript"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

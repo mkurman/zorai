@@ -91,6 +91,7 @@ const QWEN_VIDEO_MODELS: ModelDefinition[] = [
 ];
 
 const GEMINI_VIDEO_MODELS: ModelDefinition[] = [
+  { id: "gemini-omni-1.2-flash", name: "Gemini Omni 1.2 Flash", contextWindow: 0, modalities: ["video"] },
   { id: "gemini-omni-1.1-flash", name: "Gemini Omni 1.1 Flash", contextWindow: 0, modalities: ["video"] },
 ];
 
@@ -105,6 +106,7 @@ const ELEVENLABS_MUSIC_MODELS: ModelDefinition[] = [
 const GEMINI_MUSIC_MODELS: ModelDefinition[] = [
   { id: "lyria-3.5", name: "Lyria 3.5 (full songs)", contextWindow: 0, modalities: ["audio"] },
   { id: "lyria-3-clip-preview", name: "Lyria 3 Clip (30 s)", contextWindow: 0, modalities: ["audio"] },
+  { id: "lyria-3-pro-preview", name: "Lyria 3 Pro (full songs)", contextWindow: 0, modalities: ["audio"] },
 ];
 
 const MINIMAX_MUSIC_MODELS: ModelDefinition[] = [

@@ -127,6 +127,7 @@ function createWindowRuntime(options) {
         setMainWindow,
         shell,
         stopAllTerminalBridges,
+        windowAppearanceOptions = {},
     } = options;
     const { resolveRendererLoadTarget } = require("./load-target.cjs");
     const fs = require("fs");
@@ -186,14 +187,36 @@ function createWindowRuntime(options) {
         return false;
     }
 
+    let menuAcceleratorOverrides = {};
+
+    function menuAccelerator(command, fallback) {
+        const override = menuAcceleratorOverrides[command];
+        if (typeof override !== 'string') return fallback;
+        return override || undefined;
+    }
+
+    function setMenuAccelerators(overrides) {
+        const previous = menuAcceleratorOverrides;
+        menuAcceleratorOverrides = overrides && typeof overrides === 'object' ? overrides : {};
+        try {
+            Menu.setApplicationMenu(buildAppMenu());
+            return true;
+        } catch (error) {
+            menuAcceleratorOverrides = previous;
+            Menu.setApplicationMenu(buildAppMenu());
+            logToFile?.('warn', 'menu accelerators rejected', { message: error?.message });
+            return false;
+        }
+    }
+
     function buildAppMenu() {
         return Menu.buildFromTemplate([
             { label: 'File', submenu: [
                 { label: 'New Window', accelerator: 'Ctrl+Alt+N', click: () => createWindow() },
-                { label: 'New Workspace', accelerator: 'Ctrl+Shift+N', click: () => sendAppCommand('new-workspace') },
-                { label: 'New Surface', accelerator: 'Ctrl+T', click: () => sendAppCommand('new-surface') },
+                { label: 'New Workspace', accelerator: menuAccelerator('new-workspace', 'Ctrl+Shift+N'), click: () => sendAppCommand('new-workspace') },
+                { label: 'New Surface', accelerator: menuAccelerator('new-surface', 'Ctrl+T'), click: () => sendAppCommand('new-surface') },
                 { type: 'separator' },
-                { label: 'Settings', accelerator: 'Ctrl+,', click: () => sendAppCommand('toggle-settings') },
+                { label: 'Settings', accelerator: menuAccelerator('toggle-settings', 'Ctrl+,'), click: () => sendAppCommand('toggle-settings') },
                 { type: 'separator' },
                 { role: 'quit', label: 'Exit' },
             ] },
@@ -204,10 +227,10 @@ function createWindowRuntime(options) {
                 { label: 'Select All', accelerator: 'Ctrl+A', click: () => { getMainWindow()?.webContents.selectAll(); sendAppCommand('select-all'); } },
             ] },
             { label: 'View', submenu: [
-                { label: 'Command Palette', accelerator: 'Ctrl+Shift+P', click: () => sendAppCommand('toggle-command-palette') },
-                { label: 'Search', accelerator: 'Ctrl+Shift+F', click: () => sendAppCommand('toggle-search') },
-                { label: 'File Manager', accelerator: 'Ctrl+Shift+E', click: () => sendAppCommand('toggle-file-manager') },
-                { label: 'Toggle Sidebar', accelerator: 'Ctrl+B', click: () => sendAppCommand('toggle-sidebar') },
+                { label: 'Command Palette', accelerator: menuAccelerator('toggle-command-palette', 'Ctrl+Shift+P'), click: () => sendAppCommand('toggle-command-palette') },
+                { label: 'Search', accelerator: menuAccelerator('toggle-search', 'Ctrl+Shift+F'), click: () => sendAppCommand('toggle-search') },
+                { label: 'File Manager', accelerator: menuAccelerator('toggle-file-manager', 'Ctrl+Shift+E'), click: () => sendAppCommand('toggle-file-manager') },
+                { label: 'Toggle Sidebar', accelerator: menuAccelerator('toggle-sidebar', 'Ctrl+B'), click: () => sendAppCommand('toggle-sidebar') },
                 { type: 'separator' }, { role: 'reload' }, { role: 'forceReload' },
                 { label: 'Toggle Developer Tools', accelerator: devToolsAccelerator(), click: () => toggleWindowDevTools(getMainWindow()?.webContents) },
                 { type: 'separator' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'togglefullscreen' },
@@ -271,6 +294,7 @@ function createWindowRuntime(options) {
             backgroundColor: '#1e1e2e',
             show: false,
             opacity: 1,
+            ...windowAppearanceOptions,
         });
         if (openWindows > 0) {
             const [currentX, currentY] = mainWindow.getPosition();
@@ -319,7 +343,7 @@ function createWindowRuntime(options) {
         });
     }
 
-    return { createWindow, defaultScreenshotDirectory, runContextMenuAction, setWindowOpacity };
+    return { createWindow, defaultScreenshotDirectory, runContextMenuAction, setMenuAccelerators, setWindowOpacity };
 }
 
 module.exports = {

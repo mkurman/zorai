@@ -511,6 +511,16 @@ describe("frontend curated media provider catalog", () => {
     expect(
       getModelModalities(getModelDefinition("xiaomi-mimo-token-plan", "mimo-v2.5-tts")),
     ).toEqual(["text", "audio"]);
+    expect(getModelModalities(getModelDefinition("gemini", "gemini-4-carbon"))).toEqual([
+      "text",
+      "image",
+      "video",
+      "audio",
+    ]);
+    expect(getModelModalities(getModelDefinition("gemini", "gemini-3.1-flash-image"))).toEqual([
+      "text",
+      "image",
+    ]);
     expect(getModelModalities(getModelDefinition("arcee", "trinity-large-thinking"))).toEqual([
       "text",
     ]);
@@ -697,13 +707,24 @@ describe("frontend GitHub Copilot provider routing", () => {
   });
 
   it("registers Gemini on the Interactions API", () => {
-    expect(getDefaultModelForProvider("gemini")).toBe("gemini-3.8-flash");
+    expect(getDefaultModelForProvider("gemini")).toBe("gemini-4-carbon");
     expect(getProviderDefinition("gemini")?.authMethod).toBe("x-goog-api-key");
-    expect(getProviderApiType("gemini", "gemini-3.8-flash")).toBe("gemini");
+    expect(getProviderApiType("gemini", "gemini-4-carbon")).toBe("gemini");
     expect(getProviderModels("gemini").map((model) => model.id)).toEqual([
+      "gemini-4-carbon",
+      "gemini-4-argon",
+      "gemini-4-hydrogen",
       "gemini-3.8-flash",
-      "gemini-3.1-pro",
+      "gemini-3.6-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+      "gemini-3.1-pro-preview",
+      "gemini-3-flash-preview",
+      "gemini-nano-banana-2.1",
       "gemini-3.1-flash-image",
+      "gemini-3.1-flash-lite-image",
+      "gemini-3-pro-image",
+      "gemini-2.5-flash-image",
     ]);
   });
 

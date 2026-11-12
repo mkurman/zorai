@@ -10,7 +10,9 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import type { HistoryRecallHit, RiskLevel, SymbolRecallHit } from "@/lib/agentMissionStore";
 import type { TerminalSendOptions } from "@/lib/terminalRegistry";
 import { getBridge } from "@/lib/bridge";
-import { getEffectiveTheme } from "@/lib/themes";
+import { getEffectiveTheme, getThemeByName } from "@/lib/themes";
+import { themeBackdrop, translucentColor } from "@/lib/userThemes";
+import { useUserThemesStore } from "@/zorai/features/themes/userThemesStore";
 import { attachTerminalSessionBridge } from "./attachTerminalSessionBridge";
 import { bindTerminalDomEvents } from "./bindTerminalDomEvents";
 import { registerPaneTerminalController } from "./registerPaneTerminalController";
@@ -171,8 +173,10 @@ export function useTerminalRuntime({
       settings.customTerminalCursor,
       settings.customTerminalSelection,
     );
+    const seeThroughTerminal = themeBackdrop(getThemeByName(settings.themeName), useUserThemesStore.getState().seeThroughAtLaunch) !== "none";
     const term = new Terminal({
       allowProposedApi: true,
+      allowTransparency: seeThroughTerminal,
       fontFamily: settings.fontFamily || '"Cascadia Code", "JetBrains Mono", "Fira Code", "Consolas", monospace',
       fontSize: settings.fontSize,
       lineHeight: settings.lineHeight,
@@ -180,7 +184,7 @@ export function useTerminalRuntime({
       cursorStyle: settings.cursorStyle,
       scrollback: settings.scrollbackLines,
       theme: {
-        background: themeColors.background,
+        background: seeThroughTerminal ? translucentColor(themeColors.background, 0) : themeColors.background,
         foreground: themeColors.foreground,
         cursor: themeColors.cursor,
         selectionBackground: themeColors.selectionBg,

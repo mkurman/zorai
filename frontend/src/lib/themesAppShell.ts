@@ -49,6 +49,23 @@ function withAlpha(color: string, alpha: number): string {
   return `rgba(${red}, ${green}, ${blue}, ${clamp(alpha, 0, 1)})`;
 }
 
+export function accentShades(accent: string, appearance: "dark" | "light"): AppShellTheme {
+  if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(accent.trim())) return {};
+  return appearance === "light"
+    ? {
+      "--accent-hover": mix(accent, "#000000", 0.12),
+      "--accent-soft": withAlpha(accent, 0.14),
+      "--accent-dim": withAlpha(accent, 0.07),
+      "--accent-glow": withAlpha(accent, 0.22),
+    }
+    : {
+      "--accent-hover": mix(accent, "#ffffff", 0.2),
+      "--accent-soft": withAlpha(accent, 0.12),
+      "--accent-dim": withAlpha(accent, 0.06),
+      "--accent-glow": withAlpha(accent, 0.2),
+    };
+}
+
 export function getAppShellTheme(
   themeName: string,
   useCustomColors: boolean,

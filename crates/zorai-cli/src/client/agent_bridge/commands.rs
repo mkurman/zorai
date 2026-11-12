@@ -988,6 +988,19 @@ where
                 .send(ClientMessage::PluginTestConnection { name })
                 .await?;
         }
+        AgentBridgeCommand::PluginApiCallCmd {
+            plugin_name,
+            endpoint_name,
+            params,
+        } => {
+            framed
+                .send(ClientMessage::PluginApiCall {
+                    plugin_name,
+                    endpoint_name,
+                    params,
+                })
+                .await?;
+        }
         AgentBridgeCommand::PluginOAuthStart { name } => {
             framed
                 .send(ClientMessage::PluginOAuthStart { name })

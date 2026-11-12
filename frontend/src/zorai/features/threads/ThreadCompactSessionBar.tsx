@@ -29,10 +29,11 @@ import {
 import { useThreadFilePreview } from "./ThreadFilePreviewContext";
 import { SpawnedContext } from "./ThreadsSpawnedContext";
 import { pushToast } from "@/lib/toastStore";
+import { CodeFileIcon } from "@/zorai/features/code/CodeFileIcon";
 
 const MAX_TRACKED_FILES = 40;
 
-export function ThreadCompactSessionBar() {
+export function ThreadCompactSessionBar({ reviewActions = true }: { reviewActions?: boolean } = {}) {
   const runtime = useAgentChatPanelRuntime();
   const daemonThreadId = runtime.activeThread?.daemonThreadId ?? null;
   const localThreadId = runtime.activeThreadId;
@@ -123,6 +124,10 @@ export function ThreadCompactSessionBar() {
   };
 
   const openFile = (entry: WorkContextEntry) => {
+    if (!reviewActions) {
+      openThreadFilePreview(entry);
+      return;
+    }
     const gitRoot = entry.repoRoot ?? workspaceRoot;
     const workspacePath = workspaceRoot
       ? workContextRelativePath(entry.path, workspaceRoot)
@@ -200,104 +205,112 @@ export function ThreadCompactSessionBar() {
     await refreshGitStatus();
   };
 
+  const percent = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
+  const chevron = (section: CompactSessionSection) => (
+    <svg className={["zorai-compact-session__chevron", openSection === section ? "is-open" : ""].filter(Boolean).join(" ")} viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4" /></svg>
+  );
+
   return (
     <div className="zorai-compact-session">
-      {entries.length > 0 ? (
-        <section>
-          <div className="zorai-compact-session__row">
-            <button type="button" className="zorai-compact-session__toggle" aria-expanded={openSection === "files"} onClick={() => toggle("files")}>
-              <span aria-hidden="true">{openSection === "files" ? "▾" : "▸"}</span>
-              {entries.length} {entries.length === 1 ? "File" : "Files"}
-              {pending.length > 0 ? <span className="zorai-compact-session__pending"> · {pending.length} to review</span> : null}
+      <div className="zorai-compact-session__summary">
+        {entries.length > 0 ? (
+          <button type="button" className={["zorai-compact-session__pill", openSection === "files" ? "is-open" : ""].filter(Boolean).join(" ")} aria-expanded={openSection === "files"} onClick={() => toggle("files")}>
+            {chevron("files")}
+            <span>{entries.length} {entries.length === 1 ? "File" : "Files"}</span>
+            {reviewActions && pending.length > 0 ? <span className="zorai-compact-session__badge">{pending.length} to review</span> : null}
+          </button>
+        ) : null}
+        {todos.length > 0 ? (
+          <button type="button" className={["zorai-compact-session__pill", openSection === "todos" ? "is-open" : ""].filter(Boolean).join(" ")} aria-expanded={openSection === "todos"} onClick={() => toggle("todos")}>
+            {chevron("todos")}
+            <span>Todos</span>
+            <span className="zorai-compact-session__meter" aria-hidden="true"><span style={{ width: `${percent}%` }} /></span>
+            <span className="zorai-compact-session__count">{progress.done}/{progress.total}</span>
+          </button>
+        ) : null}
+        {spawned.length > 0 ? (
+          <button type="button" className={["zorai-compact-session__pill", openSection === "spawned" ? "is-open" : ""].filter(Boolean).join(" ")} aria-expanded={openSection === "spawned"} onClick={() => toggle("spawned")}>
+            {chevron("spawned")}
+            <span>{spawned.length} {spawned.length === 1 ? "Agent" : "Agents"}</span>
+          </button>
+        ) : null}
+        {reviewActions && pending.length > 0 ? (
+          <div className="zorai-compact-session__actions">
+            <button type="button" className="zorai-compact-session__keep" disabled={Boolean(busyPath)} title="Accept the agent's changes by staging them in git" onClick={() => void keepAll()}>
+              Keep All
             </button>
-            <div className="zorai-compact-session__actions">
-              {pending.length > 0 ? (
-                <>
-                  <button type="button" className="zorai-compact-session__keep" disabled={Boolean(busyPath)} title="Accept the agent's changes by staging them in git" onClick={() => void keepAll()}>
-                    Keep All
-                  </button>
-                  <button type="button" className="zorai-compact-session__reject" disabled={Boolean(busyPath)} title="Undo the agent's changes: restore the pre-operation snapshot or discard them in git" onClick={() => void rejectAll()}>
-                    Reject All
-                  </button>
-                </>
-              ) : null}
-              <button type="button" className="zorai-compact-session__review" onClick={() => setOpenSection("files")}>
-                Review
-              </button>
-            </div>
+            <button type="button" className="zorai-compact-session__reject" disabled={Boolean(busyPath)} title="Undo the agent's changes: restore the pre-operation snapshot or discard them in git" onClick={() => void rejectAll()}>
+              Reject All
+            </button>
           </div>
-          {openSection === "files" ? (
-            <ul className="zorai-compact-session__list">
-              {entries.map((entry) => {
-                const stats = statsByPath[entry.path];
-                return (
-                  <li key={`${entry.path}:${entry.updatedAt}`} className="zorai-compact-session__file">
-                    <button type="button" className="zorai-compact-session__name" title={entry.path} onClick={() => openFile(entry)}>
-                      {workContextFileName(entry.path)}
-                    </button>
-                    <span className="zorai-compact-session__stats">
-                      {stats ? (
-                        <>
-                          <b className="zorai-compact-session__plus">+{stats.additions}</b>
-                          <b className="zorai-compact-session__minus">−{stats.deletions}</b>
-                        </>
-                      ) : (
-                        <span>{entry.changeKind ?? "changed"}</span>
-                      )}
-                    </span>
-                    <span className="zorai-compact-session__file-actions">
-                      <button type="button" disabled={busyPath === entry.path} onClick={() => void keepFile(entry).then(refreshGitStatus)}>Keep</button>
-                      <button type="button" disabled={busyPath === entry.path} onClick={() => void rejectFile(entry)}>Reject</button>
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : null}
-        </section>
+        ) : null}
+      </div>
+
+      {openSection === "files" && entries.length > 0 ? (
+        <ul className="zorai-compact-session__list">
+          {entries.map((entry) => {
+            const stats = statsByPath[entry.path];
+            const root = entry.repoRoot ?? workspaceRoot;
+            const relative = root ? workContextRelativePath(entry.path, root) : entry.path;
+            const folder = relative.split(/[\\/]/).slice(0, -1).join("/");
+            const isPending = reviewActions && pending.some((item) => item.path === entry.path);
+            return (
+              <li key={`${entry.path}:${entry.updatedAt}`} className={["zorai-compact-session__file", isPending ? "is-pending" : ""].filter(Boolean).join(" ")}>
+                <button type="button" className="zorai-compact-session__name" title={entry.path} onClick={() => openFile(entry)}>
+                  <CodeFileIcon path={entry.path} />
+                  <span className="zorai-compact-session__filename">{workContextFileName(entry.path)}</span>
+                  {folder ? <span className="zorai-compact-session__folder">{folder}</span> : null}
+                </button>
+                <span className="zorai-compact-session__stats">
+                  {stats ? (
+                    <>
+                      <b className="zorai-compact-session__plus">+{stats.additions}</b>
+                      <b className="zorai-compact-session__minus">−{stats.deletions}</b>
+                    </>
+                  ) : (
+                    <span>{entry.changeKind ?? "changed"}</span>
+                  )}
+                </span>
+                {reviewActions ? (
+                  <span className="zorai-compact-session__file-actions">
+                    <button type="button" className="zorai-compact-session__keep" disabled={busyPath === entry.path} onClick={() => void keepFile(entry).then(refreshGitStatus)}>Keep</button>
+                    <button type="button" className="zorai-compact-session__reject" disabled={busyPath === entry.path} onClick={() => void rejectFile(entry)}>Reject</button>
+                  </span>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
       ) : null}
 
-      {todos.length > 0 ? (
-        <section>
-          <button type="button" className="zorai-compact-session__row zorai-compact-session__toggle" aria-expanded={openSection === "todos"} onClick={() => toggle("todos")}>
-            <span aria-hidden="true">{openSection === "todos" ? "▾" : "▸"}</span>
-            {progress.done}/{progress.total} Todos
-          </button>
-          {openSection === "todos" ? (
-            <ul className="zorai-compact-session__list">
-              {todos.map((todo) => (
-                <li key={todo.id} className="zorai-compact-session__todo">
-                  <span className={`zorai-compact-session__check zorai-compact-session__check--${todo.status}`} aria-hidden="true" />
-                  <span>{todo.content}</span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </section>
+      {openSection === "todos" && todos.length > 0 ? (
+        <ul className="zorai-compact-session__list">
+          {todos.map((todo) => (
+            <li key={todo.id} className={`zorai-compact-session__todo zorai-compact-session__todo--${todo.status}`}>
+              <span className={`zorai-compact-session__check zorai-compact-session__check--${todo.status}`} aria-hidden="true">
+                {todo.status === "completed" ? <svg viewBox="0 0 16 16"><path d="m4 8.5 2.5 2.5L12 5.5" /></svg> : null}
+              </span>
+              <span className="zorai-compact-session__todo-text">{todo.content}</span>
+              <span className="zorai-sr-only">{todo.status === "completed" ? "done" : todo.status === "in_progress" ? "in progress" : "to do"}</span>
+            </li>
+          ))}
+        </ul>
       ) : null}
 
-      {spawned.length > 0 ? (
-        <section>
-          <button type="button" className="zorai-compact-session__row zorai-compact-session__toggle" aria-expanded={openSection === "spawned"} onClick={() => toggle("spawned")}>
-            <span aria-hidden="true">{openSection === "spawned" ? "▾" : "▸"}</span>
-            {spawned.length} {spawned.length === 1 ? "Agent" : "Agents"}
-          </button>
-          {openSection === "spawned" ? (
-            <div className="zorai-compact-session__spawned-tree">
-              <SpawnedContext
-                tree={runtime.spawnedAgentTree}
-                selectedDaemonThreadId={daemonThreadId}
-                canGoBackThread={runtime.canGoBackThread}
-                threadNavigationDepth={runtime.threadNavigationDepth}
-                backThreadTitle={runtime.backThreadTitle}
-                canOpenSpawnedThread={runtime.canOpenSpawnedThread}
-                openSpawnedThread={runtime.openSpawnedThread}
-                goBackThread={runtime.goBackThread}
-                compact
-              />
-            </div>
-          ) : null}
-        </section>
+      {openSection === "spawned" && spawned.length > 0 ? (
+        <div className="zorai-compact-session__spawned-tree">
+          <SpawnedContext
+            tree={runtime.spawnedAgentTree}
+            selectedDaemonThreadId={daemonThreadId}
+            canGoBackThread={runtime.canGoBackThread}
+            threadNavigationDepth={runtime.threadNavigationDepth}
+            backThreadTitle={runtime.backThreadTitle}
+            canOpenSpawnedThread={runtime.canOpenSpawnedThread}
+            openSpawnedThread={runtime.openSpawnedThread}
+            goBackThread={runtime.goBackThread}
+            compact
+          />
+        </div>
       ) : null}
     </div>
   );

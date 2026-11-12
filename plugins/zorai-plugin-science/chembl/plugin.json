@@ -82,5 +82,24 @@
   },
   "skills": [
     "skills/chembl.md"
-  ]
+  ],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with ChEMBL",
+        "prompt": "Use the chembl plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?",
+            "placeholder": "list approved drugs that target EGFR"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

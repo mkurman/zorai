@@ -513,7 +513,7 @@ mod tests {
 
         let req = render_request(&reg, &api, &endpoint, &ctx).await.unwrap();
         assert_eq!(req.method, "GET");
-        assert_eq!(req.url, "https://api.github.com/repos/anthropic/zorai");
+        assert_eq!(req.url, "https://api.github.com/repos/mkurman/zorai");
         assert!(req
             .headers
             .iter()
@@ -568,7 +568,7 @@ mod tests {
         assert_eq!(req.method, "GET");
         assert_eq!(
             req.url,
-            "https://api.github.com/repos/anthropic/zorai/issues?state=open&per_page=20"
+            "https://api.github.com/repos/mkurman/zorai/issues?state=open&per_page=20"
         );
         assert!(req
             .headers
@@ -621,7 +621,7 @@ mod tests {
         assert_eq!(req.method, "GET");
         assert_eq!(
             req.url,
-            "https://api.github.com/repos/anthropic/zorai/pulls?state=closed&per_page=50"
+            "https://api.github.com/repos/mkurman/zorai/pulls?state=closed&per_page=50"
         );
         assert!(req
             .headers

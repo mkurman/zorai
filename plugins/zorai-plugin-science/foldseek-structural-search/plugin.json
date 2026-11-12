@@ -22,5 +22,23 @@
   },
   "skills": [
     "skills/foldseek-structural-search.md"
-  ]
+  ],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with Foldseek Structural Search",
+        "prompt": "Use the foldseek-structural-search plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

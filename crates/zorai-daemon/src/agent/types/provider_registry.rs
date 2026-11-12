@@ -86,7 +86,7 @@ pub const PROVIDER_DEFINITIONS: &[ProviderDefinition] = &[
         id: PROVIDER_ID_GEMINI,
         name: "Gemini",
         default_base_url: "https://generativelanguage.googleapis.com/v1beta",
-        default_model: "gemini-3.8-flash",
+        default_model: "gemini-4-carbon",
         api_type: ApiType::Gemini,
         auth_method: AuthMethod::XGoogApiKey,
         models: GEMINI_MODELS,

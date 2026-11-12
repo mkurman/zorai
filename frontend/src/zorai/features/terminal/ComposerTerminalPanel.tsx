@@ -33,12 +33,14 @@ export function TerminalSessions({ sessionKey, cwd, workspaceId, onHide }: { ses
   const shells = useThreadTerminalStore((state) => state.shells[sessionKey] ?? NO_IDS);
   const dismissed = useThreadTerminalStore((state) => state.dismissed[sessionKey] ?? NO_IDS);
   const viewingId = useThreadTerminalStore((state) => state.viewing[sessionKey] ?? null);
+  const shellCwds = useThreadTerminalStore((state) => state.shellCwds);
   const tabs = useMemo(
     () => threadTerminalTabs(shells, agentTerminalSessions(workspaces, workspaceId), dismissed),
     [shells, workspaces, workspaceId, dismissed],
   );
   const current = tabs.find((tab) => tab.id === viewingId) ?? tabs[0] ?? null;
-  const shownCwd = current?.kind === "agent" ? current.cwd ?? undefined : cwd;
+  const shellCwd = current?.kind === "shell" ? shellCwds[current.id] ?? cwd : cwd;
+  const shownCwd = current?.kind === "agent" ? current.cwd ?? undefined : shellCwd;
 
   const closeTab = (tab: ThreadTerminalTab) => {
     closeThreadTerminalTab(sessionKey, tab, tabs);
@@ -94,7 +96,7 @@ export function TerminalSessions({ sessionKey, cwd, workspaceId, onHide }: { ses
         {current?.kind === "agent" ? (
           <TerminalPane key={current.id} paneId={agentTerminalViewPaneId(current.id)} sessionId={current.id} hideHeader hideSharedCursor />
         ) : current ? (
-          <TerminalPane key={current.id} paneId={threadTerminalPaneId(sessionKey, current.id)} cwd={cwd} hideHeader hideSharedCursor />
+          <TerminalPane key={current.id} paneId={threadTerminalPaneId(sessionKey, current.id)} cwd={shellCwd} hideHeader hideSharedCursor />
         ) : (
           <button type="button" className="zorai-terminal-panel__empty" onClick={() => openThreadShell(sessionKey)}>Open a new shell</button>
         )}

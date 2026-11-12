@@ -7,6 +7,7 @@ import {
   type ThreadAgentOption,
 } from "./threadHandoffModel";
 import { useAgentDisplayName } from "@/lib/useAgentDisplayName";
+import { ThreadSidePanel, useThreadPanelStore } from "./threadSidePanel";
 
 export function ThreadHandoffControl({
   daemonLinked,
@@ -24,7 +25,9 @@ export function ThreadHandoffControl({
   onReturn: (request: { reason: string; summary: string }) => Promise<ThreadMutationResult>;
 }) {
   const agentDisplayName = useAgentDisplayName();
-  const [open, setOpen] = useState(false);
+  const open = useThreadPanelStore((state) => state.open === "handoff");
+  const togglePanel = useThreadPanelStore((state) => state.toggle);
+  const closePanel = useThreadPanelStore((state) => state.close);
   const [targetAgentId, setTargetAgentId] = useState(options[0]?.id ?? "");
   const selected = useMemo(
     () => options.find((option) => option.id === targetAgentId) ?? options[0] ?? null,
@@ -65,7 +68,7 @@ export function ThreadHandoffControl({
       const result = await mutation();
       if (!mountedRef.current) return;
       if (result.ok) {
-        setOpen(false);
+        closePanel("handoff");
       } else {
         setError(result.error);
       }
@@ -86,12 +89,13 @@ export function ThreadHandoffControl({
         aria-expanded={open}
         title={icon ? "Handoff" : undefined}
         aria-label={icon ? "Handoff" : undefined}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => togglePanel("handoff")}
       >
         {icon ?? "Handoff"}
       </button>
       {open ? (
-        <div className="zorai-handoff-popover">
+        <ThreadSidePanel title="Hand off" subtitle="Choose which agent answers in this thread" onClose={() => closePanel("handoff")}>
+        <div className="zorai-handoff-popover zorai-handoff-popover--panel">
           <div className="zorai-section-label">Thread responder</div>
           {handoffState?.responderStack.length ? (
             <ol className="zorai-handoff-stack" aria-label="Responder stack">
@@ -160,6 +164,7 @@ export function ThreadHandoffControl({
             ) : null}
           </div>
         </div>
+        </ThreadSidePanel>
       ) : null}
     </div>
   );

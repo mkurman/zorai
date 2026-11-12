@@ -586,3 +586,21 @@ test('the git output log records commands that change the repository, not read-o
     assert.ok(added.some((entry) => entry.command.startsWith('git add') && entry.ok));
     assert.ok(added.every((entry) => !entry.command.startsWith('git status')));
 });
+
+test('git that exits before reading its input reports its own error instead of crashing the app with EPIPE', async () => {
+    const { runGitWithInput } = require('./main/workspace-service.cjs');
+    const root = tempWorkspace();
+    const uncaught = [];
+    const onUncaught = (error) => uncaught.push(error.code ?? error.message);
+    process.on('uncaughtException', onUncaught);
+    try {
+        const results = await Promise.allSettled(Array.from({ length: 10 }, () =>
+            runGitWithInput(['check-ignore', '-z', '--stdin'], root, 'a'.repeat(200000))));
+        assert.equal(results.every((result) => result.status === 'rejected' && /not a git repository/i.test(result.reason.message)), true);
+        await new Promise((resolve) => setTimeout(resolve, 200));
+    } finally {
+        process.off('uncaughtException', onUncaught);
+        fs.rmSync(root, { recursive: true, force: true });
+    }
+    assert.deepEqual(uncaught, []);
+});

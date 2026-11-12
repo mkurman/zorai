@@ -289,5 +289,42 @@
       "merge_review_item"
     ],
     "readiness_endpoint": "check_health"
+  },
+  "ui": {
+    "commands": [
+      {
+        "id": "repo-info",
+        "title": "Repository info",
+        "endpoint": "get_repo",
+        "inputs": [
+          { "key": "owner", "label": "Owner", "placeholder": "octocat" },
+          { "key": "repo", "label": "Repository", "placeholder": "hello-world" }
+        ],
+        "output": "panel",
+        "placement": ["palette"]
+      }
+    ],
+    "panels": [
+      {
+        "id": "issues",
+        "title": "Open issues",
+        "endpoint": "list_issues",
+        "params": { "state": "open" },
+        "inputs": [
+          { "key": "owner", "label": "Owner", "placeholder": "octocat" },
+          { "key": "repo", "label": "Repository", "placeholder": "hello-world" }
+        ]
+      },
+      {
+        "id": "pull-requests",
+        "title": "Open pull requests",
+        "endpoint": "list_pull_requests",
+        "params": { "state": "open" },
+        "inputs": [
+          { "key": "owner", "label": "Owner", "placeholder": "octocat" },
+          { "key": "repo", "label": "Repository", "placeholder": "hello-world" }
+        ]
+      }
+    ]
   }
 }

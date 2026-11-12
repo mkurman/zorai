@@ -358,5 +358,73 @@
     "autotrain-start": {"description": "Start an AutoTrain run (pass training-config JSON in body param; incurs charges)", "action": "start_autotrain_run"},
     "autotrain-runs": {"description": "List AutoTrain runs for a project", "action": "list_autotrain_runs"},
     "autotrain-run": {"description": "Get AutoTrain run status", "action": "get_autotrain_run"}
+  },
+  "ui": {
+    "commands": [
+      {
+        "id": "model",
+        "title": "Model info",
+        "endpoint": "get_model",
+        "inputs": [
+          {
+            "key": "id",
+            "label": "Model",
+            "placeholder": "meta-llama/Llama-3.1-8B"
+          }
+        ],
+        "output": "panel",
+        "placement": [
+          "palette"
+        ]
+      },
+      {
+        "id": "dataset",
+        "title": "Dataset info",
+        "endpoint": "get_dataset",
+        "inputs": [
+          {
+            "key": "id",
+            "label": "Dataset",
+            "placeholder": "HuggingFaceFW/fineweb"
+          }
+        ],
+        "output": "panel",
+        "placement": [
+          "palette"
+        ]
+      }
+    ],
+    "panels": [
+      {
+        "id": "models",
+        "title": "Search models",
+        "endpoint": "search_models",
+        "params": {
+          "sort": "downloads"
+        },
+        "inputs": [
+          {
+            "key": "q",
+            "label": "Search",
+            "placeholder": "llama"
+          }
+        ]
+      },
+      {
+        "id": "datasets",
+        "title": "Search datasets",
+        "endpoint": "search_datasets",
+        "params": {
+          "sort": "downloads"
+        },
+        "inputs": [
+          {
+            "key": "q",
+            "label": "Search",
+            "placeholder": "instruct"
+          }
+        ]
+      }
+    ]
   }
 }

@@ -48,6 +48,16 @@ describe("monaco gui theme", () => {
     expect(theme.colors["editor.foreground"]).toBe("#1c2430");
   });
 
+  it("lets a theme backdrop show through the editor when the panels are translucent, and stays opaque otherwise", () => {
+    const seeThrough = buildMonacoGuiTheme({ ...DEFAULT_MONACO_GUI_COLORS, panel: "rgba(16, 16, 16, 0.5)" });
+    expect(seeThrough.colors["editor.background"]).toBe("#10101080");
+    expect(seeThrough.colors["editorGutter.background"]).toBe("#10101080");
+    expect(seeThrough.colors["minimap.background"]).toBe("#10101080");
+
+    const solid = buildMonacoGuiTheme({ ...DEFAULT_MONACO_GUI_COLORS, panel: "#101010" });
+    expect(solid.colors["editor.background"]).toBe(buildMonacoGuiTheme(DEFAULT_MONACO_GUI_COLORS).colors["editor.background"]);
+  });
+
   it("composites translucent muted text onto the editor surface", () => {
     const theme = buildMonacoGuiTheme({
       ...DEFAULT_MONACO_GUI_COLORS,

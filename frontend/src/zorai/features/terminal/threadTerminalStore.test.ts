@@ -48,7 +48,7 @@ describe("agent terminals shown in the composer terminal panel", () => {
 
 describe("operator shells and agent tabs in the composer terminal", () => {
   beforeEach(() => {
-    useThreadTerminalStore.setState({ open: {}, viewing: {}, shells: {}, dismissed: {} });
+    useThreadTerminalStore.setState({ open: {}, viewing: {}, shells: {}, dismissed: {}, shellCwds: {} });
   });
 
   it("starts a shell the first time the panel opens, and + adds another one that becomes current", () => {
@@ -62,6 +62,15 @@ describe("operator shells and agent tabs in the composer terminal", () => {
     expect(state.shells.thread_1).toHaveLength(2);
     expect(state.viewing.thread_1).toBe(second);
     expect(threadTerminalTabs(state.shells.thread_1, [], []).map((tab) => tab.title)).toEqual(["My shell", "My shell 2"]);
+  });
+
+  it("a shell opened for a folder starts there while plain shells keep the panel's folder", () => {
+    const inFolder = openThreadShell("code:/repo", "/repo/src");
+    const plain = openThreadShell("code:/repo");
+    const { shellCwds, viewing } = useThreadTerminalStore.getState();
+    expect(shellCwds[inFolder]).toBe("/repo/src");
+    expect(shellCwds[plain]).toBeUndefined();
+    expect(viewing["code:/repo"]).toBe(plain);
   });
 
   it("closing the current tab moves to its neighbour; closing an agent tab only hides it", () => {

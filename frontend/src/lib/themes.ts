@@ -36,6 +36,22 @@ export interface TerminalTheme {
   colors: TerminalThemeColors;
   appShell?: Record<string, string>;
   fonts?: ThemeFonts;
+  user?: UserThemeMeta;
+}
+
+export interface UserThemeMeta {
+  id: string;
+  base: string;
+  css: string | null;
+  backgroundPath: string | null;
+  blur: number;
+  dim: number;
+  surfaceOpacity: number;
+  seeThrough: boolean;
+  pair: string | null;
+  corners: "default" | "square";
+  borderStrength: number;
+  fontOverrides: Partial<ThemeFonts>;
 }
 
 export interface ThemeFonts {
@@ -783,8 +799,18 @@ export function defaultThemeNameForAppearance(appearance: ThemeAppearance): stri
   return appearance === "light" ? DEFAULT_LIGHT_THEME_NAME : DEFAULT_DARK_THEME_NAME;
 }
 
+let userThemes: TerminalTheme[] = [];
+
+export function setUserThemes(themes: TerminalTheme[]): void {
+  userThemes = themes;
+}
+
+export function allThemes(): TerminalTheme[] {
+  return [...BUILTIN_THEMES, ...userThemes];
+}
+
 export function themesForAppearance(appearance: ThemeAppearance): TerminalTheme[] {
-  return BUILTIN_THEMES.filter((theme) => theme.appearance === appearance);
+  return allThemes().filter((theme) => theme.appearance === appearance);
 }
 
 export function getThemeAppearance(themeName: string): ThemeAppearance {
@@ -802,9 +828,16 @@ export function pairedThemeName(themeName: string, appearance: ThemeAppearance):
 }
 
 export function coerceThemeNameForAppearance(themeName: string, appearance: ThemeAppearance): string {
-  const current = BUILTIN_THEMES.find((theme) => theme.name.toLowerCase() === themeName.trim().toLowerCase());
+  const normalized = themeName.trim().toLowerCase();
+  const current = allThemes().find((theme) => theme.name.toLowerCase() === normalized);
   if (current?.appearance === appearance) {
     return current.name;
+  }
+  const companion = allThemes().find((theme) => theme.appearance === appearance && (
+    theme.name.toLowerCase() === current?.user?.pair?.toLowerCase() || theme.user?.pair?.toLowerCase() === normalized
+  ));
+  if (companion) {
+    return companion.name;
   }
   const paired = pairedThemeName(themeName, appearance);
   if (paired && BUILTIN_THEMES.some((theme) => theme.name === paired)) {
@@ -816,7 +849,7 @@ export function coerceThemeNameForAppearance(themeName: string, appearance: Them
 /** Get a theme by name (case-insensitive). Falls back to the dark default. */
 export function getThemeByName(name: string): TerminalTheme {
   return (
-    BUILTIN_THEMES.find(
+    allThemes().find(
       (t) => t.name.toLowerCase() === name.toLowerCase()
     ) ?? BUILTIN_THEMES.find((theme) => theme.name === DEFAULT_DARK_THEME_NAME)!
   );

@@ -22,5 +22,23 @@
   },
   "skills": [
     "skills/opentargets-database.md"
-  ]
+  ],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with Opentargets Database",
+        "prompt": "Use the opentargets-database plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

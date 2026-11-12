@@ -1,7 +1,7 @@
 use super::super::*;
 use zorai_shared::providers::{
-    PROVIDER_ID_ANTHROPIC, PROVIDER_ID_OPENAI, PROVIDER_ID_XIAOMI_MIMO_TOKEN_PLAN,
-    PROVIDER_ID_Z_AI_CODING_PLAN,
+    PROVIDER_ID_ANTHROPIC, PROVIDER_ID_GEMINI, PROVIDER_ID_OPENAI,
+    PROVIDER_ID_XIAOMI_MIMO_TOKEN_PLAN, PROVIDER_ID_Z_AI_CODING_PLAN,
 };
 
 /// FOUN-05: Channel capacity is configurable via AgentConfig.
@@ -554,6 +554,36 @@ fn arcee_catalog_stays_conservative_text_only() {
         "trinity-large-thinking",
         Modality::Audio
     ));
+}
+
+#[test]
+fn gemini_catalog_matches_documented_input_modalities() {
+    assert_eq!(
+        model_modalities(PROVIDER_ID_GEMINI, "gemini-4-carbon"),
+        MULTIMODAL
+    );
+    assert_eq!(
+        model_modalities(PROVIDER_ID_GEMINI, "gemini-3.6-flash"),
+        MULTIMODAL
+    );
+    assert_eq!(
+        model_modalities(PROVIDER_ID_GEMINI, "gemini-3-pro-image"),
+        TEXT_IMAGE
+    );
+    assert!(!model_supports(
+        PROVIDER_ID_GEMINI,
+        "gemini-3-pro-image",
+        Modality::Audio
+    ));
+    assert!(!model_supports(
+        PROVIDER_ID_GEMINI,
+        "gemini-3-pro-image",
+        Modality::Video
+    ));
+    assert_eq!(
+        get_provider_definition(PROVIDER_ID_GEMINI).map(|provider| provider.default_model),
+        Some("gemini-4-carbon")
+    );
 }
 
 #[test]

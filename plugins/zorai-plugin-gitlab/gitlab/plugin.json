@@ -237,5 +237,57 @@
       "merge_review_item"
     ],
     "readiness_endpoint": "check_health"
+  },
+  "ui": {
+    "commands": [
+      {
+        "id": "project-info",
+        "title": "Project info",
+        "endpoint": "get_repo",
+        "inputs": [
+          {
+            "key": "project",
+            "label": "Project",
+            "placeholder": "group/project"
+          }
+        ],
+        "output": "panel",
+        "placement": [
+          "palette"
+        ]
+      }
+    ],
+    "panels": [
+      {
+        "id": "issues",
+        "title": "Open issues",
+        "endpoint": "list_issues",
+        "params": {
+          "state": "opened"
+        },
+        "inputs": [
+          {
+            "key": "project",
+            "label": "Project",
+            "placeholder": "group/project"
+          }
+        ]
+      },
+      {
+        "id": "merge-requests",
+        "title": "Open merge requests",
+        "endpoint": "list_merge_requests",
+        "params": {
+          "state": "opened"
+        },
+        "inputs": [
+          {
+            "key": "project",
+            "label": "Project",
+            "placeholder": "group/project"
+          }
+        ]
+      }
+    ]
   }
 }

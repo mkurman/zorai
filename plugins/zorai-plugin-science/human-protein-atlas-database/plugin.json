@@ -22,5 +22,23 @@
   },
   "skills": [
     "skills/human-protein-atlas-database.md"
-  ]
+  ],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with Human Protein Atlas Database",
+        "prompt": "Use the human-protein-atlas-database plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

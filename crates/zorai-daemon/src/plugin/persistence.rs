@@ -80,6 +80,7 @@ impl PluginPersistence {
                    description = excluded.description, \
                    author = excluded.author, \
                    manifest_json = excluded.manifest_json, \
+                   install_source = CASE WHEN excluded.install_source = 'local' THEN plugins.install_source ELSE excluded.install_source END, \
                    updated_at = excluded.updated_at, \
                    deleted_at = NULL",
                 db::db_params![

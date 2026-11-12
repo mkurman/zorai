@@ -831,3 +831,25 @@ async fn send_thread_get_query_rejects_chunks_for_unexpected_thread() {
         "unexpected error: {error}"
     );
 }
+
+#[test]
+fn plugin_api_call_bridge_command_carries_params_as_a_json_string_for_the_daemon() {
+    let cmd: AgentBridgeCommand = serde_json::from_str(
+        r#"{"type":"plugin-api-call","plugin_name":"github","endpoint_name":"get_repo","params":"{\"owner\":\"me\",\"repo\":\"zorai\"}"}"#,
+    )
+    .expect("plugin-api-call must deserialize");
+    match cmd {
+        AgentBridgeCommand::PluginApiCallCmd {
+            plugin_name,
+            endpoint_name,
+            params,
+        } => {
+            assert_eq!(plugin_name, "github");
+            assert_eq!(endpoint_name, "get_repo");
+            let parsed: serde_json::Value =
+                serde_json::from_str(&params).expect("params stay valid json");
+            assert_eq!(parsed["repo"], "zorai");
+        }
+        _ => panic!("unexpected variant for plugin-api-call"),
+    }
+}

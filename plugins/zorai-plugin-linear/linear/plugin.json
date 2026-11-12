@@ -205,5 +205,40 @@
       "update_work_item_status"
     ],
     "readiness_endpoint": "check_health"
+  },
+  "ui": {
+    "commands": [
+      {
+        "id": "issue",
+        "title": "Look up issue",
+        "endpoint": "get_issue",
+        "inputs": [
+          {
+            "key": "identifier",
+            "label": "Issue",
+            "placeholder": "ENG-123"
+          }
+        ],
+        "output": "panel",
+        "placement": [
+          "palette"
+        ]
+      }
+    ],
+    "panels": [
+      {
+        "id": "issues",
+        "title": "Recent issues",
+        "endpoint": "list_issues",
+        "params": {
+          "first": "25"
+        }
+      },
+      {
+        "id": "projects",
+        "title": "Projects",
+        "endpoint": "list_projects"
+      }
+    ]
   }
 }

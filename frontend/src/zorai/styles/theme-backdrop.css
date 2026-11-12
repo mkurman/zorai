@@ -1,0 +1,61 @@
+:root[data-backdrop],
+:root[data-backdrop] body,
+:root[data-backdrop] #root,
+:root[data-backdrop] .zorai-titlebar,
+:root[data-backdrop] .zorai-global-rail,
+:root[data-backdrop] .zorai-topbar,
+:root[data-backdrop] .zorai-workspace-workbench,
+:root[data-backdrop] .zorai-shell.zorai-shell--code,
+:root[data-backdrop] .zorai-shell--code .zorai-workspace-editor-area,
+:root[data-backdrop] .zorai-code-editor-empty,
+:root[data-backdrop] .zorai-shell,
+:root[data-backdrop] .zorai-thread-surface,
+:root[data-backdrop] .zorai-thread-chat,
+:root[data-backdrop] .zorai-thread-header,
+:root[data-backdrop] .zorai-session-tabs,
+:root[data-backdrop] .zorai-thread-composer-stack,
+:root[data-backdrop] .zorai-thread-composer,
+:root[data-backdrop] .zorai-feature-surface,
+:root[data-backdrop] .zorai-database-sql-textarea {
+  background: transparent;
+}
+
+:root[data-backdrop] :is([role="menu"], [role="listbox"], [role="dialog"], [role="tooltip"], .zorai-titlebar__dropdown, .zorai-code-toolbar-menu__list, .zorai-branch-switcher-menu, .zorai-composer-context-preview, .zorai-terminal-find, .zorai-theme-editor footer, .zorai-thread-hovercard, .zorai-spawned-card__popover, .zorai-composer-queue__peek, .zorai-handoff-popover, .zorai-composer-context-circle__popover, .zorai-effort-gauge__popover, .zorai-chart-tooltip, .zorai-code-recent-menu, .zorai-code-runtime-switcher__menu, .zorai-security-shield__menu, .zorai-font-picker__list, .zorai-preferred-skills__suggestions, .zorai-toast, .zorai-update-prompt) {
+  background: var(--zorai-backdrop-solid);
+}
+
+:root[data-backdrop] .zorai-shell--code .zorai-main {
+  background: var(--zorai-bg-panel);
+}
+
+:root[data-backdrop="image"] body::before {
+  content: "";
+  position: fixed;
+  inset: calc(var(--zorai-backdrop-blur, 0px) * -2);
+  z-index: -2;
+  background: var(--zorai-backdrop-image) center / cover no-repeat;
+  filter: blur(var(--zorai-backdrop-blur, 0px));
+  pointer-events: none;
+}
+
+.zorai-backdrop-video {
+  position: fixed;
+  z-index: -2;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+:root[data-backdrop] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--zorai-backdrop-tint, transparent);
+  pointer-events: none;
+}
+
+:root[data-corners="square"] *,
+:root[data-corners="square"] *::before,
+:root[data-corners="square"] *::after {
+  border-radius: 0 !important;
+}

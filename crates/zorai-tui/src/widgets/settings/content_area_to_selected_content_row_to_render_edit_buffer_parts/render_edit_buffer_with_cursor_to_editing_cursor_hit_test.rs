@@ -382,7 +382,7 @@ const SETTINGS_SIDEBAR_GROUPS: &[(&str, &[(SettingsTab, &str)])] = &[
             (SettingsTab::Tools, "Tools"),
             (SettingsTab::Skills, "Skills"),
             (SettingsTab::WebSearch, "Web"),
-            (SettingsTab::Media, "Audio & Images"),
+            (SettingsTab::Media, "Multimedia"),
             (SettingsTab::Memory, "Memory"),
         ],
     ),

@@ -74,5 +74,23 @@
   },
   "skills": [
     "skills/ncbi-sequence-fetch.md"
-  ]
+  ],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with Ncbi Sequence Fetch",
+        "prompt": "Use the ncbi-sequence-fetch plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

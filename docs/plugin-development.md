@@ -42,6 +42,73 @@ Practical implication:
 - Write plugins against the current runtime API.
 - Package them as self-contained browser scripts for external installation.
 
+## Panels and Commands in plugin.json
+
+Daemon plugins (the folders with a `plugin.json`, such as `plugins/zorai-plugin-github`) can add UI to the desktop app without shipping any app code. Add a `ui` section next to `api`; the desktop app reads it from `~/.zorai/plugins/<plugin>/plugin.json` and only shows it while the plugin is enabled in Settings → Plugins.
+
+```json
+"ui": {
+  "commands": [
+    {
+      "id": "repo-info",
+      "title": "Repository info",
+      "endpoint": "get_repo",
+      "params": {},
+      "inputs": [{ "key": "owner", "label": "Owner", "placeholder": "octocat" }],
+      "output": "panel",
+      "placement": ["palette", "composer"]
+    }
+  ],
+  "panels": [
+    { "id": "issues", "title": "Open issues", "endpoint": "list_issues", "params": { "state": "open" }, "inputs": [] },
+    { "id": "board", "title": "Board", "web": "panel/index.html", "permissions": ["composer", "toast"] }
+  ]
+}
+```
+
+- `id` uses letters, digits, `-` and `_`. Every `endpoint` must be one of the plugin's own `api.endpoints`; anything else is dropped and reported in the Plugins view.
+- `inputs` are asked for before the call (commands) or shown above the result (panels). Typed values are merged over `params` and passed to the endpoint as `params.<key>`. Values are remembered per panel and command.
+- Command `output`: `panel` shows the result in a dialog (with "Add to message"), `composer` appends it to the message box, `toast` shows a short notification. `placement`: `palette` adds a command palette entry, `composer` adds a button under the message box.
+- Markdown panels (with `endpoint`) appear in the **Plugins** view and render the endpoint's text result as markdown.
+- Plugins without HTTP endpoints (for example Python plugins) can still offer commands: give the command a `prompt` instead of an `endpoint`, such as `"prompt": "Use the pubmed-database plugin to: {{request}}"`. `{{key}}` placeholders are filled from `inputs`, the text is placed in the message box, and the Threads view opens so the user can review and send it; the agent then does the work with the plugin's skill.
+- Keep UI commands and panels read-only. Actions that change data (sending mail, merging, deleting) are better left to the agent, where approvals apply.
+
+### Web panels
+
+A panel with `web` instead of `endpoint` loads an HTML file from the plugin folder in an isolated frame. Before it first runs, the user approves it; the approval is tied to the plugin version, so an update asks again.
+
+The frame is sandboxed (`allow-scripts` only): it has its own opaque origin, no access to the desktop bridge, files, or the rest of the app, and its Content-Security-Policy blocks all network access. Load scripts, styles, and images from your plugin folder with relative paths. All data comes through zorai with `postMessage`, for example from a `<script type="module">`:
+
+```js
+let next = 0;
+const pending = new Map();
+function zorai(method, params) {
+  const id = ++next;
+  parent.postMessage({ zorai: "plugin-panel", id, method, params }, "*");
+  return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
+}
+addEventListener("message", (event) => {
+  const message = event.data;
+  if (message?.zorai !== "plugin-panel") return;
+  if (message.event === "theme") return applyTheme(message.theme);
+  const request = pending.get(message.id);
+  if (!request) return;
+  pending.delete(message.id);
+  message.ok ? request.resolve(message.result) : request.reject(new Error(message.error));
+});
+
+const issues = await zorai("call", { endpoint: "list_issues", params: { owner: "me", repo: "app" } });
+```
+
+| Method | Params | Needs permission |
+| --- | --- | --- |
+| `call` | `{ endpoint, params }` — calls one of this plugin's endpoints; at most 4 at once | none |
+| `theme` | — returns the current colours and fonts (`--bg-primary`, `--text-primary`, `--accent`, `--font-ui`, ...) and `appearance` | none |
+| `insertText` | `{ text }` — appends to the message box (max 20,000 characters) | `composer` |
+| `toast` | `{ text }` — short notification (max 280 characters) | `toast` |
+
+zorai also sends `{ zorai: "plugin-panel", event: "theme", theme }` when the panel loads and whenever the theme changes, so panels can match the app.
+
 ## Plugin Interface
 
 The runtime plugin shape is:
@@ -75,7 +142,7 @@ Minimal example:
 ```json
 {
   "name": "zorai-plugin-example",
-  "version": "1.0.42",
+  "version": "1.0.43",
   "zoraiPlugin": {
     "entry": "dist/zorai-plugin.js",
     "format": "script"
@@ -102,7 +169,7 @@ import ExamplePanel from "./ExamplePanel";
 export const examplePlugin: Plugin = {
   id: "example",
   name: "Example Plugin",
-  version: "1.0.42",
+  version: "1.0.43",
   components: {
     ExamplePanel,
   },

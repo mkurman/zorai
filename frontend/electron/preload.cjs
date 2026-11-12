@@ -122,6 +122,13 @@ const bridgeApi = {
     pluginUpdateSettings: (pluginName, key, value, isSecret) => ipcRenderer.invoke('plugin-update-settings', pluginName, key, value, isSecret),
     pluginTestConnection: (name) => ipcRenderer.invoke('plugin-test-connection', name),
     pluginOAuthStart: (name) => ipcRenderer.invoke('plugin-oauth-start', name),
+    pluginUiManifests: () => ipcRenderer.invoke('plugin-ui-manifests'),
+    pluginCliInstall: (spec) => ipcRenderer.invoke('plugin-cli-install', spec),
+    pluginCliUpdate: (installSource) => ipcRenderer.invoke('plugin-cli-update', installSource),
+    pluginCliRemove: (name) => ipcRenderer.invoke('plugin-cli-remove', name),
+    pluginUpdateSource: (installSource) => ipcRenderer.invoke('plugin-update-source', installSource),
+    pluginPickFolder: () => ipcRenderer.invoke('plugin-pick-folder'),
+    pluginApiCall: (pluginName, endpointName, params) => ipcRenderer.invoke('plugin-api-call', pluginName, endpointName, params),
     onPluginOAuthComplete: (callback) => {
         const handler = (_event, data) => callback(data);
         ipcRenderer.on('plugin-oauth-complete', handler);
@@ -278,6 +285,28 @@ const bridgeApi = {
     appUpdateInstall: () => ipcRenderer.invoke('app-update-install'),
     appUpdateRestart: () => ipcRenderer.invoke('app-update-restart'),
     appRestartDaemon: () => ipcRenderer.invoke('app-restart-daemon'),
+    appSetMenuAccelerators: (overrides) => ipcRenderer.invoke('app-set-menu-accelerators', overrides),
+    themesList: () => ipcRenderer.invoke('themes-list'),
+    themesSave: (payload) => ipcRenderer.invoke('themes-save', payload),
+    themesDelete: (id) => ipcRenderer.invoke('themes-delete', id),
+    themesImport: () => ipcRenderer.invoke('themes-import'),
+    themesExport: (id) => ipcRenderer.invoke('themes-export', id),
+    themesOpenFolder: () => ipcRenderer.invoke('themes-open-folder'),
+    themesOpenCustomCss: () => ipcRenderer.invoke('themes-open-custom-css'),
+    themesFetchUrl: (url) => ipcRenderer.invoke('themes-fetch-url', url),
+    themesInstallStaged: (token) => ipcRenderer.invoke('themes-install-staged', token),
+    themesDiscardStaged: (token) => ipcRenderer.invoke('themes-discard-staged', token),
+    themesFetchGallery: (url) => ipcRenderer.invoke('themes-fetch-gallery', url),
+    themesRevealCustomCss: () => ipcRenderer.invoke('themes-reveal-custom-css'),
+    themesPickBackground: () => ipcRenderer.invoke('themes-pick-background'),
+    themesPresetBackgrounds: () => ipcRenderer.invoke('themes-preset-backgrounds'),
+    themesWindowAppearance: () => ipcRenderer.invoke('themes-window-appearance'),
+    themesSetSeeThrough: (seeThrough) => ipcRenderer.invoke('themes-set-see-through', seeThrough),
+    onThemesChanged: (cb) => {
+        const listener = () => cb();
+        ipcRenderer.on('themes-changed', listener);
+        return () => ipcRenderer.removeListener('themes-changed', listener);
+    },
     windowMenuItems: (label) => ipcRenderer.invoke('window-menu-items', label),
     windowMenuInvoke: (label, index) => ipcRenderer.invoke('window-menu-invoke', label, index),
     setWindowOpacity: (opacity) => ipcRenderer.invoke('window-set-opacity', opacity),

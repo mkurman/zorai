@@ -106,6 +106,8 @@ export function buildMonacoGuiTheme(colors: MonacoGuiColors): MonacoThemeData {
   const human = paint(colors.human, DEFAULT_MONACO_GUI_COLORS.human);
   const reasoning = paint(colors.reasoning, DEFAULT_MONACO_GUI_COLORS.reasoning);
   const border = tint(colors.border, 1, "#ffffff1a");
+  const panel = parseCssColor(colors.panel);
+  const background = panel && panel.a < 1 ? hexColor(panel, panel.a) : surface;
   const light = relativeLuminance(surface) > 0.55;
   const token = (color: string) => color.slice(1);
   const rule = (name: string, color: string) => ({ token: name, foreground: token(color) });
@@ -146,7 +148,7 @@ export function buildMonacoGuiTheme(colors: MonacoGuiColors): MonacoThemeData {
       rule("diff-meta", muted),
     ],
     colors: {
-      "editor.background": surface,
+      "editor.background": background,
       "editor.foreground": text,
       "editorCursor.foreground": accent,
       "editor.selectionBackground": tint(accent, 0.28, `${accent}47`),
@@ -156,7 +158,7 @@ export function buildMonacoGuiTheme(colors: MonacoGuiColors): MonacoThemeData {
       "editor.lineHighlightBackground": tint(text, light ? 0.06 : 0.05, "#ffffff0d"),
       "editorLineNumber.foreground": muted,
       "editorLineNumber.activeForeground": text,
-      "editorGutter.background": surface,
+      "editorGutter.background": background,
       "editorIndentGuide.background1": border,
       "editorIndentGuide.activeBackground1": tint(accent, 0.45, `${accent}73`),
       "editorWhitespace.foreground": tint(muted, 0.45, `${muted}73`),
@@ -202,7 +204,7 @@ export function buildMonacoGuiTheme(colors: MonacoGuiColors): MonacoThemeData {
       "scrollbarSlider.background": tint(muted, 0.35, `${muted}59`),
       "scrollbarSlider.hoverBackground": tint(muted, 0.55, `${muted}8c`),
       "scrollbarSlider.activeBackground": tint(accent, 0.55, `${accent}8c`),
-      "minimap.background": surface,
+      "minimap.background": background,
       "minimapSlider.background": tint(muted, 0.28, `${muted}47`),
       "minimapSlider.hoverBackground": tint(muted, 0.4, `${muted}66`),
       "minimapSlider.activeBackground": tint(accent, 0.4, `${accent}66`),

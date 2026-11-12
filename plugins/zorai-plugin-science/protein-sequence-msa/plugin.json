@@ -23,5 +23,23 @@
   },
   "skills": [
     "skills/protein-sequence-msa.md"
-  ]
+  ],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with Protein Sequence Msa",
+        "prompt": "Use the protein-sequence-msa plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

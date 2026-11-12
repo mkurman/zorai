@@ -23,7 +23,17 @@ import {
 } from "@/lib/uiInterfacePrefs";
 import { FontPicker } from "./FontPicker";
 import { BUNDLED_UI_FONTS, buildTerminalFontOptions } from "./terminalFontOptions";
-import { STARTUP_VIEW_OPTIONS } from "@/zorai/shell/navigation";
+import { RAIL_ITEM_IDS, STARTUP_VIEW_OPTIONS, zoraiNavItems } from "@/zorai/shell/navigation";
+import { COMPOSER_STATUS_ITEMS, COMPOSER_TOOL_IDS, COMPOSER_TOOL_LABELS } from "@/zorai/features/threads/composerToolLayout";
+import { EMPTY_ITEM_LAYOUT, moveItem, orderedItemIds, setItemHidden, type ItemLayout } from "@/lib/itemLayout";
+import { refreshUserThemes, setSeeThroughWindow, useUserThemesStore } from "@/zorai/features/themes/userThemesStore";
+import { ThemeEditor } from "@/zorai/features/themes/ThemeEditor";
+import { RemoteThemes } from "@/zorai/features/themes/RemoteThemes";
+import { pinnedRailIds, pluginNameFromRailId, usePluginPrefsStore } from "@/zorai/features/plugins/pluginPrefsStore";
+import { usePluginUiStore } from "@/zorai/features/plugins/pluginUiStore";
+import { PluginIcon } from "@/zorai/features/plugins/PluginIcon";
+import { applyLayout, captureLayout, useLayoutPresetsStore } from "@/zorai/features/layouts/layoutPresets";
+import type { TerminalTheme, ThemeAppearance } from "@/lib/themes";
 
 export function InterfacePanel() {
   const settings = useSettingsStore((state) => state.settings);
@@ -31,6 +41,10 @@ export function InterfacePanel() {
   const [systemFonts, setSystemFonts] = useState<string[]>([]);
   const [systemPrefersDarkScheme, setSystemPrefersDarkScheme] = useState(systemPrefersDark);
   const [defaultScreenshotDirectory, setDefaultScreenshotDirectory] = useState("");
+  const userThemesLoaded = useUserThemesStore((state) => state.loaded);
+  const userThemes = useUserThemesStore((state) => state.themes);
+  const pinnedPlugins = usePluginPrefsStore((state) => state.pinned);
+  const pluginManifests = usePluginUiStore((state) => state.plugins);
 
   useEffect(() => {
     let active = true;
@@ -73,14 +87,14 @@ export function InterfacePanel() {
     normalizeNightMode(settings.nightMode),
     systemPrefersDarkScheme,
   );
-  const colorStyles = useMemo(() => themesForAppearance(appearance), [appearance]);
+  const colorStyles = useMemo(() => themesForAppearance(appearance), [appearance, userThemes]);
 
   useEffect(() => {
     const nextTheme = coerceThemeNameForAppearance(settings.themeName, appearance);
-    if (nextTheme !== settings.themeName) {
+    if (userThemesLoaded && nextTheme !== settings.themeName) {
       updateSetting("themeName", nextTheme);
     }
-  }, [appearance, settings.themeName, updateSetting]);
+  }, [appearance, settings.themeName, updateSetting, userThemesLoaded]);
 
   const fontOptions = useMemo(
     () => buildTerminalFontOptions(systemFonts, settings.fontFamily),
@@ -155,12 +169,61 @@ export function InterfacePanel() {
             value={coerceThemeNameForAppearance(settings.themeName, appearance)}
             onChange={(event) => updateSetting("themeName", event.target.value)}
           >
-            {colorStyles.map((theme) => (
-              <option key={theme.name} value={theme.name}>{theme.name}</option>
-            ))}
+            <optgroup label="Built-in">
+              {colorStyles.filter((theme) => !theme.user).map((theme) => (
+                <option key={theme.name} value={theme.name}>{theme.name}</option>
+              ))}
+            </optgroup>
+            {colorStyles.some((theme) => theme.user) ? (
+              <optgroup label="Custom">
+                {colorStyles.filter((theme) => theme.user).map((theme) => (
+                  <option key={theme.name} value={theme.name}>{theme.name}</option>
+                ))}
+              </optgroup>
+            ) : null}
           </select>
         </SettingRow>
       </Panel>
+
+      <Panel section="Interface" title="Layout">
+        <SettingRow label="Left rail" description="Choose which views get an icon and in what order. Hidden views stay reachable from the command palette. Pin plugins from the Plugins view to add them here.">
+          <LayoutListEditor
+            ids={[...RAIL_ITEM_IDS, ...pinnedRailIds(pinnedPlugins)]}
+            labelFor={(id) => pluginNameFromRailId(id) ?? zoraiNavItems.find((item) => item.id === id)?.label ?? id}
+            iconFor={(id) => {
+              const name = pluginNameFromRailId(id);
+              const plugin = name ? pluginManifests.find((entry) => entry.name === name) : null;
+              return name ? <PluginIcon plugin={plugin ?? { name, icon: null }} size={16} /> : null;
+            }}
+            onRemove={(id) => {
+              const name = pluginNameFromRailId(id);
+              return name ? { label: "Unpin", run: () => usePluginPrefsStore.getState().togglePinned(name) } : null;
+            }}
+            layout={settings.railLayout}
+            onChange={(layout) => updateSetting("railLayout", layout)}
+          />
+        </SettingRow>
+        <SettingRow label="Composer buttons" description="Choose which buttons appear under the message box and in what order. Buttons that need something unavailable, like the browser, still only show when it is available.">
+          <LayoutListEditor
+            ids={COMPOSER_TOOL_IDS}
+            labelFor={(id) => COMPOSER_TOOL_LABELS[id]}
+            layout={settings.composerLayout}
+            onChange={(layout) => updateSetting("composerLayout", layout)}
+            extras={COMPOSER_STATUS_ITEMS}
+          />
+        </SettingRow>
+        <SettingRow label="Saved layouts" description="Save the current view, panel widths, which panels are open, the Code bottom panel, and chat width under a name. Saved layouts also appear in the command palette as “Layout: …”.">
+          <SavedLayouts />
+        </SettingRow>
+      </Panel>
+
+      <ThemesPanel
+        currentTheme={getThemeByName(coerceThemeNameForAppearance(settings.themeName, appearance))}
+        onUse={(theme) => {
+          if (theme.appearance !== appearance) updateSetting("nightMode", theme.appearance === "light" ? "off" : "on");
+          updateSetting("themeName", theme.name);
+        }}
+      />
 
       <Panel section="Interface" title="Screenshots">
         <SettingRow label="Screenshot Folder" description="Where right-click → Take Screenshot saves PNGs. Every screenshot is also copied to the clipboard.">
@@ -267,6 +330,209 @@ function UiFontScaleSlider({ value, onChange }: { value: number; onChange: (scal
         })}
       </div>
     </div>
+  );
+}
+
+function SavedLayouts() {
+  const presets = useLayoutPresetsStore((state) => state.presets);
+  const save = useLayoutPresetsStore((state) => state.save);
+  const remove = useLayoutPresetsStore((state) => state.remove);
+  const [name, setName] = useState("");
+  const [savedName, setSavedName] = useState<string | null>(null);
+  const replacing = presets.some((preset) => preset.name.toLowerCase() === name.trim().toLowerCase());
+  return (
+    <div className="zorai-saved-layouts">
+      <form className="zorai-remote-theme__form" onSubmit={(event) => {
+        event.preventDefault();
+        if (!name.trim()) return;
+        setSavedName(save(name, captureLayout()).name);
+        setName("");
+      }}>
+        <input className="zorai-input" value={name} placeholder="Layout name, e.g. Coding" onChange={(event) => { setName(event.target.value); setSavedName(null); }} />
+        <button type="submit" className="zorai-ghost-button" disabled={!name.trim()}>{replacing ? "Replace" : "Save current"}</button>
+      </form>
+      {savedName ? <span className="zorai-saved-layouts__note" role="status">Saved “{savedName}”.</span> : null}
+      {presets.length ? (
+        <ul>
+          {presets.map((preset) => (
+            <li key={preset.id}>
+              <span title={`Opens ${preset.layout.view}`}>{preset.name}</span>
+              <button type="button" className="zorai-ghost-button" onClick={() => applyLayout(preset.layout)}>Apply</button>
+              <button type="button" className="zorai-ghost-button" onClick={() => { save(preset.name, captureLayout()); setSavedName(preset.name); }}>Update</button>
+              <button type="button" className="zorai-ghost-button" aria-label={`Delete layout ${preset.name}`} onClick={() => remove(preset.id)}>×</button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+function LayoutListEditor<T extends string>({ ids, labelFor, layout, onChange, extras = [], iconFor, onRemove }: {
+  ids: readonly T[];
+  labelFor: (id: T) => string;
+  layout: ItemLayout;
+  onChange: (layout: ItemLayout) => void;
+  extras?: ReadonlyArray<{ id: string; label: string }>;
+  iconFor?: (id: T) => ReactNode;
+  onRemove?: (id: T) => { label: string; run: () => void } | null;
+}) {
+  const order = orderedItemIds(ids, layout);
+  const hidden = new Set(layout.hidden);
+  const customized = layout.order.length > 0 || layout.hidden.length > 0;
+  return (
+    <div className="zorai-layout-list">
+      <ol>
+        {order.map((id, index) => (
+          <li key={id} className={hidden.has(id) ? "is-hidden" : undefined}>
+            {onRemove?.(id) ? (
+              <div className="zorai-layout-list__removable">
+                {iconFor?.(id)}
+                <span className="zorai-layout-list__name">{labelFor(id)}</span>
+                <button type="button" className="zorai-ghost-button" onClick={onRemove(id)!.run}>{onRemove(id)!.label}</button>
+              </div>
+            ) : (
+              <label>
+                <input type="checkbox" checked={!hidden.has(id)} onChange={(event) => onChange(setItemHidden(layout, id, !event.target.checked))} />
+                {iconFor?.(id)}
+                <span>{labelFor(id)}</span>
+              </label>
+            )}
+            <button type="button" className="zorai-ghost-button" aria-label={`Move ${labelFor(id)} up`} disabled={index === 0} onClick={() => onChange(moveItem(ids, layout, id, -1))}>↑</button>
+            <button type="button" className="zorai-ghost-button" aria-label={`Move ${labelFor(id)} down`} disabled={index === order.length - 1} onClick={() => onChange(moveItem(ids, layout, id, 1))}>↓</button>
+          </li>
+        ))}
+      </ol>
+      {extras.map((extra) => (
+        <label key={extra.id} className="zorai-layout-list__extra">
+          <input type="checkbox" checked={!hidden.has(extra.id)} onChange={(event) => onChange(setItemHidden(layout, extra.id, !event.target.checked))} />
+          <span>{extra.label}</span>
+        </label>
+      ))}
+      {customized ? <button type="button" className="zorai-ghost-button" onClick={() => onChange(EMPTY_ITEM_LAYOUT)}>Reset to default</button> : null}
+    </div>
+  );
+}
+
+function ThemesPanel({ currentTheme, onUse }: { currentTheme: TerminalTheme; onUse: (theme: { name: string; appearance: ThemeAppearance }) => void }) {
+  const bridge = getBridge();
+  const dir = useUserThemesStore((state) => state.dir);
+  const errors = useUserThemesStore((state) => state.errors);
+  const seeThrough = useUserThemesStore((state) => state.seeThrough);
+  const seeThroughAtLaunch = useUserThemesStore((state) => state.seeThroughAtLaunch);
+  const customCss = useUserThemesStore((state) => state.customCss);
+  const customCssPath = useUserThemesStore((state) => state.customCssPath);
+  const [editing, setEditing] = useState<TerminalTheme | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [notice, setNotice] = useState<{ text: string; use?: { name: string; appearance: ThemeAppearance } } | null>(null);
+  const report = (reason: unknown) => setNotice({ text: reason instanceof Error ? reason.message : String(reason) });
+  const custom = currentTheme.user ? currentTheme : null;
+
+  if (!bridge?.themesList) return null;
+
+  const importTheme = async () => {
+    try {
+      const record = await bridge.themesImport?.();
+      if (!record?.theme) return;
+      await refreshUserThemes();
+      const use = { name: record.theme.name, appearance: record.theme.appearance };
+      setNotice(record.css
+        ? { text: `Imported "${record.theme.name}". It includes custom CSS, which can restyle anything. Review it with Edit before relying on it.`, use }
+        : { text: `Imported "${record.theme.name}".`, use });
+    } catch (reason) { report(reason); }
+  };
+
+  const exportTheme = async () => {
+    if (!custom?.user) return;
+    try {
+      const target = await bridge.themesExport?.(custom.user.id);
+      if (target) setNotice({ text: `Exported to ${target}` });
+    } catch (reason) { report(reason); }
+  };
+
+  const deleteTheme = async () => {
+    if (!custom?.user) return;
+    setConfirmDelete(false);
+    try {
+      await bridge.themesDelete?.(custom.user.id);
+      await refreshUserThemes();
+      setNotice({ text: `Moved "${custom.name}" to the trash.` });
+    } catch (reason) { report(reason); }
+  };
+
+  return (
+    <Panel section="Interface" title="Themes">
+      <SettingRow label="Custom themes" description={`Themes live in ${dir ?? "the zorai themes folder"}. A folder with a theme.json dropped there appears here automatically.`}>
+        <div className="zorai-panel__heading-actions">
+          <button type="button" className="zorai-ghost-button" onClick={() => setEditing(currentTheme)}>New from current…</button>
+          <button type="button" className="zorai-ghost-button" onClick={() => void importTheme()}>Import…</button>
+          <button type="button" className="zorai-ghost-button" onClick={() => void bridge.themesOpenFolder?.()}>Open folder</button>
+        </div>
+      </SettingRow>
+      <RemoteThemes
+        onInstalled={(installed) => setNotice({
+          text: installed.hasCss
+            ? `Installed "${installed.name}". It includes custom CSS, which can restyle anything. Review it with Edit before relying on it.`
+            : `Installed "${installed.name}".`,
+          use: { name: installed.name, appearance: installed.appearance },
+        })}
+      />
+      <SettingRow
+        label="Personal CSS"
+        description={`${customCssPath ?? "custom.css in the zorai folder"} is loaded on top of every theme and reloads when you save it. ${customCss?.trim() ? (customCss.trim().split("\n").length === 1 ? "1 line active." : `${customCss.trim().split("\n").length} lines active.`) : "Empty right now."}`}
+      >
+        <div className="zorai-panel__heading-actions">
+          <button type="button" className="zorai-ghost-button" onClick={() => void bridge.themesOpenCustomCss?.().then(() => refreshUserThemes())}>Edit file</button>
+          <button type="button" className="zorai-ghost-button" onClick={() => void bridge.themesRevealCustomCss?.()}>Show in folder</button>
+        </div>
+      </SettingRow>
+      {custom ? (
+        <SettingRow label={custom.name} description={confirmDelete ? "Move this theme's folder to the trash?" : `Custom theme based on ${custom.user?.base ?? "a built-in theme"}.`}>
+          {confirmDelete ? (
+            <div className="zorai-panel__heading-actions">
+              <button type="button" className="zorai-ghost-button" onClick={() => setConfirmDelete(false)}>Cancel</button>
+              <button type="button" className="zorai-ghost-button" onClick={() => void deleteTheme()}>Delete</button>
+            </div>
+          ) : (
+            <div className="zorai-panel__heading-actions">
+              <button type="button" className="zorai-ghost-button" onClick={() => setEditing(custom)}>Edit…</button>
+              <button type="button" className="zorai-ghost-button" onClick={() => void exportTheme()}>Export…</button>
+              <button type="button" className="zorai-ghost-button" onClick={() => setConfirmDelete(true)}>Delete…</button>
+            </div>
+          )}
+        </SettingRow>
+      ) : null}
+      {seeThrough || seeThroughAtLaunch ? (
+        <SettingRow
+          label="See-through window"
+          description={seeThrough === seeThroughAtLaunch
+            ? "On. Themes with “See through to the desktop” show what is behind the window."
+            : seeThrough ? "Turns on after zorai restarts." : "Turns off after zorai restarts."}
+        >
+          <button type="button" className="zorai-ghost-button" onClick={() => void setSeeThroughWindow(!seeThrough)}>{seeThrough ? "Turn off" : "Keep on"}</button>
+        </SettingRow>
+      ) : null}
+      {notice ? (
+        <div className="zorai-theme-notice" role="status">
+          <span>{notice.text}</span>
+          {notice.use ? <button type="button" className="zorai-ghost-button" onClick={() => { onUse(notice.use!); setNotice(null); }}>Use it</button> : null}
+          <button type="button" className="zorai-ghost-button" aria-label="Dismiss" onClick={() => setNotice(null)}>×</button>
+        </div>
+      ) : null}
+      {errors.length > 0 ? (
+        <div className="zorai-theme-errors" role="alert">
+          <strong>Some themes could not be loaded</strong>
+          {errors.map((entry) => <span key={`${entry.id}:${entry.message}`}>{entry.id ? `${entry.id}: ` : ""}{entry.message}</span>)}
+        </div>
+      ) : null}
+      {editing ? (
+        <ThemeEditor
+          source={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(theme) => { setEditing(null); onUse(theme); }}
+        />
+      ) : null}
+    </Panel>
   );
 }
 

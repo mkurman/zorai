@@ -83,8 +83,8 @@ export function WorkspaceSourceControlChanges({ status, onOpen, onReview, onActi
     ? <GitChangeTree nodes={buildGitChangeTree(entries.slice(0, 500))} staged={isStaged} depth={0} collapsed={collapsed} onToggle={toggleFolder} handlers={handlers} />
     : entries.slice(0, 500).map((entry) => <WorkspaceGitChangeRow key={`${isStaged ? "staged" : "change"}:${entry.path}`} entry={entry} staged={isStaged} {...handlers} />);
   return <div className={`zorai-workspace-source-control is-${presentation}`} data-presentation={presentation}>
-    {staged.length > 0 ? <section><header><span>Staged Changes</span><span className="zorai-workspace-changes-actions">{viewButton}<button type="button" aria-label="Unstage all changes" onClick={() => void onBulkAction("unstage", staged)}>− All</button></span></header>{renderEntries(staged, true)}</section> : null}
-    {unstaged.length > 0 ? <section><header><span>Changes</span><span className="zorai-workspace-changes-actions">{staged.length > 0 ? null : viewButton}<button type="button" aria-label="Stage all changes" onClick={() => void onBulkAction("stage", unstaged)}>＋ All</button></span></header>{renderEntries(unstaged, false)}</section> : null}
+    {staged.length > 0 ? <details open><summary><span>Staged Changes</span><span className="zorai-workspace-changes-actions" onClick={(event) => event.preventDefault()}>{viewButton}<button type="button" aria-label="Unstage all changes" onClick={() => void onBulkAction("unstage", staged)}>− All</button></span></summary>{renderEntries(staged, true)}</details> : null}
+    {unstaged.length > 0 ? <details open><summary><span>Changes</span><span className="zorai-workspace-changes-actions" onClick={(event) => event.preventDefault()}>{staged.length > 0 ? null : viewButton}<button type="button" aria-label="Stage all changes" onClick={() => void onBulkAction("stage", unstaged)}>＋ All</button></span></summary>{renderEntries(unstaged, false)}</details> : null}
   </div>;
 }
 

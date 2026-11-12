@@ -147,7 +147,7 @@ fn settings_modal_keyboard_navigation_scrolls_lower_audio_fields_into_view() {
     let before = render_screen(&mut model).join("\n");
     assert!(
         !before.contains("Voice "),
-        "expected lower Audio & Images rows to be clipped before keyboard navigation"
+        "expected lower Multimedia rows to be clipped before keyboard navigation"
     );
 
     for _ in 0..7 {

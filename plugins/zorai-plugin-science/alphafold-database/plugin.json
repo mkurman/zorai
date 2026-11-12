@@ -34,5 +34,24 @@
   },
   "skills": [
     "skills/alphafold-database.md"
-  ]
+  ],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with AlphaFold DB",
+        "prompt": "Use the alphafold-database plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?",
+            "placeholder": "fetch the predicted structure of P38398 and summarise its pLDDT confidence"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

@@ -892,6 +892,7 @@ function runGitWithInput(args, cwd, input) {
             }
             reject(workspaceError('WORKSPACE_GIT_APPLY_FAILED', errorOutput.trim() || `git exited with ${code}`, { exitCode: code }));
         });
+        child.stdin.on('error', () => undefined);
         child.stdin.end(input, 'utf8');
     });
 }
@@ -1021,6 +1022,7 @@ async function workspaceGitDiff(rootPath, relativePath = null, options = {}) {
 }
 
 module.exports = {
+    runGitWithInput,
     canonicalWorkspaceRoot,
     createWorkspaceDirectory,
     deleteWorkspacePath,

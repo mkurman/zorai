@@ -45,5 +45,24 @@
       }
     }
   },
-  "skills": ["skills/autosearch-train.md"]
+  "skills": ["skills/autosearch-train.md"],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with AutoResearch",
+        "prompt": "Use the autosearch plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?",
+            "placeholder": "check this workspace and prepare the data for training"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

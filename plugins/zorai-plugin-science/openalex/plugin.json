@@ -62,5 +62,24 @@
   },
   "skills": [
     "skills/openalex.md"
-  ]
+  ],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with OpenAlex",
+        "prompt": "Use the openalex plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?",
+            "placeholder": "find highly cited 2024 papers on protein language models"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

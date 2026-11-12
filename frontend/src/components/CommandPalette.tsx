@@ -8,6 +8,9 @@ import { normalizeNightMode, resolveAppearance, systemPrefersDark } from "../lib
 import { handleZoraiAppCommand } from "../zorai/shell/zoraiAppCommands";
 import { navigateZorai } from "../zorai/shell/zoraiNavigationEvents";
 import { zoraiNavItems } from "../zorai/shell/navigation";
+import { shortcutCombo } from "../zorai/features/shortcuts/appShortcuts";
+import { applyLayout, useLayoutPresetsStore } from "../zorai/features/layouts/layoutPresets";
+import { runPluginCommand, usePluginUiStore } from "../zorai/features/plugins/pluginUiStore";
 import { zoraiTools } from "../zorai/features/tools/tools";
 import { CommandPaletteHeader } from "./command-palette/CommandPaletteHeader";
 import { CommandPaletteResults } from "./command-palette/CommandPaletteResults";
@@ -25,6 +28,8 @@ export function CommandPalette({ style, className }: CommandPaletteProps = {}) {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const shortcutFor = (action: string) => bindings.find((binding) => binding.action === action)?.combo;
+  const layoutPresets = useLayoutPresetsStore((state) => state.presets);
+  const pluginUi = usePluginUiStore((state) => state.plugins);
   const composeImagePrompt = (prompt = "") => {
     useWorkspaceStore.setState({ agentPanelOpen: true, commandPaletteOpen: false });
     window.setTimeout(() => {
@@ -41,9 +46,23 @@ export function CommandPalette({ style, className }: CommandPaletteProps = {}) {
       category: "Navigate",
       action: () => navigateZorai({ view: item.id }),
     })),
-    { id: "new-thread", label: "+ New Thread", category: "Threads", shortcut: shortcutFor("newSurface"), action: () => { handleZoraiAppCommand("new-surface"); } },
-    { id: "search-threads", label: "Search Threads", category: "Threads", shortcut: shortcutFor("toggleSearch"), action: () => { handleZoraiAppCommand("toggle-search"); } },
-    { id: "toggle-context", label: "Toggle Context Panel", category: "View", shortcut: shortcutFor("toggleSidebar"), action: () => { handleZoraiAppCommand("toggle-sidebar"); } },
+    { id: "new-thread", label: "+ New Thread", category: "Threads", shortcut: shortcutCombo(settings.shortcuts, "app.newThread") || undefined, action: () => { handleZoraiAppCommand("new-surface"); } },
+    { id: "search-threads", label: "Search Threads", category: "Threads", shortcut: shortcutCombo(settings.shortcuts, "app.searchThreads") || undefined, action: () => { handleZoraiAppCommand("toggle-search"); } },
+    { id: "toggle-context", label: "Toggle Context Panel", category: "View", shortcut: shortcutCombo(settings.shortcuts, "app.toggleContext") || undefined, action: () => { handleZoraiAppCommand("toggle-sidebar"); } },
+    ...pluginUi.flatMap((plugin) => plugin.commands
+      .filter((command) => command.placement.includes("palette"))
+      .map((command) => ({
+        id: `plugin-${plugin.name}-${command.id}`,
+        label: `${plugin.name}: ${command.title}`,
+        category: "Plugins",
+        action: () => runPluginCommand(plugin, command),
+      }))),
+    ...layoutPresets.map((preset) => ({
+      id: `layout-${preset.id}`,
+      label: `Layout: ${preset.name}`,
+      category: "View",
+      action: () => applyLayout(preset.layout),
+    })),
     ...zoraiTools.map((tool) => ({
       id: `tool-${tool.id}`,
       label: tool.title,

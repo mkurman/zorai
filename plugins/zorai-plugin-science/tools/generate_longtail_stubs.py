@@ -147,6 +147,21 @@ def _deepmind_scripts_dir(skill_dir: str) -> Path:
     return BUNDLE / skill_dir / "scripts"
 
 
+def _build_ui(sub_name: str) -> dict:
+    display = sub_name.replace("-", " ").title()
+    return {
+        "commands": [
+            {
+                "id": "ask",
+                "title": f"Ask with {display}",
+                "prompt": f"Use the {sub_name} plugin to: {{{{request}}}}",
+                "inputs": [{"key": "request", "label": "What do you need?"}],
+                "placement": ["palette"],
+            }
+        ]
+    }
+
+
 def _build_plugin_json(
     sub_name: str, deepmind_name: str, description: str, entry_script: str
 ) -> dict:
@@ -195,6 +210,7 @@ def _build_plugin_json(
             },
         },
         "skills": [f"skills/{sub_name}.md"],
+        "ui": _build_ui(sub_name),
     }
 
 
@@ -306,6 +322,7 @@ def main() -> None:
                 "python": {"env": False, "dependencies": []},
                 "commands": {},
                 "skills": [f"skills/{sub_name}.md"],
+                "ui": _build_ui(sub_name),
             }
         else:
             plugin_json = _build_plugin_json(sub_name, skill_dir, dm_description, entry)

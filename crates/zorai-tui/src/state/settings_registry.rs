@@ -282,7 +282,7 @@ const SKILLS_PAGE: SettingsPageSpec = SettingsPageSpec {
 };
 
 const MEDIA_PAGE: SettingsPageSpec = SettingsPageSpec {
-    title: "Audio & Images",
+    title: "Multimedia",
     description: "Speech-to-text, text-to-speech, image, video and music generation.",
     sections: &[
         section!("Speech-to-text", note _c => Some("Hotkeys: Ctrl+L record | Ctrl+P speak / pause-resume | Ctrl+S stop playback".to_string()), [

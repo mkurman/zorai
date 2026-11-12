@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { clampMenuPosition } from "@/zorai/shell/contextMenuModel";
 import { CodeIcon } from "./CodeIcon";
 import { codeCommandById, displayCodeBinding, type CodeCommandId } from "./codeCommands";
 import { useCodeEditorSettingsStore } from "./codeEditorSettingsStore";
@@ -11,6 +12,8 @@ export type CodeToolbarMenuItem = {
   disabled?: boolean;
   separatorBefore?: boolean;
   checked?: boolean;
+  shortcut?: string;
+  swatch?: string;
   children?: CodeToolbarMenuItem[];
   onSelect?: () => void;
 };
@@ -21,7 +24,7 @@ export function codeToolbarMenuItemLabel(item: CodeToolbarMenuItem): { label: st
   const binding = override === undefined ? command?.defaultKeybinding : override;
   return {
     label: item.label ?? command?.title ?? item.key,
-    shortcut: binding ? displayCodeBinding(binding) : null,
+    shortcut: binding ? displayCodeBinding(binding) : item.shortcut ?? null,
   };
 }
 
@@ -63,6 +66,44 @@ export function CodeToolbarMenu({ items, label = "More editor actions" }: { item
   );
 }
 
+export function CodeContextMenu({ x, y, items, label, onClose }: { x: number; y: number; items: CodeToolbarMenuItem[]; label: string; onClose: () => void }) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const rect = rootRef.current?.getBoundingClientRect();
+    if (rect) setPosition(clampMenuPosition(x, y, rect, { width: window.innerWidth, height: window.innerHeight }));
+  }, [x, y]);
+
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) onClose();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("blur", onClose);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("blur", onClose);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      ref={rootRef}
+      className="zorai-code-context-menu"
+      style={{ left: position?.left ?? x, top: position?.top ?? y, visibility: position ? "visible" : "hidden" }}
+      onContextMenu={(event) => event.preventDefault()}
+    >
+      <CodeToolbarMenuList items={items} label={label} onDone={onClose} />
+    </div>
+  );
+}
+
 function CodeToolbarMenuList({ items, label, onDone, submenu = false }: { items: CodeToolbarMenuItem[]; label: string; onDone: () => void; submenu?: boolean }) {
   const [openChild, setOpenChild] = useState<string | null>(null);
   return (
@@ -95,6 +136,7 @@ function CodeToolbarMenuList({ items, label, onDone, submenu = false }: { items:
               {item.checked !== undefined ? (
                 <svg className={item.checked ? "zorai-code-toolbar-menu__check is-on" : "zorai-code-toolbar-menu__check"} viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" /></svg>
               ) : null}
+              {item.swatch ? <span className="zorai-code-toolbar-menu__swatch" style={{ background: item.swatch }} aria-hidden="true" /> : null}
               {itemLabel}
             </span>
             {hasChildren ? <span className="zorai-code-toolbar-menu__chevron" aria-hidden="true">›</span> : shortcut ? <kbd>{shortcut}</kbd> : null}

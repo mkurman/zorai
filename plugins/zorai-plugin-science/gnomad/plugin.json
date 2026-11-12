@@ -34,5 +34,24 @@
   },
   "skills": [
     "skills/gnomad.md"
-  ]
+  ],
+  "ui": {
+    "commands": [
+      {
+        "id": "ask",
+        "title": "Ask with gnomAD",
+        "prompt": "Use the gnomad plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?",
+            "placeholder": "get constraint metrics (pLI, LOEUF) for TP53"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
 }

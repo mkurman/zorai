@@ -138,3 +138,25 @@ test('a daemon that fails to start again is reported, not shown as restarted', a
     assert.equal(result.ok, false);
     assert.match(result.output, /failed to bind socket/);
 });
+
+test('the desktop executable named zorai is never mistaken for the CLI, which would open another app window instead of upgrading', () => {
+    const resolved = resolveUpgradeCliPath({
+        env: {},
+        platform: 'darwin',
+        exePath: '/Applications/zorai.app/Contents/MacOS/zorai',
+        getCliPath: () => '/Applications/zorai.app/Contents/Resources/bin/zorai',
+        exists: (candidate) => candidate.startsWith('/Applications/zorai.app/'),
+    });
+    assert.equal(resolved, '/Applications/zorai.app/Contents/Resources/bin/zorai');
+});
+
+test('an app running from the read-only disk image refuses to update instead of looping on the old version', async () => {
+    const calls = [];
+    const app = { ...fakeApp(), getPath: () => '/Volumes/zorai/zorai.app/Contents/MacOS/zorai' };
+    const runtime = createUpdateRuntime({ app, platform: 'darwin', getCliPath: () => '/Volumes/zorai/zorai.app/Contents/Resources/bin/zorai', exists: () => true, execFileImpl: (...args) => calls.push(args) });
+    const result = await runtime.install();
+    assert.equal(result.ok, false);
+    assert.match(result.output, /Applications/);
+    assert.equal(calls.length, 0);
+    assert.equal(runtime.stopDaemonIfUpdated(), false);
+});

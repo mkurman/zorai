@@ -3,7 +3,9 @@ import { ThreadNeedsActionIcon, useThreadIdsNeedingAction } from "./threadNeedsA
 import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { threadDateGroupLabel } from "./threadDateGroups";
 import { ThreadRowHoverCard } from "./ThreadRowHoverCard";
-import { Fragment, memo, startTransition, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { Fragment, memo, startTransition, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
+import { CodeContextMenu } from "@/zorai/features/code/CodeToolbarMenu";
+import { threadTint, threadTintKey, tintMenuItem, tintStyle, useTintStore } from "@/zorai/features/tints/tintStore";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import type { AgentChatPanelRuntimeValue } from "@/components/agent-chat-panel/runtime/types";
 import { ACTIVE_RUN_POLL_MS, fetchAgentRuns, IDLE_RUN_POLL_MS, runListIsActive, type AgentRun } from "@/lib/agentRuns";
@@ -634,6 +636,11 @@ function ThreadSessionRow({
 }) {
   const [draft, setDraft] = useState(thread.title);
   const [hoverAnchor, setHoverAnchor] = useState<DOMRect | null>(null);
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
+  const tintKey = threadTintKey(thread);
+  const tint = useTintStore((state) => threadTint(state.threads, thread));
+  const setThreadTint = useTintStore((state) => state.setThreadTint);
+  const closeMenu = useCallback(() => setMenuAt(null), []);
   const hoverTimerRef = useRef<number | null>(null);
   const status = needsAction ? "needs-action" : working ? "working" : active ? "active" : unread ? "unread" : "idle";
   const statusLabel = [needsAction ? "needs your action" : "", working ? "working" : "", unread ? "unread" : ""].filter(Boolean).join(", ");
@@ -652,8 +659,15 @@ function ThreadSessionRow({
 
   return (
     <div
-      className={["zorai-thread-row", active ? "zorai-thread-row--active" : "", loading ? "zorai-thread-row--loading" : ""].filter(Boolean).join(" ")}
+      className={["zorai-thread-row", active ? "zorai-thread-row--active" : "", loading ? "zorai-thread-row--loading" : "", tint ? "zorai-thread-row--tinted" : ""].filter(Boolean).join(" ")}
+      style={tintStyle(tint) as CSSProperties | undefined}
       data-status={status}
+      onContextMenu={(event) => {
+        if (editing) return;
+        event.preventDefault();
+        hideHoverCard();
+        setMenuAt({ x: event.clientX, y: event.clientY });
+      }}
       onMouseEnter={(event) => {
         if (editing) return;
         const row = event.currentTarget;
@@ -713,6 +727,19 @@ function ThreadSessionRow({
           <button type="button" className="zorai-thread-row__action zorai-thread-row__action--danger" aria-label={`Delete ${thread.title}`} title="Delete" onClick={onDelete}><ThreadRowIcon kind="delete" /></button>
         </span>
       )}
+      {menuAt ? (
+        <CodeContextMenu
+          x={menuAt.x}
+          y={menuAt.y}
+          label={`Actions for ${thread.title}`}
+          onClose={closeMenu}
+          items={[
+            tintMenuItem(tint, (next) => setThreadTint(tintKey, next)),
+            { key: "rename", label: "Rename", separatorBefore: true, onSelect: onStartRename },
+            { key: "delete", label: "Delete…", danger: true, onSelect: onDelete },
+          ]}
+        />
+      ) : null}
       {hoverAnchor && !editing ? <ThreadRowHoverCard anchor={hoverAnchor} thread={thread} activity={activity} workers={workers} working={working} /> : null}
     </div>
   );
