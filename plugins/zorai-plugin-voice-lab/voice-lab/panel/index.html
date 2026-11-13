@@ -46,12 +46,12 @@
           </div>
           <div id="form">
             <label class="field">Title <input id="f-title" placeholder="Release briefing"></label>
-            <section class="card">
-              <header><h2>Engine</h2></header>
+            <details class="card engine">
+              <summary><h2>Engine</h2><span id="e-summary" class="muted small"></span></summary>
               <div class="engine-row"><span>Voices</span><div class="seg" id="e-speak" role="group" aria-label="Voices"></div></div>
               <div class="engine-row"><span>Listening check</span><div class="seg" id="e-listen" role="group" aria-label="Listening check"></div></div>
               <p id="e-cost" class="muted small" hidden></p>
-            </section>
+            </details>
             <section class="card">
               <header><h2>Cast</h2><button id="add-speaker">+ Speaker</button></header>
               <div id="f-cast" class="rows"></div>

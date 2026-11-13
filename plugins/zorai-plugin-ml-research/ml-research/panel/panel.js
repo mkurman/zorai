@@ -51,7 +51,15 @@ function guard(action) {
   };
 }
 
-const state = { campaign: "", spec: null, contract: null, board: null, runs: [], attribution: null, report: null, job: null, selectedRun: null, active: [], paper: null, workspace: localStorage.getItem("ml-research:workspace") || "" };
+const saved = (() => {
+  try {
+    return window.localStorage;
+  } catch {
+    const memory = new Map();
+    return { getItem: (key) => memory.get(key) ?? null, setItem: (key, value) => memory.set(key, String(value)) };
+  }
+})();
+const state = { campaign: "", spec: null, contract: null, board: null, runs: [], attribution: null, report: null, job: null, selectedRun: null, active: [], paper: null, workspace: saved.getItem("ml-research:workspace") || "" };
 const FREE_TABS = ["setup", "data", "runtimes"];
 
 async function openTerminal(tab) {
@@ -73,7 +81,9 @@ function selectTab(name) {
   for (const button of document.querySelectorAll("[role=tab]")) button.setAttribute("aria-selected", String(button.dataset.tab === name));
   for (const section of document.querySelectorAll(".tab")) section.hidden = section.id !== name || (!state.campaign && !FREE_TABS.includes(name));
   $("#no-campaign").hidden = Boolean(state.campaign) || FREE_TABS.includes(name);
+  $("#loading").hidden = true;
   if (name === "runtimes" && !$("#rt-cards").children.length) guard(loadRuntimes)();
+  if (name === "dashboard") guard(refreshDashboard)();
 }
 
 function markFunnel() {
@@ -90,17 +100,19 @@ async function loadCampaigns(select) {
   const { campaigns } = await call("campaigns");
   const picker = $("#campaign");
   picker.replaceChildren(...campaigns.map((item) => element("option", { value: item.name, textContent: `${item.name}${item.locked ? "" : " (not locked)"}` })));
-  const wanted = select || state.campaign || localStorage.getItem("ml-research:campaign");
+  const wanted = select || state.campaign || saved.getItem("ml-research:campaign");
   state.campaign = campaigns.some((item) => item.name === wanted) ? wanted : campaigns[0]?.name ?? "";
   picker.value = state.campaign;
   picker.disabled = !campaigns.length;
-  if (state.campaign) localStorage.setItem("ml-research:campaign", state.campaign);
+  if (state.campaign) saved.setItem("ml-research:campaign", state.campaign);
   await refreshCampaign();
 }
 
 async function refreshCampaign() {
   state.spec = state.contract = state.board = state.attribution = state.report = null;
   state.runs = [];
+  dash.logs.clear();
+  dash.gpus.clear();
   const current = document.querySelector("[role=tab][aria-selected=true]")?.dataset.tab ?? "contract";
   selectTab(current);
   if (!state.campaign) return markFunnel();
@@ -151,6 +163,7 @@ async function refreshResults() {
   state.runs = runs.runs;
   renderBoard();
   renderRuns();
+  if (!$("#dashboard").hidden) await refreshDashboard();
   await refreshAttribution();
   markFunnel();
 }
@@ -368,7 +381,7 @@ $("#example").onclick = guard(async () => {
 
 $("#campaign").onchange = guard(async () => {
   state.campaign = $("#campaign").value;
-  localStorage.setItem("ml-research:campaign", state.campaign);
+  saved.setItem("ml-research:campaign", state.campaign);
   await refreshCampaign();
 });
 
@@ -497,14 +510,14 @@ $("#rt-pick").onclick = guard(async () => {
   const folder = await zorai("pickFolder", { title: "Training workspace" });
   if (!folder) return;
   state.workspace = folder;
-  localStorage.setItem("ml-research:workspace", folder);
+  saved.setItem("ml-research:workspace", folder);
   await loadRuntimes();
 });
 
 $("#rt-repo").onclick = guard(async () => {
   if (!state.spec?.repo) throw new Error("Open a campaign first.");
   state.workspace = state.spec.repo;
-  localStorage.setItem("ml-research:workspace", state.workspace);
+  saved.setItem("ml-research:workspace", state.workspace);
   await loadRuntimes();
 });
 
@@ -571,6 +584,259 @@ async function check() {
 }
 
 $("#recheck").onclick = guard(check);
+
+const SVG = "http://www.w3.org/2000/svg";
+const dash = { logs: new Map(), gpus: new Map(), busy: false, hover: null };
+
+function svg(tag, attrs = {}, ...children) {
+  const node = document.createElementNS(SVG, tag);
+  for (const [key, value] of Object.entries(attrs)) if (value !== undefined && value !== null) node.setAttribute(key, value);
+  node.append(...children);
+  return node;
+}
+
+function dashSources() {
+  const live = (state.active ?? []).map((entry) => ({ path: entry.log, ref: entry.ref, label: entry.label, seed: entry.seed, gpu: entry.gpu, started_at: entry.started_at, kind: entry.kind, status: "running", live: true }));
+  const livePaths = new Set(live.map((entry) => entry.path));
+  const done = state.runs.filter((run) => run.log && !livePaths.has(run.log)).map((run) => ({ path: run.log, ref: run.ref, label: run.label, seed: run.seed, kind: run.kind, status: run.status, id: run.id, live: false }));
+  return [...live, ...done];
+}
+
+async function refreshDashboard() {
+  if (dash.busy || !state.campaign || $("#dashboard").hidden) return;
+  const sources = dashSources();
+  const wanted = sources.filter((source) => {
+    const known = dash.logs.get(source.path);
+    return !known || known.more || source.live || known.live;
+  });
+  dash.busy = true;
+  try {
+    if (wanted.length || state.active?.length) {
+      const result = await call("series", { campaign: state.campaign, logs: wanted.map((source) => ({ path: source.path, offset: dash.logs.get(source.path)?.offset ?? 0, last: dash.logs.get(source.path)?.last ?? 0, explicit: dash.logs.get(source.path)?.explicit ?? false })), gpus: state.active?.length ? "true" : "" });
+      for (const part of result.logs) {
+        const known = dash.logs.get(part.path) ?? { series: {}, progress: null };
+        for (const [key, points] of Object.entries(part.series)) (known.series[key] ??= []).push(...points);
+        dash.logs.set(part.path, { ...known, offset: part.offset, last: part.last, explicit: part.explicit, more: part.more, progress: part.progress ?? known.progress, live: sources.find((source) => source.path === part.path)?.live });
+      }
+      const now = Date.now();
+      for (const [index, gpu] of (result.gpus ?? []).entries()) {
+        const history = dash.gpus.get(index) ?? { name: gpu.name, points: [] };
+        history.points.push([now, (gpu.total_mib - gpu.free_mib) / gpu.total_mib, gpu.utilization / 100, gpu]);
+        if (history.points.length > 1200) history.points.shift();
+        dash.gpus.set(index, history);
+      }
+      $("#d-updated").textContent = `Updated ${new Date(now).toLocaleTimeString()}`;
+    }
+  } finally {
+    dash.busy = false;
+  }
+  renderDashboard(sources);
+}
+
+function identity(source) {
+  return source.label ? `${source.ref} without ${source.label}` : source.ref;
+}
+
+function dashColors(sources) {
+  const spec = state.spec?.spec;
+  const order = [...new Set([...(spec?.candidates ?? []), ...sources.map(identity)])].filter((name) => name !== spec?.baseline);
+  return (name) => {
+    if (name === spec?.baseline) return { color: "var(--text-muted, #a89f8c)", dashed: true };
+    const slot = order.indexOf(name);
+    return slot >= 0 && slot < 8 ? { color: `var(--s${slot + 1})`, dashed: false } : { color: "var(--text-muted, #a89f8c)", dashed: false, other: true };
+  };
+}
+
+function smooth(points) {
+  let value = null;
+  return points.map(([step, raw]) => [step, value = value === null ? raw : value * 0.85 + raw * 0.15]);
+}
+
+function thin(points, limit) {
+  if (points.length <= limit) return points;
+  const stride = Math.ceil(points.length / limit);
+  return points.filter((_, index) => index % stride === 0 || index === points.length - 1);
+}
+
+function ticks(min, max, count) {
+  if (min === max) return [min];
+  const raw = (max - min) / count;
+  const power = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map((factor) => factor * power).find((candidate) => candidate >= raw);
+  const out = [];
+  for (let value = Math.ceil(min / step) * step; value <= max + step * 1e-9; value += step) out.push(Number(value.toPrecision(12)));
+  return out;
+}
+
+function nearest(points, step) {
+  let low = 0, high = points.length - 1;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (points[middle][0] < step) low = middle + 1; else high = middle;
+  }
+  const before = points[Math.max(0, low - 1)];
+  return Math.abs(before[0] - step) < Math.abs(points[low][0] - step) ? before : points[low];
+}
+
+function renderDashboard(sources = dashSources()) {
+  const keys = new Set();
+  for (const source of sources) for (const key of Object.keys(dash.logs.get(source.path)?.series ?? {})) keys.add(key);
+  const picker = $("#d-key");
+  const metric = state.spec?.spec?.metric;
+  const chosen = keys.has(picker.value) ? picker.value : keys.has(metric) ? metric : keys.has("loss") ? "loss" : [...keys][0] ?? "";
+  picker.replaceChildren(...[...keys].sort((a, b) => (b === metric) - (a === metric) || a.localeCompare(b)).map((key) => element("option", { value: key, textContent: key })));
+  picker.value = chosen;
+  const colorOf = dashColors(sources);
+  const shown = sources.filter((source) => $("#d-invalid").checked || source.status !== "invalid");
+  const lines = shown.map((source) => {
+    const raw = dash.logs.get(source.path)?.series?.[chosen] ?? [];
+    return { source, name: identity(source), style: colorOf(identity(source)), raw, points: $("#d-smooth").checked ? smooth(raw) : raw };
+  }).filter((line) => line.points.length);
+  renderRunCards(sources, chosen, colorOf);
+  renderDashTable(sources, chosen);
+  renderGpus();
+  $("#d-title").textContent = chosen ? `${chosen} by step` : "Curves";
+  $("#d-empty").hidden = lines.some((line) => line.points.length > 1);
+  $("#d-empty-runs").hidden = sources.length > 0;
+  $("#d-empty-curves").hidden = sources.length === 0;
+  const logScale = $("#d-log").checked && lines.every((line) => line.points.every(([, value]) => value > 0));
+  $("#d-log").disabled = !lines.every((line) => line.points.every(([, value]) => value > 0));
+  const names = [...new Set(lines.map((line) => line.name))];
+  $("#d-legend").replaceChildren(...names.map((name) => {
+    const style = colorOf(name);
+    return element("span", {}, element("i", { className: `swatch${style.dashed ? " dashed" : ""}`, style: `border-color: ${style.color}` }), style.other ? `${name} (other)` : name);
+  }));
+  drawChart(lines, logScale, names.length);
+}
+
+function drawChart(lines, logScale, identities) {
+  const box = $("#d-chart");
+  box.replaceChildren();
+  if (!lines.length) return;
+  const width = Math.max(320, box.clientWidth || 720), height = 300;
+  const pad = { left: 56, right: identities <= 4 ? 120 : 16, top: 12, bottom: 28 };
+  const y = (value) => logScale ? Math.log10(value) : value;
+  const all = lines.flatMap((line) => line.points);
+  let [x0, x1] = [Math.min(...all.map(([step]) => step)), Math.max(...all.map(([step]) => step))];
+  let [y0, y1] = [Math.min(...all.map(([, value]) => y(value))), Math.max(...all.map(([, value]) => y(value)))];
+  if (x0 === x1) [x0, x1] = [x0 - 1, x1 + 1];
+  if (y0 === y1) [y0, y1] = [y0 - Math.abs(y0 || 1) * 0.1, y1 + Math.abs(y1 || 1) * 0.1];
+  const spread = (y1 - y0) * 0.06;
+  [y0, y1] = [y0 - spread, y1 + spread];
+  const sx = (step) => pad.left + (step - x0) / (x1 - x0) * (width - pad.left - pad.right);
+  const sy = (value) => pad.top + (1 - (y(value) - y0) / (y1 - y0)) * (height - pad.top - pad.bottom);
+  const plot = svg("svg", { viewBox: `0 0 ${width} ${height}`, height, role: "img", "aria-label": `${$("#d-key").value} by step for ${lines.length} runs` });
+  const grid = svg("g", { class: "grid" }), axis = svg("g", { class: "axis" });
+  const yTicks = logScale ? ticks(Math.floor(y0), Math.ceil(y1), 4).filter((value) => value >= y0 && value <= y1).map((value) => 10 ** value) : ticks(y0, y1, 4);
+  for (const value of yTicks) {
+    grid.append(svg("line", { x1: pad.left, x2: width - pad.right, y1: sy(value), y2: sy(value) }));
+    axis.append(svg("text", { x: pad.left - 8, y: sy(value) + 4, "text-anchor": "end" }, num(value)));
+  }
+  for (const value of ticks(x0, x1, 6).filter((value) => value >= x0 && value <= x1)) axis.append(svg("text", { x: sx(value), y: height - 8, "text-anchor": "middle" }, num(value)));
+  plot.append(grid, axis);
+  const limit = Math.round(width * 1.5);
+  for (const line of lines) {
+    const points = thin(line.points, limit);
+    const d = points.map(([step, value], index) => `${index ? "L" : "M"}${sx(step).toFixed(1)},${sy(value).toFixed(1)}`).join("");
+    plot.append(svg("path", { class: "curve", d, stroke: line.style.color, "stroke-dasharray": line.style.dashed ? "6 4" : line.source.status === "invalid" ? "2 3" : undefined, "stroke-opacity": line.source.live ? 1 : 0.7 }));
+    const [step, value] = line.points.at(-1);
+    if (points.length === 1 || line.source.live) plot.append(svg("circle", { class: line.source.live ? "live" : "", cx: sx(step), cy: sy(value), r: 4.5, fill: line.style.color }));
+  }
+  if (identities <= 4) {
+    const ends = new Map();
+    for (const line of lines) {
+      const end = line.points.at(-1);
+      const previous = ends.get(line.name);
+      if (!previous || end[0] > previous.step) ends.set(line.name, { step: end[0], y: sy(end[1]) });
+    }
+    const placed = [...ends.entries()].sort((a, b) => a[1].y - b[1].y);
+    let floor = -Infinity;
+    for (const [name, end] of placed) {
+      const at = Math.max(end.y + 4, floor + 13);
+      floor = at;
+      plot.append(svg("text", { class: "end-label", x: width - pad.right + 8, y: at }, name.length > 18 ? `${name.slice(0, 17)}…` : name));
+    }
+  }
+  const cross = svg("line", { class: "cross", y1: pad.top, y2: height - pad.bottom, visibility: "hidden" });
+  const hit = svg("rect", { x: pad.left, y: 0, width: width - pad.left - pad.right, height, fill: "transparent" });
+  const tip = element("div", { className: "tip", hidden: true });
+  hit.addEventListener("pointermove", (event) => {
+    const rect = plot.getBoundingClientRect();
+    const px = (event.clientX - rect.left) * width / rect.width;
+    const step = x0 + (px - pad.left) / (width - pad.left - pad.right) * (x1 - x0);
+    const at = lines.map((line) => nearest(line.points, step)[0]).reduce((best, candidate) => Math.abs(candidate - step) < Math.abs(best - step) ? candidate : best);
+    const rows = lines.map((line) => ({ line, point: nearest(line.points, at) })).filter(({ point }) => Math.abs(sx(point[0]) - sx(at)) < 24);
+    cross.setAttribute("x1", sx(at)); cross.setAttribute("x2", sx(at)); cross.setAttribute("visibility", "visible");
+    tip.replaceChildren(element("b", { textContent: `step ${num(at)}` }), ...rows.slice(0, 12).map(({ line, point }) => element("div", {},
+      element("i", { className: `swatch${line.style.dashed ? " dashed" : ""}`, style: `border-color: ${line.style.color}` }),
+      element("span", { textContent: `${line.name} · seed ${line.source.seed}${line.source.live ? " · live" : ""}` }),
+      element("span", { textContent: num(point[1]) }),
+    )));
+    tip.hidden = false;
+    const left = (sx(at) / width) * rect.width;
+    tip.style.left = `${Math.min(left + 12, rect.width - tip.offsetWidth - 4)}px`;
+    tip.style.top = `${pad.top}px`;
+  });
+  hit.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); tip.hidden = true; });
+  plot.append(cross, hit);
+  box.append(plot, tip);
+}
+
+function renderRunCards(sources, key, colorOf) {
+  $("#d-running").replaceChildren(...sources.filter((source) => source.live).map((source) => {
+    const known = dash.logs.get(source.path);
+    const points = known?.series?.[key] ?? [];
+    const progress = known?.progress;
+    const style = colorOf(identity(source));
+    const share = progress?.total ? progress.done / progress.total : null;
+    return element("article", { className: "run-card" },
+      element("header", {}, element("i", { className: `swatch${style.dashed ? " dashed" : ""}`, style: `border-color: ${style.color}` }), `${identity(source)} · seed ${source.seed}`),
+      element("span", { className: "muted small", textContent: `${source.gpu !== null && source.gpu !== undefined ? `GPU ${source.gpu} · ` : ""}running for ${elapsed(source.started_at)}` }),
+      element("span", { className: "value", textContent: points.length ? num(points.at(-1)[1]) : "–", title: key }),
+      element("span", { className: "muted small", textContent: points.length ? `${key} at step ${num(points.at(-1)[0])}` : `no ${key || "progress"} printed yet` }),
+      share === null ? "" : element("div", { className: "meter" }, element("span", { style: `width: ${Math.round(share * 100)}%` })),
+      share === null ? "" : element("span", { className: "muted small", textContent: `${progress.done} / ${progress.total}${progress.remaining ? ` · ${progress.remaining} left` : ""}` }),
+    );
+  }));
+}
+
+function renderDashTable(sources, key) {
+  const lower = state.spec?.spec?.direction !== "max" || key !== state.spec?.spec?.metric;
+  $("#d-table tbody").replaceChildren(...sources.map((source) => {
+    const points = dash.logs.get(source.path)?.series?.[key] ?? [];
+    const best = points.length ? points.reduce((winner, point) => (lower ? point[1] < winner[1] : point[1] > winner[1]) ? point : winner) : null;
+    return element("tr", {},
+      element("td", { textContent: source.id ?? "live" }),
+      element("td", { textContent: identity(source) }),
+      element("td", { textContent: source.seed }),
+      element("td", {}, element("span", { className: `badge ${source.status === "ok" ? "ok" : source.status === "invalid" ? "bad" : "warn"}`, textContent: source.status })),
+      element("td", { textContent: points.length ? num(points.at(-1)[0]) : "–" }),
+      element("td", { textContent: points.length ? num(points.at(-1)[1]) : "–" }),
+      element("td", { textContent: best ? `${num(best[1])} @ ${num(best[0])}` : "–" }),
+    );
+  }));
+}
+
+function renderGpus() {
+  $("#d-gpu-card").hidden = !dash.gpus.size;
+  $("#d-gpus").replaceChildren(...[...dash.gpus.entries()].map(([index, history]) => {
+    const last = history.points.at(-1)[3];
+    const span = Math.max(1, history.points.at(-1)[0] - history.points[0][0]);
+    const path = (field) => history.points.map((point, at) => `${at ? "L" : "M"}${((point[0] - history.points[0][0]) / span * 300).toFixed(1)},${(52 - point[field] * 50).toFixed(1)}`).join("");
+    return element("div", {},
+      element("div", { className: "small", textContent: `GPU ${index} · ${last.name.replace("NVIDIA GeForce ", "")}` }),
+      element("div", { className: "muted small", textContent: `${((last.total_mib - last.free_mib) / 1024).toFixed(1)} of ${(last.total_mib / 1024).toFixed(1)} GB · ${last.utilization}% busy` }),
+      svg("svg", { viewBox: "0 0 300 54", preserveAspectRatio: "none", role: "img", "aria-label": `GPU ${index} memory and utilisation over time` },
+        svg("path", { d: path(1), stroke: "var(--s1)", "vector-effect": "non-scaling-stroke" }),
+        svg("path", { d: path(2), stroke: "var(--s2)", "vector-effect": "non-scaling-stroke" })),
+      element("div", { className: "legend small" }, element("span", {}, element("i", { className: "swatch", style: "border-color: var(--s1)" }), "memory"), element("span", {}, element("i", { className: "swatch", style: "border-color: var(--s2)" }), "busy")),
+    );
+  }));
+}
+
+for (const id of ["#d-key", "#d-smooth", "#d-log", "#d-invalid"]) $(id).onchange = () => renderDashboard();
+addEventListener("resize", () => { if (!$("#dashboard").hidden) renderDashboard(); });
+setInterval(() => { if (state.active?.length || [...dash.logs.values()].some((log) => log.more)) guard(refreshDashboard)(); }, 3000);
 
 for (const button of document.querySelectorAll("[role=tab]")) button.onclick = () => selectTab(button.dataset.tab);
 

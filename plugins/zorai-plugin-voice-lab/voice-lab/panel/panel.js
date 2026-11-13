@@ -100,10 +100,59 @@ function routePicker(kind, value, onChange) {
   provider.setAttribute("aria-label", "Cloud provider");
   const model = document.createElement("input");
   model.setAttribute("aria-label", "Cloud model");
-  const list = document.createElement("datalist");
-  list.id = `models-${kind}-${Math.random().toString(36).slice(2, 8)}`;
-  model.setAttribute("list", list.id);
-  wrap.append(provider, model, list);
+  model.setAttribute("autocomplete", "off");
+  const list = document.createElement("ul");
+  list.className = "suggest";
+  list.setAttribute("role", "listbox");
+  list.hidden = true;
+  const combo = document.createElement("span");
+  combo.className = "combo";
+  combo.append(model, list);
+  wrap.append(provider, combo);
+  let models = [];
+  let active = -1;
+  const matches = () => {
+    const query = model.value.trim().toLowerCase();
+    return models.filter((item) => !query || `${item.id} ${item.name}`.toLowerCase().includes(query)).slice(0, 60);
+  };
+  const pick = (id) => {
+    model.value = id;
+    list.hidden = true;
+    emit();
+  };
+  const render = () => {
+    const found = matches();
+    active = Math.min(active, found.length - 1);
+    list.replaceChildren(...found.map((item, index) => {
+      const option = document.createElement("li");
+      option.setAttribute("role", "option");
+      option.setAttribute("aria-selected", String(index === active));
+      option.append(Object.assign(document.createElement("b"), { textContent: item.id }), ...(item.name && item.name !== item.id ? [Object.assign(document.createElement("span"), { textContent: item.name })] : []));
+      option.addEventListener("pointerdown", (event) => { event.preventDefault(); pick(item.id); });
+      return option;
+    }));
+    list.hidden = !found.length || document.activeElement !== model;
+    list.classList.toggle("up", model.getBoundingClientRect().bottom + 230 > innerHeight && model.getBoundingClientRect().top > 230);
+    list.children[active]?.scrollIntoView({ block: "nearest" });
+    return found;
+  };
+  model.addEventListener("focus", () => { active = -1; render(); });
+  model.addEventListener("input", () => { active = -1; render(); });
+  model.addEventListener("blur", () => { list.hidden = true; });
+  model.addEventListener("keydown", (event) => {
+    const found = matches();
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      if (!found.length) return;
+      event.preventDefault();
+      active = (active + (event.key === "ArrowDown" ? 1 : -1) + found.length) % found.length;
+      render();
+    } else if (event.key === "Enter" && !list.hidden && active >= 0) {
+      event.preventDefault();
+      pick(found[active].id);
+    } else if (event.key === "Escape") {
+      list.hidden = true;
+    }
+  });
   const emit = () => onChange(provider.value ? { provider: provider.value, ...(model.value.trim() ? { model: model.value.trim() } : {}) } : null);
   provider.append(new Option("zorai default", ""));
   model.disabled = true;
@@ -119,7 +168,7 @@ function routePicker(kind, value, onChange) {
     model.value = value?.model ?? "";
     const fill = () => {
       const entry = providers.find((item) => item.id === provider.value);
-      list.replaceChildren(...(entry?.models ?? []).map((item) => new Option(item.name, item.id)));
+      models = entry?.models ?? [];
       model.disabled = !provider.value;
       model.placeholder = provider.value ? `model (default for ${entry?.label ?? provider.value})` : current.model || "model";
     };
@@ -239,6 +288,18 @@ function renderEngine() {
   const paid = ["speak", "listen"].filter((kind) => engine(kind) === "cloud");
   $("#e-cost").hidden = paid.length === 0;
   $("#e-cost").textContent = paid.length ? `Cloud ${paid.map((kind) => (kind === "speak" ? "voices" : "listening")).join(" and ")} use the provider and model chosen here (zorai's audio settings when left on default). Each line, retry and preview is a paid request there.` : "";
+  const speaker = engine("speak") === "cloud" ? `the cloud voice (${cloud.speak || "not set up"})` : "a local Kokoro voice";
+  const listener = engine("listen") === "cloud" ? `the cloud listener (${cloud.listen || "not set up"})` : "Whisper on this computer";
+  $("#e-summary").textContent = `Voices: ${options.speak.find(([value]) => value === engine("speak"))[1]} — Listening: ${options.listen.find(([value]) => value === engine("listen"))[1]}${paid.length ? " — paid" : ""}`;
+  $("#studio-empty").textContent = `Write a script on the left, save it, then Render. Every line is spoken by ${speaker} and heard back by ${listener}; lines with misheard words are retried.`;
+}
+
+async function jumpToLine(index) {
+  await setMode("form");
+  const item = $("#f-lines").children[index - 1];
+  if (!item) return;
+  item.scrollIntoView({ block: "center", behavior: "smooth" });
+  item.querySelector("textarea")?.focus({ preventScroll: true });
 }
 
 function voiceSelect(value, onChange) {
@@ -466,13 +527,19 @@ function renderReport(report, outputs) {
   const rows = [
     ["Length", `${Math.round(report.duration_s)} s`],
     ["Lines", `${report.lines} (${report.reused} reused from earlier renders)`],
-    ["Listening check", report.flagged.length ? `${report.flagged.length} line(s) still above ${percent(report.max_wer)}: ${report.flagged.join(", ")}` : `all passed, average ${percent(report.mean_wer)} wrong`],
+    ["Listening check", report.flagged.length ? [`${report.flagged.length} line(s) still above ${percent(report.max_wer)}: `, ...report.flagged.flatMap((index, position) => [position ? ", " : "", lineLink(index)])] : `all passed, average ${percent(report.mean_wer)} wrong`],
     ["Loudness", `${report.loudness.after_lufs} LUFS (was ${report.loudness.before_lufs}), peak ${report.loudness.true_peak} dBTP`],
     ["Heard on", report.listener],
   ];
   $("#report").innerHTML = "";
-  for (const [label, value] of rows) $("#report").append(element("dt", { textContent: label }), element("dd", { textContent: value }));
+  for (const [label, value] of rows) $("#report").append(element("dt", { textContent: label }), element("dd", {}, ...[value].flat()));
   $("#paths").textContent = report.exported?.length ? `Saved to ${report.exported[0].replace(/\.mp3$/, "")} (.mp3, .wav, .srt)` : `~/.zorai/plugin-data/voice-lab/${outputs.mp3}`;
+}
+
+function lineLink(index) {
+  const button = element("button", { type: "button", className: "link", textContent: `line ${index}`, title: `Edit line ${index} in the script` });
+  button.addEventListener("click", guard(() => jumpToLine(index)));
+  return button;
 }
 
 function renderResults(lines, maxWer) {
@@ -482,7 +549,7 @@ function renderResults(lines, maxWer) {
   $("#studio-empty").hidden = Boolean(lines?.length);
   for (const line of lines ?? []) {
     const row = body.insertRow();
-    row.insertCell().textContent = line.index;
+    row.insertCell().append(line.wer > maxWer ? lineLink(line.index) : String(line.index));
     row.insertCell().textContent = line.speaker;
     const text = row.insertCell();
     text.textContent = line.text;

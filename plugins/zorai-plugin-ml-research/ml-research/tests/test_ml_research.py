@@ -188,7 +188,7 @@ def test_runs_are_logged_to_mlflow_over_rest_when_a_server_answers(lab):
     assert all(run["mlflow_run"] == "r1" for run in store.runs("toy"))
     batches = [body for method, path, body in seen if path.endswith("/runs/log-batch")]
     assert len(batches) == len(status["runs"]) == 2
-    assert {metric["key"] for metric in batches[0]["metrics"]} == {"val_loss", "duration_s"}
+    assert {metric["key"] for metric in batches[0]["metrics"]} == {"val_loss", "train_loss", "duration_s"}
 
 
 def test_the_cli_reports_unknown_commands_and_missing_campaigns_plainly(tmp_path):
@@ -351,3 +351,77 @@ def test_a_bare_flag_like_wait_does_not_swallow_the_next_option():
 
     params, _ = ml_research.read_request(["x", "sweep", "--wait", "--parallel", "3", "--rerun"])
     assert params == {"wait": "true", "parallel": "3", "rerun": "true"}
+
+
+def test_training_progress_printed_by_common_trainers_becomes_curves_without_changing_the_script():
+    from mlresearch.series import parse
+
+    log = (
+        "$ python train.py\n"
+        "METRIC loss=2.5 step=10\n"
+        "{'loss': 2.1, 'grad_norm': 0.5, 'epoch': 0.5}\n"
+        "{\"val_loss\": 1.7, \"global_step\": 40, \"seed\": 3}\n"
+        " 45%|####| 450/1000 [01:02<01:15,  7.2it/s]\r 46%|####| 460/1000 [01:03<01:14,  7.2it/s]\n"
+        "METRIC val_loss=1.65\n"
+        "{'loss': nan}\n"
+    )
+    parsed = parse(log)
+    assert parsed["series"]["loss"] == [[10.0, 2.5], [10.0, 2.1]]
+    assert parsed["series"]["val_loss"] == [[40.0, 1.7], [40.0, 1.65]]
+    assert parse("{'loss': 3}\n{'loss': 2}\n")["series"]["loss"] == [[1, 3.0], [2, 2.0]]
+    assert "seed" not in parsed["series"]
+    assert parsed["progress"] == {"done": 460, "total": 1000, "elapsed": "01:03", "remaining": "01:14"}
+
+
+def test_the_dashboard_reads_a_growing_log_once_and_never_half_a_line(tmp_path):
+    from mlresearch.series import read, read_all
+
+    log = tmp_path / "run.log"
+    log.write_text("{'loss': 4}\nMETRIC loss=3 step=5\nMETRIC loss=2.")
+    first = read(log)
+    assert first["series"] == {"loss": [[1, 4.0], [5.0, 3.0]]}
+    with open(log, "a") as handle:
+        handle.write("5 step=6\nMETRIC loss=2\n")
+    second = read(log, first["offset"], first["last"], first["explicit"])
+    assert second["series"] == {"loss": [[6.0, 2.5], [6.0, 2.0]]} and not second["more"]
+    assert read(log, second["offset"], second["last"], second["explicit"])["series"] == {}
+    log.write_text("METRIC loss=9 step=1\n")
+    assert read(log, second["offset"], second["last"], second["explicit"])["series"] == {"loss": [[1.0, 9.0]]}
+    assert read_all(log) == {"loss": [[1.0, 9.0]]}
+
+
+def test_the_dashboard_only_reads_logs_that_belong_to_the_campaign(lab, tmp_path, monkeypatch):
+    import ml_research
+    from mlresearch import store
+
+    sweep({"refs": "better-features", "seeds": "0"})
+    log = store.runs("toy")[0]["log"]
+
+    def read(logs):
+        monkeypatch.setattr(ml_research, "read_request", lambda argv: ({"campaign": "toy", "logs": logs}, {}))
+        return ml_research.main(["x", "series"])
+
+    found = read([{"path": log}])["logs"][0]
+    assert found["series"]["val_loss"] and found["offset"] > 0
+    outside = tmp_path / "secret.log"
+    outside.write_text("METRIC loss=1\n")
+    for path in (str(outside), str(Path(log).parent / ".." / ".." / ".." / "secret.log")):
+        with pytest.raises(ValueError, match="not a log of this campaign"):
+            read([{"path": path}])
+
+
+def test_mlflow_receives_the_whole_training_curve_not_just_the_final_score(tmp_path, monkeypatch):
+    from mlresearch import mlflow
+
+    log = tmp_path / "run.log"
+    log.write_text("".join(f"METRIC loss={2 - step / 1000} step={step}\n" for step in range(1500)) + "METRIC val_loss=0.5\n")
+    sent = []
+    monkeypatch.setattr(mlflow, "experiment_id", lambda url, name: "7")
+    monkeypatch.setattr(mlflow, "_request", lambda url, path, body=None, method="POST": sent.append((path, body)) or ({"run": {"info": {"run_id": "r1"}}} if path.endswith("runs/create") else {}))
+    run = {"kind": "candidate", "ref": "b", "sha": "abc", "seed": 0, "label": None, "status": "ok", "contract": "c", "id": 1, "metric": 0.5, "duration_s": 1.0, "log": str(log)}
+    assert mlflow.log_run("http://mlflow", "zorai/toy", run, {"metric": "val_loss"}) == "r1"
+    batches = [body["metrics"] for path, body in sent if path.endswith("log-batch")]
+    assert all(len(batch) <= 1000 for batch in batches)
+    metrics = [metric for batch in batches for metric in batch]
+    assert len([metric for metric in metrics if metric["key"] == "loss"]) == 1500
+    assert [metric["step"] for metric in metrics if metric["key"] == "val_loss"] == [1499]

@@ -89,6 +89,12 @@
           "timeout_secs": 30
         }
       },
+      "series": {
+        "run": {
+          "command": "python3 scripts/ml_research.py series",
+          "timeout_secs": 30
+        }
+      },
       "log": {
         "run": {
           "command": "python3 scripts/ml_research.py log",

@@ -8,7 +8,8 @@ A contracted co-scientist for zorai. Point it at a git repository with an `exper
 - **Ablation**: each file the winning branch changed is reverted to the baseline on its own and re-run on every seed; the lift that disappears is that file's share of the gain.
 - **Report**: Markdown with the contract, leaderboard, rejected branches, ablation, a plot and reproduction steps; every number cites run ids.
 - **Data SQL**: read-only DuckDB over local CSV/Parquet/JSON or `hf://datasets/...`.
-- **MLflow**: when a server answers at the configured URL, every run is also logged there over its REST API. Without one, results stay in `results.db` and `results.tsv`.
+- **Dashboard**: live training curves read straight from each run's log, baseline against candidates with every seed, a card per running job with its latest value and tqdm progress, the best value per run, and GPU memory and load while runs are going. No MLflow needed.
+- **MLflow**: when a server answers at the configured URL, every run is also logged there over its REST API, with the full curves from its log. Without one, results stay in `results.db` and `results.tsv`.
 
 ## Experiment file
 
@@ -26,7 +27,7 @@ protected:                # pinned by the contract
   - data/val.csv
 ```
 
-The command prints the metric as `METRIC val_loss=0.123` or as a JSON line containing `"val_loss"`; the last one wins. `ZORAI_ML_SEED` and `ZORAI_ML_CAMPAIGN` are set for the run.
+The command prints the metric as `METRIC val_loss=0.123` or as a JSON line containing `"val_loss"`; the last one wins. `ZORAI_ML_SEED` and `ZORAI_ML_CAMPAIGN` are set for the run. Progress printed during training becomes the dashboard's curves: `METRIC loss=2.31 step=400` (several `name=value` pairs per line are fine), a JSON line such as `{"loss": 2.31, "step": 400}`, or the dicts the Hugging Face Trainer logs. `step`, `global_step`, `iteration` or `iter` sets the x axis; a line without one keeps the last step, or counts lines when the run never prints a step.
 
 ## Requirements
 
