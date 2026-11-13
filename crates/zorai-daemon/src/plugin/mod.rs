@@ -1,7 +1,9 @@
 pub mod api_proxy;
+pub mod bundled;
 pub mod commands;
 pub mod crypto;
 pub mod loader;
+pub mod local_run;
 mod manager_extras;
 pub mod manifest;
 pub mod oauth2;
@@ -140,14 +142,21 @@ impl PluginManager {
             tracing::warn!(error = %e, "failed to reconcile stale plugin records");
         }
 
+        let enabled = self.enabled_names().await;
         for (name, plugin) in &plugins_map {
-            if let Err(e) = skills::install_bundled_skills(
-                &self.plugins_dir,
-                name,
-                &plugin.manifest,
-                &self.skills_root,
-            ) {
-                tracing::warn!(plugin = %name, error = %e, "failed to install bundled skills");
+            let result = if enabled.contains(name) {
+                skills::install_bundled_skills(
+                    &self.plugins_dir,
+                    name,
+                    &plugin.manifest,
+                    &self.skills_root,
+                )
+                .map(|_| ())
+            } else {
+                skills::remove_bundled_skills(name, &self.skills_root)
+            };
+            if let Err(e) = result {
+                tracing::warn!(plugin = %name, error = %e, "failed to sync bundled skills");
             }
         }
 
@@ -236,60 +245,113 @@ impl PluginManager {
 
     /// Enable or disable a plugin.
     pub async fn set_enabled(&self, name: &str, enabled: bool) -> Result<()> {
-        self.persistence.set_enabled(name, enabled).await
+        self.persistence.set_enabled(name, enabled).await?;
+        let manifest = self
+            .plugins
+            .read()
+            .await
+            .get(name)
+            .map(|plugin| plugin.manifest.clone());
+        if let Some(manifest) = manifest {
+            let result = if enabled {
+                skills::install_bundled_skills(
+                    &self.plugins_dir,
+                    name,
+                    &manifest,
+                    &self.skills_root,
+                )
+                .map(|_| ())
+            } else {
+                skills::remove_bundled_skills(name, &self.skills_root)
+            };
+            if let Err(e) = result {
+                tracing::warn!(plugin = %name, error = %e, "failed to sync bundled skills");
+            }
+        }
+        self.rebuild_command_registry().await;
+        Ok(())
+    }
+
+    pub(crate) async fn enabled_names(&self) -> std::collections::HashSet<String> {
+        self.persistence
+            .list_plugins()
+            .await
+            .map(|records| {
+                records
+                    .into_iter()
+                    .filter(|record| record.enabled)
+                    .map(|record| record.name)
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// Install bundled plugins that are missing (disabled) and update the ones
+    /// that came from the bundle; plugins installed any other way are left alone.
+    pub async fn sync_bundled_plugins(&self, bundle_root: &Path) -> bundled::BundleSyncReport {
+        let mut report = bundled::BundleSyncReport::default();
+        if std::fs::create_dir_all(&self.plugins_dir).is_err() {
+            return report;
+        }
+        for source in bundled::find_bundled_plugins(bundle_root) {
+            let Ok(raw) = std::fs::read(source.join("plugin.json")) else {
+                continue;
+            };
+            let (manifest, manifest_json) = match loader::validate_manifest(
+                &raw,
+                &self.schema_validator,
+            ) {
+                Ok(validated) => validated,
+                Err(e) => {
+                    tracing::warn!(path = %source.display(), error = %e, "skipping invalid bundled plugin");
+                    continue;
+                }
+            };
+            let target = self.plugins_dir.join(&manifest.name);
+            let fresh = match self.persistence.plugin_origin(&manifest.name).await {
+                Ok(None) if !target.exists() => true,
+                Ok(Some((origin, version, false))) if origin == bundled::BUNDLED_SOURCE => {
+                    if version == manifest.version && target.join("plugin.json").is_file() {
+                        continue;
+                    }
+                    false
+                }
+                _ => continue,
+            };
+            if let Err(e) = bundled::replace_plugin_files(&source, &target) {
+                tracing::warn!(plugin = %manifest.name, error = %e, "failed to copy bundled plugin");
+                continue;
+            }
+            let now = chrono::Utc::now().to_rfc3339();
+            let record = PluginRecord {
+                name: manifest.name.clone(),
+                version: manifest.version.clone(),
+                description: manifest.description.clone(),
+                author: manifest.author.clone(),
+                manifest_json,
+                install_source: bundled::BUNDLED_SOURCE.to_string(),
+                enabled: false,
+                installed_at: now.clone(),
+                updated_at: now,
+            };
+            if let Err(e) = self.persistence.upsert_plugin(&record).await {
+                tracing::warn!(plugin = %manifest.name, error = %e, "failed to record bundled plugin");
+                continue;
+            }
+            if fresh {
+                report.installed.push(manifest.name);
+            } else {
+                report.updated.push(manifest.name);
+            }
+        }
+        report
     }
 
     /// Check if a manifest's commands or skills conflict with existing plugins.
     /// Returns Ok(()) if no conflicts, Err with conflict details if any found.
     /// Namespace convention: commands are namespaced as /pluginname.command per PSKL-05.
     /// Conflicts happen when two different plugins declare the same command key or skill path.
-    pub async fn check_conflicts(&self, new_manifest: &manifest::PluginManifest) -> Result<()> {
-        let plugins = self.plugins.read().await;
-        let mut conflicts: Vec<String> = Vec::new();
-
-        for (existing_name, existing) in plugins.iter() {
-            if existing_name == &new_manifest.name {
-                continue;
-            }
-
-            if let (Some(new_cmds), Some(existing_cmds)) =
-                (&new_manifest.commands, &existing.manifest.commands)
-            {
-                for cmd_name in new_cmds.keys() {
-                    if existing_cmds.contains_key(cmd_name.as_str()) {
-                        conflicts.push(format!(
-                            "command '{}' conflicts with plugin '{}'",
-                            cmd_name, existing_name
-                        ));
-                    }
-                }
-            }
-
-            if let (Some(new_skills), Some(existing_skills)) =
-                (&new_manifest.skills, &existing.manifest.skills)
-            {
-                for skill_path in new_skills {
-                    if existing_skills.contains(skill_path) {
-                        conflicts.push(format!(
-                            "skill '{}' conflicts with plugin '{}'",
-                            skill_path, existing_name
-                        ));
-                    }
-                }
-            }
-        }
-
-        if conflicts.is_empty() {
-            Ok(())
-        } else {
-            Err(anyhow::anyhow!(
-                "Name conflicts detected:\n{}",
-                conflicts.join("\n")
-            ))
-        }
-    }
-
-    /// Register a plugin from its directory. Validates manifest, checks conflicts,
+    /// Register a plugin from its directory. Validates manifest,
     /// persists to SQLite, and adds to in-memory map.
     /// Called by the PluginInstall IPC handler after CLI has copied files to disk.
     pub async fn register_plugin(
@@ -303,8 +365,6 @@ impl PluginManager {
 
         let (manifest, manifest_json) =
             loader::validate_manifest(&raw_bytes, &self.schema_validator)?;
-
-        self.check_conflicts(&manifest).await?;
 
         let now = chrono::Utc::now().to_rfc3339();
         let record = PluginRecord {
@@ -515,6 +575,44 @@ impl PluginManager {
                 endpoint: endpoint_name.to_string(),
             }
         })?;
+
+        if let Some(run) = endpoint.run.clone() {
+            let plugin_dir = self.plugins_dir.join(&plugin.dir_name);
+            let data_dir = local_run::plugin_data_dir(&self.plugins_dir, plugin_name);
+            let version = plugin.manifest.version.clone();
+            let setup = commands::resolve_python_command(
+                &plugin_dir,
+                endpoint_name,
+                plugin.manifest.python.as_ref(),
+                &manifest::PythonCommandDef {
+                    command: ":".to_string(),
+                    ..run.python.clone()
+                },
+            )
+            .shell;
+            drop(plugins);
+            if !local_run::local_run_approved(&data_dir, &version) {
+                return Err(api_proxy::PluginApiError::LocalRunNotApproved {
+                    plugin: plugin_name.to_string(),
+                    version,
+                });
+            }
+            let shell = local_run::local_run_shell(&setup, &run.python.command);
+            let settings = self
+                .persistence
+                .get_settings(plugin_name)
+                .await
+                .unwrap_or_default();
+            return local_run::run_local_endpoint(local_run::LocalRunRequest {
+                plugin_name,
+                plugin_dir: &plugin_dir,
+                data_dir: &data_dir,
+                shell: &shell,
+                input: template::build_context(params, settings, None),
+                timeout_secs: local_run::local_run_timeout_secs(&run),
+            })
+            .await;
+        }
 
         let api_clone = api.clone();
         let endpoint_clone = endpoint.clone();

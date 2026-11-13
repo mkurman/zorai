@@ -1,8 +1,8 @@
 {
   "name": "gmail",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "schema_version": 1,
-  "description": "Gmail integration \u2014 read, search, send, trash, and manage emails",
+  "description": "Gmail integration — read, search, send, trash, and manage emails",
   "author": "zorai",
   "license": "MIT",
   "zorai_version": ">=2.0.0",
@@ -243,10 +243,46 @@
           "Authorization": "Bearer {{auth.access_token}}"
         },
         "response_template": "Gmail API reachable for {{emailAddress}} with {{messagesTotal}} messages."
+      },
+      "ui_messages": {
+        "method": "GET",
+        "path": "/gmail/v1/users/me/messages?maxResults={{default params.max_results \"25\"}}&q={{urlencode (default params.query \"in:inbox\")}}{{#if params.page_token}}&pageToken={{urlencode params.page_token}}{{/if}}",
+        "headers": {
+          "Authorization": "Bearer {{auth.access_token}}"
+        }
+      },
+      "ui_message_meta": {
+        "method": "GET",
+        "path": "/gmail/v1/users/me/messages/{{urlencode params.message_id}}?format=METADATA&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Date",
+        "headers": {
+          "Authorization": "Bearer {{auth.access_token}}"
+        }
+      },
+      "ui_message": {
+        "method": "GET",
+        "path": "/gmail/v1/users/me/messages/{{urlencode params.message_id}}?format=FULL",
+        "headers": {
+          "Authorization": "Bearer {{auth.access_token}}"
+        }
+      },
+      "ui_inbox_counts": {
+        "method": "GET",
+        "path": "/gmail/v1/users/me/labels/INBOX",
+        "headers": {
+          "Authorization": "Bearer {{auth.access_token}}"
+        }
+      },
+      "ui_modify": {
+        "method": "POST",
+        "path": "/gmail/v1/users/me/messages/{{urlencode params.message_id}}/modify",
+        "headers": {
+          "Authorization": "Bearer {{auth.access_token}}"
+        },
+        "body": "{{{json params.change}}}"
       }
     },
     "rate_limit": {
-      "requests_per_minute": 60
+      "requests_per_minute": 300
     }
   },
   "commands": {
@@ -333,6 +369,21 @@
   "ui": {
     "commands": [
       {
+        "id": "ask",
+        "title": "Ask about my email",
+        "prompt": "Use the gmail plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?",
+            "placeholder": "what needs a reply today?"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      },
+      {
         "id": "search",
         "title": "Search mail",
         "endpoint": "search_messages",
@@ -353,15 +404,12 @@
       {
         "id": "inbox",
         "title": "Inbox",
-        "endpoint": "list_inbox",
-        "params": {
-          "max_results": "20"
-        }
-      },
-      {
-        "id": "labels",
-        "title": "Labels",
-        "endpoint": "list_labels"
+        "web": "panel/index.html",
+        "permissions": [
+          "composer",
+          "toast",
+          "write"
+        ]
       }
     ]
   }

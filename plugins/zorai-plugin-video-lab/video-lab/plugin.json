@@ -1,0 +1,291 @@
+{
+  "name": "video-lab",
+  "version": "0.3.0",
+  "schema_version": 1,
+  "description": "Local video studio: storyboards become a narrated animatic before any paid render, recordings are cut by their transcript into 16:9, 9:16 and 1:1 with captions, and app walkthroughs are recorded with narration.",
+  "author": "zorai",
+  "license": "MIT",
+  "settings": {
+    "whisper_model": {
+      "type": "string",
+      "label": "Whisper model",
+      "required": false,
+      "default": "small",
+      "description": "faster-whisper size for word timings and captions: tiny, base, small, medium, large-v3"
+    },
+    "device": {
+      "type": "string",
+      "label": "Whisper device",
+      "required": false,
+      "default": "auto",
+      "description": "auto uses the GPU when it can and falls back to the CPU; or set cuda or cpu"
+    },
+    "scene_threshold": {
+      "type": "number",
+      "label": "Scene change sensitivity",
+      "required": false,
+      "default": 0.3,
+      "description": "How different two frames must be to count as a new scene (0.1 finds many, 0.5 only hard cuts)"
+    },
+    "video_cost_per_second": {
+      "type": "number",
+      "label": "Video price per second (USD)",
+      "required": false,
+      "description": "Your video provider's price per generated second, used for the estimate shown before a paid render. Leave empty if you do not know it."
+    }
+  },
+  "api": {
+    "endpoints": {
+      "check": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py check",
+          "timeout_secs": 600
+        }
+      },
+      "load": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py load",
+          "timeout_secs": 600
+        }
+      },
+      "save": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py save",
+          "timeout_secs": 600
+        }
+      },
+      "parse": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py parse",
+          "timeout_secs": 600
+        }
+      },
+      "dump": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py dump",
+          "timeout_secs": 600
+        }
+      },
+      "example": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py example",
+          "timeout_secs": 600
+        }
+      },
+      "voices": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py voices",
+          "timeout_secs": 600
+        }
+      },
+      "index": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py index",
+          "timeout_secs": 600
+        }
+      },
+      "media": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py media",
+          "timeout_secs": 600
+        }
+      },
+      "search": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py search",
+          "timeout_secs": 600
+        }
+      },
+      "plan": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py plan",
+          "timeout_secs": 600
+        }
+      },
+      "cut": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py cut",
+          "timeout_secs": 600
+        }
+      },
+      "estimate": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py estimate",
+          "timeout_secs": 600
+        }
+      },
+      "animatic": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py animatic",
+          "timeout_secs": 600
+        }
+      },
+      "render": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py render",
+          "timeout_secs": 600
+        }
+      },
+      "demo": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py demo",
+          "timeout_secs": 600
+        }
+      },
+      "projects": {
+        "run": {
+          "command": "python3 scripts/video_lab.py projects",
+          "timeout_secs": 30
+        }
+      },
+      "location": {
+        "run": {
+          "command": "python3 scripts/video_lab.py location",
+          "timeout_secs": 30
+        }
+      },
+      "rename": {
+        "run": {
+          "command": "python3 scripts/video_lab.py rename",
+          "timeout_secs": 30
+        }
+      },
+      "status": {
+        "run": {
+          "command": "python3 scripts/video_lab.py status",
+          "timeout_secs": 30
+        }
+      },
+      "cancel": {
+        "run": {
+          "command": "python3 scripts/video_lab.py cancel",
+          "timeout_secs": 30
+        }
+      },
+      "jobs": {
+        "run": {
+          "command": "python3 scripts/video_lab.py jobs",
+          "timeout_secs": 30
+        }
+      }
+    }
+  },
+  "commands": {
+    "check": {
+      "description": "Show whether ffmpeg, the hardware encoder, Whisper, narration voices, Chrome and the cloud image and video providers are ready",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py check --format markdown"
+      }
+    },
+    "animatic": {
+      "description": "Build a narrated animatic from a project's storyboard (keyframes, voice, captions). Add --project <name> --wait",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py animatic"
+      }
+    },
+    "estimate": {
+      "description": "Show what rendering a storyboard's video shots will cost. Add --project <name>",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py estimate"
+      }
+    },
+    "render": {
+      "description": "Render a storyboard's approved shots with the cloud video provider. Costs money: only after the user approved the estimate. Add --project <name> --approve true --wait",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py render"
+      }
+    },
+    "index": {
+      "description": "Index a video: scene changes, keyframes and a word-timed transcript. Add --path <file> --wait",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py index"
+      }
+    },
+    "search": {
+      "description": "Search an indexed video's transcript. Add --path <file> --query \"<words>\"",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py search"
+      }
+    },
+    "cut": {
+      "description": "Render a project's edit: tighten pauses and filler words, crop to each format and burn in captions. Add --project <name> --wait",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py cut"
+      }
+    },
+    "demo": {
+      "description": "Record a scripted, narrated browser walkthrough from a project's demo. Add --project <name> --wait",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py demo"
+      }
+    },
+    "save": {
+      "description": "Save a project document. Add --project <name> --kind storyboard|edit|demo --text \"<yaml>\"",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/video_lab.py save"
+      }
+    }
+  },
+  "skills": [
+    "skills/video-lab.md"
+  ],
+  "ui": {
+    "icon": "🎬",
+    "panels": [
+      {
+        "id": "studio",
+        "title": "Studio",
+        "web": "panel/index.html",
+        "permissions": [
+          "composer",
+          "toast",
+          "files"
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "id": "check",
+        "title": "Check Video Lab setup",
+        "endpoint": "check",
+        "params": {
+          "format": "markdown"
+        },
+        "output": "panel",
+        "placement": [
+          "palette"
+        ]
+      },
+      {
+        "id": "teaser",
+        "title": "Storyboard a launch teaser",
+        "prompt": "Use the video-lab plugin to storyboard a short launch teaser about {{topic}}: write 4 to 6 shots with beats, visuals and narration, save it as a Video Lab project and build the animatic. Show me the estimate before rendering anything paid.",
+        "inputs": [
+          {
+            "key": "topic",
+            "label": "What is it about?",
+            "placeholder": "this release, a feature, a paper"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      },
+      {
+        "id": "rough-cut",
+        "title": "Rough-cut a recording",
+        "prompt": "Use the video-lab plugin to index {{path}}, then make a tightened rough cut in 16:9 and 9:16 with karaoke captions. Tell me how much time was removed.",
+        "inputs": [
+          {
+            "key": "path",
+            "label": "Video file",
+            "placeholder": "~/Videos/talk.mp4"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
+}

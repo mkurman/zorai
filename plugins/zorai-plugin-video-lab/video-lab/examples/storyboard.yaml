@@ -1,0 +1,33 @@
+title: Zorai launch teaser
+format: "16:9"
+style: cinematic, warm amber light, shallow depth of field
+narration:
+  engine: local
+  voice: af_heart
+keyframes: local
+captions: karaoke
+shots:
+  - id: hook
+    beat: Hook
+    seconds: 3
+    visual: A dark terminal glowing amber, a cursor blinking in the middle
+    narration: What if your agent could ship the launch video too?
+    motion: push-in
+  - id: problem
+    beat: Problem
+    seconds: 4
+    visual: A cluttered desk with five video editors, render bars stuck at ninety percent
+    narration: Storyboards, voiceover, edits and exports usually take a whole afternoon.
+    motion: pan-right
+  - id: demo
+    beat: Live demo
+    seconds: 5
+    visual: The zorai desktop app with the Video Lab storyboard strip open
+    narration: Zorai's Video Lab writes the shots, narrates them, and shows you an animatic before it spends a cent.
+    motion: pull-out
+  - id: cta
+    beat: Call to action
+    seconds: 3
+    visual: The zorai logo over a soft dawn gradient
+    narration: Try it today. It runs on your own GPU.
+    motion: still

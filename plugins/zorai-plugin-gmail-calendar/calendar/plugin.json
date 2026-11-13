@@ -1,8 +1,8 @@
 {
   "name": "calendar",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "schema_version": 1,
-  "description": "Google Calendar integration \u2014 view, create, update, and delete events",
+  "description": "Google Calendar integration — view, create, update, and delete events",
   "author": "zorai",
   "license": "MIT",
   "zorai_version": ">=2.0.0",
@@ -43,7 +43,7 @@
     "endpoints": {
       "list_events": {
         "method": "GET",
-        "path": "/calendar/v3/calendars/{{default params.calendar_id \"primary\"}}/events?singleEvents=true&orderBy=startTime&timeMin={{params.time_min}}&timeMax={{params.time_max}}&maxResults={{default params.max_results \"20\"}}",
+        "path": "/calendar/v3/calendars/{{urlencode (default params.calendar_id \"primary\")}}/events?singleEvents=true&orderBy=startTime&timeMin={{params.time_min}}&timeMax={{params.time_max}}&maxResults={{default params.max_results \"20\"}}",
         "headers": {
           "Authorization": "Bearer {{auth.access_token}}"
         },
@@ -51,7 +51,7 @@
       },
       "list_calendar_events": {
         "method": "GET",
-        "path": "/calendar/v3/calendars/{{default params.calendar_id \"primary\"}}/events?singleEvents=true&orderBy=startTime&timeMin={{params.time_min}}&timeMax={{params.time_max}}&maxResults={{default params.max_results \"20\"}}",
+        "path": "/calendar/v3/calendars/{{urlencode (default params.calendar_id \"primary\")}}/events?singleEvents=true&orderBy=startTime&timeMin={{params.time_min}}&timeMax={{params.time_max}}&maxResults={{default params.max_results \"20\"}}",
         "headers": {
           "Authorization": "Bearer {{auth.access_token}}"
         },
@@ -59,7 +59,7 @@
       },
       "get_event": {
         "method": "GET",
-        "path": "/calendar/v3/calendars/{{default params.calendar_id \"primary\"}}/events/{{params.event_id}}",
+        "path": "/calendar/v3/calendars/{{urlencode (default params.calendar_id \"primary\")}}/events/{{urlencode params.event_id}}",
         "headers": {
           "Authorization": "Bearer {{auth.access_token}}"
         },
@@ -67,7 +67,7 @@
       },
       "create_event": {
         "method": "POST",
-        "path": "/calendar/v3/calendars/{{default params.calendar_id \"primary\"}}/events",
+        "path": "/calendar/v3/calendars/{{urlencode (default params.calendar_id \"primary\")}}/events",
         "headers": {
           "Authorization": "Bearer {{auth.access_token}}",
           "Content-Type": "application/json"
@@ -86,28 +86,18 @@
         "response_template": "Event created: **{{summary}}**\nID: {{id}}\nStart: {{default start.dateTime start.date}}\nEnd: {{default end.dateTime end.date}}\nLink: {{htmlLink}}"
       },
       "update_event": {
-        "method": "PUT",
-        "path": "/calendar/v3/calendars/{{default params.calendar_id \"primary\"}}/events/{{params.event_id}}",
+        "method": "PATCH",
+        "path": "/calendar/v3/calendars/{{urlencode (default params.calendar_id \"primary\")}}/events/{{urlencode params.event_id}}",
         "headers": {
           "Authorization": "Bearer {{auth.access_token}}",
           "Content-Type": "application/json"
         },
-        "body": {
-          "summary": "{{params.summary}}",
-          "start": {
-            "dateTime": "{{params.start_time}}"
-          },
-          "end": {
-            "dateTime": "{{params.end_time}}"
-          },
-          "location": "{{params.location}}",
-          "description": "{{params.description}}"
-        },
+        "body": "{{{json params.patch}}}",
         "response_template": "Event updated: **{{summary}}**\nID: {{id}}\nStart: {{default start.dateTime start.date}}\nEnd: {{default end.dateTime end.date}}"
       },
       "delete_event": {
         "method": "DELETE",
-        "path": "/calendar/v3/calendars/{{default params.calendar_id \"primary\"}}/events/{{params.event_id}}",
+        "path": "/calendar/v3/calendars/{{urlencode (default params.calendar_id \"primary\")}}/events/{{urlencode params.event_id}}",
         "headers": {
           "Authorization": "Bearer {{auth.access_token}}"
         },
@@ -123,7 +113,7 @@
       },
       "list_schedule_items": {
         "method": "GET",
-        "path": "/calendar/v3/calendars/{{default params.calendar_id \"primary\"}}/events?singleEvents=true&orderBy=startTime&timeMin={{params.time_min}}&timeMax={{params.time_max}}&maxResults={{default params.max_results \"20\"}}",
+        "path": "/calendar/v3/calendars/{{urlencode (default params.calendar_id \"primary\")}}/events?singleEvents=true&orderBy=startTime&timeMin={{params.time_min}}&timeMax={{params.time_max}}&maxResults={{default params.max_results \"20\"}}",
         "headers": {
           "Authorization": "Bearer {{auth.access_token}}"
         },
@@ -131,7 +121,7 @@
       },
       "fetch_schedule_context": {
         "method": "GET",
-        "path": "/calendar/v3/calendars/{{default params.calendar_id \"primary\"}}/events/{{params.event_id}}",
+        "path": "/calendar/v3/calendars/{{urlencode (default params.calendar_id \"primary\")}}/events/{{urlencode params.event_id}}",
         "headers": {
           "Authorization": "Bearer {{auth.access_token}}"
         },
@@ -139,7 +129,7 @@
       },
       "schedule_follow_up": {
         "method": "POST",
-        "path": "/calendar/v3/calendars/{{default params.calendar_id \"primary\"}}/events",
+        "path": "/calendar/v3/calendars/{{urlencode (default params.calendar_id \"primary\")}}/events",
         "headers": {
           "Authorization": "Bearer {{auth.access_token}}",
           "Content-Type": "application/json"
@@ -158,28 +148,18 @@
         "response_template": "Event created: **{{summary}}**\nID: {{id}}\nStart: {{default start.dateTime start.date}}\nEnd: {{default end.dateTime end.date}}\nLink: {{htmlLink}}"
       },
       "update_schedule_item": {
-        "method": "PUT",
-        "path": "/calendar/v3/calendars/{{default params.calendar_id \"primary\"}}/events/{{params.event_id}}",
+        "method": "PATCH",
+        "path": "/calendar/v3/calendars/{{urlencode (default params.calendar_id \"primary\")}}/events/{{urlencode params.event_id}}",
         "headers": {
           "Authorization": "Bearer {{auth.access_token}}",
           "Content-Type": "application/json"
         },
-        "body": {
-          "summary": "{{params.summary}}",
-          "start": {
-            "dateTime": "{{params.start_time}}"
-          },
-          "end": {
-            "dateTime": "{{params.end_time}}"
-          },
-          "location": "{{params.location}}",
-          "description": "{{params.description}}"
-        },
+        "body": "{{{json params.patch}}}",
         "response_template": "Event updated: **{{summary}}**\nID: {{id}}\nStart: {{default start.dateTime start.date}}\nEnd: {{default end.dateTime end.date}}"
       },
       "update_attendance": {
         "method": "PATCH",
-        "path": "/calendar/v3/calendars/{{default params.calendar_id \"primary\"}}/events/{{params.event_id}}",
+        "path": "/calendar/v3/calendars/{{urlencode (default params.calendar_id \"primary\")}}/events/{{urlencode params.event_id}}",
         "headers": {
           "Authorization": "Bearer {{auth.access_token}}",
           "Content-Type": "application/json"
@@ -197,7 +177,7 @@
       },
       "meeting_prep": {
         "method": "GET",
-        "path": "/calendar/v3/calendars/{{default params.calendar_id \"primary\"}}/events/{{params.event_id}}",
+        "path": "/calendar/v3/calendars/{{urlencode (default params.calendar_id \"primary\")}}/events/{{urlencode params.event_id}}",
         "headers": {
           "Authorization": "Bearer {{auth.access_token}}"
         },
@@ -210,10 +190,32 @@
           "Authorization": "Bearer {{auth.access_token}}"
         },
         "response_template": "Calendar API reachable. {{#if items.[0]}}Primary visible calendar: {{items.[0].summary}}{{else}}No calendars returned.{{/if}}"
+      },
+      "ui_calendars": {
+        "method": "GET",
+        "path": "/calendar/v3/users/me/calendarList",
+        "headers": {
+          "Authorization": "Bearer {{auth.access_token}}"
+        }
+      },
+      "ui_events": {
+        "method": "GET",
+        "path": "/calendar/v3/calendars/{{urlencode (default params.calendar_id \"primary\")}}/events?singleEvents=true&orderBy=startTime&maxResults=250&timeMin={{urlencode params.time_min}}&timeMax={{urlencode params.time_max}}",
+        "headers": {
+          "Authorization": "Bearer {{auth.access_token}}"
+        }
+      },
+      "ui_create_event": {
+        "method": "POST",
+        "path": "/calendar/v3/calendars/{{urlencode (default params.calendar_id \"primary\")}}/events",
+        "headers": {
+          "Authorization": "Bearer {{auth.access_token}}"
+        },
+        "body": "{{{json params.event}}}"
       }
     },
     "rate_limit": {
-      "requests_per_minute": 60
+      "requests_per_minute": 300
     }
   },
   "commands": {
@@ -284,6 +286,21 @@
   "ui": {
     "commands": [
       {
+        "id": "ask",
+        "title": "Ask about my calendar",
+        "prompt": "Use the calendar plugin to: {{request}}",
+        "inputs": [
+          {
+            "key": "request",
+            "label": "What do you need?",
+            "placeholder": "when am I free on Thursday afternoon?"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      },
+      {
         "id": "meeting-prep",
         "title": "Prepare for a meeting",
         "prompt": "Use the calendar plugin to find {{meeting}} and prepare me for it: attendees, agenda, related emails and open questions.",
@@ -301,26 +318,14 @@
     ],
     "panels": [
       {
-        "id": "events",
-        "title": "Events",
-        "endpoint": "list_events",
-        "inputs": [
-          {
-            "key": "time_min",
-            "label": "From",
-            "placeholder": "2026-01-01T00:00:00Z"
-          },
-          {
-            "key": "time_max",
-            "label": "To",
-            "placeholder": "2026-01-08T00:00:00Z"
-          }
+        "id": "calendar",
+        "title": "Calendar",
+        "web": "panel/index.html",
+        "permissions": [
+          "composer",
+          "toast",
+          "write"
         ]
-      },
-      {
-        "id": "calendars",
-        "title": "Calendars",
-        "endpoint": "list_calendars"
       }
     ]
   }

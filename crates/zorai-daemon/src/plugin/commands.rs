@@ -100,7 +100,7 @@ impl PluginCommandRegistry {
     }
 }
 
-fn resolve_python_command(
+pub(super) fn resolve_python_command(
     plugin_dir: &Path,
     command_name: &str,
     defaults: Option<&PythonDefaults>,

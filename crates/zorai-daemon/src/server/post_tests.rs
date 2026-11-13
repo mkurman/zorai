@@ -114,6 +114,15 @@ pub async fn run() -> Result<()> {
         history.clone(),
         plugins_dir,
     ));
+    if let Some(bundle) = crate::plugin::bundled::bundled_plugins_dir() {
+        let report = plugin_manager.sync_bundled_plugins(&bundle).await;
+        tracing::info!(
+            bundle = %bundle.display(),
+            installed = ?report.installed,
+            updated = ?report.updated,
+            "bundled plugins synced"
+        );
+    }
     let (pm_loaded, pm_skipped) = plugin_manager.load_all_from_disk().await;
     tracing::info!(
         loaded = pm_loaded,

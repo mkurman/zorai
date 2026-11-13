@@ -3,7 +3,7 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 
 const PLUGIN_SCHEME = 'zorai-plugin';
-const PLUGIN_PANEL_PERMISSIONS = ['composer', 'toast'];
+const PLUGIN_PANEL_PERMISSIONS = ['composer', 'toast', 'files', 'write', 'terminal'];
 const COMMAND_OUTPUTS = ['panel', 'composer', 'toast'];
 const COMMAND_PLACEMENTS = ['palette', 'composer'];
 const PANEL_CONTENT_SECURITY_POLICY = [
@@ -33,7 +33,17 @@ const PANEL_MIME_TYPES = {
     '.webp': 'image/webp',
     '.woff': 'font/woff',
     '.woff2': 'font/woff2',
+    '.wav': 'audio/wav',
+    '.mp3': 'audio/mpeg',
+    '.ogg': 'audio/ogg',
+    '.m4a': 'audio/mp4',
+    '.mp4': 'video/mp4',
+    '.webm': 'video/webm',
+    '.srt': 'text/plain; charset=utf-8',
+    '.vtt': 'text/vtt; charset=utf-8',
+    '.txt': 'text/plain; charset=utf-8',
 };
+const PLUGIN_DATA_PREFIX = '.data/';
 
 const isId = (value) => typeof value === 'string' && /^[a-z0-9][a-z0-9_-]{0,63}$/i.test(value);
 const text = (value, fallback = '') => (typeof value === 'string' && value.trim() ? value.trim() : fallback);
@@ -110,7 +120,10 @@ function normalizePluginUi(manifest, dir, dirName) {
             params: panel.params && typeof panel.params === 'object' && !Array.isArray(panel.params) ? panel.params : {},
             inputs: normalizeInputs(panel.inputs),
         });
-    return { commands, panels, problems, icon: normalizeIcon(ui.icon, dir, dirName, problems) };
+    const writeEndpoints = Object.entries(manifest?.api?.endpoints ?? {})
+        .filter(([, endpoint]) => endpoint && !endpoint.run && typeof endpoint.method === 'string' && endpoint.method.toUpperCase() !== 'GET')
+        .map(([name]) => name);
+    return { commands, panels, problems, writeEndpoints, icon: normalizeIcon(ui.icon, dir, dirName, problems) };
 }
 
 const ICON_EXTENSIONS = ['.svg', '.png', '.jpg', '.jpeg', '.webp', '.gif'];
@@ -157,6 +170,65 @@ function readPluginUiManifests(pluginsRoot) {
     return results;
 }
 
+const LOCAL_RUN_DEFAULT_TIMEOUT_SECS = 120;
+const LOCAL_RUN_MAX_TIMEOUT_SECS = 3600;
+const LOCAL_RUN_APPROVAL_FILE = 'local-run-approved';
+
+function readPluginManifestByName(pluginsRoot, pluginName) {
+    if (!fs.existsSync(pluginsRoot)) return null;
+    for (const entry of fs.readdirSync(pluginsRoot, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        try {
+            const manifest = JSON.parse(fs.readFileSync(path.join(pluginsRoot, entry.name, 'plugin.json'), 'utf8'));
+            if (text(manifest.name, entry.name) === pluginName) return manifest;
+        } catch {
+            continue;
+        }
+    }
+    return null;
+}
+
+function localEndpointTimeoutSecs(manifest, endpointName) {
+    const run = manifest?.api?.endpoints?.[endpointName]?.run;
+    if (!run || typeof run !== 'object') return null;
+    const requested = Number.isInteger(run.timeout_secs) ? run.timeout_secs : LOCAL_RUN_DEFAULT_TIMEOUT_SECS;
+    return Math.min(LOCAL_RUN_MAX_TIMEOUT_SECS, Math.max(1, requested));
+}
+
+function hasLocalEndpoints(manifest) {
+    return Object.values(manifest?.api?.endpoints ?? {}).some((endpoint) => endpoint && typeof endpoint.run === 'object');
+}
+
+function localRunApprovalPath(pluginsRoot, pluginName) {
+    return path.join(path.dirname(pluginsRoot), 'plugin-data', pluginName, LOCAL_RUN_APPROVAL_FILE);
+}
+
+function localRunStatus(pluginsRoot, pluginName) {
+    const manifest = readPluginManifestByName(pluginsRoot, pluginName);
+    if (!manifest || !hasLocalEndpoints(manifest)) return { local: false, version: manifest ? text(manifest.version, '0') : null, approvedVersion: null };
+    let approvedVersion = null;
+    try {
+        approvedVersion = fs.readFileSync(localRunApprovalPath(pluginsRoot, pluginName), 'utf8').trim() || null;
+    } catch {
+        approvedVersion = null;
+    }
+    return { local: true, version: text(manifest.version, '0'), approvedVersion };
+}
+
+function approveLocalRun(pluginsRoot, pluginName) {
+    const status = localRunStatus(pluginsRoot, pluginName);
+    if (!status.local) return status;
+    const file = localRunApprovalPath(pluginsRoot, pluginName);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, `${status.version}\n`);
+    return { ...status, approvedVersion: status.version };
+}
+
+function revokeLocalRun(pluginsRoot, pluginName) {
+    fs.rmSync(localRunApprovalPath(pluginsRoot, pluginName), { force: true });
+    return localRunStatus(pluginsRoot, pluginName);
+}
+
 function pluginFileFromUrl(pluginsRoot, url) {
     const parsed = new URL(url);
     if (parsed.protocol !== `${PLUGIN_SCHEME}:`) return null;
@@ -164,13 +236,23 @@ function pluginFileFromUrl(pluginsRoot, url) {
     if (!dirName || dirName.includes('/') || dirName.includes('\\') || dirName === '..') return null;
     const dir = path.join(pluginsRoot, dirName);
     const relative = decodeURIComponent(parsed.pathname).replace(/^\/+/, '');
+    if (relative.startsWith(PLUGIN_DATA_PREFIX)) {
+        let pluginName = dirName;
+        try {
+            pluginName = text(JSON.parse(fs.readFileSync(path.join(dir, 'plugin.json'), 'utf8')).name, dirName);
+        } catch {
+            return null;
+        }
+        const dataFile = insideDir(path.join(path.dirname(pluginsRoot), 'plugin-data', pluginName), relative.slice(PLUGIN_DATA_PREFIX.length));
+        return dataFile && PANEL_MIME_TYPES[path.extname(dataFile).toLowerCase()] ? dataFile : null;
+    }
     const file = insideDir(dir, relative);
     if (!file || !PANEL_MIME_TYPES[path.extname(file).toLowerCase()]) return null;
     return file;
 }
 
 function pluginSchemePrivileges() {
-    return { scheme: PLUGIN_SCHEME, privileges: { standard: true, secure: true } };
+    return { scheme: PLUGIN_SCHEME, privileges: { standard: true, secure: true, stream: true } };
 }
 
 function registerPluginProtocol(protocol, net, getPluginsRoot) {
@@ -190,6 +272,11 @@ function registerPluginProtocol(protocol, net, getPluginsRoot) {
 }
 
 module.exports = {
+    approveLocalRun,
+    localEndpointTimeoutSecs,
+    localRunStatus,
+    readPluginManifestByName,
+    revokeLocalRun,
     PANEL_CONTENT_SECURITY_POLICY,
     PLUGIN_SCHEME,
     normalizePluginUi,

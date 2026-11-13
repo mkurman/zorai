@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { PANEL_CONTENT_SECURITY_POLICY, pluginFileFromUrl, readPluginUiManifests } = require('./main/plugin-ui.cjs');
+const { PANEL_CONTENT_SECURITY_POLICY, approveLocalRun, normalizePluginUi, pluginSchemePrivileges, localEndpointTimeoutSecs, localRunStatus, pluginFileFromUrl, readPluginManifestByName, readPluginUiManifests, revokeLocalRun } = require('./main/plugin-ui.cjs');
 
 function pluginsRoot(plugins) {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zorai-plugin-ui-'));
@@ -27,7 +27,7 @@ test('plugins without a ui section add nothing, and declared commands and panels
                 commands: [{ id: 'repo', title: 'Repo info', endpoint: 'get_repo', inputs: [{ key: 'owner' }, { key: 'bad key' }], output: 'weird', placement: ['palette', 'composer', 'rail'] }],
                 panels: [
                     { id: 'issues', title: 'Open issues', endpoint: 'list_issues', params: { state: 'open' } },
-                    { id: 'board', title: 'Board', web: 'panel/index.html', permissions: ['composer', 'filesystem'] },
+                    { id: 'board', title: 'Board', web: 'panel/index.html', permissions: ['composer', 'filesystem', 'terminal'] },
                 ],
             } },
             'panel/index.html': '<p>hi</p>',
@@ -38,7 +38,7 @@ test('plugins without a ui section add nothing, and declared commands and panels
     assert.deepEqual(github.problems, []);
     assert.deepEqual(github.commands[0], { id: 'repo', title: 'Repo info', endpoint: 'get_repo', prompt: null, params: {}, inputs: [{ key: 'owner', label: 'owner', placeholder: '', default: '' }], output: 'panel', placement: ['palette', 'composer'] });
     assert.deepEqual(github.panels[0], { id: 'issues', title: 'Open issues', kind: 'markdown', endpoint: 'list_issues', params: { state: 'open' }, inputs: [] });
-    assert.deepEqual(github.panels[1], { id: 'board', title: 'Board', kind: 'web', url: 'zorai-plugin://github/panel/index.html', permissions: ['composer'] });
+    assert.deepEqual(github.panels[1], { id: 'board', title: 'Board', kind: 'web', url: 'zorai-plugin://github/panel/index.html', permissions: ['composer', 'terminal'] });
 });
 
 test('python plugins without endpoints can offer prompt commands, which always fill the message box', () => {
@@ -101,4 +101,58 @@ test('a plugin icon is an image file from its own folder or a short glyph; anyth
     assert.match(byName.bad.problems[0], /not a file inside the plugin folder/);
     assert.equal(byName.long.icon, null);
     assert.equal(byName.long.problems.length, 1);
+});
+
+test('approving local programs writes the exact file and version the daemon checks, and revoking removes it', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zorai-local-run-'));
+    const pluginsRoot = path.join(root, 'plugins');
+    fs.mkdirSync(path.join(pluginsRoot, 'voice-lab'), { recursive: true });
+    fs.writeFileSync(path.join(pluginsRoot, 'voice-lab', 'plugin.json'), JSON.stringify({
+        name: 'voice-lab', version: '0.2.0', schema_version: 1,
+        api: { endpoints: { render: { run: { command: 'python r.py', timeout_secs: 900 } }, quick: { run: { command: 'python q.py' } }, web: { method: 'GET', path: '/x' } } },
+    }));
+
+    assert.deepEqual(localRunStatus(pluginsRoot, 'voice-lab'), { local: true, version: '0.2.0', approvedVersion: null });
+    approveLocalRun(pluginsRoot, 'voice-lab');
+    assert.equal(fs.readFileSync(path.join(root, 'plugin-data', 'voice-lab', 'local-run-approved'), 'utf8').trim(), '0.2.0');
+    assert.equal(revokeLocalRun(pluginsRoot, 'voice-lab').approvedVersion, null);
+
+    const manifest = readPluginManifestByName(pluginsRoot, 'voice-lab');
+    assert.equal(localEndpointTimeoutSecs(manifest, 'render'), 900);
+    assert.equal(localEndpointTimeoutSecs(manifest, 'quick'), 120);
+    assert.equal(localEndpointTimeoutSecs(manifest, 'web'), null);
+});
+
+test('a panel can play files from its own plugin data folder and nothing outside it', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zorai-plugin-data-'));
+    const pluginsRoot = path.join(root, 'plugins');
+    fs.mkdirSync(path.join(pluginsRoot, 'zorai-plugin-voice-lab'), { recursive: true });
+    fs.writeFileSync(path.join(pluginsRoot, 'zorai-plugin-voice-lab', 'plugin.json'), JSON.stringify({ name: 'voice-lab', version: '1', schema_version: 1 }));
+    const own = path.join(root, 'plugin-data', 'voice-lab', 'projects', 'demo', 'mix.mp3');
+    fs.mkdirSync(path.dirname(own), { recursive: true });
+    fs.writeFileSync(own, 'x');
+
+    assert.equal(pluginFileFromUrl(pluginsRoot, 'zorai-plugin://zorai-plugin-voice-lab/.data/projects/demo/mix.mp3'), own);
+    const allowedRoots = [path.join(pluginsRoot, 'zorai-plugin-voice-lab') + path.sep, path.join(root, 'plugin-data', 'voice-lab') + path.sep];
+    for (const url of [
+        'zorai-plugin://zorai-plugin-voice-lab/.data/../other/secret.mp3',
+        'zorai-plugin://zorai-plugin-voice-lab/.data/%2E%2E/other/secret.mp3',
+        'zorai-plugin://zorai-plugin-voice-lab/.data/%2E%2E%2F%2E%2E%2Fgithub/notes.txt',
+    ]) {
+        const resolved = pluginFileFromUrl(pluginsRoot, url);
+        assert.ok(resolved === null || allowedRoots.some((allowed) => resolved.startsWith(allowed)), `${url} resolved to ${resolved}`);
+    }
+    assert.equal(pluginFileFromUrl(pluginsRoot, 'zorai-plugin://zorai-plugin-voice-lab/.data/models/kokoro.onnx'), null);
+});
+
+test('the plugin scheme may stream media, so panels can play the audio and video they render', () => {
+    assert.equal(pluginSchemePrivileges().privileges.stream, true);
+});
+
+test('endpoints that change data are listed so panels need the write permission to use them', () => {
+    const ui = normalizePluginUi({
+        api: { endpoints: { list: { method: 'GET', path: '/a' }, trash: { method: 'POST', path: '/b' }, remove: { method: 'delete', path: '/c' }, render: { run: { command: 'python r.py' } } } },
+        ui: { commands: [] },
+    }, os.tmpdir(), 'x');
+    assert.deepEqual(ui.writeEndpoints.sort(), ['remove', 'trash']);
 });

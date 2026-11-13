@@ -78,11 +78,11 @@ for sub in "${!SKILL_DIRS[@]}"; do
   skill_dir="${SKILL_DIRS[$sub]}"
   src="$BUNDLE/$skill_dir/scripts"
   dst="$PLUGIN_DIR/$sub/scripts"
+  mkdir -p "$dst"
   if [ ! -d "$src" ]; then
     echo "SKIP $sub: source $src not found" >&2
     continue
   fi
-  mkdir -p "$dst"
   rm -rf "$dst"/*
   cp -r "$src/." "$dst/"
   find "$dst" -type f -name '*.py' -exec sed -i 's#../../scienceskillscommon#../scienceskillscommon#g' {} +

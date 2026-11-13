@@ -340,4 +340,5 @@ pub enum ClientMessage {
     AgentGenerateMusic { args_json: String },
     AgentListThreadOperations { thread_id: String },
     AgentGenerateCommitMessage { diff: String, #[serde(default)] recent_subjects: Vec<String> },
+    AgentAnalyzeImage { args_json: String },
 }

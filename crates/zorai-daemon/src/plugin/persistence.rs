@@ -67,6 +67,21 @@ impl PluginPersistence {
             .transpose()
     }
 
+    pub async fn plugin_origin(&self, name: &str) -> Result<Option<(String, String, bool)>> {
+        let name = name.to_string();
+        self.history
+            .read_db
+            .query_opt(
+                "SELECT install_source, version, deleted_at IS NOT NULL FROM plugins WHERE name = ?1",
+                db::db_params![name],
+            )
+            .await?
+            .map(|row| -> Result<(String, String, bool)> {
+                Ok((row.get(0)?, row.get(1)?, row.get::<i64>(2)? != 0))
+            })
+            .transpose()
+    }
+
     /// Insert or update a plugin record. Per PLUG-09.
     pub async fn upsert_plugin(&self, record: &PluginRecord) -> Result<()> {
         let record = record.clone();

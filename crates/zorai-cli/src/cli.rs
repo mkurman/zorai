@@ -187,6 +187,24 @@ pub(crate) enum Commands {
         action: SettingsAction,
     },
 
+    /// Speak or transcribe with the speech providers set in zorai's audio settings.
+    Audio {
+        #[command(subcommand)]
+        action: AudioAction,
+    },
+
+    /// Generate images or videos with the providers set in zorai's image and video settings.
+    Generate {
+        #[command(subcommand)]
+        action: GenerateAction,
+    },
+
+    /// Describe or judge media with the vision model set in zorai's settings.
+    Analyze {
+        #[command(subcommand)]
+        action: AnalyzeAction,
+    },
+
     /// Inspect and manage agent threads.
     Thread {
         #[command(subcommand)]
@@ -639,6 +657,96 @@ pub(crate) enum SettingsAction {
         key: String,
         /// Value to set (JSON or plain string).
         value: String,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub(crate) enum AudioAction {
+    /// Turn text into speech; prints JSON with the provider, voice and audio file path.
+    Speak {
+        /// Text to speak.
+        #[arg(long)]
+        text: String,
+        /// Voice to use instead of the one in audio settings.
+        #[arg(long)]
+        voice: Option<String>,
+        #[command(flatten)]
+        route: MediaRoute,
+    },
+    /// Transcribe an audio file; prints the provider's transcript.
+    Transcribe {
+        /// Audio file to transcribe.
+        #[arg(long)]
+        path: String,
+        /// Spoken language hint, such as en.
+        #[arg(long)]
+        language: Option<String>,
+        #[command(flatten)]
+        route: MediaRoute,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub(crate) enum GenerateAction {
+    /// Generate an image; prints JSON with the thread, provider and image file path.
+    Image {
+        /// What the image should show.
+        #[arg(long)]
+        prompt: String,
+        /// Image size, such as 1536x1024.
+        #[arg(long)]
+        size: Option<String>,
+        /// Thread to attach the image to instead of a new one.
+        #[arg(long)]
+        thread: Option<String>,
+        #[command(flatten)]
+        route: MediaRoute,
+    },
+    /// Generate a video; prints JSON with the thread, provider and video file path.
+    Video {
+        /// What the video should show.
+        #[arg(long)]
+        prompt: String,
+        /// Length in seconds.
+        #[arg(long)]
+        duration: Option<u64>,
+        /// Aspect ratio, such as 16:9 or 9:16.
+        #[arg(long)]
+        aspect_ratio: Option<String>,
+        /// Resolution, such as 720p or 1080p.
+        #[arg(long)]
+        resolution: Option<String>,
+        /// Thread to attach the video to instead of a new one.
+        #[arg(long)]
+        thread: Option<String>,
+        #[command(flatten)]
+        route: MediaRoute,
+    },
+}
+
+/// Provider and model for one media request, instead of the ones in zorai's settings.
+#[derive(Debug, Clone, Default, clap::Args)]
+pub(crate) struct MediaRoute {
+    /// Provider to use, such as openai or openrouter.
+    #[arg(long)]
+    pub(crate) provider: Option<String>,
+    /// Model to use with that provider.
+    #[arg(long)]
+    pub(crate) model: Option<String>,
+}
+
+#[derive(Debug, Subcommand)]
+pub(crate) enum AnalyzeAction {
+    /// Ask the vision model about an image; prints its answer.
+    Image {
+        /// Image file to look at.
+        #[arg(long)]
+        path: String,
+        /// What to ask about the image.
+        #[arg(long)]
+        prompt: Option<String>,
+        #[command(flatten)]
+        route: MediaRoute,
     },
 }
 

@@ -1,15 +1,22 @@
+import { MEDIA_KINDS, type MediaKind } from "./pluginMediaOptions";
 export const PANEL_MESSAGE_TAG = "plugin-panel";
 const APPROVALS_KEY = "zorai-plugin-panel-approvals";
 const MAX_TEXT = 20000;
 const MAX_TOAST = 280;
+const MAX_COMMAND = 4000;
 const THEME_VARIABLES = ["--bg-primary", "--bg-secondary", "--bg-elevated", "--text-primary", "--text-secondary", "--text-muted", "--accent", "--border", "--font-ui", "--font-mono"];
 
 export type PanelHostContext = {
   pluginName: string;
   permissions: string[];
+  writeEndpoints: string[];
   call: (endpoint: string, params: Record<string, unknown>) => Promise<string>;
   insertText: (text: string) => void;
+  ask: (text: string) => void;
   toast: (text: string) => void;
+  pickFolder: (title: string) => Promise<string | null>;
+  openTerminal: (request: { title: string; cwd?: string; command: string }) => void;
+  mediaOptions: (kind: MediaKind) => unknown;
   theme: () => Record<string, string>;
 };
 
@@ -26,15 +33,42 @@ export async function handlePanelMessage(data: unknown, context: PanelHostContex
   try {
     if (message.method === "call") {
       if (typeof params.endpoint !== "string" || !params.endpoint) return fail("call needs an endpoint name.");
+      if (context.writeEndpoints.includes(params.endpoint) && !context.permissions.includes("write")) {
+        return fail(`${context.pluginName} did not ask for the "write" permission, so this panel cannot use ${params.endpoint}.`);
+      }
       const callParams = params.params && typeof params.params === "object" && !Array.isArray(params.params) ? params.params as Record<string, unknown> : {};
       return ok(await context.call(params.endpoint, callParams));
     }
     if (message.method === "theme") return ok(context.theme());
+    if (message.method === "mediaOptions") {
+      if (typeof params.kind !== "string" || !(MEDIA_KINDS as readonly string[]).includes(params.kind)) return fail(`mediaOptions needs a kind: ${MEDIA_KINDS.join(", ")}.`);
+      return ok(context.mediaOptions(params.kind as MediaKind));
+    }
     if (message.method === "insertText") {
       if (!context.permissions.includes("composer")) return fail(`${context.pluginName} did not ask for the "composer" permission.`);
       if (typeof params.text !== "string" || !params.text.trim()) return fail("insertText needs text.");
       context.insertText(params.text.slice(0, MAX_TEXT));
       return ok();
+    }
+    if (message.method === "ask") {
+      if (!context.permissions.includes("composer")) return fail(`${context.pluginName} did not ask for the "composer" permission.`);
+      if (typeof params.text !== "string") return fail("ask needs text.");
+      context.ask(params.text.slice(0, MAX_TEXT));
+      return ok();
+    }
+    if (message.method === "pickFolder") {
+      if (!context.permissions.includes("files")) return fail(`${context.pluginName} did not ask for the "files" permission.`);
+      const title = typeof params.title === "string" && params.title.trim() ? params.title.trim().slice(0, 120) : `${context.pluginName}: choose a folder`;
+      return ok(await context.pickFolder(title));
+    }
+    if (message.method === "terminal") {
+      if (!context.permissions.includes("terminal")) return fail(`${context.pluginName} did not ask for the "terminal" permission.`);
+      if (typeof params.command !== "string" || !params.command.trim()) return fail("terminal needs a command.");
+      if (params.command.length > MAX_COMMAND) return fail(`terminal commands are limited to ${MAX_COMMAND} characters.`);
+      if (params.cwd !== undefined && (typeof params.cwd !== "string" || !params.cwd.startsWith("/"))) return fail("terminal cwd must be an absolute folder path.");
+      const title = typeof params.title === "string" && params.title.trim() ? params.title.trim().slice(0, 60) : context.pluginName;
+      context.openTerminal({ title, cwd: params.cwd as string | undefined, command: params.command.trim() });
+      return ok({ opened: true });
     }
     if (message.method === "toast") {
       if (!context.permissions.includes("toast")) return fail(`${context.pluginName} did not ask for the "toast" permission.`);

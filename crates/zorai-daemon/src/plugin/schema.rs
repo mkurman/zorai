@@ -21,6 +21,26 @@ pub fn plugin_schema_v1() -> serde_json::Value {
             }
         }
     });
+    let local_run = json!({
+        "type": "object",
+        "required": ["command"],
+        "properties": {
+            "command": { "type": "string", "minLength": 1 },
+            "run_path": { "type": "string" },
+            "source": { "type": "string" },
+            "env": {
+                "oneOf": [
+                    { "type": "string" },
+                    { "type": "boolean" }
+                ]
+            },
+            "dependencies": {
+                "type": "array",
+                "items": { "type": "string" }
+            },
+            "timeout_secs": { "type": "integer", "minimum": 1, "maximum": 3600 }
+        }
+    });
     let python_command = json!({
         "type": "object",
         "required": ["command"],
@@ -91,10 +111,14 @@ pub fn plugin_schema_v1() -> serde_json::Value {
                         "type": "object",
                         "additionalProperties": {
                             "type": "object",
-                            "required": ["method", "path"],
+                            "anyOf": [
+                                { "required": ["method", "path"] },
+                                { "required": ["run"] }
+                            ],
                             "properties": {
                                 "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
                                 "path": { "type": "string" },
+                                "run": local_run,
                                 "params": { "type": "object" },
                                 "headers": { "type": "object" },
                                 "body": { "type": ["object", "string"] },

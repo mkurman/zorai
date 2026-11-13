@@ -38,6 +38,18 @@ pub enum PluginApiError {
 
     #[error("OAuth token expired for plugin '{plugin}'. User must re-authorize.")]
     AuthExpired { plugin: String },
+
+    #[error("Plugin '{plugin}' {version} wants to run commands on this computer. Approve its local commands in zorai's Plugins settings, then retry.")]
+    LocalRunNotApproved { plugin: String, version: String },
+
+    #[error("Local command did not finish within {secs}s and was stopped.")]
+    LocalRunTimeout { secs: u64 },
+
+    #[error("Local command failed{}: {stderr}", .code.map(|code| format!(" with exit code {code}")).unwrap_or_default())]
+    LocalRunFailed { code: Option<i32>, stderr: String },
+
+    #[error("Local command could not start: {detail}")]
+    LocalRunSpawn { detail: String },
 }
 
 /// Output of template rendering: a fully-resolved HTTP request ready to execute.

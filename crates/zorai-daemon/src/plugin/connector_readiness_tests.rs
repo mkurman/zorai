@@ -27,6 +27,7 @@ fn sample_loaded_plugin() -> LoadedPlugin {
         EndpointDef {
             method: "GET".to_string(),
             path: "/health".to_string(),
+            run: None,
             params: None,
             headers: None,
             body: None,

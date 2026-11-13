@@ -15,7 +15,8 @@ You have access to the **Calendar plugin** with these endpoints:
 | `list_calendar_events` | GET | Alias for listing events with Pack 1 naming |
 | `get_event` | GET | Get full event details including attendees |
 | `create_event` | POST | Create a new event |
-| `update_event` | PUT | Update an existing event |
+| `update_event` | PATCH | Change only the given fields of an event |
+| `update_attendance` | PATCH | Answer an invitation (accepted, tentative, declined) |
 | `delete_event` | DELETE | Delete an event |
 | `list_calendars` | GET | List all user's calendars |
 
@@ -61,17 +62,29 @@ Use the user's timezone offset if known, otherwise UTC.
 
 ## Updating Events
 
-Same params as create, plus `event_id`:
+Pass `event_id` and a `patch` object with only the Google Calendar event fields to change; everything else (attendees, reminders, conference link) stays as it is:
 ```json
 {"plugin_name": "calendar", "endpoint_name": "update_event", "params": {
   "event_id": "EVENT_ID",
-  "summary": "Updated title",
-  "start_time": "2026-03-26T11:00:00+01:00",
-  "end_time": "2026-03-26T11:30:00+01:00"
+  "patch": {
+    "summary": "Updated title",
+    "start": {"dateTime": "2026-03-26T11:00:00+01:00"},
+    "end": {"dateTime": "2026-03-26T11:30:00+01:00"}
+  }
 }}
 ```
 
+## Answering Invitations
+
+```json
+{"plugin_name": "calendar", "endpoint_name": "update_attendance", "params": {"event_id": "EVENT_ID", "email": "YOUR_EMAIL", "response_status": "accepted"}}
+```
+
+Use `accepted`, `tentative` or `declined`.
+
 ## Deleting Events
+
+Deleting cannot be undone; confirm with the user first unless they asked for it explicitly.
 
 ```json
 {"plugin_name": "calendar", "endpoint_name": "delete_event", "params": {"event_id": "EVENT_ID"}}

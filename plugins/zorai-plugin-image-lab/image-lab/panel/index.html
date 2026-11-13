@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Image Lab</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <header class="top">
+    <h1>🎨 Image Lab</h1>
+    <span id="ready" class="chip">Checking setup…</span>
+    <nav role="tablist">
+      <button role="tab" data-tab="brief" aria-selected="true">Brief</button>
+      <button role="tab" data-tab="uikit">UI kit</button>
+      <button role="tab" data-tab="figure">Figure</button>
+      <button role="tab" data-tab="jobs">Jobs</button>
+      <button role="tab" data-tab="setup">Setup</button>
+    </nav>
+  </header>
+
+  <div class="bar" id="project-bar">
+    <label>Project <select id="project"></select></label>
+    <span class="divider"></span>
+    <input id="new-name" placeholder="name" aria-label="Project name for New or Rename">
+    <button id="new-project" title="Start a new project with this name">New</button>
+    <button id="rename" title="Rename the current project">Rename</button>
+    <span class="grow"></span>
+    <span id="location-text" class="muted small"></span>
+    <button id="choose-folder">Choose folder…</button>
+    <button id="clear-folder" hidden>Stop copying there</button>
+  </div>
+
+  <main>
+    <section id="brief" class="tab">
+      <div class="editor-head">
+        <div class="seg" role="group" aria-label="Brief editor">
+          <button data-mode="form" aria-pressed="true">Form</button>
+          <button data-mode="yaml" aria-pressed="false">YAML</button>
+        </div>
+        <span class="problem" hidden></span>
+        <span class="grow"></span>
+        <span id="br-estimate" class="muted small"></span>
+        <button class="example">Load example</button>
+        <button class="save">Save</button>
+        <button id="br-ask" title="Ask zorai to sharpen this brief and rubric">Ask to improve</button>
+        <button id="br-run" class="primary">Make contact sheet</button>
+      </div>
+      <div class="form">
+        <section class="card brandkit">
+          <header><h2>Brand kit</h2><span class="muted small">Added to every prompt and checked on every image</span></header>
+          <div class="swatches" id="br-palette"></div>
+          <div class="row"><input id="br-css" placeholder="~/repo/src/styles/theme.css" aria-label="Stylesheet with CSS colour variables"><button id="br-css-read">Read colours from CSS</button></div>
+          <div id="br-css-found" class="chips"></div>
+          <div class="grid2">
+            <label class="field">Style <input id="br-style" placeholder="warm cinematic light, soft film grain"></label>
+            <label class="field">Avoid <input id="br-avoid" placeholder="readable text, logos, watermarks"></label>
+          </div>
+        </section>
+        <div class="split">
+          <div class="col">
+            <label class="field">Title <input id="br-title" placeholder="Untitled"></label>
+            <label class="field">Brief <textarea id="br-text" rows="3" placeholder="Describe the image: subject, setting, mood, camera"></textarea></label>
+            <div class="grid2">
+              <div class="field"><span>Engine</span><div class="seg" id="br-engine"></div><span id="br-image-route"></span></div>
+              <div class="field"><span>Aspect</span><div class="seg" id="br-aspect"></div></div>
+            </div>
+          </div>
+          <div class="col">
+            <section class="card">
+              <header><h2>Critic rubric</h2><button id="br-add-rule">+ Rule</button></header>
+              <div id="br-rubric" class="rows"></div>
+              <div class="row small">
+                <label><input type="checkbox" id="br-critic"> Score with the vision critic</label><span id="br-vision-route"></span>
+                <label>Variants <input id="br-variants" type="number" min="1" max="8" class="num"></label>
+                <label>Rounds <input id="br-rounds" type="number" min="1" max="5" class="num"></label>
+                <label>Pass at <input id="br-pass" type="number" min="0" max="10" step="0.5" class="num"></label>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+      <textarea class="yaml" spellcheck="false" hidden aria-label="Brief YAML"></textarea>
+      <div class="progress" hidden><div class="meter"><span></span></div><p></p><button class="cancel">Cancel</button></div>
+      <section id="sheet" class="result" hidden>
+        <div class="bar">
+          <h2 id="sheet-title">Contact sheet</h2>
+          <select id="sheet-pick" aria-label="Earlier contact sheets"></select>
+          <span id="sheet-note" class="muted small"></span>
+          <span class="grow"></span>
+          <button id="sheet-ask">Ask about this sheet</button>
+        </div>
+        <div id="variants" class="variants"></div>
+      </section>
+    </section>
+
+    <section id="uikit" class="tab" hidden>
+      <div class="editor-head">
+        <div class="seg" role="group" aria-label="UI kit editor">
+          <button data-mode="form" aria-pressed="true">Form</button>
+          <button data-mode="yaml" aria-pressed="false">YAML</button>
+        </div>
+        <span class="problem" hidden></span>
+        <span class="grow"></span>
+        <button class="example">Load example</button>
+        <button class="save">Save</button>
+        <button id="kit-run" class="primary">Generate kit</button>
+      </div>
+      <div class="form">
+        <div class="grid2">
+          <div class="field"><span>Write assets to</span><div class="row"><input id="kit-output" placeholder="~/repo/frontend/src/assets/generated"><button id="kit-pick">Choose…</button></div></div>
+          <label class="field">Theme stylesheet (colours) <input id="kit-theme" placeholder="~/repo/frontend/src/styles/theme.css"></label>
+        </div>
+        <div class="field"><span>Engine</span><div class="row"><div class="seg" id="kit-engine"></div><span id="kit-image-route"></span></div></div>
+        <section class="card">
+          <header><h2>Assets</h2><button id="kit-add">+ Asset</button></header>
+          <div id="kit-assets" class="rows"></div>
+        </section>
+      </div>
+      <textarea class="yaml" spellcheck="false" hidden aria-label="UI kit YAML"></textarea>
+      <div class="progress" hidden><div class="meter"><span></span></div><p></p><button class="cancel">Cancel</button></div>
+      <section id="kit-result" class="result" hidden>
+        <p id="kit-result-text"></p>
+        <div id="kit-previews" class="assets"></div>
+      </section>
+    </section>
+
+    <section id="figure" class="tab" hidden>
+      <div class="editor-head">
+        <div class="seg" role="group" aria-label="Figure editor">
+          <button data-mode="form" aria-pressed="true">Form</button>
+          <button data-mode="yaml" aria-pressed="false">YAML</button>
+        </div>
+        <span class="problem" hidden></span>
+        <span class="grow"></span>
+        <button class="example">Load example</button>
+        <button class="save">Save</button>
+        <button id="fig-run" class="primary">Draw figure</button>
+      </div>
+      <div class="form">
+        <div class="grid2">
+          <label class="field">Title <input id="fig-title"></label>
+          <label class="field">Data (CSV or TSV) <input id="fig-data" placeholder="~/campaign/results.csv"></label>
+        </div>
+        <div class="grid3">
+          <div class="field"><span>Kind</span><div class="seg" id="fig-kind"></div></div>
+          <label class="field">X column <input id="fig-x"></label>
+          <label class="field">Y columns (comma separated) <input id="fig-y"></label>
+          <label class="field">Error column (optional) <input id="fig-error"></label>
+          <label class="field">Y axis label <input id="fig-ylabel"></label>
+          <label class="field">Significant digits <input id="fig-digits" type="number" min="1" max="8"></label>
+        </div>
+        <div class="row"><label><input type="checkbox" id="fig-verify"> Read the labels back with the vision model and compare them</label><span id="fig-vision-route"></span></div>
+      </div>
+      <textarea class="yaml" spellcheck="false" hidden aria-label="Figure YAML"></textarea>
+      <div class="progress" hidden><div class="meter"><span></span></div><p></p><button class="cancel">Cancel</button></div>
+      <section id="fig-result" class="result" hidden>
+        <p id="fig-check"></p>
+        <img id="fig-image" alt="Rendered figure">
+        <p id="fig-files" class="muted small"></p>
+      </section>
+    </section>
+
+    <section id="jobs" class="tab" hidden>
+      <div class="bar"><button id="jobs-refresh">Refresh</button></div>
+      <table><thead><tr><th>Started</th><th>Job</th><th>State</th><th>Message</th><th></th></tr></thead><tbody id="jobs-list"></tbody></table>
+    </section>
+
+    <section id="setup" class="tab" hidden>
+      <div class="bar"><button id="recheck">Check again</button><button id="install-local" title="Downloads PyTorch and the local model, about 12 GB">Install local engine…</button></div>
+      <div class="progress" hidden><div class="meter"><span></span></div><p></p><button class="cancel">Cancel</button></div>
+      <table><tbody id="checks"></tbody></table>
+    </section>
+  </main>
+  <p id="error" hidden></p>
+  <script src="panel.js"></script>
+</body>
+</html>

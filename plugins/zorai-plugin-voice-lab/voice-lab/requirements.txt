@@ -1,0 +1,6 @@
+kokoro-onnx>=0.4,<1
+faster-whisper>=1.1,<2
+soundfile>=0.12
+numpy>=1.26
+pyyaml>=6
+num2words>=0.5

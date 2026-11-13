@@ -94,6 +94,19 @@
       {
         "from": "../guidelines",
         "to": "guidelines"
+      },
+      {
+        "from": "../plugins",
+        "to": "plugins",
+        "filter": [
+          "**/*",
+          "!**/node_modules/**",
+          "!**/__pycache__/**",
+          "!**/.pytest_cache/**",
+          "!**/tests/**",
+          "!**/.python/**",
+          "!**/.venv/**"
+        ]
       }
     ],
     "win": {

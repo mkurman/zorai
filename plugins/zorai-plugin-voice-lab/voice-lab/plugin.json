@@ -1,0 +1,204 @@
+{
+  "name": "voice-lab",
+  "version": "0.2.0",
+  "schema_version": 1,
+  "description": "Local multi-speaker audio studio: script to mastered podcast with Kokoro voices, a Whisper listening check on every line, and word-timed transcription.",
+  "author": "zorai",
+  "license": "MIT",
+  "settings": {
+    "whisper_model": {
+      "type": "string",
+      "label": "Whisper model",
+      "required": false,
+      "default": "small",
+      "description": "faster-whisper size used for the listening check and transcription: tiny, base, small, medium, large-v3"
+    },
+    "device": {
+      "type": "string",
+      "label": "Listening check device",
+      "required": false,
+      "default": "auto",
+      "description": "auto uses the GPU when it can and falls back to the CPU; or set cuda or cpu"
+    },
+    "max_wer": {
+      "type": "number",
+      "label": "Retry above word error rate",
+      "required": false,
+      "default": 0.1,
+      "description": "A line is regenerated when Whisper hears more than this share of words wrong (0.1 = 10%)"
+    }
+  },
+  "api": {
+    "endpoints": {
+      "check": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/voice_lab.py check",
+          "timeout_secs": 600
+        }
+      },
+      "setup": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/voice_lab.py setup",
+          "timeout_secs": 600
+        }
+      },
+      "voices": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/voice_lab.py voices",
+          "timeout_secs": 600
+        }
+      },
+      "preview": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/voice_lab.py preview",
+          "timeout_secs": 600
+        }
+      },
+      "render": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/voice_lab.py render",
+          "timeout_secs": 600
+        }
+      },
+      "transcribe": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/voice_lab.py transcribe",
+          "timeout_secs": 600
+        }
+      },
+      "status": {
+        "run": {
+          "command": "python3 scripts/voice_lab.py status",
+          "timeout_secs": 30
+        }
+      },
+      "cancel": {
+        "run": {
+          "command": "python3 scripts/voice_lab.py cancel",
+          "timeout_secs": 30
+        }
+      },
+      "jobs": {
+        "run": {
+          "command": "python3 scripts/voice_lab.py jobs",
+          "timeout_secs": 30
+        }
+      },
+      "projects": {
+        "run": {
+          "command": "python3 scripts/voice_lab.py projects",
+          "timeout_secs": 30
+        }
+      },
+      "load": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/voice_lab.py load",
+          "timeout_secs": 600
+        }
+      },
+      "save": {
+        "run": {
+          "command": "python3 scripts/voice_lab.py save",
+          "timeout_secs": 30
+        }
+      },
+      "parse": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/voice_lab.py parse",
+          "timeout_secs": 600
+        }
+      },
+      "dump": {
+        "run": {
+          "command": "python3 scripts/voice_lab.py dump",
+          "timeout_secs": 30
+        }
+      },
+      "rename": {
+        "run": {
+          "command": "python3 scripts/voice_lab.py rename",
+          "timeout_secs": 30
+        }
+      },
+      "location": {
+        "run": {
+          "command": "python3 scripts/voice_lab.py location",
+          "timeout_secs": 30
+        }
+      }
+    }
+  },
+  "commands": {
+    "check": {
+      "description": "Show whether ffmpeg, the Kokoro voices, Whisper and the GPU are ready",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/voice_lab.py check --format markdown"
+      }
+    },
+    "render": {
+      "description": "Render a project to a mastered MP3/WAV with a listening check on every line. Add --project <name> --wait",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/voice_lab.py render"
+      }
+    },
+    "transcribe": {
+      "description": "Transcribe an audio or video file with word timings and subtitles. Add --path <file> --wait",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/voice_lab.py transcribe"
+      }
+    },
+    "save": {
+      "description": "Save a project script. Add --project <name> --script \"<yaml>\"",
+      "python": {
+        "command": "python3 scripts/voice_lab.py save"
+      }
+    }
+  },
+  "skills": [
+    "skills/voice-lab.md"
+  ],
+  "ui": {
+    "icon": "\ud83c\udf99\ufe0f",
+    "panels": [
+      {
+        "id": "studio",
+        "title": "Studio",
+        "web": "panel/index.html",
+        "permissions": [
+          "composer",
+          "toast",
+          "files"
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "id": "check",
+        "title": "Check Voice Lab setup",
+        "endpoint": "check",
+        "params": {
+          "format": "markdown"
+        },
+        "output": "panel",
+        "placement": [
+          "palette"
+        ]
+      },
+      {
+        "id": "briefing",
+        "title": "Turn a topic into an audio briefing",
+        "prompt": "Use the voice-lab plugin to write a two-host audio briefing about {{topic}}, save it as a Voice Lab project and render it. Report the listening-check results.",
+        "inputs": [
+          {
+            "key": "topic",
+            "label": "What should it cover?",
+            "placeholder": "this thread, the latest release notes, a paper"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
+}

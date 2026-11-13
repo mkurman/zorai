@@ -583,6 +583,18 @@ pub(crate) async fn dispatch_part9(
                                     "plugin_disabled"
                                 }
                                 crate::plugin::PluginApiError::AuthExpired { .. } => "auth_expired",
+                                crate::plugin::PluginApiError::LocalRunNotApproved { .. } => {
+                                    "local_run_not_approved"
+                                }
+                                crate::plugin::PluginApiError::LocalRunTimeout { .. } => {
+                                    "local_run_timeout"
+                                }
+                                crate::plugin::PluginApiError::LocalRunFailed { .. } => {
+                                    "local_run_failed"
+                                }
+                                crate::plugin::PluginApiError::LocalRunSpawn { .. } => {
+                                    "local_run_spawn"
+                                }
                             };
                             let (result, truncated) = cap_plugin_api_call_result_for_ipc(
                                 result_operation_id.as_deref(),

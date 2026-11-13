@@ -1,0 +1,18 @@
+title: Release notes tour
+url: "{{examples}}/demo-site/index.html"
+format: "16:9"
+narration:
+  engine: local
+  voice: am_michael
+captions: karaoke
+steps:
+  - say: This is the release notes page for version two.
+  - click: "#search"
+    say: Let's look for the new Video Lab.
+  - type:
+      selector: "#search"
+      text: video
+  - click: "text=Video Lab"
+    say: Here it is. Storyboards become animatics before any paid render.
+  - scroll: 500
+    say: And every change links back to its pull request.

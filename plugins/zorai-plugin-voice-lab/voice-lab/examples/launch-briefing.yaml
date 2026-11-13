@@ -1,0 +1,23 @@
+title: Zorai launch briefing
+lexicon:
+  Zorai: Zor-eye
+  PyTorch: Pie-torch
+  MLflow: M L flow
+cast:
+  host:
+    voice: af_heart
+  guest:
+    voice: am_michael
+    speed: 1.05
+pause_ms: 350
+check:
+  max_wer: 0.1
+  attempts: 3
+lines:
+  - host: Welcome to the Zorai briefing. Today we look at four new lab plugins.
+  - guest: Thanks! The headline is that everything runs locally, on your own GPU.
+  - host: So the voice you are hearing right now was rendered by Kokoro, and checked by Whisper.
+  - guest: Exactly. Every line is transcribed back. If a word goes missing, Zorai retries it.
+    pause_ms: 600
+  - host: And the ML Research Lab tracks every PyTorch run in MLflow.
+  - guest: That's the briefing. Thanks for listening!

@@ -1,0 +1,7 @@
+faster-whisper>=1.1,<2
+kokoro-onnx>=0.4,<1
+soundfile>=0.12
+numpy>=1.26
+pyyaml>=6
+pillow>=10
+playwright>=1.45,<2

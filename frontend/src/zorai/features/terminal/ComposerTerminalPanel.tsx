@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { TerminalPane } from "@/components/TerminalPane";
 import { getBridge } from "@/lib/bridge";
+import { encodeTerminalInput } from "@/plugins/coding-agents/bridge";
 import { useWorkspaceStore } from "@/lib/workspaceStore";
 import { useComposerPanelHeight } from "../threads/useComposerPanelHeight";
 import {
@@ -9,6 +10,7 @@ import {
   closeThreadTerminalTab,
   openThreadShell,
   setThreadTerminalOpen,
+  takeShellCommand,
   threadTerminalPaneId,
   threadTerminalTabs,
   useThreadTerminalStore,
@@ -34,13 +36,28 @@ export function TerminalSessions({ sessionKey, cwd, workspaceId, onHide }: { ses
   const dismissed = useThreadTerminalStore((state) => state.dismissed[sessionKey] ?? NO_IDS);
   const viewingId = useThreadTerminalStore((state) => state.viewing[sessionKey] ?? null);
   const shellCwds = useThreadTerminalStore((state) => state.shellCwds);
+  const shellTitles = useThreadTerminalStore((state) => state.shellTitles);
   const tabs = useMemo(
-    () => threadTerminalTabs(shells, agentTerminalSessions(workspaces, workspaceId), dismissed),
-    [shells, workspaces, workspaceId, dismissed],
+    () => threadTerminalTabs(shells, agentTerminalSessions(workspaces, workspaceId), dismissed, shellTitles),
+    [shells, workspaces, workspaceId, dismissed, shellTitles],
   );
   const current = tabs.find((tab) => tab.id === viewingId) ?? tabs[0] ?? null;
   const shellCwd = current?.kind === "shell" ? shellCwds[current.id] ?? cwd : cwd;
   const shownCwd = current?.kind === "agent" ? current.cwd ?? undefined : shellCwd;
+  const currentShellId = current?.kind === "shell" ? current.id : null;
+
+  useEffect(() => {
+    if (!currentShellId) return;
+    const command = takeShellCommand(currentShellId);
+    if (!command) return;
+    const paneId = threadTerminalPaneId(sessionKey, currentShellId);
+    let attempts = 0;
+    const send = async () => {
+      const sent = await getBridge()?.sendTerminalInput?.(paneId, encodeTerminalInput(`${command}\r`)).catch(() => false);
+      if (!sent && attempts++ < 80) window.setTimeout(send, 250);
+    };
+    window.setTimeout(send, 300);
+  }, [sessionKey, currentShellId]);
 
   const closeTab = (tab: ThreadTerminalTab) => {
     closeThreadTerminalTab(sessionKey, tab, tabs);

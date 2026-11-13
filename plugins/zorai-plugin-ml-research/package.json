@@ -1,0 +1,16 @@
+{
+  "name": "zorai-plugin-ml-research",
+  "version": "0.2.0",
+  "description": "ML Research Lab for zorai: contracted experiments with a pinned evaluation, multi-seed leaderboards, ablations and grounded reports",
+  "author": "zorai",
+  "license": "MIT",
+  "keywords": ["zorai", "plugin", "ml", "research", "experiments", "ablation", "mlflow", "duckdb"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mkurman/zorai"
+  },
+  "files": [
+    "ml-research/",
+    "README.md"
+  ]
+}

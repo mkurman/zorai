@@ -348,6 +348,7 @@ pub(crate) async fn execute_media_tool_for_ipc(
     match tool_name {
         tool_names::SPEECH_TO_TEXT => execute_speech_to_text(args, agent, &agent.http_client).await,
         tool_names::TEXT_TO_SPEECH => execute_text_to_speech(args, agent, &agent.http_client).await,
+        tool_names::ANALYZE_IMAGE => execute_analyze_image(args, agent, &agent.http_client).await,
         _ => anyhow::bail!("unsupported media tool for IPC: {tool_name}"),
     }
 }

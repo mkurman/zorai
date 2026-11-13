@@ -1,0 +1,16 @@
+{
+  "name": "zorai-plugin-image-lab",
+  "version": "0.2.0",
+  "description": "Image Lab for zorai: critic-scored contact sheets, brand-matched UI asset kits and checked data figures",
+  "author": "zorai",
+  "license": "MIT",
+  "keywords": ["zorai", "plugin", "image", "design", "brand", "figures"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mkurman/zorai"
+  },
+  "files": [
+    "image-lab/",
+    "README.md"
+  ]
+}

@@ -2,7 +2,8 @@ use anyhow::{bail, Result};
 use clap::Parser;
 
 use crate::cli::{
-    Cli, Commands, GoalAction, InstallTarget, MigrateAction, SettingsAction, ThreadAction,
+    AnalyzeAction, AudioAction, Cli, Commands, GenerateAction, GoalAction, InstallTarget,
+    MediaRoute, MigrateAction, SettingsAction, ThreadAction,
 };
 use crate::commands::common::{
     handle_post_setup_action, launch_gui, launch_tui, resolve_dm_target, LaunchTarget,
@@ -12,6 +13,46 @@ use crate::output::audit::{
 };
 use crate::output::settings::{flatten_json, is_sensitive_key, resolve_dot_path};
 use crate::{client, plugins, setup_wizard, update};
+
+pub(crate) fn audio_speak_args(text: String, voice: Option<String>) -> serde_json::Value {
+    let mut args = serde_json::json!({ "input": text });
+    if let Some(voice) = voice.filter(|voice| !voice.trim().is_empty()) {
+        args["voice"] = serde_json::Value::String(voice);
+    }
+    args
+}
+
+pub(crate) fn audio_transcribe_args(path: String, language: Option<String>) -> serde_json::Value {
+    let mut args = serde_json::json!({ "path": path });
+    if let Some(language) = language.filter(|language| !language.trim().is_empty()) {
+        args["language"] = serde_json::Value::String(language);
+    }
+    args
+}
+
+pub(crate) fn generate_args(
+    prompt: String,
+    options: &[(&str, Option<serde_json::Value>)],
+) -> serde_json::Value {
+    let mut args = serde_json::json!({ "prompt": prompt });
+    for (key, value) in options {
+        match value {
+            Some(serde_json::Value::String(text)) if text.trim().is_empty() => {}
+            Some(value) => args[*key] = value.clone(),
+            None => {}
+        }
+    }
+    args
+}
+
+pub(crate) fn with_route(mut args: serde_json::Value, route: MediaRoute) -> serde_json::Value {
+    for (key, value) in [("provider", route.provider), ("model", route.model)] {
+        if let Some(value) = value.filter(|value| !value.trim().is_empty()) {
+            args[key] = serde_json::Value::String(value.trim().to_string());
+        }
+    }
+    args
+}
 
 pub(crate) fn should_check_for_updates(command: &Commands) -> bool {
     matches!(
@@ -26,6 +67,9 @@ pub(crate) fn should_check_for_updates(command: &Commands) -> bool {
             | Commands::Operation { .. }
             | Commands::Stats
             | Commands::Settings { .. }
+            | Commands::Audio { .. }
+            | Commands::Generate { .. }
+            | Commands::Analyze { .. }
             | Commands::Migrate { .. }
             | Commands::Thread { .. }
             | Commands::Goal { .. }
@@ -905,12 +949,13 @@ pub(crate) async fn run_default() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::{
-        command_startup_action, default_startup_action, format_direct_message_output,
-        format_goal_control_output, format_goal_delete_output, format_goal_detail_output,
-        format_goal_dossier_output, format_goal_list_output, format_goal_proof_output,
-        format_goal_reports_output, format_operation_status_output, format_prompt_output,
-        format_status_output, format_thread_control_output, format_thread_delete_output,
-        format_thread_detail_output, format_thread_list_output, DefaultStartupAction,
+        audio_speak_args, audio_transcribe_args, command_startup_action, default_startup_action,
+        format_direct_message_output, format_goal_control_output, format_goal_delete_output,
+        format_goal_detail_output, format_goal_dossier_output, format_goal_list_output,
+        format_goal_proof_output, format_goal_reports_output, format_operation_status_output,
+        format_prompt_output, format_status_output, format_thread_control_output,
+        format_thread_delete_output, format_thread_detail_output, format_thread_list_output,
+        generate_args, with_route, DefaultStartupAction,
     };
     use crate::cli::Commands;
     use crate::client::{
@@ -1543,6 +1588,56 @@ mod tests {
         assert!(rendered.contains("Revision: 3"));
         assert!(rendered.contains("Dedup:    managed:exec-1"));
     }
+
+    #[test]
+    fn audio_commands_send_only_the_options_given_so_audio_settings_fill_the_rest() {
+        assert_eq!(
+            audio_speak_args("Hi".to_string(), None),
+            serde_json::json!({ "input": "Hi" })
+        );
+        assert_eq!(
+            audio_speak_args("Hi".to_string(), Some("eve".to_string())),
+            serde_json::json!({ "input": "Hi", "voice": "eve" })
+        );
+        assert_eq!(
+            audio_transcribe_args("/tmp/a.wav".to_string(), Some(" ".to_string())),
+            serde_json::json!({ "path": "/tmp/a.wav" })
+        );
+    }
+
+    #[test]
+    fn a_chosen_provider_and_model_override_the_media_settings_for_one_request_only() {
+        let route = |provider: Option<&str>, model: Option<&str>| crate::cli::MediaRoute {
+            provider: provider.map(str::to_string),
+            model: model.map(str::to_string),
+        };
+        assert_eq!(
+            with_route(
+                serde_json::json!({ "prompt": "a fox" }),
+                route(Some(" openrouter "), Some("google/gemini-3-pro-image"))
+            ),
+            serde_json::json!({ "prompt": "a fox", "provider": "openrouter", "model": "google/gemini-3-pro-image" })
+        );
+        assert_eq!(
+            with_route(serde_json::json!({ "input": "Hi" }), route(None, Some(" "))),
+            serde_json::json!({ "input": "Hi" })
+        );
+    }
+
+    #[test]
+    fn generate_commands_send_only_the_options_given_so_media_settings_fill_the_rest() {
+        assert_eq!(
+            generate_args(
+                "a fox".to_string(),
+                &[
+                    ("duration_seconds", Some(5.into())),
+                    ("aspect_ratio", Some(" ".into())),
+                    ("thread_id", None),
+                ],
+            ),
+            serde_json::json!({ "prompt": "a fox", "duration_seconds": 5 })
+        );
+    }
 }
 
 pub(crate) async fn run(command: Commands) -> Result<()> {
@@ -1673,6 +1768,81 @@ pub(crate) async fn run(command: Commands) -> Result<()> {
         Commands::Operation { id, json } => {
             let snapshot = client::send_operation_status_query(id).await?;
             println!("{}", format_operation_status_output(&snapshot, json)?);
+        }
+        Commands::Audio { action } => {
+            let content = match action {
+                AudioAction::Speak { text, voice, route } => {
+                    client::send_text_to_speech(with_route(audio_speak_args(text, voice), route))
+                        .await?
+                }
+                AudioAction::Transcribe {
+                    path,
+                    language,
+                    route,
+                } => {
+                    client::send_speech_to_text(with_route(
+                        audio_transcribe_args(path, language),
+                        route,
+                    ))
+                    .await?
+                }
+            };
+            println!("{content}");
+        }
+        Commands::Generate { action } => {
+            let text = |value: Option<String>| value.map(serde_json::Value::String);
+            let content = match action {
+                GenerateAction::Image {
+                    prompt,
+                    size,
+                    thread,
+                    route,
+                } => {
+                    client::send_generate_image(with_route(
+                        generate_args(prompt, &[("size", text(size)), ("thread_id", text(thread))]),
+                        route,
+                    ))
+                    .await?
+                }
+                GenerateAction::Video {
+                    prompt,
+                    duration,
+                    aspect_ratio,
+                    resolution,
+                    thread,
+                    route,
+                } => {
+                    client::send_generate_video(with_route(
+                        generate_args(
+                            prompt,
+                            &[
+                                ("duration_seconds", duration.map(Into::into)),
+                                ("aspect_ratio", text(aspect_ratio)),
+                                ("resolution", text(resolution)),
+                                ("thread_id", text(thread)),
+                            ],
+                        ),
+                        route,
+                    ))
+                    .await?
+                }
+            };
+            println!("{content}");
+        }
+        Commands::Analyze { action } => {
+            let AnalyzeAction::Image {
+                path,
+                prompt,
+                route,
+            } = action;
+            let mut args = serde_json::json!({ "path": path });
+            if let Some(prompt) = prompt.filter(|prompt| !prompt.trim().is_empty()) {
+                args["prompt"] = serde_json::Value::String(prompt);
+            }
+            println!(
+                "{}",
+                client::send_analyze_image(with_route(args, route)).await?
+            );
         }
         Commands::Settings { action } => match action {
             SettingsAction::List => {

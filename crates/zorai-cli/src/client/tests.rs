@@ -1,6 +1,6 @@
 use super::agent_api::{
     parse_config_set_response, parse_external_runtime_migration_terminal_response,
-    parse_operation_status_response, send_thread_get_query,
+    parse_operation_status_response, parse_speech_response, send_thread_get_query,
 };
 use super::agent_bridge::handle_message_for_test as handle_bridge_message;
 use super::agent_bridge::initial_bridge_messages;
@@ -852,4 +852,23 @@ fn plugin_api_call_bridge_command_carries_params_as_a_json_string_for_the_daemon
         }
         _ => panic!("unexpected variant for plugin-api-call"),
     }
+}
+
+#[test]
+fn speech_replies_are_printed_as_the_daemon_wrote_them_and_daemon_errors_fail_the_command() {
+    let spoken = parse_speech_response(DaemonMessage::AgentTextToSpeechResult {
+        content: r#"{"path":"/tmp/a.wav"}"#.to_string(),
+    })
+    .expect("text to speech result should parse");
+    assert_eq!(spoken, r#"{"path":"/tmp/a.wav"}"#);
+    let heard = parse_speech_response(DaemonMessage::AgentSpeechToTextResult {
+        content: "hello".to_string(),
+    })
+    .expect("speech to text result should parse");
+    assert_eq!(heard, "hello");
+    let error = parse_speech_response(DaemonMessage::AgentError {
+        message: "voice not valid".to_string(),
+    })
+    .expect_err("daemon errors should fail");
+    assert!(error.to_string().contains("voice not valid"));
 }

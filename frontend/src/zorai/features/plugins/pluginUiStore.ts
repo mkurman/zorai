@@ -10,7 +10,7 @@ export function fillPromptTemplate(template: string, values: Record<string, stri
   return template.replace(/\{\{\s*([a-zA-Z0-9_-]+)\s*\}\}/g, (_match, key: string) => (values[key] ?? "").trim()).trim();
 }
 
-function appendToComposer(text: string) {
+export function appendToComposer(text: string) {
   useComposerDraftStore.getState().setInput((current) => (current.trim() ? `${current}\n\n${text}` : text));
   navigateZorai({ view: "threads" });
 }
@@ -21,13 +21,14 @@ export type PluginCommandResult = { title: string; markdown: string; error: bool
 type PluginUiState = {
   loaded: boolean;
   plugins: ZoraiPluginUiManifest[];
-  disabled: string[];
+  disabled: ZoraiPluginUiManifest[];
   pendingCommand: PluginCommandRequest | null;
   commandResult: PluginCommandResult | null;
   selected: { plugin: string; panel: string | null } | null;
   focusPlugin: string | null;
   query: string;
   askRequest: { plugin: string; text: string; title: string } | null;
+  localRunRequest: { plugin: string; version: string; resolve: (allowed: boolean) => void } | null;
 };
 
 export const usePluginUiStore = create<PluginUiState>(() => ({
@@ -40,14 +41,28 @@ export const usePluginUiStore = create<PluginUiState>(() => ({
   focusPlugin: null,
   query: "",
   askRequest: null,
+  localRunRequest: null,
 }));
 
-export function enabledPluginUi(manifests: ZoraiPluginUiManifest[], daemonPlugins: Array<{ name: string; enabled: boolean }> | null): { plugins: ZoraiPluginUiManifest[]; disabled: string[] } {
+function requestLocalRunApproval(plugin: string, version: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    usePluginUiStore.getState().localRunRequest?.resolve(false);
+    usePluginUiStore.setState({ localRunRequest: { plugin, version, resolve } });
+  });
+}
+
+export function answerLocalRunRequest(allowed: boolean): void {
+  const request = usePluginUiStore.getState().localRunRequest;
+  usePluginUiStore.setState({ localRunRequest: null });
+  request?.resolve(allowed);
+}
+
+export function enabledPluginUi(manifests: ZoraiPluginUiManifest[], daemonPlugins: Array<{ name: string; enabled: boolean }> | null): { plugins: ZoraiPluginUiManifest[]; disabled: ZoraiPluginUiManifest[] } {
   if (!daemonPlugins) return { plugins: manifests, disabled: [] };
   const enabled = new Set(daemonPlugins.filter((plugin) => plugin.enabled).map((plugin) => plugin.name));
   return {
     plugins: manifests.filter((plugin) => enabled.has(plugin.name)),
-    disabled: manifests.filter((plugin) => !enabled.has(plugin.name)).map((plugin) => plugin.name),
+    disabled: manifests.filter((plugin) => !enabled.has(plugin.name)),
   };
 }
 
@@ -67,7 +82,14 @@ export async function refreshPluginUi(): Promise<void> {
 export async function callPluginEndpoint(pluginName: string, endpoint: string, params: Record<string, unknown>): Promise<string> {
   const bridge = getBridge();
   if (!bridge?.pluginApiCall) throw new Error("Plugin calls need the desktop app.");
-  const response = await bridge.pluginApiCall(pluginName, endpoint, params);
+  let response = await bridge.pluginApiCall(pluginName, endpoint, params);
+  if (response?.error_type === "local_run_not_approved" && bridge.pluginLocalRunStatus && bridge.pluginLocalRunApprove) {
+    const status = await bridge.pluginLocalRunStatus(pluginName);
+    if (status.local && status.version && await requestLocalRunApproval(pluginName, status.version)) {
+      await bridge.pluginLocalRunApprove(pluginName);
+      response = await bridge.pluginApiCall(pluginName, endpoint, params);
+    }
+  }
   if (!response?.success) throw new Error(response?.result || `${pluginName} could not run ${endpoint}.`);
   return response.result;
 }

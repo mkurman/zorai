@@ -1,0 +1,287 @@
+{
+  "name": "ml-research",
+  "version": "0.2.0",
+  "schema_version": 1,
+  "description": "Contracted co-scientist: run baseline and candidate branches under a locked evaluation contract, rank them across seeds, ablate the winner and write a grounded report.",
+  "author": "zorai",
+  "license": "MIT",
+  "settings": {
+    "mlflow_url": {
+      "type": "string",
+      "label": "MLflow server",
+      "required": false,
+      "default": "http://127.0.0.1:5000",
+      "description": "Runs are also logged here when a server answers; leave empty to keep them only in results.db"
+    },
+    "sql_row_limit": {
+      "type": "number",
+      "label": "SQL row limit",
+      "required": false,
+      "default": 200,
+      "description": "Most rows the data console returns (up to 5000)"
+    }
+  },
+  "api": {
+    "endpoints": {
+      "check": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py check",
+          "timeout_secs": 120
+        }
+      },
+      "example": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py example",
+          "timeout_secs": 600
+        }
+      },
+      "open": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py open",
+          "timeout_secs": 600
+        }
+      },
+      "campaigns": {
+        "run": {
+          "command": "python3 scripts/ml_research.py campaigns",
+          "timeout_secs": 30
+        }
+      },
+      "spec": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py spec",
+          "timeout_secs": 600
+        }
+      },
+      "contract": {
+        "run": {
+          "command": "python3 scripts/ml_research.py contract",
+          "timeout_secs": 30
+        }
+      },
+      "lock": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py lock",
+          "timeout_secs": 600
+        }
+      },
+      "sweep": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py sweep",
+          "timeout_secs": 600
+        }
+      },
+      "ablate": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py ablate",
+          "timeout_secs": 600
+        }
+      },
+      "leaderboard": {
+        "run": {
+          "command": "python3 scripts/ml_research.py leaderboard",
+          "timeout_secs": 30
+        }
+      },
+      "runs": {
+        "run": {
+          "command": "python3 scripts/ml_research.py runs",
+          "timeout_secs": 30
+        }
+      },
+      "log": {
+        "run": {
+          "command": "python3 scripts/ml_research.py log",
+          "timeout_secs": 30
+        }
+      },
+      "watch": {
+        "run": {
+          "command": "python3 scripts/ml_research.py watch",
+          "timeout_secs": 30
+        }
+      },
+      "attribution": {
+        "run": {
+          "command": "python3 scripts/ml_research.py attribution",
+          "timeout_secs": 30
+        }
+      },
+      "report": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py report",
+          "timeout_secs": 600
+        }
+      },
+      "paper": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py paper",
+          "timeout_secs": 600
+        }
+      },
+      "audit": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py audit",
+          "timeout_secs": 600
+        }
+      },
+      "sql": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py sql",
+          "timeout_secs": 600
+        }
+      },
+      "runtimes": {
+        "run": {
+          "command": "python3 scripts/ml_research.py runtimes",
+          "timeout_secs": 60
+        }
+      },
+      "launch": {
+        "run": {
+          "command": "python3 scripts/ml_research.py launch",
+          "timeout_secs": 30
+        }
+      },
+      "status": {
+        "run": {
+          "command": "python3 scripts/ml_research.py status",
+          "timeout_secs": 30
+        }
+      },
+      "cancel": {
+        "run": {
+          "command": "python3 scripts/ml_research.py cancel",
+          "timeout_secs": 30
+        }
+      },
+      "jobs": {
+        "run": {
+          "command": "python3 scripts/ml_research.py jobs",
+          "timeout_secs": 30
+        }
+      }
+    }
+  },
+  "commands": {
+    "check": {
+      "description": "Show GPU, uv, git, Hugging Face and MLflow readiness. Add --campaign <name> to check its contract",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py check --format markdown"
+      }
+    },
+    "open": {
+      "description": "Register a git repo with an experiment.yaml as a campaign. Add --campaign <name> --folder <repo>",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py open"
+      }
+    },
+    "lock": {
+      "description": "Pin the protected evaluation files of a campaign so runs cannot change them. Add --campaign <name>",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py lock"
+      }
+    },
+    "sweep": {
+      "description": "Run the baseline and candidate branches over all seeds in separate worktrees, several at once when experiment.yaml sets parallel. Add --campaign <name> --wait [--parallel N --gpus 0,1]",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py sweep --format markdown"
+      }
+    },
+    "leaderboard": {
+      "description": "Rank candidates by the campaign metric with mean ± std and contract status. Add --campaign <name>",
+      "python": {
+        "command": "python3 scripts/ml_research.py leaderboard --format markdown"
+      }
+    },
+    "ablate": {
+      "description": "Revert each changed file of the winning branch in turn to show what caused the gain. Add --campaign <name> --wait [--parallel N --gpus 0,1]",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py ablate --format markdown"
+      }
+    },
+    "report": {
+      "description": "Write a Markdown report with tables, a plot and run citations. Add --campaign <name>",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py report --format markdown"
+      }
+    },
+    "data-sql": {
+      "description": "Run a read-only DuckDB query over local or hf:// Parquet/CSV. Add --query \"<sql>\"",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py sql --format markdown"
+      }
+    },
+    "paper": {
+      "description": "Build a grounded paper workspace: evidence.json with every number and its run ids, plus a manuscript.md skeleton with tables. Add --campaign <name> [--force true]",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py paper --format markdown"
+      }
+    },
+    "audit": {
+      "description": "Check that every number in the campaign's manuscript.md matches evidence.json; lists sentences with invented numbers. Add --campaign <name>",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/ml_research.py audit --format markdown"
+      }
+    },
+    "runtimes": {
+      "description": "Readiness of Prime Intellect Verifiers, AutoResearch and AutoRL for a workspace, with setup and launch commands. Add --workspace <folder>",
+      "python": {
+        "command": "python3 scripts/ml_research.py runtimes --format markdown"
+      }
+    }
+  },
+  "skills": [
+    "skills/ml-research.md"
+  ],
+  "ui": {
+    "icon": "🧪",
+    "panels": [
+      {
+        "id": "lab",
+        "title": "Lab",
+        "web": "panel/index.html",
+        "permissions": [
+          "composer",
+          "toast",
+          "files",
+          "terminal"
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "id": "check",
+        "title": "Check ML Research Lab setup",
+        "endpoint": "check",
+        "params": {
+          "format": "markdown"
+        },
+        "output": "panel",
+        "placement": [
+          "palette"
+        ]
+      },
+      {
+        "id": "campaign",
+        "title": "Start a research campaign",
+        "prompt": "Use the ml-research plugin to set up a research campaign for {{goal}} in {{folder}}: write experiment.yaml with a metric and the protected evaluation files, lock the contract, implement candidate branches, sweep them across seeds, ablate the winner and write the report. Do not edit the protected files.",
+        "inputs": [
+          {
+            "key": "goal",
+            "label": "What should improve?",
+            "placeholder": "validation loss of the tokenizer experiment"
+          },
+          {
+            "key": "folder",
+            "label": "Repository folder",
+            "placeholder": "/home/me/projects/experiment"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
+}

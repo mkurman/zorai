@@ -1,0 +1,11 @@
+title: Toy curve fit
+metric: val_loss
+direction: min
+command: python3 train.py --seed {seed}
+timeout_s: 60
+seeds: [0, 1, 2]
+baseline: main
+candidates: [better-features, cheat-eval]
+protected:
+  - eval.py
+  - data/val.csv

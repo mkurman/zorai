@@ -1,0 +1,13 @@
+title: Interview rough cut
+sources:
+  talk: ~/Videos/interview.mp4
+clips:
+  - source: talk
+    in: "0:00"
+    out: "2:30"
+tighten:
+  silence: 0.7
+  fillers: [um, uh, erm]
+formats: ["16:9", "9:16"]
+captions: karaoke
+fit: crop

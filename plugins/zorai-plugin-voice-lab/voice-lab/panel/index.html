@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Voice Lab</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <header class="top">
+    <h1>🎙️ Voice Lab</h1>
+    <span id="ready" class="chip">Checking setup…</span>
+    <nav role="tablist">
+      <button role="tab" data-tab="studio" aria-selected="true">Studio</button>
+      <button role="tab" data-tab="transcribe">Transcribe</button>
+      <button role="tab" data-tab="setup">Setup</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="studio" class="tab">
+      <div class="bar">
+        <label>Project <select id="project"></select></label>
+        <button id="save">Save</button>
+        <span class="divider"></span>
+        <input id="new-name" placeholder="name" aria-label="Project name for New, Save as or Rename">
+        <button id="new-project" title="Start an empty project with this name">New</button>
+        <button id="save-as" title="Save the current script as a new project with this name">Save as</button>
+        <button id="rename" title="Rename the current project">Rename</button>
+        <span class="grow"></span>
+        <button id="example">Load example</button>
+        <button id="render" class="primary">Render</button>
+      </div>
+      <div class="bar location">
+        <span id="location-text" class="muted"></span>
+        <button id="choose-folder">Choose folder…</button>
+        <button id="clear-folder" hidden>Stop saving there</button>
+      </div>
+      <div class="split">
+        <div class="col">
+          <div class="editor-head">
+            <div class="seg" role="group" aria-label="Editor">
+              <button data-mode="form" aria-pressed="true">Form</button>
+              <button data-mode="yaml" aria-pressed="false">YAML</button>
+            </div>
+            <span id="problem" class="problem" hidden></span>
+          </div>
+          <div id="form">
+            <label class="field">Title <input id="f-title" placeholder="Release briefing"></label>
+            <section class="card">
+              <header><h2>Engine</h2></header>
+              <div class="engine-row"><span>Voices</span><div class="seg" id="e-speak" role="group" aria-label="Voices"></div></div>
+              <div class="engine-row"><span>Listening check</span><div class="seg" id="e-listen" role="group" aria-label="Listening check"></div></div>
+              <p id="e-cost" class="muted small" hidden></p>
+            </section>
+            <section class="card">
+              <header><h2>Cast</h2><button id="add-speaker">+ Speaker</button></header>
+              <div id="f-cast" class="rows"></div>
+              <label class="field small">Sample sentence <input id="f-sample" value="Welcome to the Zorai briefing."></label>
+            </section>
+            <section class="card">
+              <header><h2>Lines</h2><button id="add-line">+ Line</button></header>
+              <ol id="f-lines" class="lines"></ol>
+            </section>
+            <section class="card">
+              <header><h2>Pronunciation</h2><button id="add-word">+ Word</button></header>
+              <p class="muted small">Respell names so the voice says them right; the listening check still expects the real spelling.</p>
+              <div id="f-lexicon" class="rows"></div>
+            </section>
+            <section class="card">
+              <header><h2>Timing and check</h2></header>
+              <div class="grid3">
+                <label class="field">Pause after each line (ms) <input id="f-pause" type="number" min="0" max="10000" step="50" placeholder="350"></label>
+                <label class="field">Retry above misheard (%) <input id="f-wer" type="number" min="0" max="100" step="1" placeholder="10"></label>
+                <label class="field">Tries per line <input id="f-attempts" type="number" min="1" max="5" step="1" placeholder="3"></label>
+              </div>
+            </section>
+          </div>
+          <textarea id="script" spellcheck="false" aria-label="Script (YAML)" hidden></textarea>
+        </div>
+        <div class="col">
+          <div id="progress" hidden><div class="meter"><span></span></div><p></p><button id="cancel">Cancel</button></div>
+          <div id="result" hidden>
+            <audio id="mix" controls></audio>
+            <dl id="report"></dl>
+            <div class="bar"><button id="to-message">Add summary to message</button><span id="paths" class="muted"></span></div>
+          </div>
+          <table id="lines" hidden>
+            <thead><tr><th>#</th><th>Speaker</th><th>Line</th><th title="Words Whisper heard wrong">Check</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <p id="studio-empty" class="muted">Write a script on the left, save it, then Render. Every line is spoken by a local Kokoro voice and heard back by Whisper; lines with misheard words are retried.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="transcribe" class="tab" hidden>
+      <div class="bar">
+        <input id="path" class="grow" placeholder="/home/me/recordings/meeting.m4a" aria-label="Audio or video file">
+        <input id="language" placeholder="language (auto)" aria-label="Language">
+        <select id="t-engine" aria-label="Transcription engine"><option value="local">Local Whisper (word timings)</option><option value="cloud">Cloud</option></select><span id="t-route"></span>
+        <button id="transcribe-go" class="primary">Transcribe</button>
+      </div>
+      <div id="t-progress" hidden><div class="meter"><span></span></div><p></p></div>
+      <div id="t-result" hidden>
+        <div class="bar"><button id="t-to-message">Add transcript to message</button><span id="t-paths" class="muted"></span></div>
+        <ol id="segments"></ol>
+      </div>
+    </section>
+
+    <section id="setup" class="tab" hidden>
+      <table id="checks"><tbody></tbody></table>
+      <div class="bar"><button id="install" class="primary">Install voices and Whisper</button><button id="recheck">Check again</button></div>
+      <div id="s-progress" hidden><div class="meter"><span></span></div><p></p></div>
+      <p class="muted">Everything runs on this computer. Setup downloads the Kokoro voice model (about 340 MB) and the Whisper model (about 480 MB for small) once.</p>
+    </section>
+  </main>
+  <p id="error" role="alert" hidden></p>
+  <script type="module" src="panel.js"></script>
+</body>
+</html>

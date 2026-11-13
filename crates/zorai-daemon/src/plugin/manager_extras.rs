@@ -338,15 +338,25 @@ impl PluginManager {
     }
 
     pub(super) async fn rebuild_command_registry(&self) {
-        let plugins = self.plugins.read().await;
+        let enabled = self.enabled_names().await;
+        let plugins: HashMap<String, LoadedPlugin> = self
+            .plugins
+            .read()
+            .await
+            .iter()
+            .filter(|(name, _)| enabled.contains(*name))
+            .map(|(name, plugin)| (name.clone(), plugin.clone()))
+            .collect();
         let mut registry = self.command_registry.write().await;
         registry.rebuild_from_plugins(&plugins, &self.plugins_dir);
     }
 
     pub(crate) async fn monitor_auth_health(&self) -> Vec<PluginAuthHealthIssue> {
+        let enabled = self.enabled_names().await;
         let plugins = self.plugins.read().await;
         let oauth_plugins: Vec<(String, manifest::AuthSection)> = plugins
             .iter()
+            .filter(|(name, _)| enabled.contains(*name))
             .filter_map(|(name, plugin)| {
                 plugin
                     .manifest

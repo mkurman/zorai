@@ -135,10 +135,10 @@ jobs:
                   if not py:
                       continue
                   cmd = py['command']
-                  if not cmd.startswith('uv run scripts/'):
-                      errors.append(f'{sub}.{name}: command must start with "uv run scripts/"')
+                  if not cmd.startswith('python scripts/'):
+                      errors.append(f'{sub}.{name}: command must start with "python scripts/" (it runs in the plugin\'s managed Python env)')
                       continue
-                  script = cmd.split()[2][len('scripts/'):]
+                  script = cmd.split()[1][len('scripts/'):]
                   if not (scripts_dir / script).is_file():
                       errors.append(f'{sub}.{name}: missing script {script}')
               for s in manifest.get('skills', []):

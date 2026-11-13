@@ -378,7 +378,7 @@ fn gmail_manifest_validates_through_plugin_loader() {
         validate_manifest(&raw, &validator).expect("gmail manifest should pass validation");
 
     assert_eq!(manifest.name, "gmail");
-    assert_eq!(manifest.version, "1.2.0");
+    assert_eq!(manifest.version, "1.3.0");
     assert_eq!(manifest.schema_version, 1);
 
     let auth = manifest
@@ -431,7 +431,7 @@ fn calendar_manifest_validates_through_plugin_loader() {
         validate_manifest(&raw, &validator).expect("calendar manifest should pass validation");
 
     assert_eq!(manifest.name, "calendar");
-    assert_eq!(manifest.version, "1.2.0");
+    assert_eq!(manifest.version, "1.3.0");
     assert_eq!(manifest.schema_version, 1);
 
     let auth = manifest
@@ -746,4 +746,225 @@ fn core_connector_manifests_expose_readiness_probes_and_normalized_primitives() 
             );
         }
     }
+}
+
+#[test]
+fn validate_repo_voice_lab_manifest_loads_with_local_endpoints() {
+    let validator = make_validator();
+    let path = repo_plugin_manifest_path("plugins/zorai-plugin-voice-lab/voice-lab/plugin.json");
+    let raw = std::fs::read(&path)
+        .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+
+    let (manifest, _) =
+        validate_manifest(&raw, &validator).expect("voice-lab manifest should load");
+    assert_eq!(manifest.name, "voice-lab");
+    let endpoints = &manifest
+        .api
+        .expect("voice-lab declares endpoints")
+        .endpoints;
+    for name in [
+        "check",
+        "setup",
+        "render",
+        "transcribe",
+        "status",
+        "cancel",
+        "projects",
+        "save",
+    ] {
+        let run = endpoints
+            .get(name)
+            .and_then(|endpoint| endpoint.run.as_ref())
+            .unwrap_or_else(|| panic!("{name} should be a local endpoint"));
+        assert!(run.python.command.contains("scripts/voice_lab.py"));
+    }
+}
+
+#[test]
+fn validate_repo_lab_manifests_run_only_their_own_scripts() {
+    let validator = make_validator();
+    for (relative, name, script, commands) in [
+        (
+            "plugins/zorai-plugin-video-lab/video-lab/plugin.json",
+            "video-lab",
+            "scripts/video_lab.py",
+            &["check", "animatic", "estimate", "render", "cut", "demo"][..],
+        ),
+        (
+            "plugins/zorai-plugin-image-lab/image-lab/plugin.json",
+            "image-lab",
+            "scripts/image_lab.py",
+            &["check", "sheet", "fix", "uikit", "figure"][..],
+        ),
+        (
+            "plugins/zorai-plugin-ml-research/ml-research/plugin.json",
+            "ml-research",
+            "scripts/ml_research.py",
+            &["check", "lock", "sweep", "ablate", "report"][..],
+        ),
+    ] {
+        let raw = std::fs::read(repo_plugin_manifest_path(relative))
+            .unwrap_or_else(|error| panic!("failed to read {relative}: {error}"));
+        let (manifest, _) = validate_manifest(&raw, &validator)
+            .unwrap_or_else(|error| panic!("{relative} should validate: {error}"));
+        assert_eq!(manifest.name, name);
+        for (endpoint, definition) in &manifest.api.as_ref().expect("endpoints").endpoints {
+            let run = definition
+                .run
+                .as_ref()
+                .unwrap_or_else(|| panic!("{name}.{endpoint} should be a local endpoint"));
+            assert!(run.python.command.contains(script), "{name}.{endpoint}");
+        }
+        let declared = manifest.commands.as_ref().expect("slash commands");
+        for command in commands {
+            assert!(
+                declared.contains_key(*command),
+                "{name} should offer /{name}.{command}"
+            );
+        }
+    }
+}
+
+#[test]
+fn validate_manifest_rejects_an_endpoint_with_neither_a_url_nor_a_local_command() {
+    let validator = make_validator();
+    let json = r#"{"name":"broken","version":"1","schema_version":1,"api":{"endpoints":{"x":{"params":{}}}}}"#;
+    assert!(validate_manifest(json.as_bytes(), &validator).is_err());
+}
+
+#[tokio::test]
+async fn gmail_and_calendar_panel_endpoints_build_valid_google_urls() {
+    let validator = make_validator();
+    let load = |path: &str| {
+        let raw = std::fs::read(repo_plugin_manifest_path(path)).unwrap();
+        validate_manifest(&raw, &validator).unwrap().0
+    };
+    let registry = crate::plugin::template::create_registry();
+    let render = |manifest: &crate::plugin::manifest::PluginManifest,
+                  endpoint: &str,
+                  params: serde_json::Value| {
+        let api = manifest.api.clone().unwrap();
+        let endpoint = api.endpoints.get(endpoint).unwrap().clone();
+        let context = serde_json::json!({ "params": params, "settings": {}, "auth": { "access_token": "t" } });
+        let registry = registry.clone();
+        async move {
+            crate::plugin::template::render_request(&registry, &api, &endpoint, &context)
+                .await
+                .unwrap()
+                .url
+        }
+    };
+    let gmail = load("plugins/zorai-plugin-gmail-calendar/gmail/plugin.json");
+    let first_page = render(
+        &gmail,
+        "ui_messages",
+        serde_json::json!({ "query": "is:unread in:inbox" }),
+    )
+    .await;
+    assert!(
+        first_page.ends_with("/messages?maxResults=25&q=is%3Aunread%20in%3Ainbox"),
+        "{first_page}"
+    );
+    let next_page = render(
+        &gmail,
+        "ui_messages",
+        serde_json::json!({ "page_token": "abc/123" }),
+    )
+    .await;
+    assert!(
+        next_page.contains("q=in%3Ainbox&pageToken=abc%2F123"),
+        "{next_page}"
+    );
+
+    let calendar = load("plugins/zorai-plugin-gmail-calendar/calendar/plugin.json");
+    let events = render(
+        &calendar,
+        "ui_events",
+        serde_json::json!({
+            "calendar_id": "pl.polish#holiday@group.v.calendar.google.com",
+            "time_min": "2026-11-09T00:00:00+01:00",
+            "time_max": "2026-11-16T00:00:00+01:00"
+        }),
+    )
+    .await;
+    assert!(
+        !events.contains('#'),
+        "a raw # would cut the URL short: {events}"
+    );
+    assert!(events.contains("%23holiday%40group"), "{events}");
+    assert!(
+        events.contains("T00%3A00%3A00%2B01%3A00&timeMax="),
+        "{events}"
+    );
+
+    let api = calendar.api.clone().unwrap();
+    let context = |params: serde_json::Value| serde_json::json!({ "params": params, "settings": {}, "auth": { "access_token": "t" } });
+    let update = api.endpoints.get("update_event").unwrap();
+    assert_eq!(
+        update.method, "PATCH",
+        "PUT would wipe attendees and reminders"
+    );
+    let patched = crate::plugin::template::render_request(
+        &registry,
+        &api,
+        update,
+        &context(serde_json::json!({
+            "calendar_id": "team#ops@group.calendar.google.com",
+            "event_id": "abc_123",
+            "patch": { "summary": "Moved \"sync\"" }
+        })),
+    )
+    .await
+    .unwrap();
+    assert!(!patched.url.contains('#'), "{}", patched.url);
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(patched.body.as_deref().unwrap()).unwrap(),
+        serde_json::json!({ "summary": "Moved \"sync\"" })
+    );
+    for endpoint in [
+        "delete_event",
+        "update_attendance",
+        "get_event",
+        "create_event",
+    ] {
+        let rendered = crate::plugin::template::render_request(
+            &registry,
+            &api,
+            api.endpoints.get(endpoint).unwrap(),
+            &context(serde_json::json!({
+                "calendar_id": "team#ops@group.calendar.google.com",
+                "event_id": "abc_123",
+                "email": "me@example.com",
+                "summary": "x",
+                "start_time": "2026-11-13T10:00:00Z",
+                "end_time": "2026-11-13T11:00:00Z",
+                "location": "",
+                "description": ""
+            })),
+        )
+        .await
+        .unwrap();
+        assert!(!rendered.url.contains('#'), "{endpoint}: {}", rendered.url);
+    }
+}
+
+#[test]
+fn every_plugin_shipped_in_the_repo_passes_the_schema_so_bundle_sync_never_skips_one() {
+    let validator = make_validator();
+    let found = crate::plugin::bundled::find_bundled_plugins(&repo_plugin_manifest_path("plugins"));
+    assert!(
+        found.len() > 30,
+        "expected the repo's bundled plugins, found {}",
+        found.len()
+    );
+    let failures: Vec<String> = found
+        .iter()
+        .filter_map(|dir| {
+            let raw = std::fs::read(dir.join("plugin.json")).ok()?;
+            validate_manifest(&raw, &validator)
+                .err()
+                .map(|error| format!("{}: {error}", dir.display()))
+        })
+        .collect();
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
