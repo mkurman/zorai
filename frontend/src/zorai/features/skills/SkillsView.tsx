@@ -24,6 +24,7 @@ import {
 import { isValidSkillName, joinSkillPath, parentDir, useSkillsViewStore, type OpenSkillDocument, type SkillSyncResult } from "./skillsViewStore";
 import { SkillIconButton } from "./SkillIcons";
 import type { ReactNode } from "react";
+import { Presence } from "@/components/Presence";
 
 const WorkspaceCodeEditor = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.WorkspaceCodeEditor })));
 const MonacoReadOnlyView = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.MonacoReadOnlyView })));
@@ -382,39 +383,43 @@ export function SkillsRail() {
       <div className="zorai-skill-tree" role="tree" aria-label="Skills">
         <SkillTreeNode root={root} entry={rootEntry} depth={0} expanded={expanded} childrenByPath={childrenByPath} onToggle={toggle} />
       </div>
-      {dialog === "sync" ? <SyncDialog result={null} onClose={() => setDialog(null)} /> : null}
-      {dialog === "syncResult" && syncResult ? <SyncDialog result={syncResult} onClose={() => setDialog(null)} /> : null}
-      {dialog === "folder" ? (
-        <NameDialog
-          title="Create folder"
-          label={`Folder name in skills/${selectedDir}`}
-          placeholder="research"
-          submitLabel="Create folder"
-          onClose={() => setDialog(null)}
-          onSubmit={async (name) => {
-            if (!isValidSkillName(name)) throw new Error("Use a single folder name without slashes.");
-            await getBridge()?.workspaceCreateDirectory?.(root, joinSkillPath(selectedDir, name));
-            setExpanded((current) => new Set(current).add(selectedDir));
-            afterTreeChange();
-          }}
-        />
-      ) : null}
-      {dialog === "skill" ? (
-        <NameDialog
-          title="New skill"
-          label={`Skill name in skills/${selectedDir}`}
-          placeholder="my-skill"
-          submitLabel="Create skill"
-          onClose={() => setDialog(null)}
-          onSubmit={async (name) => {
-            if (!isValidSkillName(name)) throw new Error("Use a single skill name without slashes.");
-            const skillDir = joinSkillPath(selectedDir, name);
-            const exists = await getBridge()?.workspaceListDirectory?.(root, skillDir).then(() => true, () => false);
-            if (exists) throw new Error(`skills/${skillDir} already exists.`);
-            useSkillsViewStore.getState().openDraft(`${skillDir}/SKILL.md`);
-          }}
-        />
-      ) : null}
+      <Presence value={dialog}>{(kind) => (
+        <>
+        {kind === "sync" ? <SyncDialog result={null} onClose={() => setDialog(null)} /> : null}
+        {kind === "syncResult" && syncResult ? <SyncDialog result={syncResult} onClose={() => setDialog(null)} /> : null}
+        {kind === "folder" ? (
+          <NameDialog
+            title="Create folder"
+            label={`Folder name in skills/${selectedDir}`}
+            placeholder="research"
+            submitLabel="Create folder"
+            onClose={() => setDialog(null)}
+            onSubmit={async (name) => {
+              if (!isValidSkillName(name)) throw new Error("Use a single folder name without slashes.");
+              await getBridge()?.workspaceCreateDirectory?.(root, joinSkillPath(selectedDir, name));
+              setExpanded((current) => new Set(current).add(selectedDir));
+              afterTreeChange();
+            }}
+          />
+        ) : null}
+        {kind === "skill" ? (
+          <NameDialog
+            title="New skill"
+            label={`Skill name in skills/${selectedDir}`}
+            placeholder="my-skill"
+            submitLabel="Create skill"
+            onClose={() => setDialog(null)}
+            onSubmit={async (name) => {
+              if (!isValidSkillName(name)) throw new Error("Use a single skill name without slashes.");
+              const skillDir = joinSkillPath(selectedDir, name);
+              const exists = await getBridge()?.workspaceListDirectory?.(root, skillDir).then(() => true, () => false);
+              if (exists) throw new Error(`skills/${skillDir} already exists.`);
+              useSkillsViewStore.getState().openDraft(`${skillDir}/SKILL.md`);
+            }}
+          />
+        ) : null}
+        </>
+      )}</Presence>
     </div>
   );
 }
@@ -511,7 +516,7 @@ function FolderPane({ root, dir }: { root: string; dir: string }) {
           </div>
         ) : null}
       </header>
-      {confirmDelete ? (
+      <Presence value={confirmDelete}>{() => (
         <ConfirmDialog
           title="Delete folder?"
           confirmLabel="Delete folder"
@@ -525,7 +530,7 @@ function FolderPane({ root, dir }: { root: string; dir: string }) {
         >
           <p><code>skills/{dir}</code> and everything inside it will be permanently deleted.</p>
         </ConfirmDialog>
-      ) : null}
+      )}</Presence>
       <div className="zorai-skill-pane__empty">
         <p>Pick a file in the tree to preview it, or hover a file and choose <strong>edit</strong>.</p>
         <p>New skills, folders and imports are created in <code>skills/{dir}</code>.</p>
@@ -675,7 +680,7 @@ function DocumentPane({ root, open }: { root: string; open: OpenSkillDocument })
                 expanded={pickerOpen}
                 onClick={() => setPickerOpen((value) => !value)}
               />
-              {pickerOpen ? <PreferredPicker skill={skillName} onClose={() => setPickerOpen(false)} /> : null}
+              <Presence value={pickerOpen}>{() => <PreferredPicker skill={skillName} onClose={() => setPickerOpen(false)} />}</Presence>
             </div>
           ) : null}
           {open.draft ? null : <SkillIconButton icon="rename" label="Rename…" disabled={locked} onClick={() => setDialog("rename")} />}
@@ -718,7 +723,7 @@ function DocumentPane({ root, open }: { root: string; open: OpenSkillDocument })
           )}
         </Suspense>
       </div>
-      {confirmDelete ? (
+      <Presence value={confirmDelete}>{() => (
         <ConfirmDialog
           title={open.draft ? "Discard draft?" : isSkillDoc ? "Delete skill?" : "Delete file?"}
           confirmLabel={open.draft ? "Discard" : "Delete"}
@@ -744,7 +749,7 @@ function DocumentPane({ root, open }: { root: string; open: OpenSkillDocument })
             <p><code>skills/{deleteTarget}</code>{isSkillDoc ? " and every file in the skill folder" : ""} will be permanently deleted.</p>
           )}
         </ConfirmDialog>
-      ) : null}
+      )}</Presence>
       {dialog === "rename" ? (
         <NameDialog
           title="Rename"

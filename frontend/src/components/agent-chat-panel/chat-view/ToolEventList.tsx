@@ -2,6 +2,7 @@ import { memo, useEffect, useRef, useState, type RefObject } from "react";
 import type { ToolEventAttribution, ToolEventGroup } from "./types";
 import { MemoizedToolEventRow, sameToolEventGroup } from "./ToolEventRow";
 import { ZoraiToolMark } from "./ZoraiToolMark";
+import { usePresence } from "@/hooks/usePresence";
 
 const TOOL_TITLE_RISE_MS = 400;
 
@@ -51,6 +52,7 @@ export const ToolEventList = memo(function ToolEventList({
   fallbackAuthorName?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const presence = usePresence(expanded);
   const headerRef = useRef<HTMLButtonElement | null>(null);
   const summary = summarizeToolGroups(groups);
 
@@ -83,8 +85,8 @@ export const ToolEventList = memo(function ToolEventList({
           [{doneCount} / {groups.length}]
         </span>
       </button>
-      {expanded && (
-        <div className="acp-tool-list__body">
+      {presence.mounted && (
+        <div data-closing={presence.closing || undefined} className="acp-tool-list__body zorai-reveal">
           {groups.map((group) => (
             <MemoizedToolEventRow key={group.key} group={group} />
           ))}

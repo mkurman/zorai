@@ -61,6 +61,7 @@ import { ViewModeToggle } from "@/components/data-viewers/ViewModeToggle";
 import { ImageLightbox } from "@/zorai/features/threads/ImageLightbox";
 import { MediaLightbox } from "@/zorai/features/threads/MediaLightbox";
 import { mediaUrlForPath } from "@/zorai/features/threads/ThreadFilePreviewOverlay";
+import { Presence } from "@/components/Presence";
 
 const WorkspaceCodeEditor = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.WorkspaceCodeEditor })));
 const WorkspaceDiffEditor = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.WorkspaceDiffEditor })));
@@ -1935,25 +1936,27 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             </div>
           </>
         )}
-        {mediaPreview?.kind === "image" ? (
-          <ImageLightbox src={mediaUrlForPath(mediaPreview.path)} name={mediaPreview.path.split("/").pop() || mediaPreview.path} onClose={() => setMediaPreview(null)} />
-        ) : mediaPreview ? (
-          <MediaLightbox src={mediaUrlForPath(mediaPreview.path)} name={mediaPreview.path.split("/").pop() || mediaPreview.path} kind={mediaPreview.kind} onClose={() => setMediaPreview(null)} />
-        ) : null}
-        {gitDialog ? <GitActionDialog spec={gitDialog} busy={gitDialogBusy} error={gitDialogError} onClose={() => setGitDialog(null)} /> : null}
-        {gitOutputEntries ? <GitOutputDialog entries={gitOutputEntries} onClose={() => setGitOutputEntries(null)} /> : null}
-        {explorerMenu ? <CodeContextMenu x={explorerMenu.x} y={explorerMenu.y} label={explorerMenu.entry ? `Actions for ${explorerMenu.entry.name}` : "Workspace actions"} items={explorerMenu.entry || !context?.root ? explorerMenuItems(explorerMenu.entry) : [...explorerMenuItems(null), tintMenuItem(rootTint, (tint) => setRootTint(context.root!, tint), true)]} onClose={closeExplorerMenu} /> : null}
-        {pathDialog ? <WorkspacePathDialog operation={pathDialog.operation} initialPath={pathDialog.initialPath} busy={pathDialogBusy} error={pathDialogError} onSubmit={submitPathDialog} onClose={() => { setPathDialog(null); setPathDialogError(null); }} /> : null}
-        {codeOverlay === "quickOpen" ? (
+        <Presence value={mediaPreview}>
+          {(preview, closing) => preview.kind === "image" ? (
+            <ImageLightbox src={mediaUrlForPath(preview.path)} name={preview.path.split("/").pop() || preview.path} closing={closing} onClose={() => setMediaPreview(null)} />
+          ) : (
+            <MediaLightbox src={mediaUrlForPath(preview.path)} name={preview.path.split("/").pop() || preview.path} kind={preview.kind} closing={closing} onClose={() => setMediaPreview(null)} />
+          )}
+        </Presence>
+        <Presence value={gitDialog}>{(spec) => <GitActionDialog spec={spec} busy={gitDialogBusy} error={gitDialogError} onClose={() => setGitDialog(null)} />}</Presence>
+        <Presence value={gitOutputEntries}>{(entries) => <GitOutputDialog entries={entries} onClose={() => setGitOutputEntries(null)} />}</Presence>
+        <Presence value={explorerMenu}>{(menu) => <CodeContextMenu x={menu.x} y={menu.y} label={menu.entry ? `Actions for ${menu.entry.name}` : "Workspace actions"} items={menu.entry || !context?.root ? explorerMenuItems(menu.entry) : [...explorerMenuItems(null), tintMenuItem(rootTint, (tint) => setRootTint(context.root!, tint), true)]} onClose={closeExplorerMenu} />}</Presence>
+        <Presence value={pathDialog}>{(dialog) => <WorkspacePathDialog operation={dialog.operation} initialPath={dialog.initialPath} busy={pathDialogBusy} error={pathDialogError} onSubmit={submitPathDialog} onClose={() => { setPathDialog(null); setPathDialogError(null); }} />}</Presence>
+        <Presence value={codeOverlay === "quickOpen"}>{() => (
           <CodeQuickOpen
             files={explorerFiles}
             onOpen={(path, line, column) => void openFile(path, line ? { line, column: column ?? 1 } : undefined)}
             onClose={() => setCodeOverlay(null)}
           />
-        ) : null}
-        {codeOverlay === "commands" ? (
+        )}</Presence>
+        <Presence value={codeOverlay === "commands"}>{() => (
           <CodeCommandPalette onRun={runCodeCommand} onClose={() => setCodeOverlay(null)} />
-        ) : null}
+        )}</Presence>
         {unsupportedFile && context?.root ? <CodeUnsupportedFileNotice
           path={unsupportedFile}
           onOpenExternal={() => { const root = context.root; void bridge?.openFsPath?.(`${root.replace(/[\\/]$/, "")}/${unsupportedFile}`); }}
@@ -1968,14 +1971,14 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
           onOpenExternal={() => { const root = context.root; void bridge?.openFsPath?.(`${root.replace(/[\\/]$/, "")}/${largeFileGate.path}`); }}
           onReveal={() => { const root = context.root; void bridge?.revealFsPath?.(`${root.replace(/[\\/]$/, "")}/${largeFileGate.path}`); }}
         /> : null}
-        {pendingDirtyClosePath ? <DirtyFileCloseDialog
-          path={pendingDirtyClosePath}
+        <Presence value={pendingDirtyClosePath}>{(dirtyPath) => <DirtyFileCloseDialog
+          path={dirtyPath}
           saving={saving}
           error={dirtyCloseError}
           onCancel={() => { setPendingDirtyClosePath(null); setDirtyCloseError(null); }}
-          onDiscard={() => discardAndCloseFile(pendingDirtyClosePath)}
-          onSave={() => { void saveDocumentRef.current(pendingDirtyClosePath).then((saved) => { if (saved) discardAndCloseFile(pendingDirtyClosePath); }); }}
-        /> : null}
+          onDiscard={() => discardAndCloseFile(dirtyPath)}
+          onSave={() => { void saveDocumentRef.current(dirtyPath).then((saved) => { if (saved) discardAndCloseFile(dirtyPath); }); }}
+        />}</Presence>
         {error ? <div className="zorai-workspace-error" role="alert"><span>{error}</span><button type="button" aria-label="Dismiss error" title="Dismiss" onClick={() => setError(null)}>×</button></div> : null}
       </section>
   );

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AttachmentTiles } from "./attachmentTiles";
 import { queuedComposerPreview, type QueuedComposerMessage } from "./composerQueue";
+import { usePresence } from "@/hooks/usePresence";
 
 export function ThreadComposerQueue({
   items,
@@ -16,6 +17,7 @@ export function ThreadComposerQueue({
   onCancel: (id: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const presence = usePresence(!collapsed);
   if (items.length === 0) return null;
   return (
     <div className="zorai-composer-queue">
@@ -25,15 +27,15 @@ export function ThreadComposerQueue({
         aria-expanded={!collapsed}
         onClick={() => setCollapsed((value) => !value)}
       >
-        <span className="zorai-composer-queue__chevron" aria-hidden="true">{collapsed ? "▸" : "▾"}</span>
+        <span className={collapsed ? "zorai-composer-queue__chevron zorai-motion-caret" : "zorai-composer-queue__chevron zorai-motion-caret is-open"} aria-hidden="true">▸</span>
         <span className="zorai-composer-queue__label">Queued</span>
         <span className="zorai-composer-queue__count">{items.length}</span>
         {collapsed ? (
           <span className="zorai-composer-queue__peek">{queuedComposerPreview(items[0]).text}</span>
         ) : null}
       </button>
-      {collapsed ? null : (
-        <ol className="zorai-composer-queue__list">
+      {!presence.mounted ? null : (
+        <ol data-closing={presence.closing || undefined} className="zorai-composer-queue__list zorai-reveal">
           {items.map((queued, index) => {
             const { text, tiles } = queuedComposerPreview(queued);
             const editing = queued.id === editingId;

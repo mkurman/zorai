@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { getBridge } from "@/lib/bridge";
 import { ImageLightbox } from "@/zorai/features/threads/ImageLightbox";
+import { Presence } from "@/components/Presence";
 
 type MermaidModule = typeof import("mermaid")["default"];
 
@@ -177,14 +178,17 @@ export function MermaidDiagram({ source, fileName = "diagram" }: { source: strin
           <div className="zorai-mermaid__loading">Rendering diagram…</div>
         ) : null}
       </div>
-      {expanded && svg ? (
-        <ImageLightbox
-          src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgWithIntrinsicSize(svg))}`}
-          name={fileName}
-          vector
-          onClose={() => setExpanded(false)}
-        />
-      ) : null}
+      <Presence value={expanded && svg}>
+        {(shownSvg, closing) => (
+          <ImageLightbox
+            src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgWithIntrinsicSize(shownSvg))}`}
+            name={fileName}
+            vector
+            closing={closing}
+            onClose={() => setExpanded(false)}
+          />
+        )}
+      </Presence>
     </div>
   );
 }

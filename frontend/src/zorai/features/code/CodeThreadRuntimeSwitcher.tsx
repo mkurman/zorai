@@ -13,6 +13,7 @@ import { pinThreadRuntimeOverlay } from "@/lib/agentStore/threadProfileMerge";
 import { resolveThreadOwnerRuntimeProfile } from "../threads/threadOwnerRuntime";
 import { getProviderDefinition, getProviderModels } from "@/lib/agentStore/providers";
 import { BUILTIN_WORKSPACE_PERSONAS } from "../workspaces/workspaceActorPicker";
+import { usePresence } from "@/hooks/usePresence";
 
 type Props = { thread: AgentThread | null; variant?: "toolbar" | "composer" };
 
@@ -27,6 +28,7 @@ export function CodeThreadRuntimeSwitcher({ thread, variant = "toolbar" }: Props
   const threadMessages = useAgentStore((state) => thread ? state.messages[thread.id] ?? NO_MESSAGES : NO_MESSAGES);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
+  const presence = usePresence(open);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
@@ -266,9 +268,9 @@ export function CodeThreadRuntimeSwitcher({ thread, variant = "toolbar" }: Props
         <span className="zorai-code-runtime-switcher__chev" aria-hidden="true">▾</span>
       </button>
 
-      {open
+      {presence.mounted
         ? createPortal(
-            <div id="zorai-runtime-switcher-menu" style={menuStyle as React.CSSProperties} className="zorai-code-runtime-switcher__menu zorai-code-runtime-switcher__menu--cascade" role="menu">
+            <div data-closing={presence.closing || undefined} id="zorai-runtime-switcher-menu" style={menuStyle as React.CSSProperties} className="zorai-code-runtime-switcher__menu zorai-code-runtime-switcher__menu--cascade" role="menu">
           <input
             className="zorai-search-input zorai-code-runtime-switcher__search"
             value={pickerQuery}

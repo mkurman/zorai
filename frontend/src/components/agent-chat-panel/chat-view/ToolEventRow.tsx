@@ -11,9 +11,11 @@ import {
   ToolFileTargetView,
   ToolStructuredValueView,
 } from "./toolValuePresentation";
+import { usePresence } from "@/hooks/usePresence";
 
 export function ToolEventRow({ group }: { group: ToolEventGroup }) {
   const [collapsed, setCollapsed] = useState(true);
+  const presence = usePresence(!collapsed);
   const artifacts = useMemo(
     () => extractToolArtifacts(group.toolArguments, group.resultContent),
     [group.resultContent, group.toolArguments],
@@ -24,8 +26,8 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
     [group.welesReview],
   );
   const details = useMemo(
-    () => (collapsed ? null : expandedToolDetails(group.toolName, group.toolArguments, group.resultContent)),
-    [collapsed, group.toolName, group.toolArguments, group.resultContent],
+    () => (!presence.mounted ? null : expandedToolDetails(group.toolName, group.toolArguments, group.resultContent)),
+    [presence.mounted, group.toolName, group.toolArguments, group.resultContent],
   );
   const reviewToneClass = reviewPresentation?.tone === "blocked"
     ? "acp-tool-review--blocked"
@@ -42,7 +44,7 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
           className="acp-tool-row__toggle"
           onClick={() => setCollapsed((prev) => !prev)}
         >
-          <span className="acp-tool-row__caret">{collapsed ? "▶" : "▼"}</span>
+          <span className={collapsed ? "acp-tool-row__caret zorai-motion-caret" : "acp-tool-row__caret zorai-motion-caret is-open"}>▶</span>
           <span className="acp-tool-row__name">{toolName}</span>
         </button>
         <ToolArtifactChips artifacts={artifacts} createdAt={group.createdAt} compact />
@@ -62,8 +64,8 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
         </div>
       </div>
 
-      {!collapsed && (
-        <div className="acp-tool-row__body">
+      {presence.mounted && (
+        <div data-closing={presence.closing || undefined} className="acp-tool-row__body zorai-reveal">
           {reviewPresentation && (
             <div className={`acp-tool-review ${reviewToneClass}`}>
               <div className="acp-tool-review__header">

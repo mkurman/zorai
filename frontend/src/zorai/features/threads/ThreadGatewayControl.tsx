@@ -9,9 +9,11 @@ import {
   type GatewayChat,
 } from "./gatewayChatModel";
 import { ThreadSidePanel, useThreadPanelStore } from "./threadSidePanel";
+import { usePresence } from "@/hooks/usePresence";
 
 export function ThreadGatewayControl({ daemonThreadId, icon }: { daemonThreadId: string | null | undefined; icon?: ReactNode }) {
   const open = useThreadPanelStore((state) => state.open === "gateway");
+  const presence = usePresence(open);
   const togglePanel = useThreadPanelStore((state) => state.toggle);
   const closePanel = useThreadPanelStore((state) => state.close);
   const [chats, setChats] = useState<GatewayChat[]>([]);
@@ -77,8 +79,8 @@ export function ThreadGatewayControl({ daemonThreadId, icon }: { daemonThreadId:
       >
         {icon ?? (linked ? `↔ ${gatewayChatLabel(linked)}` : "Continue on gateway")}
       </button>
-      {open ? (
-        <ThreadSidePanel title="Continue on a messaging app" subtitle="Link this thread to a gateway chat" onClose={() => closePanel("gateway")}>
+      {presence.mounted ? (
+        <ThreadSidePanel closing={presence.closing} title="Continue on a messaging app" subtitle="Link this thread to a gateway chat" onClose={() => closePanel("gateway")}>
         <div className="zorai-handoff-popover zorai-handoff-popover--panel">
           {!daemonThreadId ? (
             <p className="zorai-inline-error">

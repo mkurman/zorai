@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { filterFontOptions } from "./terminalFontOptions";
+import { usePresence } from "@/hooks/usePresence";
 
 export function FontPicker({
   value,
@@ -15,6 +16,7 @@ export function FontPicker({
   previewFont?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const presence = usePresence(open);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -96,8 +98,8 @@ export function FontPicker({
           {currentLabel}
         </button>
       )}
-      {open ? (
-        <div className="zorai-font-picker__list" ref={listRef} role="listbox">
+      {presence.mounted ? (
+        <div data-closing={presence.closing || undefined} className="zorai-font-picker__list" ref={listRef} role="listbox">
           {entries.length === 0 ? <div className="zorai-font-picker__empty">No matching fonts</div> : null}
           {entries.map((entry, index) => (
             <button

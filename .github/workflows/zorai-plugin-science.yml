@@ -37,7 +37,7 @@ env:
   #   - long-tail stubs (many have heavy deps: foldseek, pymol, mmseqs2,
   #     pdb download tools, etc. — verified by file-exists check below)
   FULL_SUBPLUGINS: >-
-    alphagenome_skipped
+    alphagenome-skipped
     alphafold-database
     uniprot
     clinvar
@@ -60,9 +60,9 @@ env:
     human-protein-atlas-database
     interpro-database
     jaspar-database
-    literatura-search-arxiv
-    literatura-search-biorxiv
-    literatura-search-europepmc
+    literature-search-arxiv
+    literature-search-biorxiv
+    literature-search-europepmc
     openfda-database
     opentargets-database
     protein-sequence-msa
@@ -347,6 +347,7 @@ jobs:
               sub=alphagenome
             fi
             key=PRE_${sub//-/_}
+            key=${key^^}
             expected="${!key}"
             actual=$(ls "$sub/scripts" 2>/dev/null | wc -l)
             if [[ "$expected" != "$actual" ]]; then

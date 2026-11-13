@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { usePresence } from "@/hooks/usePresence";
 import { getBridge } from "@/lib/bridge";
 
 type TitleMenuItem = { index: number; type: "normal" | "separator"; label: string; accelerator: string; enabled: boolean };
@@ -38,6 +39,10 @@ export function ZoraiTitleBar() {
   const [maximized, setMaximized] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [menuItems, setMenuItems] = useState<TitleMenuItem[]>([]);
+  const menuPresence = usePresence(openMenu !== null);
+  const lastMenuRef = useRef(openMenu);
+  if (openMenu) lastMenuRef.current = openMenu;
+  const shownMenu = openMenu ?? (menuPresence.closing ? lastMenuRef.current : null);
   const menusRef = useRef<HTMLElement | null>(null);
   const focusFirstItemRef = useRef(false);
 
@@ -161,8 +166,8 @@ export function ZoraiTitleBar() {
               >
                 {label}
               </button>
-              {openMenu === label && menuItems.length > 0 ? (
-                <div className="zorai-titlebar__dropdown" role="menu" aria-label={label}>
+              {shownMenu === label && menuItems.length > 0 ? (
+                <div data-closing={menuPresence.closing || undefined} className="zorai-titlebar__dropdown" role="menu" aria-label={label}>
                   {menuItems.map((item) =>
                     item.type === "separator" ? (
                       <div key={item.index} className="zorai-titlebar__separator" role="separator" />

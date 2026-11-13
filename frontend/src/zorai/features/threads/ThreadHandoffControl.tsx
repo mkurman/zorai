@@ -8,6 +8,7 @@ import {
 } from "./threadHandoffModel";
 import { useAgentDisplayName } from "@/lib/useAgentDisplayName";
 import { ThreadSidePanel, useThreadPanelStore } from "./threadSidePanel";
+import { usePresence } from "@/hooks/usePresence";
 
 export function ThreadHandoffControl({
   daemonLinked,
@@ -41,6 +42,7 @@ export function ThreadHandoffControl({
   const [summary, setSummary] = useState(defaults.summary);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const presence = usePresence(open);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -93,8 +95,8 @@ export function ThreadHandoffControl({
       >
         {icon ?? "Handoff"}
       </button>
-      {open ? (
-        <ThreadSidePanel title="Hand off" subtitle="Choose which agent answers in this thread" onClose={() => closePanel("handoff")}>
+      {presence.mounted ? (
+        <ThreadSidePanel closing={presence.closing} title="Hand off" subtitle="Choose which agent answers in this thread" onClose={() => closePanel("handoff")}>
         <div className="zorai-handoff-popover zorai-handoff-popover--panel">
           <div className="zorai-section-label">Thread responder</div>
           {handoffState?.responderStack.length ? (

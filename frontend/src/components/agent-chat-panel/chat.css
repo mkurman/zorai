@@ -252,7 +252,7 @@
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), scale 140ms var(--ease-out);
 }
 
 .acp-btn:hover:not(:disabled) {
@@ -538,7 +538,7 @@
   font-weight: 600;
   padding: 3px 6px;
   border-radius: 2px;
-  transition: color var(--transition-fast), background var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), scale 140ms var(--ease-out);
   white-space: nowrap;
 }
 

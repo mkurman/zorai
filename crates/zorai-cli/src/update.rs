@@ -330,6 +330,15 @@ fn detect_install_source(install_source_env: Option<&str>, exe_path: &Path) -> I
         };
     };
 
+    if let Some(app_bundle) = enclosing_app_bundle(install_dir) {
+        return InstallSource::Unknown {
+            reason: format!(
+                "this zorai ships inside the desktop app {}; update it from the app's update button, or download the new release and drag it to Applications",
+                app_bundle.display()
+            ),
+        };
+    }
+
     if has_direct_install_marker(install_dir) || has_direct_install_layout(install_dir) {
         return InstallSource::DirectBinary {
             install_dir: install_dir.to_path_buf(),
@@ -364,6 +373,17 @@ fn looks_like_source_build(exe_path: &Path) -> bool {
     lowered
         .windows(2)
         .any(|window| window[0] == "target" && (window[1] == "debug" || window[1] == "release"))
+}
+
+fn enclosing_app_bundle(install_dir: &Path) -> Option<&Path> {
+    if !install_dir.ends_with("Contents/Resources/bin") {
+        return None;
+    }
+    install_dir.ancestors().nth(3).filter(|bundle| {
+        bundle
+            .extension()
+            .is_some_and(|extension| extension == "app")
+    })
 }
 
 fn has_direct_install_marker(install_dir: &Path) -> bool {
@@ -648,6 +668,36 @@ mod tests {
                 install_dir: root.path().to_path_buf(),
             }
         );
+    }
+
+    #[test]
+    fn refuses_to_upgrade_the_cli_inside_a_desktop_app_bundle_because_it_would_not_update_the_app()
+    {
+        let root = tempdir().expect("tempdir");
+        let bin = root.path().join("zorai.app/Contents/Resources/bin");
+        std::fs::create_dir_all(&bin).expect("create bundle bin");
+        std::fs::write(bin.join("zorai"), b"binary").expect("write zorai");
+        std::fs::write(bin.join("zorai-daemon"), b"binary").expect("write daemon");
+
+        let source = detect_install_source(None, &bin.join("zorai"));
+
+        let InstallSource::Unknown { reason } = source else {
+            panic!("bundle CLI was treated as an upgradable install: {source:?}");
+        };
+        assert!(reason.contains("zorai.app"));
+    }
+
+    #[test]
+    fn direct_install_folder_holding_the_desktop_app_is_still_upgradable() {
+        let root = tempdir().expect("tempdir");
+        std::fs::write(root.path().join("zorai"), b"binary").expect("write zorai");
+        std::fs::write(root.path().join("zorai-daemon"), b"binary").expect("write daemon");
+        std::fs::create_dir_all(root.path().join("zorai-desktop.app/Contents/MacOS"))
+            .expect("create app");
+
+        let source = detect_install_source(None, &root.path().join("zorai"));
+
+        assert!(matches!(source, InstallSource::DirectBinary { .. }));
     }
 
     #[test]

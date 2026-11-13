@@ -24,7 +24,9 @@ describe("Code Explorer icons", () => {
     expect(collapsed).toContain("<svg");
     expect(collapsed).toContain('aria-hidden="true"');
     expect(collapsed).toContain('d="m5 3 5 5-5 5"');
-    expect(expanded).toContain('d="m3 5 5 5 5-5"');
+    expect(collapsed).not.toContain("is-open");
+    expect(expanded).toContain('d="m5 3 5 5-5 5"');
+    expect(expanded).toContain("zorai-motion-caret is-open");
     expect(collapsed).not.toBe(expanded);
   });
 });

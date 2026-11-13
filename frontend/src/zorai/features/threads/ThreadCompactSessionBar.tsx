@@ -30,6 +30,7 @@ import { useThreadFilePreview } from "./ThreadFilePreviewContext";
 import { SpawnedContext } from "./ThreadsSpawnedContext";
 import { pushToast } from "@/lib/toastStore";
 import { CodeFileIcon } from "@/zorai/features/code/CodeFileIcon";
+import { usePresence } from "@/hooks/usePresence";
 
 const MAX_TRACKED_FILES = 40;
 
@@ -115,6 +116,9 @@ export function ThreadCompactSessionBar({ reviewActions = true }: { reviewAction
     };
   }, [entries, workspaceRoot]);
 
+  const filesPresence = usePresence(openSection === "files" && entries.length > 0);
+  const todosPresence = usePresence(openSection === "todos" && todos.length > 0);
+  const spawnedPresence = usePresence(openSection === "spawned" && spawned.length > 0);
   if (!compactSessionHasContent(entries, todos, spawned)) {
     return null;
   }
@@ -246,8 +250,8 @@ export function ThreadCompactSessionBar({ reviewActions = true }: { reviewAction
         ) : null}
       </div>
 
-      {openSection === "files" && entries.length > 0 ? (
-        <ul className="zorai-compact-session__list">
+      {filesPresence.mounted ? (
+        <ul data-closing={filesPresence.closing || undefined} className="zorai-compact-session__list zorai-reveal">
           {entries.map((entry) => {
             const stats = statsByPath[entry.path];
             const root = entry.repoRoot ?? workspaceRoot;
@@ -283,8 +287,8 @@ export function ThreadCompactSessionBar({ reviewActions = true }: { reviewAction
         </ul>
       ) : null}
 
-      {openSection === "todos" && todos.length > 0 ? (
-        <ul className="zorai-compact-session__list">
+      {todosPresence.mounted ? (
+        <ul data-closing={todosPresence.closing || undefined} className="zorai-compact-session__list zorai-reveal">
           {todos.map((todo) => (
             <li key={todo.id} className={`zorai-compact-session__todo zorai-compact-session__todo--${todo.status}`}>
               <span className={`zorai-compact-session__check zorai-compact-session__check--${todo.status}`} aria-hidden="true">
@@ -297,8 +301,8 @@ export function ThreadCompactSessionBar({ reviewActions = true }: { reviewAction
         </ul>
       ) : null}
 
-      {openSection === "spawned" && spawned.length > 0 ? (
-        <div className="zorai-compact-session__spawned-tree">
+      {spawnedPresence.mounted ? (
+        <div data-closing={spawnedPresence.closing || undefined} className="zorai-compact-session__spawned-tree zorai-reveal">
           <SpawnedContext
             tree={runtime.spawnedAgentTree}
             selectedDaemonThreadId={daemonThreadId}

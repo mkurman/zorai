@@ -10,11 +10,13 @@ export function ImageLightbox({
   src,
   name,
   vector = false,
+  closing,
   onClose,
 }: {
   src: string;
   name: string;
   vector?: boolean;
+  closing?: boolean;
   onClose: () => void;
 }) {
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -111,7 +113,7 @@ export function ImageLightbox({
   };
 
   return createPortal(
-    <div className="zorai-image-lightbox" role="dialog" aria-modal="true" aria-label={name}>
+    <div data-closing={closing || undefined} className="zorai-image-lightbox" role="dialog" aria-modal="true" aria-label={name}>
       <div className="zorai-image-lightbox__toolbar">
         <span className="zorai-image-lightbox__name" title={name}>{name}</span>
         {natural ? <span className="zorai-image-lightbox__meta">{natural.width}×{natural.height}</span> : null}

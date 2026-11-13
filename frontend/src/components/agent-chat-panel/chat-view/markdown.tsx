@@ -13,6 +13,7 @@ import { getBridge } from "@/lib/bridge";
 import { useAgentStore } from "@/lib/agentStore";
 import { useWorkspaceContextStore } from "@/lib/workspaceContextStore";
 import { pushToast } from "@/lib/toastStore";
+import { Presence } from "@/components/Presence";
 
 export const KATEX_DELIMITERS = [
   { left: "$$", right: "$$", display: true },
@@ -160,7 +161,7 @@ function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
         title={alt ? `${alt} — click to enlarge` : "Click to enlarge"}
         onClick={() => setOpen(true)}
       />
-      {open ? <ImageLightbox src={src} name={alt || "Image"} onClose={() => setOpen(false)} /> : null}
+      <Presence value={open}>{(_, closing) => <ImageLightbox src={src} name={alt || "Image"} closing={closing} onClose={() => setOpen(false)} />}</Presence>
     </>
   );
 }

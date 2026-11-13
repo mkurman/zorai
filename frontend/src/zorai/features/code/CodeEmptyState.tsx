@@ -8,6 +8,7 @@ import {
   type ZoraiWorkspaceSelection,
   type ZoraiWorkspaceValidatedRoot,
 } from "./codeEmptyStateModel";
+import { usePresence } from "@/hooks/usePresence";
 
 export type CodeEmptyStateProps = {
   selectFolder?: () => Promise<ZoraiWorkspaceSelection>;
@@ -57,6 +58,7 @@ export function CodeEmptyState({
   if (!lifecycleRef.current) lifecycleRef.current = createCodeEmptyStateLifecycle();
   const lifecycle = lifecycleRef.current;
   const [state, setState] = useState(controller.getState);
+  const manualPresence = usePresence(state.manualOpen);
 
   useEffect(() => {
     controller.setLastRoot(lastRoot);
@@ -109,10 +111,11 @@ export function CodeEmptyState({
         >
           Open Path Manually
         </button>
-        {state.manualOpen && (
+        {manualPresence.mounted && (
           <form
+            data-closing={manualPresence.closing || undefined}
             id="zorai-code-manual-path"
-            className="zorai-code-manual-form"
+            className="zorai-code-manual-form zorai-reveal"
             onSubmit={(event) => {
               event.preventDefault();
               void controller.submitPath();

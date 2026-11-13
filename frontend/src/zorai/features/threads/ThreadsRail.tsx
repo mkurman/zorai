@@ -49,6 +49,7 @@ import {
   workerThreadIds,
 } from "./sessionCooperation";
 import { ZORAI_FOCUS_SEARCH_EVENT, ZORAI_THREAD_LIST_REFRESH_EVENT, consumePendingFocusSearch } from "../../shell/zoraiNavigationEvents";
+import { usePresence } from "@/hooks/usePresence";
 
 const THREAD_FILTER_FETCH_DEBOUNCE_MS = 1000;
 
@@ -117,6 +118,9 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const showSearch = searchOpen || Boolean(runtime.searchQuery);
+  const pickerPresence = usePresence(pickerOpen);
+  const filtersPresence = usePresence(filtersOpen);
+  const searchPresence = usePresence(showSearch);
   const [pickerQuery, setPickerQuery] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilterId>(DEFAULT_THREAD_DATE_FILTER);
   const [fromDate, setFromDate] = useState("");
@@ -368,8 +372,8 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
         </button>
         <RefreshButton className="zorai-thread-section__icon" onClick={() => { refreshSelectedTab(); refreshGatewayThreadIds(); }} disabled={loadingTab !== null} busy={loadingTab !== null} />
       </div>
-      {showSearch ? (
-      <div className="zorai-search-field">
+      {searchPresence.mounted ? (
+      <div data-closing={searchPresence.closing || undefined} className="zorai-search-field zorai-reveal">
         <input ref={searchInputRef} className="zorai-search-input" value={runtime.searchQuery} onChange={(event) => runtime.setSearchQuery(event.target.value)} placeholder="Search threads" onKeyDown={(event) => {
           if (event.key === "Escape") {
             runtime.setSearchQuery("");
@@ -392,8 +396,8 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
         ) : null}
       </div>
       ) : null}
-      {filtersOpen ? (
-      <div className="zorai-thread-filters">
+      {filtersPresence.mounted ? (
+      <div data-closing={filtersPresence.closing || undefined} className="zorai-thread-filters zorai-reveal">
       <div className="zorai-thread-filter-tabs" aria-label="Thread source filters">
         {visibleTabs.map((item) => (
           <button
@@ -417,8 +421,8 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
           + More
         </button>
       </div>
-      {pickerOpen ? (
-        <div className="zorai-thread-agent-filter">
+      {pickerPresence.mounted ? (
+        <div data-closing={pickerPresence.closing || undefined} className="zorai-thread-agent-filter zorai-reveal">
           <input
             className="zorai-search-input"
             value={pickerQuery}

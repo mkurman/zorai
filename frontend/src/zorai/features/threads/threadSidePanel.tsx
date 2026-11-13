@@ -18,7 +18,7 @@ export const useThreadPanelStore = create<ThreadPanelState>((set) => ({
   close: (id) => set((state) => (id === undefined || state.open === id ? { open: null } : {})),
 }));
 
-export function ThreadSidePanel({ title, subtitle, onClose, children }: { title: string; subtitle?: string; onClose: () => void; children: ReactNode }) {
+export function ThreadSidePanel({ title, subtitle, onClose, closing, children }: { title: string; subtitle?: string; onClose: () => void; closing?: boolean; children: ReactNode }) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -45,7 +45,7 @@ export function ThreadSidePanel({ title, subtitle, onClose, children }: { title:
 
   if (typeof document === "undefined") return null;
   return createPortal(
-    <aside className="zorai-thread-side-panel" role="dialog" aria-label={title} style={top === null ? undefined : { top }}>
+    <aside data-closing={closing || undefined} className="zorai-thread-side-panel" role="dialog" aria-label={title} style={top === null ? undefined : { top }}>
       <header>
         <div>
           <h2>{title}</h2>
