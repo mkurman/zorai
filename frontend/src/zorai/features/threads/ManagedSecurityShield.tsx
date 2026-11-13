@@ -12,10 +12,12 @@ import {
   managedSecurityLevels,
   type ThreadManagedSecurityLevel,
 } from "./threadRuntimeActions";
+import { usePresence } from "@/hooks/usePresence";
 
 export function ManagedSecurityShield() {
   const level = useAgentStore((state) => state.agentSettings.managed_security_level);
   const [open, setOpen] = useState(false);
+  const presence = usePresence(open);
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -70,9 +72,9 @@ export function ManagedSecurityShield() {
   }, [open]);
 
   const menu =
-    open && typeof document !== "undefined"
+    presence.mounted && typeof document !== "undefined"
       ? createPortal(
-          <div
+          <div data-closing={presence.closing || undefined}
             ref={menuRef}
             className="zorai-security-shield__menu"
             role="menu"

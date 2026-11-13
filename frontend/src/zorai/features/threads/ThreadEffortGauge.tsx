@@ -9,6 +9,7 @@ import {
 } from "./threadEffortModel";
 import { resolveThreadOwnerRuntimeProfile } from "./threadOwnerRuntime";
 import { applyThreadReasoningEffort, threadReasoningEfforts } from "./threadRuntimeActions";
+import { usePresence } from "@/hooks/usePresence";
 
 export function ThreadEffortGauge({ thread }: { thread: AgentThread }) {
   const agentSettings = useAgentStore((state) => state.agentSettings);
@@ -18,6 +19,7 @@ export function ThreadEffortGauge({ thread }: { thread: AgentThread }) {
   const effort = profile.effort || "medium";
   const ticks = threadReasoningEfforts();
   const [open, setOpen] = useState(false);
+  const presence = usePresence(open);
   const [busy, setBusy] = useState(false);
   const [popoverStyle, setPopoverStyle] = useState<CSSProperties>({});
   const rootRef = useRef<HTMLDivElement>(null);
@@ -87,9 +89,9 @@ export function ThreadEffortGauge({ thread }: { thread: AgentThread }) {
   };
 
   const popover =
-    open && typeof document !== "undefined"
+    presence.mounted && typeof document !== "undefined"
       ? createPortal(
-          <div
+          <div data-closing={presence.closing || undefined}
             ref={popoverRef}
             className="zorai-effort-gauge__popover"
             role="dialog"

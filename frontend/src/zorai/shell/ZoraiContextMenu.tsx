@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { usePresence } from "@/hooks/usePresence";
 import type { editor as MonacoEditorApi } from "monaco-editor";
 import { getBridge } from "@/lib/bridge";
 import { buildContextMenuEntries, clampMenuPosition, codeEditorMenuRequest, selectAllScope, type ContextMenuEntry } from "./contextMenuModel";
@@ -22,6 +23,8 @@ export function ZoraiContextMenu() {
   const [menu, setMenu] = useState<OpenMenu | null>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
   const [highlighted, setHighlighted] = useState(-1);
+  const presence = usePresence(menu !== null);
+  const lastMenuRef = useRef<{ menu: OpenMenu; position: { left: number; top: number } | null } | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -105,18 +108,21 @@ export function ZoraiContextMenu() {
     };
   });
 
-  if (!menu) return null;
+  if (menu) lastMenuRef.current = { menu, position };
+  const shown = menu ? { menu, position } : presence.closing ? lastMenuRef.current : null;
+  if (!shown) return null;
   return (
     <div
       ref={menuRef}
+      data-closing={presence.closing || undefined}
       className="zorai-titlebar__dropdown zorai-context-menu"
       role="menu"
       aria-label="Context menu"
-      style={{ left: position?.left ?? menu.request.x, top: position?.top ?? menu.request.y, visibility: position ? "visible" : "hidden" }}
+      style={{ left: shown.position?.left ?? shown.menu.request.x, top: shown.position?.top ?? shown.menu.request.y, visibility: shown.position ? "visible" : "hidden" }}
       onMouseDown={(event) => event.preventDefault()}
       onContextMenu={(event) => event.preventDefault()}
     >
-      {menu.entries.map((entry, index) =>
+      {shown.menu.entries.map((entry, index) =>
         entry.kind === "separator" ? (
           <div key={`separator-${index}`} className="zorai-titlebar__separator" role="separator" />
         ) : (

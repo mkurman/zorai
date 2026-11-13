@@ -2,6 +2,7 @@ import { useEffect, useState, type KeyboardEvent } from "react";
 import { getBridge } from "@/lib/bridge";
 import { pushToast } from "@/lib/toastStore";
 import { useOperatorQuestionStore } from "@/lib/operatorQuestionStore";
+import { usePresence } from "@/hooks/usePresence";
 
 /**
  * Non-blocking question dock. Renders as a bottom-anchored layer above the
@@ -20,6 +21,7 @@ export function OperatorQuestionDock({
   const registerInlineHost = useOperatorQuestionStore((state) => state.registerInlineHost);
   const [busyAnswer, setBusyAnswer] = useState<string | null>(null);
   const [otherOpen, setOtherOpen] = useState(false);
+  const presence = usePresence(otherOpen);
   const [otherText, setOtherText] = useState("");
 
   useEffect(() => (inline ? registerInlineHost() : undefined), [inline, registerInlineHost]);
@@ -102,8 +104,8 @@ export function OperatorQuestionDock({
           Other…
         </button>
       </div>
-      {otherOpen ? (
-        <div className="zorai-question-dock__other">
+      {presence.mounted ? (
+        <div data-closing={presence.closing || undefined} className="zorai-question-dock__other zorai-reveal">
           <textarea
             autoFocus
             rows={2}

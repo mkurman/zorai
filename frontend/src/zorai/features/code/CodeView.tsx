@@ -16,6 +16,7 @@ import {
   type ZoraiWorkspaceSelection,
   type ZoraiWorkspaceValidatedRoot,
 } from "./codeEmptyStateModel";
+import { usePresence } from "@/hooks/usePresence";
 
 /**
  * Typed callback boundary for the GLM lifecycle task. The GLM task owns
@@ -48,6 +49,7 @@ export function CodeRail() {
   const recentRoots = useCodeWorkspaceBindingStore((state) => state.recentRoots);
   const closeRoot = useCodeWorkspaceBindingStore((state) => state.closeRoot);
   const [recentOpen, setRecentOpen] = useState(false);
+  const recentPresence = usePresence(recentOpen);
   const [recentQuery, setRecentQuery] = useState("");
   const [showAllRecent, setShowAllRecent] = useState(false);
   const recentRef = useRef<HTMLDivElement | null>(null);
@@ -111,8 +113,8 @@ export function CodeRail() {
             >
               <HistoryIcon />
             </button>
-            {recentOpen ? (
-              <div className="zorai-code-recent-menu" role="menu" aria-label="Recent folders">
+            {recentPresence.mounted ? (
+              <div data-closing={recentPresence.closing || undefined} className="zorai-code-recent-menu" role="menu" aria-label="Recent folders">
                 <input
                   className="zorai-code-recent-search"
                   value={recentQuery}

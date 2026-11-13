@@ -11,6 +11,7 @@ import { ThreadActivityRow } from "./ThreadActivityRow";
 import { classifySystemNotice, classifyThreadActivityMessage } from "./threadActivityModel";
 import { ThreadReasoningBlock } from "./NativeThreadMessageBubble";
 import type { TurnActivityEntry } from "./threadTurnActivity";
+import { usePresence } from "@/hooks/usePresence";
 
 export function summarizeTurnActivity(entries: TurnActivityEntry[]): {
   title: string;
@@ -56,6 +57,7 @@ export const ThreadTurnActivityList = memo(function ThreadTurnActivityList({
   onCancelOperation: (operationId: string) => Promise<ThreadMutationResult>;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const presence = usePresence(expanded);
   const headerRef = useRef<HTMLButtonElement | null>(null);
   if (entries.length === 0) return null;
   const { title, working, toolCount, doneCount } = summarizeTurnActivity(entries);
@@ -79,8 +81,8 @@ export const ThreadTurnActivityList = memo(function ThreadTurnActivityList({
           {toolCount > 0 ? `[${doneCount} / ${toolCount}]` : `[${entries.length}]`}
         </span>
       </button>
-      {expanded ? (
-        <div className="acp-tool-list__body">
+      {presence.mounted ? (
+        <div data-closing={presence.closing || undefined} className="acp-tool-list__body zorai-reveal">
           {entries.map((entry) => {
             if (entry.kind === "tools") {
               return entry.groups.map((group) => <MemoizedToolEventRow key={group.key} group={group} />);

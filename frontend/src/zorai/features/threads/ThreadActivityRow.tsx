@@ -8,6 +8,7 @@ import type {
   OperationActivityItem,
   ThreadActivity,
 } from "./threadActivityModel";
+import { usePresence } from "@/hooks/usePresence";
 
 const POLL_DELAYS_MS = [1_000, 2_000, 4_000, 8_000] as const;
 
@@ -23,6 +24,7 @@ export function ThreadActivityRow({
   onCancelOperation: (operationId: string) => Promise<ThreadMutationResult>;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const presence = usePresence(expanded);
   const [statuses, setStatuses] = useState<Record<string, OperationStatusView>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -130,7 +132,7 @@ export function ThreadActivityRow({
         aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}
       >
-        <span aria-hidden="true" className="acp-tool-row__caret">{expanded ? "▼" : "▶"}</span>
+        <span aria-hidden="true" className={expanded ? "acp-tool-row__caret zorai-motion-caret is-open" : "acp-tool-row__caret zorai-motion-caret"}>▶</span>
         <span>{title}</span>
         <time>{formatActivityTime(createdAt)}</time>
       </button>
@@ -168,7 +170,7 @@ export function ThreadActivityRow({
         </div>
       ) : null}
       {error ? <p className="zorai-inline-error" role="alert">{error}</p> : null}
-      {expanded ? <pre className="zorai-thread-activity__raw">{activity.rawText}</pre> : null}
+      {presence.mounted ? <pre data-closing={presence.closing || undefined} className="zorai-thread-activity__raw zorai-reveal">{activity.rawText}</pre> : null}
     </article>
   );
 }

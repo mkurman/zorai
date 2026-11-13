@@ -4,6 +4,7 @@ import type { AgentMessage } from "@/lib/agentStore";
 import { formatOperationAge, latestMessageMentioningOperation } from "./threadOperationsModel";
 import { revealThreadMessage } from "./useThreadMessageWindow";
 import { ThreadSidePanel, useThreadPanelStore } from "./threadSidePanel";
+import { usePresence } from "@/hooks/usePresence";
 
 const THREAD_OPERATIONS_POLL_MS = 5000;
 
@@ -13,6 +14,7 @@ export function ThreadOperationsControl({ daemonThreadId, messages, icon }: {
   icon: ReactNode;
 }) {
   const open = useThreadPanelStore((state) => state.open === "operations");
+  const presence = usePresence(open);
   const togglePanel = useThreadPanelStore((state) => state.toggle);
   const closePanel = useThreadPanelStore((state) => state.close);
   const [operations, setOperations] = useState<ZoraiThreadOperation[]>([]);
@@ -68,8 +70,8 @@ export function ThreadOperationsControl({ daemonThreadId, messages, icon }: {
         {icon}
         {count > 0 ? <span className="zorai-thread-header__badge">{count}</span> : null}
       </button>
-      {open ? (
-        <ThreadSidePanel title="Background operations" subtitle="Long-running tools started in this thread" onClose={() => closePanel("operations")}>
+      {presence.mounted ? (
+        <ThreadSidePanel closing={presence.closing} title="Background operations" subtitle="Long-running tools started in this thread" onClose={() => closePanel("operations")}>
         <div className="zorai-handoff-popover zorai-handoff-popover--panel">
           {!daemonThreadId ? (
             <p>This thread has not started on the daemon yet.</p>

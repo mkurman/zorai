@@ -20,6 +20,7 @@ import { GoalLaunchPanel } from "./GoalLaunchPanel";
 import { openThreadTarget } from "../threads/openThreadTarget";
 import { navigateZorai, type ZoraiReturnTarget } from "../../shell/zoraiNavigationEvents";
 import { CollapsibleSummary } from "../collapsibleSummary";
+import { Presence } from "@/components/Presence";
 
 const activeStatuses = new Set(["queued", "planning", "running", "awaiting_approval", "awaiting_review", "paused"]);
 const GOAL_LAUNCH_EVENT = "zorai-goal-launch";
@@ -195,7 +196,8 @@ export function GoalsView({
     await refresh();
   };
 
-  const launchOverlay = launchOpen ? (
+  const launchOverlay = (
+    <Presence value={launchOpen}>{() => (
     <div className="zorai-goal-launch-overlay" role="dialog" aria-modal="true" aria-label="Start goal">
       <GoalLaunchPanel
         runtime={runtime}
@@ -206,7 +208,8 @@ export function GoalsView({
         onClose={() => setLaunchOpen(false)}
       />
     </div>
-  ) : null;
+    )}</Presence>
+  );
 
   if (workspaceOpen) {
     return (

@@ -37,6 +37,7 @@ import { openThreadTarget } from "../threads/openThreadTarget";
 import { CollapsibleSummary } from "../collapsibleSummary";
 import { WorkspaceActorPickerControl } from "./WorkspaceActorPickerControl";
 import { WorkspaceCreatePanel } from "./WorkspaceCreatePanel";
+import { Presence } from "@/components/Presence";
 
 const WORKSPACE_SELECT_EVENT = "zorai-workspace-select";
 const WORKSPACE_REFRESH_EVENT = "zorai-workspace-refresh";
@@ -383,22 +384,22 @@ export function WorkspacesView() {
       </div>
 
       {selectedTask ? <span className="zorai-workspace-selection">Selected: {selectedTask.title}</span> : null}
-      {taskOverlay && overlayTask ? (
+      <Presence value={taskOverlay && overlayTask ? { mode: taskOverlay.mode, task: overlayTask } : null}>{(shown) => (
         <TaskModal
-          task={overlayTask}
-          mode={taskOverlay.mode}
-          notices={notices.filter((notice) => notice.task_id === overlayTask.id)}
+          task={shown.task}
+          mode={shown.mode}
+          notices={notices.filter((notice) => notice.task_id === shown.task.id)}
           editForm={editForm}
           setEditForm={setEditForm}
           onSave={saveTaskEdit}
           onClose={() => setTaskOverlay(null)}
           onEdit={() => {
-            setEditForm(formFromTask(overlayTask));
-            setTaskOverlay({ taskId: overlayTask.id, mode: "edit" });
+            setEditForm(formFromTask(shown.task));
+            setTaskOverlay({ taskId: shown.task.id, mode: "edit" });
           }}
-          onOpenRuntime={() => void openTaskRuntime(overlayTask)}
+          onOpenRuntime={() => void openTaskRuntime(shown.task)}
         />
-      ) : null}
+      )}</Presence>
     </section>
   );
 }

@@ -55,6 +55,7 @@ import { ThreadSessionTabs } from "./SessionTabStrip";
 import { threadMessageItemKey } from "./threadMessageWindow";
 import { ThreadMessageMeasure, useThreadMessageWindow } from "./useThreadMessageWindow";
 import { useThreadPanelStore } from "./threadSidePanel";
+import { Presence } from "@/components/Presence";
 
 export { ThreadsRail } from "./ThreadsRail";
 
@@ -455,12 +456,12 @@ export function ThreadsView({
         <ThreadComposer showTargetSelector={variant === "compact"} compact={variant === "compact"} />
       </div>
 
-      {variant === "full" && pinLimitResult ? (
-        <PinLimitModal result={pinLimitResult} onClose={() => setPinLimitResult(null)} />
-      ) : null}
-      {participantsOpen ? (
+      <Presence value={variant === "full" && pinLimitResult}>
+        {(result) => <PinLimitModal result={result} onClose={() => setPinLimitResult(null)} />}
+      </Presence>
+      <Presence value={participantsOpen && runtime.activeThread}>{(thread) => (
         <ThreadParticipantsDrawer
-          thread={runtime.activeThread}
+          thread={thread}
           agentOptions={agentOptions}
           onClose={() => closeThreadPanel("participants")}
           onUpsert={runtime.upsertParticipant}
@@ -468,7 +469,7 @@ export function ThreadsView({
           onSendSuggestion={runtime.sendParticipantSuggestion}
           onDismissSuggestion={runtime.dismissParticipantSuggestion}
         />
-      ) : null}
+      )}</Presence>
       <ThreadFilePreviewOverlay />
     </section>
   );

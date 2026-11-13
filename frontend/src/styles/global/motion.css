@@ -1,0 +1,166 @@
+@keyframes zorai-motion-pop-in {
+  from { opacity: 0; scale: 0.96; translate: 0 -4px; }
+}
+
+@keyframes zorai-motion-pop-out {
+  to { opacity: 0; scale: 0.97; translate: 0 -3px; }
+}
+
+@keyframes zorai-motion-dialog-in {
+  from { opacity: 0; scale: 0.97; translate: 0 8px; }
+}
+
+@keyframes zorai-motion-fade-in {
+  from { opacity: 0; }
+}
+
+@keyframes zorai-motion-fade-out {
+  to { opacity: 0; }
+}
+
+@keyframes zorai-motion-rise-in {
+  from { opacity: 0; translate: 0 -3px; }
+}
+
+@keyframes zorai-motion-from-left {
+  from { opacity: 0; translate: -10px 0; }
+}
+
+@keyframes zorai-motion-from-right {
+  from { opacity: 0; translate: 14px 0; }
+}
+
+@keyframes zorai-motion-to-right {
+  to { opacity: 0; translate: 14px 0; }
+}
+
+.zorai-motion-caret {
+  display: inline-block;
+}
+
+.zorai-motion-caret.is-open {
+  rotate: 90deg;
+}
+
+.zorai-motion-exit {
+  display: contents;
+}
+
+:root {
+  --zorai-motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --zorai-motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --zorai-motion-press: 0.97;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :where(button, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="treeitem"], summary):where(:not(:disabled, [aria-disabled="true"])):active {
+    scale: var(--zorai-motion-press);
+  }
+
+  :where(.zorai-icon-button, .zorai-composer-icon-button, .acp-action-btn, .zorai-global-item) {
+    --zorai-motion-press: 0.9;
+  }
+
+  :where(.zorai-thread-item, .zorai-rail-card, .zorai-metric-card, .zorai-settings-nav__item, .zorai-donut-legend-item, [role="treeitem"], [role="option"]) {
+    --zorai-motion-press: 0.985;
+  }
+
+  :where([role="menu"], [role="listbox"]:not([role="dialog"] [role="listbox"], .zorai-reveal [role="listbox"]), [role="tooltip"], .zorai-handoff-popover--panel) {
+    animation: zorai-motion-pop-in 150ms var(--zorai-motion-ease);
+    transform-origin: top center;
+  }
+
+  :where([role="dialog"], [role="alertdialog"]) {
+    animation: zorai-motion-dialog-in 200ms var(--zorai-motion-ease);
+  }
+
+  :where(
+    .zorai-approval-overlay,
+    .zorai-code-dialog-backdrop,
+    .zorai-file-preview-overlay,
+    .zorai-onboarding-backdrop,
+    .zorai-pin-limit-overlay,
+    .zorai-rail-overlay-backdrop,
+    .zorai-workspace-modal-overlay,
+    .zorai-goal-launch-overlay,
+    .zorai-image-lightbox,
+    .zorai-image-preview
+  ) {
+    animation: zorai-motion-fade-in 180ms var(--zorai-motion-ease);
+  }
+
+  :where(.zorai-thread-side-panel, .zorai-theme-editor, .zorai-context-panel, .zorai-participants-drawer) {
+    animation: zorai-motion-from-right 220ms var(--zorai-motion-ease);
+  }
+
+  :where(.zorai-rail-body, .zorai-context-tab) {
+    animation: zorai-motion-from-left 200ms var(--zorai-motion-ease);
+  }
+
+  :where(.zorai-main-body > *) {
+    animation: zorai-motion-fade-in 200ms var(--zorai-motion-ease);
+  }
+
+  :where(details[open] > :not(summary)) {
+    animation: zorai-motion-rise-in 160ms var(--zorai-motion-ease);
+  }
+
+  :where([aria-expanded] svg, .zorai-motion-caret) {
+    transition: transform 180ms var(--zorai-motion-ease), rotate 180ms var(--zorai-motion-ease);
+  }
+
+  .zorai-reveal {
+    interpolate-size: allow-keywords;
+    transition:
+      height 200ms var(--zorai-motion-ease),
+      opacity 160ms var(--zorai-motion-ease),
+      padding-block 200ms var(--zorai-motion-ease),
+      margin-block 200ms var(--zorai-motion-ease);
+  }
+
+  :where(.zorai-reveal) {
+    overflow: clip;
+    overflow-clip-margin: 6px;
+  }
+
+  @starting-style {
+    .zorai-reveal {
+      height: 0;
+      opacity: 0;
+      padding-block: 0;
+      margin-block: 0;
+    }
+  }
+
+  [data-closing] {
+    animation: zorai-motion-pop-out 130ms var(--zorai-motion-ease-in) forwards;
+    pointer-events: none;
+  }
+
+  .zorai-thread-side-panel[data-closing] {
+    animation: zorai-motion-to-right 160ms var(--zorai-motion-ease-in) forwards;
+  }
+
+  .zorai-motion-exit[data-closing] > *,
+  [data-closing]:where(.zorai-image-lightbox, .zorai-image-preview, .zorai-approval-overlay) {
+    animation: zorai-motion-fade-out 150ms var(--zorai-motion-ease-in) forwards;
+  }
+
+  .zorai-motion-exit[data-closing] :where([role="dialog"], [role="alertdialog"], [role="menu"]),
+  [data-closing]:where(.zorai-image-lightbox, .zorai-image-preview, .zorai-approval-overlay) :where(img, video, audio, [role="dialog"]) {
+    animation: zorai-motion-pop-out 150ms var(--zorai-motion-ease-in) forwards;
+  }
+
+  .zorai-motion-exit[data-closing] :where(.zorai-theme-editor, .zorai-participants-drawer) {
+    animation: zorai-motion-to-right 160ms var(--zorai-motion-ease-in) forwards;
+  }
+
+  .zorai-reveal[data-closing] {
+    animation: none;
+    height: 0;
+    opacity: 0;
+    padding-block: 0;
+    margin-block: 0;
+  }
+}
+

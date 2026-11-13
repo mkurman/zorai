@@ -9,6 +9,7 @@ import { openThreadTarget } from "@/zorai/features/threads/openThreadTarget";
 import { ThreadNeedsActionIcon } from "@/zorai/features/threads/threadNeedsAction";
 import { navigateZorai } from "@/zorai/shell/zoraiNavigationEvents";
 import { resolveApprovalAtSource, shouldBypassApprovalPrompt, type ApprovalDecisionStatus } from "./approvalResolution";
+import { usePresence } from "@/hooks/usePresence";
 
 type AgentApprovalOverlayProps = {
   style?: CSSProperties;
@@ -69,6 +70,10 @@ export function AgentApprovalOverlay({ style, className, inline = false, threadI
     managedSecurityLevel,
   ) : false;
   const visibleApproval = approval && !bypassApproval ? approval : null;
+  const presence = usePresence(visibleApproval !== null);
+  const lastApprovalRef = useRef(visibleApproval);
+  if (visibleApproval) lastApprovalRef.current = visibleApproval;
+  const shownApproval = visibleApproval ?? (presence.closing ? lastApprovalRef.current : null);
 
   useEffect(() => {
     if (!pendingApproval || !bypassPending || bypassingApprovalIdsRef.current.has(pendingApproval.id)) return;
@@ -97,15 +102,15 @@ export function AgentApprovalOverlay({ style, className, inline = false, threadI
     }
   }
 
-  if (!visibleApproval) return inline ? null : <ThreadApprovalBanner inlineHosts={inlineHosts} />;
+  if (!shownApproval) return inline ? null : <ThreadApprovalBanner inlineHosts={inlineHosts} />;
 
   const overlayClassName = ["zorai-approval-overlay", className ?? ""].filter(Boolean).join(" ");
-  const riskClassName = ["zorai-approval-risk", `zorai-approval-risk--${visibleApproval.riskLevel}`].join(" ");
-  const highImpact = visibleApproval.riskLevel === "high" || visibleApproval.riskLevel === "critical";
+  const riskClassName = ["zorai-approval-risk", `zorai-approval-risk--${shownApproval.riskLevel}`].join(" ");
+  const highImpact = shownApproval.riskLevel === "high" || shownApproval.riskLevel === "critical";
   const titleId = inline ? "zorai-approval-title-inline" : "zorai-approval-title";
 
   const dialog = (
-      <section className={["zorai-approval-dialog", inline ? "zorai-approval-dialog--inline" : ""].filter(Boolean).join(" ")} role="dialog" aria-modal={!inline} aria-labelledby={titleId}>
+      <section data-closing={inline && presence.closing ? true : undefined} className={["zorai-approval-dialog", inline ? "zorai-approval-dialog--inline" : ""].filter(Boolean).join(" ")} role="dialog" aria-modal={!inline} aria-labelledby={titleId}>
         <header className="zorai-approval-header">
           <div>
             <div className="zorai-approval-kicker">
@@ -114,24 +119,24 @@ export function AgentApprovalOverlay({ style, className, inline = false, threadI
             </div>
             <h2 id={titleId}>{highImpact ? "High-impact command intercepted" : "Zorai wants to run a command"}</h2>
           </div>
-          <div className={riskClassName}>{visibleApproval.riskLevel}</div>
+          <div className={riskClassName}>{shownApproval.riskLevel}</div>
         </header>
 
         <div className="zorai-approval-body">
           <div className="zorai-approval-section">
             <div className="zorai-approval-label">Command</div>
-            <pre className="zorai-approval-command">{visibleApproval.command}</pre>
+            <pre className="zorai-approval-command">{shownApproval.command}</pre>
           </div>
 
           <div className="zorai-approval-grid">
-            <InfoCard label="Blast radius" value={visibleApproval.blastRadius} />
-            {inline ? null : <InfoCard label="Scope" value={visibleApproval.sessionId ?? visibleApproval.paneId} mono />}
+            <InfoCard label="Blast radius" value={shownApproval.blastRadius} />
+            {inline ? null : <InfoCard label="Scope" value={shownApproval.sessionId ?? shownApproval.paneId} mono />}
           </div>
 
           <div className="zorai-approval-section">
             <div className="zorai-approval-label">Why it's asking</div>
             <div className="zorai-approval-chip-list">
-              {visibleApproval.reasons.length === 0 ? <span>No specific factors reported.</span> : visibleApproval.reasons.map((reason) => (
+              {shownApproval.reasons.length === 0 ? <span>No specific factors reported.</span> : shownApproval.reasons.map((reason) => (
                 <span key={reason}>{reason}</span>
               ))}
             </div>
@@ -154,7 +159,7 @@ export function AgentApprovalOverlay({ style, className, inline = false, threadI
 
   if (inline) return dialog;
   return (
-    <div style={style} className={overlayClassName} role="presentation">
+    <div data-closing={presence.closing || undefined} style={style} className={overlayClassName} role="presentation">
       {dialog}
     </div>
   );

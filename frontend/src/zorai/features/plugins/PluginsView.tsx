@@ -18,6 +18,7 @@ export { PluginIcon };
 import { handlePanelMessage, panelApprovalKey, panelThemeSnapshot, readPanelApprovals, writePanelApproval } from "./pluginPanelHost";
 import { ComposerTerminalPanel } from "../terminal/ComposerTerminalPanel";
 import { openThreadShell, setThreadTerminalOpen, useThreadTerminalStore } from "../terminal/threadTerminalStore";
+import { Presence } from "@/components/Presence";
 
 type MarkdownPanel = Extract<ZoraiPluginUiPanel, { kind: "markdown" }>;
 type WebPanel = Extract<ZoraiPluginUiPanel, { kind: "web" }>;
@@ -468,16 +469,26 @@ function PluginWebPanel({ plugin, panel }: { plugin: ZoraiPluginUiManifest; pane
   );
 }
 
+type PluginUiState = ReturnType<typeof usePluginUiStore.getState>;
+
 export function PluginCommandHost() {
   const pending = usePluginUiStore((state) => state.pendingCommand);
   const result = usePluginUiStore((state) => state.commandResult);
+  const localRun = usePluginUiStore((state) => state.localRunRequest);
+  return (
+    <Presence value={localRun || pending || result ? { localRun, pending, result } : null}>
+      {(shown) => <PluginCommandDialogs {...shown} />}
+    </Presence>
+  );
+}
+
+function PluginCommandDialogs({ pending, result, localRun }: { pending: PluginUiState["pendingCommand"]; result: PluginUiState["commandResult"]; localRun: PluginUiState["localRunRequest"] }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const commandKey = pending ? `${pending.plugin.name}/${pending.command.id}` : "";
   useEffect(() => { if (commandKey) setValues(readStoredInputs(`command:${commandKey}`)); }, [commandKey]);
   const ready = useMemo(() => pending?.command.inputs.every((input) => (values[input.key] ?? input.default).trim() !== "") ?? false, [pending, values]);
   const close = () => usePluginUiStore.setState({ pendingCommand: null, commandResult: null });
-  const localRun = usePluginUiStore((state) => state.localRunRequest);
 
   if (localRun) {
     return (

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { CodeProjectThreadEntry, CodeProjectThreadStatus } from "./codeProjectThreads";
 import { filterCodeProjectThreads, statusPresentation } from "./codeProjectThreads";
+import { usePresence } from "@/hooks/usePresence";
 
 export type CodeThreadHistoryEntry = CodeProjectThreadEntry & {
   status: CodeProjectThreadStatus;
@@ -31,6 +32,7 @@ export function CodeThreadHistoryMenu({
   onRetry,
 }: CodeThreadHistoryMenuProps) {
   const [open, setOpen] = useState(false);
+  const presence = usePresence(open);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const [expanded, setExpanded] = useState(false);
@@ -121,8 +123,8 @@ export function CodeThreadHistoryMenu({
       >
         <ClockIcon />
       </button>
-      {open ? (
-        <div className="zorai-code-thread-history" role="dialog" aria-label="Project thread history">
+      {presence.mounted ? (
+        <div data-closing={presence.closing || undefined} className="zorai-code-thread-history" role="dialog" aria-label="Project thread history">
           <input
             ref={searchRef}
             type="search"

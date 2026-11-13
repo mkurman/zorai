@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { usePresence } from "@/hooks/usePresence";
 import { clampMenuPosition } from "@/zorai/shell/contextMenuModel";
 import { CodeIcon } from "./CodeIcon";
 import { codeCommandById, displayCodeBinding, type CodeCommandId } from "./codeCommands";
@@ -30,6 +31,7 @@ export function codeToolbarMenuItemLabel(item: CodeToolbarMenuItem): { label: st
 
 export function CodeToolbarMenu({ items, label = "More editor actions" }: { items: CodeToolbarMenuItem[]; label?: string }) {
   const [open, setOpen] = useState(false);
+  const presence = usePresence(open);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -61,7 +63,7 @@ export function CodeToolbarMenu({ items, label = "More editor actions" }: { item
       >
         <CodeIcon icon="more" />
       </button>
-      {open ? <CodeToolbarMenuList items={items} label={label} onDone={() => setOpen(false)} /> : null}
+      {presence.mounted ? <CodeToolbarMenuList items={items} label={label} closing={presence.closing} onDone={() => setOpen(false)} /> : null}
     </div>
   );
 }
@@ -104,10 +106,10 @@ export function CodeContextMenu({ x, y, items, label, onClose }: { x: number; y:
   );
 }
 
-function CodeToolbarMenuList({ items, label, onDone, submenu = false }: { items: CodeToolbarMenuItem[]; label: string; onDone: () => void; submenu?: boolean }) {
+function CodeToolbarMenuList({ items, label, onDone, submenu = false, closing }: { items: CodeToolbarMenuItem[]; label: string; onDone: () => void; submenu?: boolean; closing?: boolean }) {
   const [openChild, setOpenChild] = useState<string | null>(null);
   return (
-    <div className={submenu ? "zorai-code-toolbar-menu__list zorai-code-toolbar-menu__sub" : "zorai-code-toolbar-menu__list"} role="menu" aria-label={label}>
+    <div data-closing={closing || undefined} className={submenu ? "zorai-code-toolbar-menu__list zorai-code-toolbar-menu__sub" : "zorai-code-toolbar-menu__list"} role="menu" aria-label={label}>
       {items.map((item) => {
         const { label: itemLabel, shortcut } = codeToolbarMenuItemLabel(item);
         const hasChildren = Boolean(item.children?.length);

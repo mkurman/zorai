@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { ComposerAttachment } from "@/components/agent-chat-panel/chat-view/types";
 import { getBridge } from "@/lib/bridge";
 import { ImageLightbox } from "./ImageLightbox";
+import { Presence } from "@/components/Presence";
 
 export type AttachmentTileModel = {
   id: string;
@@ -114,12 +115,12 @@ function AttachmentTile({
           ×
         </button>
       ) : null}
-      {previewOpen && imageUrl ? (
-        <ImageLightbox src={imageUrl} name={item.name} onClose={() => setPreviewOpen(false)} />
-      ) : null}
-      {previewOpen && videoUrl ? (
-        <AttachmentImagePreview src={videoUrl} name={item.name} video onClose={() => setPreviewOpen(false)} />
-      ) : null}
+      <Presence value={previewOpen && imageUrl}>
+        {(url, closing) => <ImageLightbox src={url} name={item.name} closing={closing} onClose={() => setPreviewOpen(false)} />}
+      </Presence>
+      <Presence value={previewOpen && videoUrl}>
+        {(url, closing) => <AttachmentImagePreview src={url} name={item.name} video closing={closing} onClose={() => setPreviewOpen(false)} />}
+      </Presence>
     </div>
   );
 }
@@ -147,7 +148,7 @@ function useAttachmentImageUrl(item: AttachmentTileModel): string | undefined {
   return item.previewUrl ?? inventoryUrl;
 }
 
-function AttachmentImagePreview({ src, name, video, onClose }: { src: string; name: string; video?: boolean; onClose: () => void }) {
+function AttachmentImagePreview({ src, name, video, closing, onClose }: { src: string; name: string; video?: boolean; closing?: boolean; onClose: () => void }) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -158,7 +159,7 @@ function AttachmentImagePreview({ src, name, video, onClose }: { src: string; na
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
   return createPortal(
-    <div className="zorai-image-preview" role="dialog" aria-modal="true" aria-label={name} onClick={onClose}>
+    <div data-closing={closing || undefined} className="zorai-image-preview" role="dialog" aria-modal="true" aria-label={name} onClick={onClose}>
       {video ? (
         <video src={src} controls autoPlay preload="metadata" onClick={(event) => event.stopPropagation()} />
       ) : (

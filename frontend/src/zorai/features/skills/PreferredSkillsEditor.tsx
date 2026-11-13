@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { preferableSkills, searchPreferableSkills, setPreferredSkill, useSkillDocuments, useSkillLibrary } from "./skillLibrary";
+import { usePresence } from "@/hooks/usePresence";
 
 const PREFERRED_SKILLS_COLLAPSED_COUNT = 5;
 const SUGGESTIONS_MAX_HEIGHT = 308;
@@ -34,6 +35,7 @@ export function PreferredSkillsEditor({ agentId, agentName }: { agentId: string;
   const preferred = (library.preferred[agentId] ?? []).filter((skill) => available.some((entry) => entry.name.toLowerCase() === skill.toLowerCase()));
   const visible = expanded ? preferred : preferred.slice(0, PREFERRED_SKILLS_COLLAPSED_COUNT);
   const suggestions = useMemo(() => searchPreferableSkills(available, query, preferred), [available, query, preferred]);
+  const suggestionsPresence = usePresence(open && suggestions.length > 0);
   const listId = `zorai-preferred-skills-${agentId}`;
   const openSuggestions = () => {
     if (inputRef.current) setUpward(shouldOpenUpward(inputRef.current));
@@ -85,8 +87,8 @@ export function PreferredSkillsEditor({ agentId, agentName }: { agentId: string;
             }
           }}
         />
-        {open && suggestions.length > 0 ? (
-          <ul id={listId} className={upward ? "zorai-preferred-skills__suggestions zorai-preferred-skills__suggestions--up" : "zorai-preferred-skills__suggestions"} role="listbox" aria-label="Matching skills">
+        {suggestionsPresence.mounted ? (
+          <ul data-closing={suggestionsPresence.closing || undefined} id={listId} className={upward ? "zorai-preferred-skills__suggestions zorai-preferred-skills__suggestions--up" : "zorai-preferred-skills__suggestions"} role="listbox" aria-label="Matching skills">
             {suggestions.map((skill, index) => (
               <li
                 key={skill.path}

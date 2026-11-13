@@ -1168,7 +1168,7 @@ select.zorai-input:disabled option {
   font-size: var(--text-xs);
   text-align: left;
   cursor: default;
-  transition: background var(--zorai-transition), border-color var(--zorai-transition), color var(--zorai-transition);
+  transition: background var(--zorai-transition), border-color var(--zorai-transition), color var(--zorai-transition), scale 140ms var(--ease-out);
 }
 
 .zorai-donut-legend-item:hover,
@@ -2079,7 +2079,8 @@ select.zorai-input:disabled option {
   cursor: pointer;
   transition:
     background var(--zorai-transition),
-    color var(--zorai-transition);
+    color var(--zorai-transition),
+    scale 140ms var(--ease-out);
 }
 
 .zorai-settings-nav__item:hover {

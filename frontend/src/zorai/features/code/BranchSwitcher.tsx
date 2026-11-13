@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { usePresence } from "@/hooks/usePresence";
 
 export function BranchSwitcher({ root, bridge, currentBranch, onSwitched }: {
   root: string;
@@ -7,6 +8,7 @@ export function BranchSwitcher({ root, bridge, currentBranch, onSwitched }: {
   onSwitched: () => Promise<void> | void;
 }) {
   const [open, setOpen] = useState(false);
+  const presence = usePresence(open);
   const [branches, setBranches] = useState<Array<{ name: string; isCurrent: boolean }>>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,8 +68,8 @@ export function BranchSwitcher({ root, bridge, currentBranch, onSwitched }: {
         <span>{currentBranch ?? "detached"}</span>
         <em aria-hidden="true">▾</em>
       </button>
-      {open ? (
-        <div className="zorai-branch-switcher-menu" role="menu" aria-label="Branches">
+      {presence.mounted ? (
+        <div data-closing={presence.closing || undefined} className="zorai-branch-switcher-menu" role="menu" aria-label="Branches">
           <input
             className="zorai-branch-switcher-search"
             value={query}

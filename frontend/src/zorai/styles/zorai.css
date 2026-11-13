@@ -300,7 +300,8 @@
     color var(--zorai-transition),
     border-color var(--zorai-transition),
     box-shadow var(--zorai-transition),
-    transform var(--zorai-transition);
+    transform var(--zorai-transition),
+    scale 140ms var(--ease-out);
 }
 
 .zorai-brand {
@@ -567,7 +568,8 @@
     border-color var(--zorai-transition),
     box-shadow var(--zorai-transition),
     transform var(--zorai-transition),
-    opacity var(--zorai-transition);
+    opacity var(--zorai-transition),
+    scale 140ms var(--ease-out);
 }
 
 .zorai-context-panel__close {
@@ -823,7 +825,8 @@
     background var(--zorai-transition),
     border-color var(--zorai-transition),
     box-shadow var(--zorai-transition),
-    transform var(--zorai-transition);
+    transform var(--zorai-transition),
+    scale 140ms var(--ease-out);
 }
 
 .zorai-rail-card--button:hover,
@@ -1111,7 +1114,7 @@
   border: 1px solid transparent;
   border-radius: 8px;
   color: var(--zorai-muted);
-  transition: background 120ms ease, color 120ms ease, opacity 120ms ease;
+  transition: background 120ms ease, color 120ms ease, opacity 120ms ease, scale 140ms var(--ease-out);
 }
 
 .zorai-session-tab:hover {
@@ -1539,7 +1542,8 @@
     transform var(--zorai-transition),
     background var(--zorai-transition),
     border-color var(--zorai-transition),
-    box-shadow var(--zorai-transition);
+    box-shadow var(--zorai-transition),
+    scale 140ms var(--ease-out);
 }
 
 .zorai-thread-scroll-bottom.is-hidden {
@@ -3345,7 +3349,8 @@
     border-color var(--zorai-transition),
     box-shadow var(--zorai-transition),
     transform var(--zorai-transition),
-    opacity var(--zorai-transition);
+    opacity var(--zorai-transition),
+    scale 140ms var(--ease-out);
   padding: 0;
 }
 
@@ -4268,7 +4273,7 @@
   font-size: var(--text-sm);
   font-weight: 600;
   padding: 7px 14px;
-  transition: border-color var(--zorai-transition), color var(--zorai-transition), background var(--zorai-transition);
+  transition: border-color var(--zorai-transition), color var(--zorai-transition), background var(--zorai-transition), scale 140ms var(--ease-out);
 }
 
 .zorai-approval-button:hover {
@@ -4861,7 +4866,7 @@
   font-size: var(--text-base);
   font-weight: 600;
   cursor: pointer;
-  transition: border-color var(--zorai-transition), background var(--zorai-transition), color var(--zorai-transition);
+  transition: border-color var(--zorai-transition), background var(--zorai-transition), color var(--zorai-transition), scale 140ms var(--ease-out);
 }
 
 .zorai-question-dock__option:hover:not(:disabled) {

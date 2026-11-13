@@ -34,6 +34,7 @@ import { usePluginUiStore } from "@/zorai/features/plugins/pluginUiStore";
 import { PluginIcon } from "@/zorai/features/plugins/PluginIcon";
 import { applyLayout, captureLayout, useLayoutPresetsStore } from "@/zorai/features/layouts/layoutPresets";
 import type { TerminalTheme, ThemeAppearance } from "@/lib/themes";
+import { Presence } from "@/components/Presence";
 
 export function InterfacePanel() {
   const settings = useSettingsStore((state) => state.settings);
@@ -525,13 +526,13 @@ function ThemesPanel({ currentTheme, onUse }: { currentTheme: TerminalTheme; onU
           {errors.map((entry) => <span key={`${entry.id}:${entry.message}`}>{entry.id ? `${entry.id}: ` : ""}{entry.message}</span>)}
         </div>
       ) : null}
-      {editing ? (
+      <Presence value={editing}>{(source) => (
         <ThemeEditor
-          source={editing}
+          source={source}
           onClose={() => setEditing(null)}
           onSaved={(theme) => { setEditing(null); onUse(theme); }}
         />
-      ) : null}
+      )}</Presence>
     </Panel>
   );
 }

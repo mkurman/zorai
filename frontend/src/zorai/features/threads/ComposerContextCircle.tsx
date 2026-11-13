@@ -7,6 +7,7 @@ import { requestManualCompaction, useThreadCompaction } from "./threadCompaction
 import { summarizeSessionUsage } from "@/components/agent-chat-panel/chat-view/helpers";
 import { resolveThreadOwnerRuntimeProfile } from "./threadOwnerRuntime";
 import { contextBreakdownRows, contextBreakdownUsedTokens, useThreadContextBreakdown } from "./threadContextBreakdown";
+import { usePresence } from "@/hooks/usePresence";
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
@@ -55,6 +56,7 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
   const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
   const subAgents = useAgentStore((state) => state.subAgents);
   const [open, setOpen] = useState(false);
+  const presence = usePresence(open);
   const [autoBusy, setAutoBusy] = useState(false);
   const compactionStatus = useThreadCompaction(thread?.daemonThreadId);
   const compacting = Boolean(compactionStatus);
@@ -177,9 +179,9 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
         </svg>
       </button>
 
-      {open
+      {presence.mounted
         ? createPortal(
-            <div
+            <div data-closing={presence.closing || undefined}
               id="zorai-cc-popover"
           className="zorai-composer-context-circle__popover"
           role="dialog"
