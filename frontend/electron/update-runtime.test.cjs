@@ -1,6 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createUpdateRuntime, isNewerVersion, resolveUpgradeCliPath } = require('./main/update-runtime.cjs');
+const { execFileSync } = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { createUpdateRuntime, isNewerVersion, resolveUpgradeCliPath, INSTALL_SCRIPT_URL, SWAP_APP_SCRIPT } = require('./main/update-runtime.cjs');
 
 function fakeApp(version = '1.0.40') {
     const calls = [];
@@ -159,4 +163,108 @@ test('an app running from the read-only disk image refuses to update instead of 
     assert.match(result.output, /Applications/);
     assert.equal(calls.length, 0);
     assert.equal(runtime.stopDaemonIfUpdated(), false);
+});
+
+function dmgApp() {
+    const calls = [];
+    const paths = { exe: '/Applications/zorai.app/Contents/MacOS/zorai', userData: '/Users/me/Library/Application Support/zorai' };
+    return {
+        calls,
+        getVersion: () => '1.0.43',
+        getPath: (name) => paths[name],
+        relaunch: (options) => calls.push(['relaunch', options]),
+        exit: (code) => calls.push(['exit', code]),
+    };
+}
+
+function dmgRuntime(app, overrides = {}) {
+    const execCalls = [];
+    const spawned = [];
+    const runtime = createUpdateRuntime({
+        app,
+        platform: 'darwin',
+        getCliPath: () => '/Applications/zorai.app/Contents/Resources/bin/zorai',
+        exists: (candidate) => candidate.startsWith('/Applications/zorai.app/') || candidate.endsWith('/pending-update/zorai-desktop.app/Contents/MacOS/zorai'),
+        execFileImpl: (file, args, options, callback) => { execCalls.push([file, args, options.env?.ZORAI_INSTALL_DIR]); callback(null, 'ok', ''); },
+        execFileSyncImpl: (file, args) => execCalls.push([file, args]),
+        spawnImpl: (file, args, options) => { spawned.push([file, args, options]); return { unref() {} }; },
+        removeDir: () => {},
+        canWrite: () => true,
+        pid: 4242,
+        ...overrides,
+    });
+    return { runtime, execCalls, spawned };
+}
+
+test('an app installed from the DMG downloads the new app into staging instead of upgrading the CLI inside its own bundle', async () => {
+    const app = dmgApp();
+    const { runtime, execCalls } = dmgRuntime(app);
+    const result = await runtime.install();
+    assert.equal(result.ok, true);
+    assert.deepEqual(execCalls, [['/bin/sh', ['-c', `curl -fsSL ${INSTALL_SCRIPT_URL} | sh`], '/Users/me/Library/Application Support/zorai/pending-update']]);
+});
+
+test('restart after a DMG update replaces /Applications/zorai.app once the app exits and reopens it, instead of relaunching the old bundle', async () => {
+    const app = dmgApp();
+    const { runtime, execCalls, spawned } = dmgRuntime(app);
+    await runtime.install();
+    await runtime.restart();
+    assert.deepEqual(execCalls.at(-1), ['/Applications/zorai.app/Contents/Resources/bin/zorai', ['stop'], undefined]);
+    assert.equal(spawned.length, 1);
+    assert.deepEqual(spawned[0][1].slice(3), ['4242', '/Applications/zorai.app', '/Users/me/Library/Application Support/zorai/pending-update/zorai-desktop.app', '/Users/me/Library/Application Support/zorai/pending-update', '1']);
+    assert.equal(spawned[0][2].detached, true);
+    assert.deepEqual(app.calls, [['exit', 0]]);
+});
+
+test('quitting after a DMG update still swaps in the new app on exit, without reopening it', async () => {
+    const app = dmgApp();
+    const { runtime, spawned } = dmgRuntime(app);
+    await runtime.install();
+    assert.equal(runtime.stopDaemonIfUpdated(), true);
+    assert.equal(spawned.length, 1);
+    assert.equal(spawned[0][1].at(-1), '0');
+    assert.equal(runtime.stopDaemonIfUpdated(), false);
+    assert.equal(spawned.length, 1);
+});
+
+test('a DMG app in a folder this account cannot write refuses to update instead of downloading for nothing', async () => {
+    const app = dmgApp();
+    const { runtime, execCalls, spawned } = dmgRuntime(app, { canWrite: () => false });
+    const result = await runtime.install();
+    assert.equal(result.ok, false);
+    assert.match(result.output, /Applications/);
+    assert.equal(execCalls.length, 0);
+    await runtime.restart();
+    assert.equal(spawned.length, 0);
+});
+
+test('a direct-installer app next to its own CLI keeps using zorai upgrade, which already replaces that app in place', async () => {
+    const calls = [];
+    const app = { ...fakeApp(), getPath: () => '/Users/me/.local/bin/zorai-desktop.app/Contents/MacOS/zorai' };
+    const runtime = createUpdateRuntime({
+        app,
+        platform: 'darwin',
+        getCliPath: () => '/Users/me/.local/bin/zorai-desktop.app/Contents/Resources/bin/zorai',
+        exists: (candidate) => candidate === '/Users/me/.local/bin/zorai',
+        execFileImpl: (file, args, options, callback) => { calls.push([file, args]); callback(null, '', ''); },
+    });
+    await runtime.install();
+    assert.deepEqual(calls, [['/Users/me/.local/bin/zorai', ['upgrade', '--keep-running']]]);
+});
+
+test('the swap script waits for the app to exit, replaces the bundle with the staged one and cleans up', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zorai-swap-'));
+    const bundle = path.join(root, 'Applications', 'zorai.app');
+    const staging = path.join(root, 'pending-update');
+    const staged = path.join(staging, 'zorai-desktop.app');
+    fs.mkdirSync(bundle, { recursive: true });
+    fs.writeFileSync(path.join(bundle, 'version'), '1.0.43');
+    fs.mkdirSync(staged, { recursive: true });
+    fs.writeFileSync(path.join(staged, 'version'), '1.0.44');
+    const exited = execFileSync('/bin/sh', ['-c', 'echo $$']).toString().trim();
+    execFileSync('/bin/sh', ['-c', SWAP_APP_SCRIPT, 'zorai-update', exited, bundle, staged, staging, '0']);
+    assert.equal(fs.readFileSync(path.join(bundle, 'version'), 'utf8'), '1.0.44');
+    assert.equal(fs.existsSync(`${bundle}.previous`), false);
+    assert.equal(fs.existsSync(staging), false);
+    fs.rmSync(root, { recursive: true, force: true });
 });
