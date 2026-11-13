@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Workspace } from "@/lib/types";
-import { agentTerminalSessions, closeThreadTerminalTab, openThreadShell, setThreadTerminalOpen, threadTerminalTabs, useThreadTerminalStore } from "./threadTerminalStore";
+import { agentTerminalSessions, closeThreadTerminalTab, openThreadShell, setThreadTerminalOpen, takeShellCommand, threadTerminalTabs, useThreadTerminalStore } from "./threadTerminalStore";
 
 function workspace(id: string, surfaces: unknown[]): Workspace {
   return { id, surfaces } as unknown as Workspace;
@@ -48,7 +48,7 @@ describe("agent terminals shown in the composer terminal panel", () => {
 
 describe("operator shells and agent tabs in the composer terminal", () => {
   beforeEach(() => {
-    useThreadTerminalStore.setState({ open: {}, viewing: {}, shells: {}, dismissed: {}, shellCwds: {} });
+    useThreadTerminalStore.setState({ open: {}, viewing: {}, shells: {}, dismissed: {}, shellCwds: {}, shellTitles: {}, shellCommands: {} });
   });
 
   it("starts a shell the first time the panel opens, and + adds another one that becomes current", () => {
@@ -62,6 +62,14 @@ describe("operator shells and agent tabs in the composer terminal", () => {
     expect(state.shells.thread_1).toHaveLength(2);
     expect(state.viewing.thread_1).toBe(second);
     expect(threadTerminalTabs(state.shells.thread_1, [], []).map((tab) => tab.title)).toEqual(["My shell", "My shell 2"]);
+  });
+
+  it("a titled shell runs its start command exactly once, so reattaching to the tab never repeats it", () => {
+    const id = openThreadShell("plugin:ml-research", "/repo", { title: "main seed 0", command: "tail -f run.log" });
+    const { shellTitles, shells } = useThreadTerminalStore.getState();
+    expect(threadTerminalTabs(shells["plugin:ml-research"], [], [], shellTitles).map((tab) => tab.title)).toEqual(["main seed 0"]);
+    expect(takeShellCommand(id)).toBe("tail -f run.log");
+    expect(takeShellCommand(id)).toBeNull();
   });
 
   it("a shell opened for a folder starts there while plain shells keep the panel's folder", () => {

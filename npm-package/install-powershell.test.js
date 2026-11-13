@@ -29,6 +29,9 @@ test("powershell installer provisions bundled skills into canonical zorai root",
   assert.match(script, /\$SkillsDir = if \(\$env:ZORAI_SKILLS_DIR\) \{ \$env:ZORAI_SKILLS_DIR \} else \{ Join-Path \$HOME "\.zorai\\skills" \}/);
   assert.match(script, /\$GuidelinesDir = if \(\$env:ZORAI_GUIDELINES_DIR\) \{ \$env:ZORAI_GUIDELINES_DIR \} else \{ Join-Path \$HOME "\.zorai\\guidelines" \}/);
   assert.match(script, /Extracting binaries, skills, and guidelines/);
+  assert.match(script, /\$BundledPluginsDir = if \(\$env:ZORAI_BUNDLED_PLUGINS_DIR\)/);
+  assert.match(script, /function Install-BundledPlugins/);
+  assert.match(script, /^\s+Install-BundledPlugins$/m);
   assert.match(script, /Copy-Item -Path \(Join-Path \$script:ExtractDir "skills\\\*"\) -Destination \$SkillsDir -Recurse -Force/);
   assert.match(script, /function Install-Guidelines/);
   assert.match(script, /if \(Test-Path \$targetPath\) \{/);

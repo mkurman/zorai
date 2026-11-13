@@ -316,7 +316,7 @@ function createAgentDbBridgeRuntime(options) {
         bridge.process.stdin.write(`${JSON.stringify(command)}\n`);
     }
 
-    function sendAgentQuery(command, responseType, timeoutMs = 5000) {
+    function sendAgentQuery(command, responseType, timeoutMs = 5000, options = {}) {
         const bridge = ensureAgentBridge();
         if (!bridge) return Promise.reject(new Error('Agent bridge not available'));
 
@@ -329,14 +329,16 @@ function createAgentDbBridgeRuntime(options) {
         const allowConcurrent = responseType === 'prompt-queue'
             || (Array.isArray(responseType) && responseType.includes('prompt-queue'));
         if (!allowConcurrent) {
-        const pending = findPendingResponseType(bridge.pending, responseType);
+        const pending = options.concurrencyKey
+            ? [...bridge.pending.values()].find((handler) => handler.concurrencyKey === options.concurrencyKey && responseTypesOverlap(handler.responseType, responseType))
+            : findPendingResponseType(bridge.pending, responseType);
         if (pending) {
             if (pending.commandKey === commandKey && pending.promise) {
                 return pending.promise;
             }
             return pending.promise.then(
-                () => sendAgentQuery(command, responseType, timeoutMs),
-                () => sendAgentQuery(command, responseType, timeoutMs),
+                () => sendAgentQuery(command, responseType, timeoutMs, options),
+                () => sendAgentQuery(command, responseType, timeoutMs, options),
             );
         }
         }
@@ -370,6 +372,8 @@ function createAgentDbBridgeRuntime(options) {
         }, timeoutMs);
         bridge.pending.set(reqId, {
             commandKey,
+            concurrencyKey: options.concurrencyKey ?? null,
+            matchEvent: options.matchEvent ?? null,
             promise,
             responseType,
             ts: Date.now(),

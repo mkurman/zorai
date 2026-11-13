@@ -169,6 +169,14 @@ with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive
         for path in sorted(guidelines_root.rglob("*")):
             if path.is_file():
                 archive.write(path, arcname=str(path.relative_to(project_root)).replace(os.sep, "/"))
+
+    plugins_root = project_root / "plugins"
+    skipped = {"node_modules", "__pycache__", ".pytest_cache", "tests", ".python", ".venv"}
+    if plugins_root.exists():
+        for path in sorted(plugins_root.rglob("*")):
+            relative = path.relative_to(project_root)
+            if path.is_file() and not skipped.intersection(relative.parts):
+                archive.write(path, arcname=str(relative).replace(os.sep, "/"))
 PY
 }
 

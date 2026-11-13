@@ -63,7 +63,7 @@ const { createLspRuntime } = require('./main/lsp-runtime.cjs');
 const { createTestRuntime } = require('./main/test-runtime.cjs');
 const { createUpdateRuntime } = require('./main/update-runtime.cjs');
 const { createThemeStore, registerThemeIpcHandlers, seeThroughWindowOptions } = require('./main/themes.cjs');
-const { pluginSchemePrivileges, readPluginUiManifests, registerPluginProtocol } = require('./main/plugin-ui.cjs');
+const { approveLocalRun, localEndpointTimeoutSecs, localRunStatus, pluginSchemePrivileges, readPluginManifestByName, readPluginUiManifests, registerPluginProtocol, revokeLocalRun } = require('./main/plugin-ui.cjs');
 const { registerPluginCliIpcHandlers } = require('./main/plugin-cli.cjs');
 
 const DAEMON_NAME = 'zorai-daemon';
@@ -617,12 +617,23 @@ function registerIpcHandlers() {
     ipcMain.handle('app-set-menu-accelerators', (_event, overrides) => windowRuntime.setMenuAccelerators(overrides));
     ipcMain.handle('plugin-ui-manifests', () => readPluginUiManifests(getPluginsRootDir()));
     registerPluginCliIpcHandlers(ipcMain, { execFileImpl: require('child_process').execFile, getCliPath, dialog, logToFile });
-    ipcMain.handle('plugin-api-call', (_event, pluginName, endpointName, params) => sendAgentQuery({
-        type: 'plugin-api-call',
-        plugin_name: String(pluginName ?? ''),
-        endpoint_name: String(endpointName ?? ''),
-        params: JSON.stringify(params && typeof params === 'object' ? params : {}),
-    }, 'plugin-api-call-result', 30000));
+    ipcMain.handle('plugin-api-call', (_event, pluginName, endpointName, params) => {
+        const plugin = String(pluginName ?? '');
+        const endpoint = String(endpointName ?? '');
+        const localTimeoutSecs = localEndpointTimeoutSecs(readPluginManifestByName(getPluginsRootDir(), plugin), endpoint);
+        return sendAgentQuery({
+            type: 'plugin-api-call',
+            plugin_name: plugin,
+            endpoint_name: endpoint,
+            params: JSON.stringify(params && typeof params === 'object' ? params : {}),
+        }, 'plugin-api-call-result', localTimeoutSecs === null ? 30000 : (localTimeoutSecs + 15) * 1000, {
+            concurrencyKey: `plugin-api-call:${plugin}/${endpoint}`,
+            matchEvent: (event) => event?.plugin_name === plugin && event?.endpoint_name === endpoint,
+        });
+    });
+    ipcMain.handle('plugin-local-run-status', (_event, pluginName) => localRunStatus(getPluginsRootDir(), String(pluginName ?? '')));
+    ipcMain.handle('plugin-local-run-approve', (_event, pluginName) => approveLocalRun(getPluginsRootDir(), String(pluginName ?? '')));
+    ipcMain.handle('plugin-local-run-revoke', (_event, pluginName) => revokeLocalRun(getPluginsRootDir(), String(pluginName ?? '')));
 
     whatsAppRuntime.registerWhatsAppIpcHandlers(ipcMain, { sendAgentCommand, sendAgentQuery }, async (config) => {
         const { assertValidWhatsAppConnectConfig } = await whatsAppRuntime.getDesktopWhatsAppLinkingHelpers();

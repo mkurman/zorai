@@ -22,6 +22,7 @@ You have access to the **Gmail plugin** with these endpoints:
 | `mark_unread` | POST | Mark message as unread (adds UNREAD label) |
 | `star_message` | POST | Star a message (adds STARRED label) |
 | `archive_message` | POST | Archive message (removes from INBOX) |
+| `ui_modify` | POST | Add or remove any labels: `message_id` plus `change` like `{"removeLabelIds": ["STARRED"]}` (unstar) or `{"addLabelIds": ["INBOX"]}` (move back to the inbox) |
 | `list_labels` | GET | List all Gmail labels |
 | `get_thread` | GET | View full email thread |
 

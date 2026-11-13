@@ -1,0 +1,16 @@
+{
+  "name": "zorai-plugin-voice-lab",
+  "version": "0.2.0",
+  "description": "Voice Lab for zorai: local multi-speaker audio production with a listening check on every line",
+  "author": "zorai",
+  "license": "MIT",
+  "keywords": ["zorai", "plugin", "voice", "tts", "whisper", "podcast"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mkurman/zorai"
+  },
+  "files": [
+    "voice-lab/",
+    "README.md"
+  ]
+}

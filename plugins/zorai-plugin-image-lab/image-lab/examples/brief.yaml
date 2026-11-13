@@ -1,0 +1,16 @@
+title: Launch hero
+brief: A wooden desk at dawn with a laptop showing a glowing amber terminal, a coffee mug and a small plant, seen from a low angle
+engine: cloud
+aspect: "3:2"
+variants: 4
+brand:
+  palette: ["#D9A548", "#1D1B17", "#ECE4D3", "#5B4320"]
+  style: warm cinematic light, soft film grain, shallow depth of field
+  avoid: [readable text, logos, watermarks, extra fingers]
+rubric:
+  - The laptop screen shows a terminal with an amber glow
+  - The scene feels like early morning light
+  - Nothing looks melted, duplicated or deformed
+critic: true
+max_rounds: 3
+pass_score: 8

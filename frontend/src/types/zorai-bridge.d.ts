@@ -480,7 +480,9 @@ declare global {
 
     type ZoraiPluginUiPanel =
         | { id: string; title: string; kind: "markdown"; endpoint: string; params: Record<string, unknown>; inputs: ZoraiPluginUiInput[] }
-        | { id: string; title: string; kind: "web"; url: string; permissions: Array<"composer" | "toast"> };
+        | { id: string; title: string; kind: "web"; url: string; permissions: Array<"composer" | "toast" | "files" | "write" | "terminal"> };
+
+    type ZoraiPluginLocalRunStatus = { local: boolean; version: string | null; approvedVersion: string | null };
 
     type ZoraiPluginUiManifest = {
         name: string;
@@ -490,6 +492,7 @@ declare global {
         commands: ZoraiPluginUiCommand[];
         panels: ZoraiPluginUiPanel[];
         problems: string[];
+        writeEndpoints?: string[];
         icon?: { kind: "image"; url: string } | { kind: "glyph"; text: string } | null;
     };
 
@@ -983,8 +986,11 @@ declare global {
         pluginCliUpdate?: (installSource: string) => Promise<{ ok: boolean; output: string }>;
         pluginCliRemove?: (name: string) => Promise<{ ok: boolean; output: string }>;
         pluginUpdateSource?: (installSource: string) => Promise<{ spec?: string; reason?: string }>;
-        pluginPickFolder?: () => Promise<string | null>;
+        pluginPickFolder?: (title?: string) => Promise<string | null>;
         pluginApiCall?: (pluginName: string, endpointName: string, params: Record<string, unknown>) => Promise<{ plugin_name: string; endpoint_name: string; success: boolean; result: string; error_type?: string | null }>;
+        pluginLocalRunStatus?: (pluginName: string) => Promise<ZoraiPluginLocalRunStatus>;
+        pluginLocalRunApprove?: (pluginName: string) => Promise<ZoraiPluginLocalRunStatus>;
+        pluginLocalRunRevoke?: (pluginName: string) => Promise<ZoraiPluginLocalRunStatus>;
         readClipboardText?: () => Promise<string | null>;
         getPathForFile?: (file: File) => string;
         writeClipboardText?: (text: string) => Promise<void>;

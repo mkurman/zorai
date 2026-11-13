@@ -8,6 +8,8 @@ type ThreadTerminalState = {
   shells: Record<string, string[]>;
   dismissed: Record<string, string[]>;
   shellCwds: Record<string, string>;
+  shellTitles: Record<string, string>;
+  shellCommands: Record<string, string>;
 };
 
 export type ThreadTerminalTab =
@@ -20,7 +22,7 @@ export type AgentTerminalSession = {
   cwd: string | null;
 };
 
-export const useThreadTerminalStore = create<ThreadTerminalState>(() => ({ open: {}, viewing: {}, shells: {}, dismissed: {}, shellCwds: {} }));
+export const useThreadTerminalStore = create<ThreadTerminalState>(() => ({ open: {}, viewing: {}, shells: {}, dismissed: {}, shellCwds: {}, shellTitles: {}, shellCommands: {} }));
 
 let shellSerial = 0;
 
@@ -33,20 +35,33 @@ export function viewThreadTerminal(sessionKey: string, tabId: string | null) {
   useThreadTerminalStore.setState((state) => ({ viewing: { ...state.viewing, [sessionKey]: tabId } }));
 }
 
-export function openThreadShell(sessionKey: string, cwd?: string): string {
+export function openThreadShell(sessionKey: string, cwd?: string, options: { title?: string; command?: string } = {}): string {
   shellSerial += 1;
   const id = `shell-${Date.now().toString(36)}-${shellSerial}`;
   useThreadTerminalStore.setState((state) => ({
     shells: { ...state.shells, [sessionKey]: [...(state.shells[sessionKey] ?? []), id] },
     viewing: { ...state.viewing, [sessionKey]: id },
     shellCwds: cwd ? { ...state.shellCwds, [id]: cwd } : state.shellCwds,
+    shellTitles: options.title ? { ...state.shellTitles, [id]: options.title } : state.shellTitles,
+    shellCommands: options.command ? { ...state.shellCommands, [id]: options.command } : state.shellCommands,
   }));
   return id;
 }
 
-export function threadTerminalTabs(shells: string[], agentSessions: AgentTerminalSession[], dismissed: string[]): ThreadTerminalTab[] {
+export function takeShellCommand(id: string): string | null {
+  const command = useThreadTerminalStore.getState().shellCommands[id] ?? null;
+  if (command !== null) {
+    useThreadTerminalStore.setState((state) => {
+      const { [id]: _taken, ...rest } = state.shellCommands;
+      return { shellCommands: rest };
+    });
+  }
+  return command;
+}
+
+export function threadTerminalTabs(shells: string[], agentSessions: AgentTerminalSession[], dismissed: string[], titles: Record<string, string> = {}): ThreadTerminalTab[] {
   return [
-    ...shells.map((id, index) => ({ kind: "shell" as const, id, title: index === 0 ? "My shell" : `My shell ${index + 1}` })),
+    ...shells.map((id, index) => ({ kind: "shell" as const, id, title: titles[id] ?? (index === 0 ? "My shell" : `My shell ${index + 1}`) })),
     ...agentSessions
       .filter((session) => !dismissed.includes(session.sessionId))
       .map((session) => ({ kind: "agent" as const, id: session.sessionId, title: session.title, cwd: session.cwd })),

@@ -1,0 +1,4 @@
+branch,val_loss,val_loss_std
+baseline,2.545,0.067
+better-features,0.0463,0.001
+ridge-tweak,2.531,0.071

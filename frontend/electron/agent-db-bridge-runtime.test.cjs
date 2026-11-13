@@ -104,6 +104,24 @@ test("agent bridge queues a later query for the same response type", async () =>
   assert.deepEqual(await secondPromise, { id: "thread-2" });
 });
 
+test("a slow plugin endpoint does not block other endpoints, and each result reaches the call that asked for it", async () => {
+  const { runtime, spawned } = createRuntimeHarness();
+  const call = (endpoint) => runtime.sendAgentQuery(
+    { type: "plugin-api-call", plugin_name: "voice-lab", endpoint_name: endpoint, params: "{}" },
+    "plugin-api-call-result",
+    5000,
+    { concurrencyKey: `voice-lab/${endpoint}`, matchEvent: (event) => event?.plugin_name === "voice-lab" && event?.endpoint_name === endpoint },
+  );
+  const render = call("render");
+  const status = call("status");
+  assert.equal(spawned[0].writes.length, 2);
+
+  spawned[0].emitStdout(`${JSON.stringify({ type: "plugin-api-call-result", plugin_name: "voice-lab", endpoint_name: "status", success: true, result: "idle" })}\n`);
+  assert.equal((await status).result, "idle");
+  spawned[0].emitStdout(`${JSON.stringify({ type: "plugin-api-call-result", plugin_name: "voice-lab", endpoint_name: "render", success: true, result: "done.wav" })}\n`);
+  assert.equal((await render).result, "done.wav");
+});
+
 test("agent bridge coalesces duplicate concurrent queries", async () => {
   const { runtime, spawned } = createRuntimeHarness();
   const command = { type: "list-workspace-tasks", workspace_id: "main", include_deleted: false };

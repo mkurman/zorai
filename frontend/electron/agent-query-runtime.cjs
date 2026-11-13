@@ -55,6 +55,7 @@ const AGENT_QUERY_RESPONSE_TYPES = [
   'plugin-get-result',
   'plugin-settings',
   'plugin-action-result',
+  'plugin-api-call-result',
   'plugin-test-connection-result',
   'plugin-oauth-url',
   'openai-codex-auth-status',
@@ -98,10 +99,10 @@ function pendingHandlerMatchesResponseType(handler, eventType) {
   return responseType === eventType;
 }
 
-function findOldestPendingHandler(pending, eventType) {
+function findOldestPendingHandler(pending, eventType, event = null) {
   let oldest = null;
   for (const [reqId, handler] of pending.entries()) {
-    if (pendingHandlerMatchesResponseType(handler, eventType)) {
+    if (pendingHandlerMatchesResponseType(handler, eventType) && (!handler.matchEvent || handler.matchEvent(event))) {
       if (!oldest || handler.ts < oldest.ts) {
         oldest = { reqId, handler, ts: handler.ts };
       }
@@ -118,7 +119,7 @@ function resolvePendingAgentQueryEvent(bridge, event) {
   if (!bridge?.pending || !isAgentQueryResponseType(event?.type)) {
     return false;
   }
-  const oldest = findOldestPendingHandler(bridge.pending, event.type);
+  const oldest = findOldestPendingHandler(bridge.pending, event.type, event);
   if (!oldest) {
     return false;
   }

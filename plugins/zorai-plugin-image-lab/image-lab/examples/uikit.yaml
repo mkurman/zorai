@@ -1,0 +1,14 @@
+output: ~/Pictures/zorai-ui-kit
+engine: cloud
+brand:
+  palette: ["#D9A548", "#1D1B17", "#ECE4D3"]
+  style: friendly flat vector, rounded shapes, two to three colours
+assets:
+  - name: empty-inbox
+    kind: illustration
+    prompt: An empty inbox tray with a paper plane flying out of it
+    sizes: [512, 256]
+  - name: plugin
+    kind: icon
+    prompt: A puzzle piece plugging into a socket
+    sizes: [128, 64]

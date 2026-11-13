@@ -24,6 +24,7 @@ pub(crate) async fn dispatch_part6(
             | ClientMessage::AgentExecuteMemoryTool { .. }
             | ClientMessage::AgentSpeechToText { .. }
             | ClientMessage::AgentTextToSpeech { .. }
+            | ClientMessage::AgentAnalyzeImage { .. }
             | ClientMessage::AgentGenerateImage { .. }
             | ClientMessage::AgentGenerateVideo { .. }
             | ClientMessage::AgentBrowserResult { .. }
@@ -422,6 +423,42 @@ pub(crate) async fn dispatch_part6(
             }
         }
 
+        ClientMessage::AgentAnalyzeImage { args_json } => {
+            match serde_json::from_str::<serde_json::Value>(&args_json) {
+                Ok(args) => {
+                    match crate::agent::tool_executor::execute_media_tool_for_ipc(
+                        zorai_protocol::tool_names::ANALYZE_IMAGE,
+                        &args,
+                        &agent,
+                    )
+                    .await
+                    {
+                        Ok(content) => {
+                            framed
+                                .send(DaemonMessage::AgentAnalyzeImageResult { content })
+                                .await
+                                .ok();
+                        }
+                        Err(error) => {
+                            framed
+                                .send(DaemonMessage::AgentError {
+                                    message: format!("failed to execute analyze_image: {error}"),
+                                })
+                                .await
+                                .ok();
+                        }
+                    }
+                }
+                Err(error) => {
+                    framed
+                        .send(DaemonMessage::AgentError {
+                            message: format!("invalid text_to_speech arguments: {error}"),
+                        })
+                        .await
+                        .ok();
+                }
+            }
+        }
         ClientMessage::AgentGenerateImage { args_json } => {
             match serde_json::from_str::<serde_json::Value>(&args_json) {
                 Ok(args) => {

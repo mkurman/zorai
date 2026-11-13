@@ -2,15 +2,22 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MarkdownContent } from "@/components/agent-chat-panel/chat-view/markdown";
 import { pushToast } from "@/lib/toastStore";
 import { useComposerDraftStore } from "@/zorai/features/threads/composerDraftStore";
-import { ASK_PANEL_ID, callPluginEndpoint, commandParams, executePluginCommand, fillPromptTemplate, refreshPluginUi, runPluginCommand, usePluginUiStore } from "./pluginUiStore";
+import { getBridge } from "@/lib/bridge";
+import { answerLocalRunRequest, appendToComposer, ASK_PANEL_ID, callPluginEndpoint, commandParams, executePluginCommand, fillPromptTemplate, refreshPluginUi, runPluginCommand, usePluginUiStore } from "./pluginUiStore";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import { useAgentStore } from "@/lib/agentStore";
 import { ThreadsView } from "@/zorai/features/threads/ThreadsView";
+import { ThreadComposer } from "@/zorai/features/threads/ThreadComposer";
 import { matchesPluginSearch, sortPluginsByFavorite, usePluginPrefsStore } from "./pluginPrefsStore";
 import { PluginIcon } from "./PluginIcon";
+import { pluginUiSummary } from "./pluginUiSummary";
+import { mediaOptions, type MediaKind } from "./pluginMediaOptions";
+import { usePluginStore } from "@/lib/pluginStore";
 
 export { PluginIcon };
 import { handlePanelMessage, panelApprovalKey, panelThemeSnapshot, readPanelApprovals, writePanelApproval } from "./pluginPanelHost";
+import { ComposerTerminalPanel } from "../terminal/ComposerTerminalPanel";
+import { openThreadShell, setThreadTerminalOpen, useThreadTerminalStore } from "../terminal/threadTerminalStore";
 
 type MarkdownPanel = Extract<ZoraiPluginUiPanel, { kind: "markdown" }>;
 type WebPanel = Extract<ZoraiPluginUiPanel, { kind: "web" }>;
@@ -136,6 +143,16 @@ function PluginToggles({ plugin }: { plugin: ZoraiPluginUiManifest }) {
   );
 }
 
+async function turnOnPlugin(name: string) {
+  try {
+    await usePluginStore.getState().toggleEnabled(name, true);
+    await refreshPluginUi();
+    pushToast(`${name} is on. Its views are in Plugins.`, "info");
+  } catch (error) {
+    pushToast(`Couldn't turn on ${name}: ${error instanceof Error ? error.message : String(error)}`, "error");
+  }
+}
+
 function PluginsOverview() {
   const sorted = useSortedPlugins();
   const query = usePluginUiStore((state) => state.query);
@@ -143,6 +160,7 @@ function PluginsOverview() {
   const viewMode = usePluginPrefsStore((state) => state.viewMode);
   const setViewMode = usePluginPrefsStore((state) => state.setViewMode);
   const visible = sorted.filter((plugin) => matchesPluginSearch(plugin, query));
+  const available = disabled.filter((plugin) => matchesPluginSearch(plugin, query));
   const problems = sorted.flatMap((entry) => entry.problems.map((problem) => `${entry.name}: ${problem}`));
 
   return (
@@ -159,8 +177,7 @@ function PluginsOverview() {
       {sorted.length === 0 ? (
         <div className="zorai-empty-main">
           <h2>No plugin panels or commands yet</h2>
-          <p>Plugins add them by declaring a <code>ui</code> section in their plugin.json. Install or enable one in Settings → Plugins and it appears here.</p>
-          {disabled.length ? <p>Installed but disabled: {disabled.join(", ")}.</p> : null}
+          <p>Plugins add them by declaring a <code>ui</code> section in their plugin.json. Install or turn one on and it appears here.</p>
         </div>
       ) : visible.length === 0 ? <p className="zorai-shortcuts-note">No plugins match “{query}”.</p> : (
         <div className={viewMode === "grid" ? "zorai-plugin-grid" : "zorai-plugin-list"}>
@@ -170,13 +187,31 @@ function PluginsOverview() {
               <div className="zorai-plugin-card__text">
                 <strong>{plugin.name}</strong>
                 {plugin.description ? <span className="zorai-plugin-card__description">{plugin.description}</span> : null}
-                <span className="zorai-plugin-card__meta">{[plugin.panels.length ? `${plugin.panels.length} panel${plugin.panels.length === 1 ? "" : "s"}` : "", plugin.commands.length ? `${plugin.commands.length} command${plugin.commands.length === 1 ? "" : "s"}` : "", `v${plugin.version}`].filter(Boolean).join(" · ")}</span>
+                <span className="zorai-plugin-card__meta">{[pluginUiSummary(plugin), `v${plugin.version}`].filter(Boolean).join(" · ")}</span>
               </div>
               <PluginToggles plugin={plugin} />
             </div>
           ))}
         </div>
       )}
+      {available.length ? (
+        <section className="zorai-plugin-available" aria-label="Plugins with views that are switched off">
+          <div className="zorai-section-label">Switched off · {available.length} more with their own views</div>
+          <div className={viewMode === "grid" ? "zorai-plugin-grid" : "zorai-plugin-list"}>
+            {available.map((plugin) => (
+              <div key={plugin.name} className="zorai-plugin-card is-off">
+                <PluginIcon plugin={plugin} size={viewMode === "grid" ? 44 : 32} />
+                <div className="zorai-plugin-card__text">
+                  <strong>{plugin.name}</strong>
+                  {plugin.description ? <span className="zorai-plugin-card__description">{plugin.description}</span> : null}
+                  <span className="zorai-plugin-card__meta">{[pluginUiSummary(plugin), `v${plugin.version}`].filter(Boolean).join(" · ")}</span>
+                </div>
+                <button type="button" className="zorai-ghost-button" onClick={() => void turnOnPlugin(plugin.name)}>Turn on</button>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </section>
   );
 }
@@ -187,39 +222,37 @@ function PluginConversation({ plugin, askCommand }: { plugin: ZoraiPluginUiManif
   const currentId = usePluginPrefsStore((state) => state.currentConversation[plugin.name] ?? null);
   const history = usePluginPrefsStore((state) => state.conversations[plugin.name]);
   const askRequest = usePluginUiStore((state) => state.askRequest);
-  const [draft, setDraft] = useState("");
-  const pendingSend = useRef<{ threadId: string; text: string } | null>(null);
+  const pendingSend = useRef<{ threadId: string; payload: { text: string; contentBlocksJson?: string | null } } | null>(null);
   const thread = currentId ? threads.find((entry) => entry.id === currentId || entry.daemonThreadId === currentId) ?? null : null;
   const known = useMemo(() => new Set(history ?? []), [history]);
 
-  const start = (text: string, title: string) => {
-    const message = text.trim();
-    if (!message) return;
+  const start = (payload: { text: string; contentBlocksJson?: string | null }, title: string) => {
+    const message = payload.text.trim();
+    if (!message && !payload.contentBlocksJson) return;
     const { recordConversation, setCurrentConversation } = usePluginPrefsStore.getState();
     const id = runtime.createThread({
       workspaceId: runtime.activeWorkspace?.id ?? null,
       agentId: null,
       agentName: null,
-      title: `${plugin.name}: ${title.trim().slice(0, 60)}`,
+      title: `${plugin.name}: ${(title.trim() || "attachment").slice(0, 60)}`,
     });
-    pendingSend.current = { threadId: id, text: message };
+    pendingSend.current = { threadId: id, payload: { ...payload, text: message } };
     recordConversation(plugin.name, id);
     setCurrentConversation(plugin.name, id);
     runtime.openThread(id);
-    setDraft("");
   };
 
   useEffect(() => {
     const pending = pendingSend.current;
     if (!pending || runtime.activeThread?.id !== pending.threadId) return;
     pendingSend.current = null;
-    runtime.sendMessage({ text: pending.text });
+    runtime.sendMessage(pending.payload);
   }, [runtime.activeThread?.id, runtime.sendMessage]);
 
   useEffect(() => {
     if (askRequest?.plugin !== plugin.name) return;
     usePluginUiStore.setState({ askRequest: null });
-    start(askRequest.text, askRequest.title);
+    start({ text: askRequest.text }, askRequest.title);
   }, [askRequest]);
 
   useEffect(() => {
@@ -233,24 +266,13 @@ function PluginConversation({ plugin, askCommand }: { plugin: ZoraiPluginUiManif
   if (!thread) {
     const input = askCommand.inputs[0];
     return (
-      <form className="zorai-plugin-ask" onSubmit={(event) => {
-        event.preventDefault();
-        start(fillPromptTemplate(askCommand.prompt ?? "", input ? { [input.key]: draft } : {}) || draft, draft);
-      }}>
-        <textarea
-          className="zorai-input"
-          rows={3}
-          value={draft}
+      <div className="zorai-plugin-ask">
+        <ThreadComposer
           placeholder={input?.placeholder ? `e.g. ${input.placeholder}` : `Ask ${plugin.name}…`}
-          aria-label={askCommand.title}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }}
+          onSendNewThread={(payload) => start({ ...payload, text: fillPromptTemplate(askCommand.prompt ?? "", input ? { [input.key]: payload.text } : {}) || payload.text }, payload.text)}
         />
-        <div className="zorai-plugin-ask__footer">
-          <span className="zorai-shortcuts-note">The agent answers here using {plugin.name}. Conversations also appear in Threads.</span>
-          <button type="submit" className="zorai-primary-button" disabled={!draft.trim()}>Ask</button>
-        </div>
-      </form>
+        <span className="zorai-shortcuts-note">The agent answers here using {plugin.name}. Conversations also appear in Threads.</span>
+      </div>
     );
   }
 
@@ -347,6 +369,8 @@ function PluginWebPanel({ plugin, panel }: { plugin: ZoraiPluginUiManifest; pane
   const [approved, setApproved] = useState(() => readPanelApprovals()[approvalKey] === panel.permissions.join(","));
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const inFlight = useRef(0);
+  const terminalKey = `plugin:${plugin.name}`;
+  const terminalOpen = useThreadTerminalStore((state) => Boolean(state.open[terminalKey]));
 
   useEffect(() => {
     if (!approved) return;
@@ -354,6 +378,7 @@ function PluginWebPanel({ plugin, panel }: { plugin: ZoraiPluginUiManifest; pane
     const context = {
       pluginName: plugin.name,
       permissions: panel.permissions,
+      writeEndpoints: plugin.writeEndpoints ?? [],
       call: async (endpoint: string, params: Record<string, unknown>) => {
         if (inFlight.current >= 4) throw new Error("Too many calls at once. Wait for earlier calls to finish.");
         inFlight.current += 1;
@@ -363,8 +388,29 @@ function PluginWebPanel({ plugin, panel }: { plugin: ZoraiPluginUiManifest; pane
           inFlight.current -= 1;
         }
       },
-      insertText: (text: string) => useComposerDraftStore.getState().setInput((current) => (current.trim() ? `${current}\n\n${text}` : text)),
+      insertText: (text: string) => {
+        appendToComposer(text);
+        pushToast(`${plugin.name}: added to the message box.`, "info");
+      },
+      ask: (text: string) => {
+        if (!plugin.commands.some((command) => command.prompt)) {
+          appendToComposer(text);
+          return;
+        }
+        useComposerDraftStore.getState().setInput(text);
+        usePluginPrefsStore.getState().setCurrentConversation(plugin.name, null);
+        selectPlugin(plugin.name, ASK_PANEL_ID);
+      },
       toast: (text: string) => pushToast(`${plugin.name}: ${text}`, "info"),
+      pickFolder: async (title: string) => (await getBridge()?.pluginPickFolder?.(title)) ?? null,
+      mediaOptions: (kind: MediaKind) => {
+        const state = useAgentStore.getState();
+        return mediaOptions(kind, state.agentSettings as unknown as Record<string, unknown>, state.providerAuthStates);
+      },
+      openTerminal: ({ title, cwd, command }: { title: string; cwd?: string; command: string }) => {
+        openThreadShell(terminalKey, cwd, { title, command });
+        setThreadTerminalOpen(terminalKey, true);
+      },
       theme: panelThemeSnapshot,
     };
     const onMessage = (event: MessageEvent) => {
@@ -383,7 +429,7 @@ function PluginWebPanel({ plugin, panel }: { plugin: ZoraiPluginUiManifest; pane
       observer.disconnect();
       window.clearTimeout(themeTimer);
     };
-  }, [approved, plugin.name, panel.permissions]);
+  }, [approved, plugin.name, panel.permissions, terminalKey]);
 
   if (!approved) {
     return (
@@ -394,6 +440,9 @@ function PluginWebPanel({ plugin, panel }: { plugin: ZoraiPluginUiManifest; pane
           <li>It can call {plugin.name}'s own endpoints, using the settings you gave this plugin.</li>
           {panel.permissions.includes("composer") ? <li>It can put text into the message box.</li> : null}
           {panel.permissions.includes("toast") ? <li>It can show short notifications.</li> : null}
+          {panel.permissions.includes("files") ? <li>It can ask you to pick a folder, and learns the folder you pick.</li> : null}
+          {panel.permissions.includes("write") ? <li>It can make changes in {plugin.name} when you use its buttons, such as sending, deleting or editing.</li> : null}
+          {panel.permissions.includes("terminal") ? <li>It can open terminal tabs below the panel and start commands in them, with your user's permissions.</li> : null}
         </ul>
         <div className="zorai-panel__heading-actions">
           <button type="button" className="zorai-primary-button" onClick={() => { writePanelApproval(approvalKey, panel.permissions); setApproved(true); }}>Allow and open</button>
@@ -404,15 +453,18 @@ function PluginWebPanel({ plugin, panel }: { plugin: ZoraiPluginUiManifest; pane
   }
 
   return (
-    <iframe
-      ref={frameRef}
-      className="zorai-plugin-frame"
-      title={`${plugin.name}: ${panel.title}`}
-      src={panel.url}
-      sandbox="allow-scripts"
-      referrerPolicy="no-referrer"
-      onLoad={() => frameRef.current?.contentWindow?.postMessage({ zorai: "plugin-panel", event: "theme", theme: panelThemeSnapshot() }, "*")}
-    />
+    <div className="zorai-plugin-frame-stack">
+      <iframe
+        ref={frameRef}
+        className="zorai-plugin-frame"
+        title={`${plugin.name}: ${panel.title}`}
+        src={panel.url}
+        sandbox="allow-scripts"
+        referrerPolicy="no-referrer"
+        onLoad={() => frameRef.current?.contentWindow?.postMessage({ zorai: "plugin-panel", event: "theme", theme: panelThemeSnapshot() }, "*")}
+      />
+      {terminalOpen ? <ComposerTerminalPanel sessionKey={terminalKey} /> : null}
+    </div>
   );
 }
 
@@ -425,7 +477,23 @@ export function PluginCommandHost() {
   useEffect(() => { if (commandKey) setValues(readStoredInputs(`command:${commandKey}`)); }, [commandKey]);
   const ready = useMemo(() => pending?.command.inputs.every((input) => (values[input.key] ?? input.default).trim() !== "") ?? false, [pending, values]);
   const close = () => usePluginUiStore.setState({ pendingCommand: null, commandResult: null });
+  const localRun = usePluginUiStore((state) => state.localRunRequest);
 
+  if (localRun) {
+    return (
+      <div className="zorai-code-dialog-backdrop" role="presentation">
+        <div className="zorai-code-close-dialog" role="alertdialog" aria-modal="true" aria-label={`Allow ${localRun.plugin} to run programs`}>
+          <h2>Allow {localRun.plugin} to run programs on this computer?</h2>
+          <p>{localRun.plugin} {localRun.version} wants to run its own scripts here, for example to render audio or run a model. They run with your user's permissions and are not sandboxed, so only allow plugins you trust.</p>
+          <p>This covers version {localRun.version} only. You can take it back in Settings, Plugins.</p>
+          <footer>
+            <button type="button" onClick={() => answerLocalRunRequest(false)}>Don't allow</button>
+            <button type="button" className="is-primary" onClick={() => answerLocalRunRequest(true)}>Allow</button>
+          </footer>
+        </div>
+      </div>
+    );
+  }
   if (pending) {
     return (
       <div className="zorai-code-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) close(); }}>
@@ -453,7 +521,7 @@ export function PluginCommandHost() {
           <h2>{result.title}</h2>
           {result.error ? <p role="alert">{result.markdown}</p> : <div className="zorai-plugin-panel__result"><MarkdownContent content={result.markdown} /></div>}
           <footer>
-            {!result.error ? <button type="button" onClick={() => { useComposerDraftStore.getState().setInput((current) => (current.trim() ? `${current}\n\n${result.markdown}` : result.markdown)); close(); }}>Add to message</button> : null}
+            {!result.error ? <button type="button" onClick={() => { appendToComposer(result.markdown); close(); }}>Add to message</button> : null}
             <button type="button" className="is-primary" onClick={close}>Close</button>
           </footer>
         </div>

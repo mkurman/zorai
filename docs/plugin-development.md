@@ -42,6 +42,10 @@ Practical implication:
 - Write plugins against the current runtime API.
 - Package them as self-contained browser scripts for external installation.
 
+### Bundled plugins
+
+Every plugin under [plugins/](../plugins) ships with zorai: in release archives and the npm package (staged to `~/.zorai/bundled-plugins`) and inside the desktop app's resources. On start the daemon installs bundled plugins that are missing, **disabled**, and replaces the files of ones it installed earlier when the bundled version changes, keeping the user's enabled state, settings and sign-ins. Plugins installed from npm, GitHub or a folder, and plugins the user removed, are never touched. A disabled plugin contributes no skills, slash commands or sign-in checks until it is enabled. Bump `version` in `plugin.json` when you change a bundled plugin, or existing installs will not pick up the change. `ZORAI_BUNDLED_PLUGINS_DIR` points the daemon (and the installers) at a different bundle folder.
+
 ## Panels and Commands in plugin.json
 
 Daemon plugins (the folders with a `plugin.json`, such as `plugins/zorai-plugin-github`) can add UI to the desktop app without shipping any app code. Add a `ui` section next to `api`; the desktop app reads it from `~/.zorai/plugins/<plugin>/plugin.json` and only shows it while the plugin is enabled in Settings → Plugins.
@@ -71,7 +75,7 @@ Daemon plugins (the folders with a `plugin.json`, such as `plugins/zorai-plugin-
 - Command `output`: `panel` shows the result in a dialog (with "Add to message"), `composer` appends it to the message box, `toast` shows a short notification. `placement`: `palette` adds a command palette entry, `composer` adds a button under the message box.
 - Markdown panels (with `endpoint`) appear in the **Plugins** view and render the endpoint's text result as markdown.
 - Plugins without HTTP endpoints (for example Python plugins) can still offer commands: give the command a `prompt` instead of an `endpoint`, such as `"prompt": "Use the pubmed-database plugin to: {{request}}"`. `{{key}}` placeholders are filled from `inputs`, the text is placed in the message box, and the Threads view opens so the user can review and send it; the agent then does the work with the plugin's skill.
-- Keep UI commands and panels read-only. Actions that change data (sending mail, merging, deleting) are better left to the agent, where approvals apply.
+- Endpoints using POST, PUT, PATCH or DELETE count as changes. Web panels can call them only with the `write` permission, which the user approves; confirm anything that cannot be undone (sending, deleting) inside the panel before calling it. Commands and markdown panels should stay read-only; the agent can make changes through the `plugin_api_call` tool, where Weles reviews every call.
 
 ### Web panels
 
@@ -105,9 +109,37 @@ const issues = await zorai("call", { endpoint: "list_issues", params: { owner: "
 | `call` | `{ endpoint, params }` — calls one of this plugin's endpoints; at most 4 at once | none |
 | `theme` | — returns the current colours and fonts (`--bg-primary`, `--text-primary`, `--accent`, `--font-ui`, ...) and `appearance` | none |
 | `insertText` | `{ text }` — appends to the message box (max 20,000 characters) | `composer` |
+| `ask` | `{ text }` — opens the plugin's Ask tab with a new conversation and this text in its message box, for the user to finish and send (falls back to the Threads message box when the plugin has no prompt command) | `composer` |
 | `toast` | `{ text }` — short notification (max 280 characters) | `toast` |
+| `pickFolder` | `{ title }` — opens a folder picker; returns the chosen path, or `null` if cancelled | `files` |
+| `terminal` | `{ title, cwd?, command }` — opens a titled terminal tab docked under the panel, starting in the absolute folder `cwd`, and runs `command` once; use it for long runs the user should watch (for example `tail -f` of a log) or interactive tools | `terminal` |
+| `mediaOptions` | `{ kind }` with `tts`, `stt`, `image`, `video` or `vision` — returns `{ current: { provider, model, voice? }, providers: [{ id, label, ready, models: [{ id, name }] }] }`: the providers in zorai's settings that can do that, whether each has credentials, and known models, so a panel can let the user pick a cloud route | none |
 
 zorai also sends `{ zorai: "plugin-panel", event: "theme", theme }` when the panel loads and whenever the theme changes, so panels can match the app.
+
+### Local endpoints
+
+An endpoint with `run` instead of `method` and `path` runs a program on the user's computer, for example to render audio or run a model. Panels, `ui.commands` and slash commands with an `action` call it exactly like an HTTP endpoint.
+
+```json
+{
+  "python": { "env": true, "dependencies": ["soundfile>=0.12"] },
+  "api": {
+    "endpoints": {
+      "render": { "run": { "command": "python scripts/voice.py render", "timeout_secs": 900 } }
+    }
+  }
+}
+```
+
+- `run` takes the same fields as a `python` command (`command`, `run_path`, `source`, `env`, `dependencies`) and inherits the top-level `python` block, so `env: true` gives the plugin its own `uv` environment.
+- The program reads `{ "params": {...}, "settings": {...} }` as JSON on stdin. Parameters never reach the command line, so they cannot inject shell commands.
+- Whatever it prints to stdout is the result; keep logs on stderr. Output from installing dependencies is kept out of the result. A non-zero exit returns the last part of stderr as the error.
+- It runs in its `run_path` (the plugin folder by default) with `ZORAI_PLUGIN_NAME`, `ZORAI_PLUGIN_DIR` and `ZORAI_PLUGIN_DATA_DIR` set. Write outputs to `ZORAI_PLUGIN_DATA_DIR` (`~/.zorai/plugin-data/<plugin>/`).
+- `timeout_secs` defaults to 120 and is capped at 3600. On timeout zorai stops the program and everything it started.
+- The first call asks the user to allow the plugin to run programs; the approval covers one plugin version and can be revoked in Settings, Plugins. Until then calls fail with `local_run_not_approved`.
+- Programs are not sandboxed: they run with the user's permissions.
+- Calls to the same endpoint run one at a time; different endpoints run side by side. For work that takes minutes, use quick `start`, `status` and `cancel` endpoints and let `start` launch the work in the background, so panels can show progress.
 
 ## Plugin Interface
 
@@ -142,7 +174,7 @@ Minimal example:
 ```json
 {
   "name": "zorai-plugin-example",
-  "version": "1.0.43",
+  "version": "1.0.44",
   "zoraiPlugin": {
     "entry": "dist/zorai-plugin.js",
     "format": "script"
@@ -169,7 +201,7 @@ import ExamplePanel from "./ExamplePanel";
 export const examplePlugin: Plugin = {
   id: "example",
   name: "Example Plugin",
-  version: "1.0.43",
+  version: "1.0.44",
   components: {
     ExamplePanel,
   },

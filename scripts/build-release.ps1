@@ -232,6 +232,22 @@ function New-BundleZip([string]$ZipPath, [string[]]$ArtifactNames) {
                 ) | Out-Null
             }
         }
+
+        $pluginsRoot = Join-Path $ProjectRoot "plugins"
+        $skippedPluginDirs = @("node_modules", "__pycache__", ".pytest_cache", "tests", ".python", ".venv")
+        if (Test-Path $pluginsRoot) {
+            Get-ChildItem $pluginsRoot -Recurse -File | ForEach-Object {
+                $relative = [System.IO.Path]::GetRelativePath($ProjectRoot.Path, $_.FullName).Replace("\", "/")
+                $parts = $relative.Split("/")
+                if (-not ($parts | Where-Object { $skippedPluginDirs -contains $_ })) {
+                    [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                        $archive,
+                        $_.FullName,
+                        $relative
+                    ) | Out-Null
+                }
+            }
+        }
     } finally {
         $archive.Dispose()
     }

@@ -1,7 +1,7 @@
 {
   "name": "zorai",
   "private": true,
-  "version": "1.0.43",
+  "version": "1.0.44",
   "description": "Daemon-first agentic runtime with AI-native workflows",
   "homepage": "https://zorai.app",
   "author": {
@@ -94,6 +94,19 @@
       {
         "from": "../guidelines",
         "to": "guidelines"
+      },
+      {
+        "from": "../plugins",
+        "to": "plugins",
+        "filter": [
+          "**/*",
+          "!**/node_modules/**",
+          "!**/__pycache__/**",
+          "!**/.pytest_cache/**",
+          "!**/tests/**",
+          "!**/.python/**",
+          "!**/.venv/**"
+        ]
       }
     ],
     "win": {

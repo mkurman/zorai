@@ -1,0 +1,16 @@
+{
+  "name": "zorai-plugin-video-lab",
+  "version": "0.3.0",
+  "description": "Video Lab for zorai: storyboard-to-video with an animatic first, transcript-driven cuts and recorded app demos",
+  "author": "zorai",
+  "license": "MIT",
+  "keywords": ["zorai", "plugin", "video", "ffmpeg", "storyboard", "whisper"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mkurman/zorai"
+  },
+  "files": [
+    "video-lab/",
+    "README.md"
+  ]
+}

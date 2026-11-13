@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Video Lab</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <header class="top">
+    <h1>🎬 Video Lab</h1>
+    <span id="ready" class="chip">Checking setup…</span>
+    <nav role="tablist">
+      <button role="tab" data-tab="storyboard" aria-selected="true">Storyboard</button>
+      <button role="tab" data-tab="edit">Edit</button>
+      <button role="tab" data-tab="demo">Demo</button>
+      <button role="tab" data-tab="jobs">Jobs</button>
+      <button role="tab" data-tab="setup">Setup</button>
+    </nav>
+  </header>
+
+  <div class="bar" id="project-bar">
+    <label>Project <select id="project"></select></label>
+    <span class="divider"></span>
+    <input id="new-name" placeholder="name" aria-label="Project name for New or Rename">
+    <button id="new-project" title="Start a new project with this name">New</button>
+    <button id="rename" title="Rename the current project">Rename</button>
+    <span class="grow"></span>
+    <span id="location-text" class="muted small"></span>
+    <button id="choose-folder">Choose folder…</button>
+    <button id="clear-folder" hidden>Stop copying there</button>
+  </div>
+
+  <main>
+    <section id="storyboard" class="tab">
+      <div class="editor-head">
+        <div class="seg" role="group" aria-label="Storyboard editor">
+          <button data-mode="form" aria-pressed="true">Form</button>
+          <button data-mode="yaml" aria-pressed="false">YAML</button>
+        </div>
+        <span class="problem" hidden></span>
+        <span class="grow"></span>
+        <button class="example">Load example</button>
+        <button class="save">Save</button>
+        <button id="sb-ask" title="Ask zorai to improve this storyboard">Ask to improve</button>
+        <button id="sb-animatic" class="primary">Build animatic</button>
+      </div>
+      <div class="form">
+        <div class="grid settings">
+          <label class="field">Title <input id="sb-title" placeholder="Launch teaser"></label>
+          <label class="field">Look and style <input id="sb-style" placeholder="cinematic, warm amber light"></label>
+          <div class="field"><span>Format</span><div class="seg" id="sb-format"></div></div>
+          <div class="field"><span>Keyframes</span><div class="seg" id="sb-keyframes"></div><span id="sb-image-route"></span></div>
+          <div class="field"><span>Narration</span><div class="row"><div class="seg" id="sb-engine"></div><select id="sb-voice" aria-label="Narration voice"></select><span id="sb-speak-route"></span></div></div>
+          <div class="field"><span>Captions</span><div class="seg" id="sb-captions"></div></div>
+          <label class="field">Music bed (optional) <input id="sb-music" placeholder="~/Music/bed.mp3"></label>
+        </div>
+        <div class="strip" id="sb-shots"></div>
+      </div>
+      <textarea class="yaml" spellcheck="false" hidden aria-label="Storyboard YAML"></textarea>
+      <div class="progress" hidden><div class="meter"><span></span></div><p></p><button class="cancel">Cancel</button></div>
+      <div class="split result" id="sb-result" hidden>
+        <div class="col">
+          <h2 id="sb-video-title">Animatic</h2>
+          <video id="sb-video" controls preload="metadata"></video>
+          <p id="sb-video-meta" class="muted small"></p>
+        </div>
+        <div class="col">
+          <section class="gate card" id="sb-gate">
+            <header><h2>Final render</h2></header>
+            <div class="row small"><span class="muted">Video shots with</span><span id="sb-video-route"></span><button id="sb-route-save" title="Save the storyboard and refresh the estimate">Apply</button></div>
+            <p id="sb-gate-text"></p>
+            <ul id="sb-gate-shots" class="small"></ul>
+            <div class="row">
+              <button id="sb-approve" class="primary">Approve render</button>
+              <button id="sb-estimate">Refresh estimate</button>
+            </div>
+          </section>
+          <section class="card" id="sb-heard-card" hidden>
+            <header><h2>Narration heard back</h2></header>
+            <ol id="sb-heard" class="small"></ol>
+          </section>
+          <div class="row">
+            <button id="sb-to-chat">Add to message</button>
+            <button id="sb-ask-review">Ask for a review</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="edit" class="tab" hidden>
+      <div class="editor-head">
+        <div class="seg" role="group" aria-label="Edit editor">
+          <button data-mode="form" aria-pressed="true">Form</button>
+          <button data-mode="yaml" aria-pressed="false">YAML</button>
+        </div>
+        <span class="problem" hidden></span>
+        <span class="grow"></span>
+        <button class="example">Load example</button>
+        <button class="save">Save</button>
+        <button id="ed-cut" class="primary">Cut</button>
+      </div>
+      <div class="form split">
+        <div class="col">
+          <label class="field">Title <input id="ed-title" placeholder="Rough cut"></label>
+          <section class="card">
+            <header><h2>Sources</h2><button id="ed-add-source">+ Source</button></header>
+            <div id="ed-sources" class="rows"></div>
+          </section>
+          <section class="card">
+            <header><h2>Clips</h2><button id="ed-add-clip">+ Clip</button></header>
+            <p class="muted small" id="ed-clips-empty">No clips: the whole first source is used.</p>
+            <div id="ed-clips" class="rows"></div>
+          </section>
+          <section class="card">
+            <header><h2>Delivery</h2></header>
+            <label><input type="checkbox" id="ed-tighten"> Remove pauses longer than <input id="ed-silence" type="number" min="0.2" max="5" step="0.1" class="num"> s and filler words</label>
+            <label class="field">Filler words <input id="ed-fillers" placeholder="um, uh, erm"></label>
+            <div class="field"><span>Formats</span><div id="ed-formats" class="row"></div></div>
+            <div class="field"><span>Captions</span><div class="seg" id="ed-captions"></div></div>
+            <div class="field"><span>Fit</span><div class="seg" id="ed-fit"></div></div>
+            <p id="ed-plan" class="muted small"></p>
+          </section>
+        </div>
+        <div class="col">
+          <section class="card">
+            <header><h2>Footage</h2><select id="ed-footage" aria-label="Source to inspect"></select></header>
+            <p id="ed-footage-info" class="muted small"></p>
+            <div id="ed-scenes" class="scenes"></div>
+            <div class="row"><input id="ed-query" placeholder="Find where something is said" aria-label="Search the transcript"><button id="ed-search">Search</button></div>
+            <ul id="ed-hits" class="hits"></ul>
+          </section>
+        </div>
+      </div>
+      <textarea class="yaml" spellcheck="false" hidden aria-label="Edit YAML"></textarea>
+      <div class="progress" hidden><div class="meter"><span></span></div><p></p><button class="cancel">Cancel</button></div>
+      <div id="ed-result" class="result" hidden>
+        <p id="ed-result-text"></p>
+        <div id="ed-videos" class="videos"></div>
+      </div>
+    </section>
+
+    <section id="demo" class="tab" hidden>
+      <div class="editor-head">
+        <div class="seg" role="group" aria-label="Demo editor">
+          <button data-mode="form" aria-pressed="true">Form</button>
+          <button data-mode="yaml" aria-pressed="false">YAML</button>
+        </div>
+        <span class="problem" hidden></span>
+        <span class="grow"></span>
+        <button class="example">Load example</button>
+        <button class="save">Save</button>
+        <button id="dm-record" class="primary">Record</button>
+      </div>
+      <div class="form">
+        <div class="grid settings">
+          <label class="field">Title <input id="dm-title" placeholder="Product tour"></label>
+          <label class="field">Start at <input id="dm-url" placeholder="http://localhost:3000"></label>
+          <div class="field"><span>Format</span><div class="seg" id="dm-format"></div></div>
+          <div class="field"><span>Narration</span><div class="row"><div class="seg" id="dm-engine"></div><select id="dm-voice" aria-label="Narration voice"></select><span id="dm-speak-route"></span></div></div>
+          <div class="field"><span>Captions</span><div class="seg" id="dm-captions"></div></div>
+          <div class="field"><span>Zoom on clicks</span><div class="seg" id="dm-zoom"></div></div>
+        </div>
+        <section class="card">
+          <header><h2>Steps</h2><button id="dm-add-step">+ Step</button></header>
+          <ol id="dm-steps" class="steps"></ol>
+        </section>
+      </div>
+      <textarea class="yaml" spellcheck="false" hidden aria-label="Demo YAML"></textarea>
+      <div class="progress" hidden><div class="meter"><span></span></div><p></p><button class="cancel">Cancel</button></div>
+      <div id="dm-result" class="result" hidden>
+        <video id="dm-video" controls preload="metadata"></video>
+        <p id="dm-meta" class="muted small"></p>
+      </div>
+    </section>
+
+    <section id="jobs" class="tab" hidden>
+      <div class="bar"><button id="jobs-refresh">Refresh</button></div>
+      <table><thead><tr><th>Started</th><th>Job</th><th>State</th><th>Message</th><th></th></tr></thead><tbody id="jobs-list"></tbody></table>
+    </section>
+
+    <section id="setup" class="tab" hidden>
+      <div class="bar"><button id="recheck">Check again</button></div>
+      <table><tbody id="checks"></tbody></table>
+    </section>
+  </main>
+  <p id="error" hidden></p>
+  <script src="panel.js"></script>
+</body>
+</html>

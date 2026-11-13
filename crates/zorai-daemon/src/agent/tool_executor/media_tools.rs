@@ -2624,11 +2624,35 @@ pub(crate) async fn execute_speech_to_text(
     format_speech_to_text_response(route, response_format, &parsed)
 }
 
+fn tts_args_with_configured_voice(
+    config: &AgentConfig,
+    args: &serde_json::Value,
+) -> Option<serde_json::Value> {
+    let has_voice = args
+        .get("voice")
+        .and_then(|value| value.as_str())
+        .is_some_and(|value| !value.trim().is_empty());
+    if has_voice {
+        return None;
+    }
+    let voice = media_setting_string(
+        config,
+        MediaEndpoint::TextToSpeech.nested_root(),
+        &["tts", "voice"],
+        "audio_tts_voice",
+    )?;
+    let mut with_voice = args.clone();
+    with_voice["voice"] = serde_json::Value::String(voice);
+    Some(with_voice)
+}
+
 pub(crate) async fn execute_text_to_speech(
     args: &serde_json::Value,
     agent: &AgentEngine,
     _http_client: &reqwest::Client,
 ) -> Result<String> {
+    let configured_args = tts_args_with_configured_voice(&agent.get_config().await, args);
+    let args = configured_args.as_ref().unwrap_or(args);
     let media_http_client = fresh_media_http_client(tool_names::TEXT_TO_SPEECH, args);
     let input = args
         .get("input")
@@ -3385,6 +3409,29 @@ mod media_tools_tests {
             .expect("text contract should extract transcript"),
             "hello world"
         );
+    }
+
+    #[test]
+    fn text_to_speech_uses_the_voice_from_audio_settings_when_the_caller_names_none() {
+        let mut config = AgentConfig::default();
+        config.extra.insert(
+            "audio".to_string(),
+            serde_json::json!({ "tts": { "provider": "openrouter", "voice": "eve" } }),
+        );
+        let filled = tts_args_with_configured_voice(&config, &serde_json::json!({ "input": "Hi" }))
+            .expect("configured voice should be filled in");
+        assert_eq!(filled["voice"], "eve");
+        assert_eq!(filled["input"], "Hi");
+        assert!(tts_args_with_configured_voice(
+            &config,
+            &serde_json::json!({ "input": "Hi", "voice": "ara" })
+        )
+        .is_none());
+        assert!(tts_args_with_configured_voice(
+            &AgentConfig::default(),
+            &serde_json::json!({ "input": "Hi" })
+        )
+        .is_none());
     }
 
     #[test]

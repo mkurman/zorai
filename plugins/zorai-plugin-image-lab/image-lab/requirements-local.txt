@@ -1,0 +1,6 @@
+torch>=2.4
+diffusers>=0.31
+transformers>=4.45
+accelerate>=1.0
+safetensors>=0.4
+huggingface-hub>=0.25

@@ -1,0 +1,10 @@
+title: Validation loss by branch
+data: "{{examples}}/data/results.csv"
+kind: bar
+x: branch
+y: val_loss
+error: val_loss_std
+ylabel: validation loss (lower is better)
+digits: 3
+brand:
+  palette: ["#D9A548", "#5B8DEF"]

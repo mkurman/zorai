@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Inbox</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <header class="top">
+    <form id="search-form" class="search" role="search">
+      <input id="search" type="search" placeholder="Search mail (Gmail syntax, e.g. from:alice has:attachment)" aria-label="Search mail">
+    </form>
+    <span id="counts" class="muted"></span>
+    <button id="refresh" title="Refresh">↻</button>
+    <button id="ask-inbox" class="primary">Ask about my inbox</button>
+  </header>
+  <nav id="filters" class="chips" aria-label="Folders"></nav>
+  <main class="split">
+    <section class="list" aria-label="Messages">
+      <ul id="messages"></ul>
+      <p id="list-status" class="muted"></p>
+      <button id="more" hidden>Load more</button>
+    </section>
+    <article id="reader" class="reader" aria-live="polite">
+      <p class="muted empty">Select a message to read it here.</p>
+    </article>
+  </main>
+  <div id="snackbar" role="status" hidden></div>
+  <p id="error" role="alert" hidden></p>
+  <script type="module" src="panel.js"></script>
+</body>
+</html>

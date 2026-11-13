@@ -53,8 +53,8 @@ function registerPluginCliIpcHandlers(ipcMain, { execFileImpl, getCliPath, dialo
         return run(['plugin', 'remove', value]);
     });
     ipcMain.handle('plugin-update-source', (_event, installSource) => pluginSourceSpec(installSource));
-    ipcMain.handle('plugin-pick-folder', async () => {
-        const selection = await dialog.showOpenDialog({ title: 'Plugin Folder', properties: ['openDirectory'] });
+    ipcMain.handle('plugin-pick-folder', async (_event, title) => {
+        const selection = await dialog.showOpenDialog({ title: typeof title === 'string' && title.trim() ? title.trim().slice(0, 120) : 'Plugin Folder', properties: ['openDirectory', 'createDirectory'] });
         return selection.canceled || !selection.filePaths?.[0] ? null : selection.filePaths[0];
     });
 }

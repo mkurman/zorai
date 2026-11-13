@@ -670,6 +670,65 @@ pub async fn send_operation_status_query(operation_id: String) -> Result<Operati
     )
 }
 
+pub async fn send_text_to_speech(args: serde_json::Value) -> Result<String> {
+    parse_speech_response(
+        roundtrip(ClientMessage::AgentTextToSpeech {
+            args_json: args.to_string(),
+        })
+        .await?,
+    )
+}
+
+pub async fn send_speech_to_text(args: serde_json::Value) -> Result<String> {
+    parse_speech_response(
+        roundtrip(ClientMessage::AgentSpeechToText {
+            args_json: args.to_string(),
+        })
+        .await?,
+    )
+}
+
+pub async fn send_generate_image(args: serde_json::Value) -> Result<String> {
+    parse_speech_response(
+        roundtrip(ClientMessage::AgentGenerateImage {
+            args_json: args.to_string(),
+        })
+        .await?,
+    )
+}
+
+pub async fn send_generate_video(args: serde_json::Value) -> Result<String> {
+    parse_speech_response(
+        roundtrip(ClientMessage::AgentGenerateVideo {
+            args_json: args.to_string(),
+        })
+        .await?,
+    )
+}
+
+pub async fn send_analyze_image(args: serde_json::Value) -> Result<String> {
+    parse_speech_response(
+        roundtrip(ClientMessage::AgentAnalyzeImage {
+            args_json: args.to_string(),
+        })
+        .await?,
+    )
+}
+
+pub(crate) fn parse_speech_response(msg: DaemonMessage) -> Result<String> {
+    match msg {
+        DaemonMessage::AgentTextToSpeechResult { content }
+        | DaemonMessage::AgentSpeechToTextResult { content }
+        | DaemonMessage::AgentGenerateImageResult { content }
+        | DaemonMessage::AgentGenerateVideoResult { content }
+        | DaemonMessage::AgentAnalyzeImageResult { content } => Ok(content),
+        DaemonMessage::Error { message } | DaemonMessage::AgentError { message } => {
+            anyhow::bail!("daemon error: {message}")
+        }
+        other => anyhow::bail!("unexpected response: {other:?}"),
+    }
+}
+
 pub async fn send_config_get() -> Result<serde_json::Value> {
     match roundtrip(ClientMessage::AgentGetConfig).await? {
         DaemonMessage::AgentConfigResponse { config_json } => {

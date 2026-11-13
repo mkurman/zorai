@@ -127,8 +127,11 @@ const bridgeApi = {
     pluginCliUpdate: (installSource) => ipcRenderer.invoke('plugin-cli-update', installSource),
     pluginCliRemove: (name) => ipcRenderer.invoke('plugin-cli-remove', name),
     pluginUpdateSource: (installSource) => ipcRenderer.invoke('plugin-update-source', installSource),
-    pluginPickFolder: () => ipcRenderer.invoke('plugin-pick-folder'),
+    pluginPickFolder: (title) => ipcRenderer.invoke('plugin-pick-folder', title),
     pluginApiCall: (pluginName, endpointName, params) => ipcRenderer.invoke('plugin-api-call', pluginName, endpointName, params),
+    pluginLocalRunStatus: (pluginName) => ipcRenderer.invoke('plugin-local-run-status', pluginName),
+    pluginLocalRunApprove: (pluginName) => ipcRenderer.invoke('plugin-local-run-approve', pluginName),
+    pluginLocalRunRevoke: (pluginName) => ipcRenderer.invoke('plugin-local-run-revoke', pluginName),
     onPluginOAuthComplete: (callback) => {
         const handler = (_event, data) => callback(data);
         ipcRenderer.on('plugin-oauth-complete', handler);

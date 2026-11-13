@@ -9,6 +9,7 @@ set -eu
 INSTALL_DIR="${ZORAI_INSTALL_DIR:-$HOME/.local/bin}"
 SKILLS_DIR="${ZORAI_SKILLS_DIR:-$HOME/.zorai/skills}"
 GUIDELINES_DIR="${ZORAI_GUIDELINES_DIR:-$HOME/.zorai/guidelines}"
+BUNDLED_PLUGINS_DIR="${ZORAI_BUNDLED_PLUGINS_DIR:-$HOME/.zorai/bundled-plugins}"
 GITHUB_OWNER="mkurman"
 GITHUB_REPO="zorai"
 GITHUB_API_URL="https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}"
@@ -324,6 +325,18 @@ install_guidelines() {
   echo "Installed missing bundled guidelines -> ${GUIDELINES_DIR}"
 }
 
+install_bundled_plugins() {
+  if [ ! -d "$EXTRACT_DIR/plugins" ]; then
+    echo "Release bundle has no bundled plugins; skipping"
+    return
+  fi
+
+  rm -rf "$BUNDLED_PLUGINS_DIR"
+  mkdir -p "$BUNDLED_PLUGINS_DIR"
+  cp -R "$EXTRACT_DIR/plugins/." "$BUNDLED_PLUGINS_DIR/"
+  echo "Staged bundled plugins -> ${BUNDLED_PLUGINS_DIR} (zorai installs new ones disabled on its next start)"
+}
+
 install_custom_auth_template() {
   root_dir="${HOME}/.zorai"
   custom_auth_path="${root_dir}/custom-auth.yaml"
@@ -435,6 +448,7 @@ install_macos_desktop_app
 install_cli_alias
 install_skills
 install_guidelines
+install_bundled_plugins
 install_custom_auth_template
 start_daemon_after_upgrade
 

@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ML Research Lab</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <header class="top">
+    <h1>🧪 ML Research Lab</h1>
+    <span id="ready" class="chip">Checking setup…</span>
+    <span class="grow"></span>
+    <label>Campaign <select id="campaign"></select></label>
+    <button id="open-folder" title="Register a git repository that has an experiment.yaml">Open repository…</button>
+    <button id="example" title="Build a two-second toy campaign with a winning branch and a branch that cheats">Try the example</button>
+  </header>
+
+  <nav id="funnel" class="funnel" role="tablist">
+    <button role="tab" data-tab="contract" aria-selected="true"><b>1</b><span>Contract<small>Task, metric and pinned evaluation</small></span></button>
+    <button role="tab" data-tab="investigate"><b>2</b><span>Investigate<small>Baseline vs. candidates across seeds</small></span></button>
+    <button role="tab" data-tab="ablate"><b>3</b><span>Ablate<small>Which change caused the gain</small></span></button>
+    <button role="tab" data-tab="report"><b>4</b><span>Report<small>Grounded write-up with citations</small></span></button>
+    <span class="grow"></span>
+    <button role="tab" data-tab="runtimes" class="side">Runtimes</button>
+    <button role="tab" data-tab="data" class="side">Data SQL</button>
+    <button role="tab" data-tab="setup" class="side">Setup</button>
+  </nav>
+
+  <main>
+    <p id="no-campaign" class="empty" hidden>No campaign yet. <b>Open repository…</b> registers a git repo that has an <code>experiment.yaml</code>, or <b>Try the example</b> builds a toy one in seconds.</p>
+
+    <section id="contract" class="tab">
+      <div class="split">
+        <div class="col">
+          <section class="card">
+            <header><h2>Experiment</h2><span id="c-repo" class="muted small"></span></header>
+            <dl id="c-spec"></dl>
+            <p id="c-problem" class="problem" hidden></p>
+          </section>
+          <section class="card">
+            <header><h2>experiment.yaml</h2></header>
+            <pre id="c-yaml" class="code"></pre>
+          </section>
+        </div>
+        <div class="col">
+          <section class="card">
+            <header><h2>Evaluation contract</h2><span id="c-state" class="badge"></span></header>
+            <p class="muted small">Locking pins the sha256 of every protected file at the baseline commit. A run whose code changes them, before or during training, is marked <b>invalid</b> and its score never counts.</p>
+            <table id="c-files"><thead><tr><th>Protected file</th><th>sha256</th><th>Working copy</th></tr></thead><tbody></tbody></table>
+            <div class="bar"><button id="lock" class="primary">Lock contract</button><span id="c-seal" class="muted small"></span></div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section id="investigate" class="tab" hidden>
+      <div class="bar">
+        <label>Branches <input id="i-refs" placeholder="candidates from experiment.yaml" size="34"></label>
+        <label>Seeds <input id="i-seeds" placeholder="from experiment.yaml" size="10"></label>
+        <label title="How many runs execute at the same time; from experiment.yaml unless set here">At once <input id="i-parallel" type="number" min="1" max="64" placeholder="1" class="tiny"></label>
+        <label title="Each run gets one of these as CUDA_VISIBLE_DEVICES, in turn">GPUs <input id="i-gpus" placeholder="e.g. 0,1" size="6"></label>
+        <label class="check"><input id="i-rerun" type="checkbox"> Re-run finished</label>
+        <span class="grow"></span>
+        <button id="ask-results">Ask about these results</button>
+        <button id="sweep" class="primary">Run sweep</button>
+      </div>
+      <div id="progress" class="progress" hidden><div class="meter"><span></span></div><p></p><button id="cancel">Cancel</button></div>
+      <section class="card" id="active-card" hidden>
+        <header><h2>Running now</h2><button id="watch-all" title="Open a terminal tab that follows each running log">Watch all running</button></header>
+        <table id="active"><thead><tr><th>Code</th><th>Seed</th><th>GPU</th><th>Running for</th><th></th></tr></thead><tbody></tbody></table>
+      </section>
+      <section class="card">
+        <header><h2>Leaderboard</h2><span id="l-metric" class="muted small"></span></header>
+        <table id="board"><thead><tr><th>#</th><th>Code</th><th>Commit</th><th>Mean ± std</th><th>Δ vs baseline</th><th>Seeds</th><th>Contract</th></tr></thead><tbody></tbody></table>
+        <p id="board-empty" class="muted">No runs yet. Run sweep runs the baseline and every candidate branch for each seed, one at a time, each in its own git worktree.</p>
+      </section>
+      <div class="split">
+        <section class="card">
+          <header><h2>Runs</h2></header>
+          <div class="scroll"><table id="runs"><thead><tr><th>Run</th><th>Kind</th><th>Code</th><th>Seed</th><th>Status</th><th>Metric</th><th>Time</th><th></th></tr></thead><tbody></tbody></table></div>
+        </section>
+        <section class="card">
+          <header><h2 id="log-title">Log</h2></header>
+          <pre id="log" class="code log">Pick a run to see its output.</pre>
+        </section>
+      </div>
+    </section>
+
+    <section id="ablate" class="tab" hidden>
+      <div class="bar">
+        <label>Explain <select id="a-target"></select></label>
+        <label>Seeds <input id="a-seeds" placeholder="from experiment.yaml" size="10"></label>
+        <span class="grow"></span>
+        <button id="ask-ablation">Ask about the ablation</button>
+        <button id="run-ablation" class="primary">Run ablation</button>
+      </div>
+      <div id="a-progress" class="progress" hidden><div class="meter"><span></span></div><p></p></div>
+      <section class="card">
+        <header><h2>Leave-one-out attribution</h2><span id="a-lift" class="muted small"></span></header>
+        <p class="muted small">Each changed file of the winning branch is reverted to the baseline on its own and re-run on every seed. The lift that disappears is what that file contributed.</p>
+        <table id="attribution"><thead><tr><th>Reverted file</th><th>Metric without it</th><th>Lift lost</th><th class="wide">Share of the gain</th><th>Clear effect</th></tr></thead><tbody></tbody></table>
+        <p id="a-empty" class="muted">No ablation yet.</p>
+      </section>
+    </section>
+
+    <section id="report" class="tab" hidden>
+      <div class="bar">
+        <button id="build-report" class="primary">Write report</button>
+        <button id="ask-review" title="Have the agent review the report like a conference reviewer">Ask for a review</button>
+        <button id="report-to-message">Add to message</button>
+        <span id="r-path" class="muted small"></span>
+      </div>
+      <article id="r-body" class="markdown"><p class="muted">The report is written from results.db: the contract, the leaderboard with mean ± std, rejected runs, the ablation and how to reproduce. Every number cites the runs behind it.</p></article>
+      <section class="card paper">
+        <header><h2>Paper</h2><span id="p-state" class="badge"></span></header>
+        <p class="muted small">Builds <code>evidence.json</code> (every number with the runs behind it) and a <code>manuscript.md</code> with the tables filled in. zorai writes the prose from the evidence only, and the audit marks any number in the text that the evidence does not contain.</p>
+        <div class="bar">
+          <button id="build-paper" class="primary">Build paper workspace</button>
+          <button id="write-paper" title="Ask zorai to write the prose using only evidence.json, then audit it">Write paper with zorai</button>
+          <button id="audit-paper">Audit numbers</button>
+          <button id="review-paper" title="Have the agent review the manuscript like a conference reviewer">NeurIPS-style review</button>
+          <span id="p-path" class="muted small"></span>
+        </div>
+        <ul id="p-flagged" class="flagged"></ul>
+        <article id="p-body" class="markdown"></article>
+      </section>
+    </section>
+
+    <section id="runtimes" class="tab" hidden>
+      <div class="bar">
+        <span class="muted small">Workspace</span>
+        <span id="rt-workspace" class="mono small">none chosen</span>
+        <button id="rt-pick">Choose folder…</button>
+        <button id="rt-repo" title="Use the current campaign's repository">Use campaign repository</button>
+        <span class="grow"></span>
+        <button id="rt-refresh">Check again</button>
+      </div>
+      <p class="muted small">Prime Intellect Verifiers, Karpathy's AutoResearch and AutoRL, checked against the chosen workspace. Launch buttons open the command in a terminal tab below the panel.</p>
+      <div id="rt-cards" class="runtime-cards"></div>
+    </section>
+
+    <section id="data" class="tab" hidden>
+      <p class="muted small">Read-only DuckDB over CSV, Parquet or JSON files. Paths are relative to the campaign repository; <code>hf://datasets/&lt;owner&gt;/&lt;name&gt;/…</code> reads Hugging Face datasets directly.</p>
+      <textarea id="sql" spellcheck="false" aria-label="SQL query">SELECT count(*) AS rows, avg(y) AS mean_y FROM 'data/train.csv'</textarea>
+      <div class="bar"><label>Row limit <input id="sql-limit" type="number" min="1" max="5000" value="200"></label><span class="grow"></span><button id="ask-data">Ask about this data</button><button id="run-sql" class="primary">Run query</button></div>
+      <div class="scroll"><table id="sql-result"><thead></thead><tbody></tbody></table></div>
+      <p id="sql-note" class="muted small"></p>
+    </section>
+
+    <section id="setup" class="tab" hidden>
+      <table id="checks"><tbody></tbody></table>
+      <div class="bar"><button id="recheck">Check again</button></div>
+    </section>
+  </main>
+  <p id="error" role="alert" hidden></p>
+  <script type="module" src="panel.js"></script>
+</body>
+</html>

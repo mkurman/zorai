@@ -1,0 +1,266 @@
+{
+  "name": "image-lab",
+  "version": "0.2.0",
+  "schema_version": 1,
+  "description": "Brand-aware image studio: every brief becomes a contact sheet of variants scored by a vision critic and regenerated until they pass, UI asset kits matched to your CSS colours with transparent backgrounds and a typed index.ts, and data figures whose labels are read back and checked.",
+  "author": "zorai",
+  "license": "MIT",
+  "settings": {
+    "local_model": {
+      "type": "string",
+      "label": "Local model",
+      "required": false,
+      "default": "stabilityai/sdxl-turbo",
+      "description": "Hugging Face diffusers model used by the local engine (installed from the Setup tab)"
+    },
+    "device": {
+      "type": "string",
+      "label": "Local engine device",
+      "required": false,
+      "default": "auto",
+      "description": "auto uses the GPU when it can; or set cuda or cpu"
+    }
+  },
+  "api": {
+    "endpoints": {
+      "check": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py check",
+          "timeout_secs": 600
+        }
+      },
+      "load": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py load",
+          "timeout_secs": 600
+        }
+      },
+      "save": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py save",
+          "timeout_secs": 600
+        }
+      },
+      "parse": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py parse",
+          "timeout_secs": 600
+        }
+      },
+      "dump": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py dump",
+          "timeout_secs": 600
+        }
+      },
+      "example": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py example",
+          "timeout_secs": 600
+        }
+      },
+      "theme": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py theme",
+          "timeout_secs": 600
+        }
+      },
+      "estimate": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py estimate",
+          "timeout_secs": 600
+        }
+      },
+      "sheet": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py sheet",
+          "timeout_secs": 600
+        }
+      },
+      "load-sheet": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py load-sheet",
+          "timeout_secs": 600
+        }
+      },
+      "fix": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py fix",
+          "timeout_secs": 600
+        }
+      },
+      "uikit": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py uikit",
+          "timeout_secs": 600
+        }
+      },
+      "figure": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py figure",
+          "timeout_secs": 600
+        }
+      },
+      "setup": {
+        "run": {
+          "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py setup",
+          "timeout_secs": 600
+        }
+      },
+      "projects": {
+        "run": {
+          "command": "python3 scripts/image_lab.py projects",
+          "timeout_secs": 30
+        }
+      },
+      "sheets": {
+        "run": {
+          "command": "python3 scripts/image_lab.py sheets",
+          "timeout_secs": 30
+        }
+      },
+      "location": {
+        "run": {
+          "command": "python3 scripts/image_lab.py location",
+          "timeout_secs": 30
+        }
+      },
+      "rename": {
+        "run": {
+          "command": "python3 scripts/image_lab.py rename",
+          "timeout_secs": 30
+        }
+      },
+      "status": {
+        "run": {
+          "command": "python3 scripts/image_lab.py status",
+          "timeout_secs": 30
+        }
+      },
+      "cancel": {
+        "run": {
+          "command": "python3 scripts/image_lab.py cancel",
+          "timeout_secs": 30
+        }
+      },
+      "jobs": {
+        "run": {
+          "command": "python3 scripts/image_lab.py jobs",
+          "timeout_secs": 30
+        }
+      }
+    }
+  },
+  "commands": {
+    "check": {
+      "description": "Show whether the cloud image provider, the vision critic and the local engine are ready",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py check --format markdown"
+      }
+    },
+    "save": {
+      "description": "Save a project document. Add --project <name> --kind brief|uikit|figure --text \"<yaml>\"",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py save"
+      }
+    },
+    "estimate": {
+      "description": "Show how many images and critic calls a brief can use. Add --project <name>",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py estimate"
+      }
+    },
+    "sheet": {
+      "description": "Make a contact sheet: every variant is scored by the critic and regenerated with its feedback until it passes. Add --project <name> --wait",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py sheet"
+      }
+    },
+    "fix": {
+      "description": "Fix one region of a variant. Add --project <name> --variant <n> --box x0,y0,x1,y1 --prompt \"<change>\" --wait",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py fix"
+      }
+    },
+    "uikit": {
+      "description": "Generate a UI asset kit in the project's colours with transparent backgrounds, sized WebP/PNG files and index.ts. Add --project <name> --wait",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py uikit"
+      }
+    },
+    "figure": {
+      "description": "Draw a chart from CSV/TSV data and read its labels back to check them. Add --project <name> --wait",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py figure"
+      }
+    },
+    "theme": {
+      "description": "List the colours defined as CSS variables in a stylesheet. Add --path <file.css>",
+      "python": {
+        "command": "uv run --quiet --no-project --python 3.12 --with-requirements requirements.txt python scripts/image_lab.py theme"
+      }
+    }
+  },
+  "skills": [
+    "skills/image-lab.md"
+  ],
+  "ui": {
+    "icon": "🎨",
+    "panels": [
+      {
+        "id": "studio",
+        "title": "Studio",
+        "web": "panel/index.html",
+        "permissions": [
+          "composer",
+          "toast",
+          "files"
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "id": "check",
+        "title": "Check Image Lab setup",
+        "endpoint": "check",
+        "params": {
+          "format": "markdown"
+        },
+        "output": "panel",
+        "placement": [
+          "palette"
+        ]
+      },
+      {
+        "id": "hero",
+        "title": "Art-direct an image",
+        "prompt": "Use the image-lab plugin to art-direct {{subject}}: write a brief with a rubric, save it as an Image Lab project, make a contact sheet and tell me which variant passed the critic and why.",
+        "inputs": [
+          {
+            "key": "subject",
+            "label": "What should the image show?",
+            "placeholder": "a hero image for the release page"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      },
+      {
+        "id": "ui-kit",
+        "title": "Make UI assets from my theme",
+        "prompt": "Use the image-lab plugin to make a UI asset kit from the colours in {{theme}}: pick the assets this app needs (empty states, icons), save the kit and generate it.",
+        "inputs": [
+          {
+            "key": "theme",
+            "label": "Stylesheet with your CSS colour variables",
+            "placeholder": "frontend/src/styles/theme.css"
+          }
+        ],
+        "placement": [
+          "palette"
+        ]
+      }
+    ]
+  }
+}

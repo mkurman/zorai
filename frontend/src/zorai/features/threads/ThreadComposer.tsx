@@ -58,10 +58,14 @@ export function ThreadComposer({
   showTargetSelector = false,
   compact = false,
   onStartThread,
+  onSendNewThread,
+  placeholder,
 }: {
   showTargetSelector?: boolean;
   compact?: boolean;
   onStartThread?: (firstMessage: string) => void;
+  onSendNewThread?: (payload: { text: string; contentBlocksJson?: string | null }) => void;
+  placeholder?: string;
 } = {}) {
   const runtime = useAgentChatPanelRuntime();
   const composerLayout = useSettingsStore((state) => state.settings.composerLayout);
@@ -113,7 +117,7 @@ export function ThreadComposer({
   const [targetError, setTargetError] = useState<string | null>(null);
   const inputRef = runtime.inputRef;
   const sendMessage = runtime.sendMessage;
-  const isStreamingResponse = runtime.isStreamingResponse;
+  const isStreamingResponse = onSendNewThread ? false : runtime.isStreamingResponse;
   const activeRuntimeThreadId = runtime.activeThreadId;
   const stopStreaming = runtime.stopStreaming;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -139,12 +143,12 @@ export function ThreadComposer({
   const recordedChunksRef = useRef<Blob[]>([]);
   const discardCaptureRef = useRef(false);
   const history = useComposerInputHistory(input, setInput, runtime.inputRef);
-  const budgetNotice = useMemo(() => activeThreadBudgetExceededNotice(
+  const budgetNotice = useMemo(() => onSendNewThread ? null : activeThreadBudgetExceededNotice(
     runtime.activeThread?.daemonThreadId,
     runtime.messages,
     runtime.spawnedAgentTree,
-  ), [runtime.activeThread?.daemonThreadId, runtime.messages, runtime.spawnedAgentTree]);
-  const queue = useDaemonPromptQueue(runtime.activeThread?.daemonThreadId);
+  ), [onSendNewThread, runtime.activeThread?.daemonThreadId, runtime.messages, runtime.spawnedAgentTree]);
+  const queue = useDaemonPromptQueue(onSendNewThread ? undefined : runtime.activeThread?.daemonThreadId);
   const canSend = Boolean(input.trim() || attachments.length > 0);
   const assignOwnerDirectly = canAssignComposerOwnerDirectly(runtime.activeThread, runtime.messages.length);
   const ttsAvailable = agentSettings.audio_tts_enabled && Boolean(getBridge()?.agentTextToSpeech);
@@ -195,6 +199,15 @@ export function ThreadComposer({
     const payload = buildAttachmentSendPayload(input, attachments);
     if (!payload.text && !payload.contentBlocksJson) return;
     setTargetError(null);
+
+    if (onSendNewThread) {
+      history.remember(payload.text);
+      onSendNewThread(payload);
+      setInput("");
+      setAttachments([]);
+      sketch.forgetAll();
+      return;
+    }
 
     const sendRoute = resolveComposerSendRoute(composerTarget, assignOwnerDirectly);
     if (sendRoute.action === "assign-owner" && runtime.activeThread) {
@@ -643,7 +656,7 @@ export function ThreadComposer({
           }}
           onClick={() => history.commit()}
           onKeyDown={handleKeyDown}
-          placeholder={isTranscribing ? "Transcribing..." : isRecording ? "Recording..." : queue.editingId ? "Edit queued message…" : isStreamingResponse ? "Queue a follow-up…" : "Message Zorai..."}
+          placeholder={isTranscribing ? "Transcribing..." : isRecording ? "Recording..." : queue.editingId ? "Edit queued message…" : isStreamingResponse ? "Queue a follow-up…" : placeholder ?? "Message Zorai..."}
           rows={3}
         />
 

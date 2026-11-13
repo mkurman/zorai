@@ -17,6 +17,7 @@ test("getReleaseAssetInfo maps linux x64 to published zip asset names", function
     bundleChecksumName: "SHA256SUMS.txt",
     skillsArchiveRoot: "skills",
     guidelinesArchiveRoot: "guidelines",
+    pluginsArchiveRoot: "plugins",
     requiredBinaries: [
       "zorai",
       "zorai-daemon",
@@ -38,6 +39,7 @@ test("getReleaseAssetInfo maps linux arm64 to published zip asset names", functi
     bundleChecksumName: "SHA256SUMS.txt",
     skillsArchiveRoot: "skills",
     guidelinesArchiveRoot: "guidelines",
+    pluginsArchiveRoot: "plugins",
     requiredBinaries: [
       "zorai",
       "zorai-daemon",
@@ -72,6 +74,7 @@ test("getReleaseAssetInfo maps windows x64 to published zip asset names", functi
     bundleChecksumName: "SHA256SUMS.txt",
     skillsArchiveRoot: "skills",
     guidelinesArchiveRoot: "guidelines",
+    pluginsArchiveRoot: "plugins",
     requiredBinaries: [
       "zorai.exe",
       "zorai-daemon.exe",
@@ -93,6 +96,7 @@ test("getReleaseAssetInfo maps windows arm64 to published zip asset names", func
     bundleChecksumName: "SHA256SUMS.txt",
     skillsArchiveRoot: "skills",
     guidelinesArchiveRoot: "guidelines",
+    pluginsArchiveRoot: "plugins",
     requiredBinaries: [
       "zorai.exe",
       "zorai-daemon.exe",
@@ -333,6 +337,38 @@ test("extractBundledGuidelines copies missing defaults without overwriting user 
     fs.readFileSync(path.join(guidelinesDir, "research-task.md"), "utf8"),
     "# bundled research\n"
   );
+});
+
+test("stageBundledPlugins replaces the staged bundle so plugins dropped from the app disappear", function () {
+  const AdmZip = require("adm-zip");
+  const zip = new AdmZip();
+  zip.addFile("plugins/zorai-plugin-voice-lab/voice-lab/plugin.json", Buffer.from('{"name":"voice-lab"}'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "zorai-bundle-"));
+  const bundle = path.join(root, "bundled-plugins");
+  fs.mkdirSync(path.join(bundle, "zorai-plugin-retired"), { recursive: true });
+  fs.writeFileSync(path.join(bundle, "zorai-plugin-retired", "plugin.json"), "{}");
+
+  assert.equal(install.stageBundledPlugins(zip.toBuffer(), { pluginsArchiveRoot: "plugins" }, bundle), true);
+  assert.ok(fs.existsSync(path.join(bundle, "zorai-plugin-voice-lab", "voice-lab", "plugin.json")));
+  assert.ok(!fs.existsSync(path.join(bundle, "zorai-plugin-retired")));
+});
+
+test("stageBundledPlugins leaves the staged bundle alone when an older release has no plugins", function () {
+  const AdmZip = require("adm-zip");
+  const zip = new AdmZip();
+  zip.addFile("skills/a.md", Buffer.from("a"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "zorai-bundle-"));
+  const bundle = path.join(root, "bundled-plugins");
+  fs.mkdirSync(path.join(bundle, "kept"), { recursive: true });
+
+  assert.equal(install.stageBundledPlugins(zip.toBuffer(), { pluginsArchiveRoot: "plugins" }, bundle), false);
+  assert.ok(fs.existsSync(path.join(bundle, "kept")));
+});
+
+test("bundled plugins are staged where the daemon looks, which on Windows is the user profile, not LOCALAPPDATA", function () {
+  assert.equal(install.getBundledPluginsDir("linux", { HOME: "/home/me" }), "/home/me/.zorai/bundled-plugins");
+  assert.equal(install.getBundledPluginsDir("win32", { USERPROFILE: "C:\\Users\\me", LOCALAPPDATA: "C:\\Users\\me\\AppData\\Local" }), "C:\\Users\\me\\.zorai\\bundled-plugins");
+  assert.equal(install.getBundledPluginsDir("linux", { HOME: "/home/me", ZORAI_BUNDLED_PLUGINS_DIR: "/opt/zorai-plugins" }), "/opt/zorai-plugins");
 });
 
 test("installMacosDesktopApp expands bundled app zip during npm install", function () {

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Calendar</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <header class="top">
+    <button id="today">Today</button>
+    <button id="prev" aria-label="Previous">‹</button>
+    <button id="next" aria-label="Next">›</button>
+    <input id="jump" type="date" aria-label="Go to date">
+    <h1 id="range"></h1>
+    <span class="grow"></span>
+    <div class="seg" role="group" aria-label="View">
+      <button data-view="week" aria-pressed="true">Week</button>
+      <button data-view="month" aria-pressed="false">Month</button>
+      <button data-view="agenda" aria-pressed="false">Agenda</button>
+    </div>
+    <button id="refresh" title="Refresh">↻</button>
+    <button id="new-event">+ New event</button>
+    <button id="ask" class="primary">Ask about my calendar</button>
+  </header>
+  <nav id="calendars" class="chips" aria-label="Calendars"></nav>
+  <main id="view"></main>
+  <div id="details" class="details" role="dialog" aria-modal="true" hidden></div>
+  <p id="error" role="alert" hidden></p>
+  <script type="module" src="panel.js"></script>
+</body>
+</html>

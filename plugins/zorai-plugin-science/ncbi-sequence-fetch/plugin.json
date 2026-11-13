@@ -2,7 +2,7 @@
   "name": "ncbi-sequence-fetch",
   "version": "1.0.0",
   "schema_version": 1,
-  "description": "NCBI E-utilities — fetch protein and nucleotide sequences by accession, gene name, locus tag, PubMed ID, or patent number. Translate CDS to protein, search any NCBI database, follow cross-database links. The central sequence-retrieval tool; pairs with clinvar, pubmed, uniprot, ensembl. Backed by the public NCBI E-utilities (https://eutils.ncbi.nlm.nih.gov/) — no auth required but optional NCBI_API_KEY raises the rate limit from 3 to 10 req/s. Vendored from the google-deepmind/science-skills bundle.",
+  "description": "NCBI E-utilities — fetch protein and nucleotide sequences by accession, gene name, locus tag, PubMed ID, or patent number. Translate CDS to protein, search any NCBI database, follow cross-database links. Central sequence-retrieval tool; pairs with clinvar, pubmed, uniprot, ensembl. Backed by the public NCBI E-utilities (https://eutils.ncbi.nlm.nih.gov/) — no auth required; an optional NCBI_API_KEY raises the limit from 3 to 10 req/s. Vendored from the google-deepmind/science-skills bundle.",
   "author": "zorai",
   "license": "MIT",
   "zorai_version": ">=2.0.0",

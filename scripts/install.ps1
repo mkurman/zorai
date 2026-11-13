@@ -35,6 +35,7 @@ $ErrorActionPreference = "Stop"
 $InstallDir = if ($env:ZORAI_INSTALL_DIR) { $env:ZORAI_INSTALL_DIR } else { "C:\Program Files\zorai" }
 $SkillsDir = if ($env:ZORAI_SKILLS_DIR) { $env:ZORAI_SKILLS_DIR } else { Join-Path $HOME ".zorai\skills" }
 $GuidelinesDir = if ($env:ZORAI_GUIDELINES_DIR) { $env:ZORAI_GUIDELINES_DIR } else { Join-Path $HOME ".zorai\guidelines" }
+$BundledPluginsDir = if ($env:ZORAI_BUNDLED_PLUGINS_DIR) { $env:ZORAI_BUNDLED_PLUGINS_DIR } else { Join-Path $HOME ".zorai\bundled-plugins" }
 $GitHubOwner = "mkurman"
 $GitHubRepo = "zorai"
 $GitHubApiUrl = "https://api.github.com/repos/$GitHubOwner/$GitHubRepo"
@@ -293,6 +294,21 @@ function Install-Guidelines {
     Write-Host "Installed missing bundled guidelines -> $GuidelinesDir"
 }
 
+function Install-BundledPlugins {
+    $pluginsSource = Join-Path $script:ExtractDir "plugins"
+    if (-not (Test-Path $pluginsSource)) {
+        Write-Host "Release bundle has no bundled plugins; skipping"
+        return
+    }
+
+    if (Test-Path $BundledPluginsDir) {
+        Remove-Item -Path $BundledPluginsDir -Recurse -Force
+    }
+    New-Item -ItemType Directory -Force -Path $BundledPluginsDir | Out-Null
+    Copy-Item -Path (Join-Path $pluginsSource "*") -Destination $BundledPluginsDir -Recurse -Force
+    Write-Host "Staged bundled plugins -> $BundledPluginsDir (zorai installs new ones disabled on its next start)"
+}
+
 function Install-CustomAuthTemplate {
     $rootDir = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA "zorai" } else { Join-Path $HOME ".zorai" }
     $customAuthPath = Join-Path $rootDir "custom-auth.yaml"
@@ -393,6 +409,7 @@ try {
     Install-CliAlias
     Install-Skills
     Install-Guidelines
+    Install-BundledPlugins
     Install-CustomAuthTemplate
     Update-Path
     Start-DaemonAfterUpgrade

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Release notes</title>
+<style>
+  body { margin: 0; font: 18px/1.6 system-ui, sans-serif; background: #f6f1e7; color: #2a251d; }
+  header { padding: 48px 72px 24px; background: linear-gradient(120deg, #2a251d, #5a4320); color: #f6f1e7; }
+  h1 { margin: 0 0 8px; font-size: 40px; }
+  main { padding: 24px 72px 400px; }
+  input { font: inherit; padding: 10px 16px; width: 420px; border-radius: 10px; border: 2px solid #d9a548; }
+  .card { margin: 18px 0; padding: 18px 24px; background: white; border-radius: 14px; box-shadow: 0 4px 18px rgba(0,0,0,.07); cursor: pointer; }
+  .card h2 { margin: 0 0 6px; font-size: 22px; }
+  .card p { margin: 0; color: #6b6253; }
+  .card.open { outline: 3px solid #d9a548; }
+  .card .more { display: none; margin-top: 10px; color: #2a251d; }
+  .card.open .more { display: block; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<header><h1>Release notes · v2.0</h1><div>Everything new in this release</div></header>
+<main>
+  <input id="search" placeholder="Search the release notes">
+  <div id="cards">
+    <div class="card"><h2>Voice Lab</h2><p>Scripts to mastered podcasts, checked by Whisper.</p><div class="more">Local Kokoro voices, cloud voices, -16 LUFS mastering. (#412)</div></div>
+    <div class="card"><h2>Video Lab</h2><p>Storyboards, transcript cuts and app demos.</p><div class="more">Animatic first, then approved cloud shots. Captions are burned in. (#418)</div></div>
+    <div class="card"><h2>ML Research Lab</h2><p>Contracted experiments with ablations.</p><div class="more">Checksummed eval contracts catch reward hacking. (#421)</div></div>
+    <div class="card"><h2>Plugin panels</h2><p>Plugins can run local programs after approval.</p><div class="more">Per-version approval, timeouts, process-group cleanup. (#405)</div></div>
+  </div>
+</main>
+<script>
+  const search = document.getElementById('search');
+  search.addEventListener('input', () => {
+    const term = search.value.toLowerCase();
+    for (const card of document.querySelectorAll('.card')) card.classList.toggle('hidden', !card.textContent.toLowerCase().includes(term));
+  });
+  for (const card of document.querySelectorAll('.card')) card.addEventListener('click', () => card.classList.toggle('open'));
+</script>
+</body>
+</html>

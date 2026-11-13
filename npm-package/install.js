@@ -224,6 +224,16 @@ function getRuntimeGuidelinesDir(platform, env) {
   return pathModule.join(getRuntimeZoraiRoot(platform, env), "guidelines");
 }
 
+function getBundledPluginsDir(platform, env) {
+  var sourceEnv = env || process.env;
+  if (sourceEnv.ZORAI_BUNDLED_PLUGINS_DIR) {
+    return sourceEnv.ZORAI_BUNDLED_PLUGINS_DIR;
+  }
+  var pathModule = platform === "win32" ? path.win32 : path.posix;
+  var home = platform === "win32" ? sourceEnv.USERPROFILE || sourceEnv.HOME || "" : sourceEnv.HOME || "";
+  return pathModule.join(home, ".zorai", "bundled-plugins");
+}
+
 function getRuntimeCustomAuthPath(platform, env) {
   var pathModule = platform === "win32" ? path.win32 : path.posix;
   return pathModule.join(getRuntimeZoraiRoot(platform, env), "custom-auth.yaml");
@@ -278,6 +288,7 @@ function getReleaseAssetInfo(platform, arch, version) {
     requiredAssets: target.requiredAssets.slice(),
     skillsArchiveRoot: "skills",
     guidelinesArchiveRoot: "guidelines",
+    pluginsArchiveRoot: "plugins",
   };
 }
 
@@ -539,6 +550,20 @@ function extractBundledGuidelines(archiveData, releaseInfo, guidelinesDir) {
   extractBundledTree(archiveData, releaseInfo.guidelinesArchiveRoot, guidelinesDir, true);
 }
 
+function stageBundledPlugins(archiveData, releaseInfo, bundledPluginsDir) {
+  var AdmZip = require("adm-zip");
+  var root = releaseInfo.pluginsArchiveRoot + "/";
+  var hasPlugins = new AdmZip(archiveData).getEntries().some(function (entry) {
+    return entry.entryName.startsWith(root) && !entry.isDirectory;
+  });
+  if (!hasPlugins) {
+    return false;
+  }
+  fs.rmSync(bundledPluginsDir, { recursive: true, force: true });
+  extractBundledTree(archiveData, releaseInfo.pluginsArchiveRoot, bundledPluginsDir, false);
+  return true;
+}
+
 function installMacosDesktopApp(platform, binDir, deps) {
   if (platform !== "darwin") {
     return;
@@ -692,6 +717,9 @@ async function main() {
         installMacosDesktopApp(os.platform(), BIN_DIR);
         extractBundledSkills(archiveData, releaseInfo, runtimeSkillsDir);
         extractBundledGuidelines(archiveData, releaseInfo, runtimeGuidelinesDir);
+        if (stageBundledPlugins(archiveData, releaseInfo, getBundledPluginsDir(os.platform(), process.env))) {
+          console.log("zorai: staged bundled plugins; new ones are installed disabled on the next start");
+        }
         console.log(
           "zorai: custom provider template ready at " +
             ensureCustomAuthTemplate(os.platform(), process.env)
@@ -738,6 +766,8 @@ module.exports.getRuntimeCustomAuthPath = getRuntimeCustomAuthPath;
 module.exports.getRuntimeZoraiRoot = getRuntimeZoraiRoot;
 module.exports.ensureCustomAuthTemplate = ensureCustomAuthTemplate;
 module.exports.extractBundledGuidelines = extractBundledGuidelines;
+module.exports.stageBundledPlugins = stageBundledPlugins;
+module.exports.getBundledPluginsDir = getBundledPluginsDir;
 module.exports.getLegacyTamuxRoot = getLegacyTamuxRoot;
 module.exports.installMacosDesktopApp = installMacosDesktopApp;
 module.exports.migrateLegacyTamuxRoot = migrateLegacyTamuxRoot;

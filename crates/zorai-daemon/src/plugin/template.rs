@@ -114,21 +114,25 @@ fn render_request_sync(
         }
     }
 
-    let body = if let Some(ref body_value) = endpoint.body {
-        let body_template = match body_value {
-            serde_json::Value::String(raw) => raw.clone(),
-            other => serde_json::to_string(other).map_err(|e| PluginApiError::TemplateError {
-                detail: format!("body serialization: {e}"),
-            })?,
-        };
-        let rendered = registry
-            .render_template(&body_template, context)
-            .map_err(|e| PluginApiError::TemplateError {
-                detail: format!("body template: {e}"),
-            })?;
-        Some(rendered)
-    } else {
-        None
+    let body = match endpoint.body {
+        Some(serde_json::Value::String(ref raw)) => {
+            Some(registry.render_template(raw, context).map_err(|e| {
+                PluginApiError::TemplateError {
+                    detail: format!("body template: {e}"),
+                }
+            })?)
+        }
+        Some(ref structured) => {
+            let mut unescaped = registry.clone();
+            unescaped.register_escape_fn(handlebars::no_escape);
+            let rendered = render_json_strings(&unescaped, structured, context)?;
+            Some(
+                serde_json::to_string(&rendered).map_err(|e| PluginApiError::TemplateError {
+                    detail: format!("body serialization: {e}"),
+                })?,
+            )
+        }
+        None => None,
     };
 
     Ok(RenderedRequest {
@@ -160,6 +164,35 @@ pub fn render_response(
             })
         }
     }
+}
+
+fn render_json_strings(
+    registry: &Handlebars<'_>,
+    value: &serde_json::Value,
+    context: &serde_json::Value,
+) -> Result<serde_json::Value, PluginApiError> {
+    Ok(match value {
+        serde_json::Value::String(template) => {
+            serde_json::Value::String(registry.render_template(template, context).map_err(|e| {
+                PluginApiError::TemplateError {
+                    detail: format!("body template: {e}"),
+                }
+            })?)
+        }
+        serde_json::Value::Array(items) => serde_json::Value::Array(
+            items
+                .iter()
+                .map(|item| render_json_strings(registry, item, context))
+                .collect::<Result<_, _>>()?,
+        ),
+        serde_json::Value::Object(fields) => serde_json::Value::Object(
+            fields
+                .iter()
+                .map(|(key, item)| Ok((key.clone(), render_json_strings(registry, item, context)?)))
+                .collect::<Result<_, PluginApiError>>()?,
+        ),
+        other => other.clone(),
+    })
 }
 
 /// `{{urlencode value}}` -- percent-encode a string value.
@@ -418,6 +451,7 @@ mod tests {
         let endpoint = EndpointDef {
             method: "POST".to_string(),
             path: "/v1/users/{{params.user_id}}/messages".to_string(),
+            run: None,
             params: None,
             headers: Some(HashMap::from([(
                 "Authorization".to_string(),
@@ -443,6 +477,42 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn structured_bodies_escape_values_and_allow_quoted_template_arguments() {
+        let registry = create_registry();
+        let api = ApiSection {
+            base_url: Some("https://api.example.com".to_string()),
+            endpoints: HashMap::new(),
+            rate_limit: None,
+        };
+        let endpoint = EndpointDef {
+            method: "PATCH".to_string(),
+            path: "/events".to_string(),
+            run: None,
+            params: None,
+            headers: None,
+            body: Some(serde_json::json!({
+                "attendees": [{ "email": "{{params.email}}", "responseStatus": "{{default params.response_status \"accepted\"}}" }],
+                "attendeesOmitted": true,
+                "summary": "{{params.title}}"
+            })),
+            response_template: None,
+        };
+        let context = build_context(
+            serde_json::json!({ "email": "me@example.com", "title": "Plan \"Q3\" \\ review" }),
+            vec![],
+            None,
+        );
+        let request = render_request(&registry, &api, &endpoint, &context)
+            .await
+            .unwrap();
+        let body: serde_json::Value =
+            serde_json::from_str(request.body.as_deref().unwrap()).unwrap();
+        assert_eq!(body["attendees"][0]["responseStatus"], "accepted");
+        assert_eq!(body["summary"], "Plan \"Q3\" \\ review");
+        assert_eq!(body["attendeesOmitted"], true);
+    }
+
+    #[tokio::test]
     async fn render_request_renders_raw_string_body_template() {
         let reg = create_registry();
         let api = ApiSection {
@@ -455,6 +525,7 @@ mod tests {
             path:
                 "https://api.endpoints.huggingface.cloud/v2/endpoint/{{params.ns}}/{{params.name}}"
                     .to_string(),
+            run: None,
             params: None,
             headers: None,
             body: Some(serde_json::Value::String("{{{params.patch}}}".to_string())),
@@ -490,6 +561,7 @@ mod tests {
         let endpoint = EndpointDef {
             method: "GET".to_string(),
             path: "/repos/{{params.owner}}/{{params.repo}}".to_string(),
+            run: None,
             params: None,
             headers: Some(HashMap::from([
                 (
@@ -540,6 +612,7 @@ mod tests {
         let endpoint = EndpointDef {
             method: "GET".to_string(),
             path: r#"/repos/{{params.owner}}/{{params.repo}}/issues?state={{default params.state "open"}}&per_page={{default params.per_page "20"}}"#.to_string(),
+            run: None,
             params: None,
             headers: Some(HashMap::from([
                 (
@@ -588,6 +661,7 @@ mod tests {
         let endpoint = EndpointDef {
             method: "GET".to_string(),
             path: r#"/repos/{{params.owner}}/{{params.repo}}/pulls?state={{default params.state "open"}}&per_page={{default params.per_page "20"}}"#.to_string(),
+            run: None,
             params: None,
             headers: Some(HashMap::from([
                 (
@@ -636,6 +710,7 @@ mod tests {
         let endpoint = EndpointDef {
             method: "GET".to_string(),
             path: "/test".to_string(),
+            run: None,
             params: None,
             headers: None,
             body: None,
@@ -656,6 +731,7 @@ mod tests {
         let endpoint = EndpointDef {
             method: "GET".to_string(),
             path: "/test".to_string(),
+            run: None,
             params: None,
             headers: None,
             body: None,

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { matchesPluginSearch, sortPluginsByFavorite, usePluginPrefsStore } from "@/zorai/features/plugins/pluginPrefsStore";
-import { refreshPluginUi } from "@/zorai/features/plugins/pluginUiStore";
+import { refreshPluginUi, usePluginUiStore } from "@/zorai/features/plugins/pluginUiStore";
+import { pluginUiSummary } from "@/zorai/features/plugins/pluginUiSummary";
 import { ShortcutsPanel } from "@/zorai/features/shortcuts/ShortcutsPanel";
 import { UpdateCheckButton, useUpdateStore } from "@/components/UpdatePrompt";
 import { SetupWizard } from "@/components/SetupWizard";
@@ -93,7 +94,7 @@ export const conciergeReasoningEffortOptions: Array<{ value: AgentSettings["reas
   { value: "xhigh", label: "xhigh" },
   { value: "max", label: "max" },
 ];
-const APP_VERSION = "1.0.43";
+const APP_VERSION = "1.0.44";
 const APP_AUTHOR = "Mariusz Kurman";
 const APP_GITHUB = "mkurman/zorai";
 const APP_HOMEPAGE = "zorai.app";
@@ -1426,8 +1427,21 @@ function PluginsPanel() {
   const [pluginQuery, setPluginQuery] = useState("");
   const favoritePlugins = usePluginPrefsStore((state) => state.favorites);
   const listedPlugins = sortPluginsByFavorite(plugins, favoritePlugins).filter((plugin) => matchesPluginSearch(plugin, pluginQuery));
+  const uiPlugins = usePluginUiStore((state) => state.plugins);
+  const uiDisabled = usePluginUiStore((state) => state.disabled);
+  const uiSummaries = useMemo(() => new Map([...uiPlugins, ...uiDisabled].map((entry) => [entry.name, pluginUiSummary(entry)])), [uiPlugins, uiDisabled]);
   const [updateSources, setUpdateSources] = useState<Record<string, { spec?: string; reason?: string }>>({});
   const sourceKey = plugins.map((plugin) => `${plugin.name}=${plugin.install_source}`).join("|");
+  const [localRuns, setLocalRuns] = useState<Record<string, ZoraiPluginLocalRunStatus>>({});
+  const versionKey = plugins.map((plugin) => `${plugin.name}@${plugin.version}`).join("|");
+
+  useEffect(() => {
+    let active = true;
+    if (!bridge?.pluginLocalRunStatus) return;
+    void Promise.all(plugins.map(async (plugin) => [plugin.name, await bridge.pluginLocalRunStatus!(plugin.name)] as const))
+      .then((entries) => { if (active) setLocalRuns(Object.fromEntries(entries)); });
+    return () => { active = false; };
+  }, [versionKey]);
 
   useEffect(() => {
     let active = true;
@@ -1551,13 +1565,14 @@ function PluginsPanel() {
         {plugins.length === 0 && !loading ? <p className="zorai-empty-state">No plugins are installed yet.</p> : listedPlugins.map((plugin) => {
           const update = updateSources[plugin.name];
           const source = plugin.install_source.replace(/^local:/, "").replace(/^npm:/, "npm ").replace(/^github:/, "GitHub ") || "unknown source";
+          const bundled = plugin.install_source === "bundled";
           return (
             <SettingRow
               key={plugin.name}
-              label={favoritePlugins.includes(plugin.name) ? `★ ${plugin.name}` : plugin.name}
+              label={<>{favoritePlugins.includes(plugin.name) ? `★ ${plugin.name}` : plugin.name}{uiSummaries.has(plugin.name) ? <span className="zorai-plugin-ui-badge" title={`Opens in Plugins: ${uiSummaries.get(plugin.name) || "has its own view"}`}>Has a view</span> : null}</>}
               description={confirmRemove === plugin.name
                 ? "Remove this plugin, its settings and its files? This cannot be undone."
-                : `v${plugin.version} · ${plugin.endpoint_count} endpoints · auth ${plugin.auth_status.replace(/_/g, " ")} · ${source === "local" ? "source unknown" : `from ${source}`}`}
+                : `v${plugin.version} · ${plugin.endpoint_count} endpoints · auth ${plugin.auth_status.replace(/_/g, " ")} · ${bundled ? "built into zorai, updates with it" : source === "local" ? "source unknown" : `from ${source}`}`}
             >
               {confirmRemove === plugin.name ? (
                 <div className="zorai-panel__heading-actions">
@@ -1566,9 +1581,9 @@ function PluginsPanel() {
                 </div>
               ) : (
                 <div className="zorai-panel__heading-actions zorai-plugin-row-actions">
-                  <Switch checked={plugin.enabled} onChange={(checked) => void toggleEnabled(plugin.name, checked)} />
+                  <Switch checked={plugin.enabled} onChange={(checked) => void toggleEnabled(plugin.name, checked).then(refreshPluginUi)} />
                   <button type="button" className="zorai-ghost-button" disabled={busy !== null} onClick={() => void selectPlugin(plugin.name)}>Edit</button>
-                  {update?.spec ? (
+                  {bundled ? null : update?.spec ? (
                     <button
                       type="button"
                       className="zorai-ghost-button"
@@ -1591,6 +1606,16 @@ function PluginsPanel() {
                       {busy === `update:${plugin.name}` ? "Updating…" : "Update from…"}
                     </button>
                   )}
+                  {localRuns[plugin.name]?.approvedVersion ? (
+                    <button
+                      type="button"
+                      className="zorai-ghost-button"
+                      title={`Allowed to run programs on this computer (version ${localRuns[plugin.name].approvedVersion}). It will ask again next time.`}
+                      onClick={() => void bridge!.pluginLocalRunRevoke!(plugin.name).then((status) => setLocalRuns((current) => ({ ...current, [plugin.name]: status })))}
+                    >
+                      Revoke programs
+                    </button>
+                  ) : null}
                   <button type="button" className="zorai-ghost-button" disabled={busy !== null || !bridge?.pluginCliRemove} onClick={() => setConfirmRemove(plugin.name)}>Remove…</button>
                 </div>
               )}
@@ -1776,7 +1801,7 @@ function Panel({ section, title, children, extraClassName, actions }: { section:
   );
 }
 
-function SettingRow({ label, description, children }: { label: string; description: string; children: ReactNode }) {
+function SettingRow({ label, description, children }: { label: ReactNode; description: string; children: ReactNode }) {
   return (
     <div className="zorai-setting-row">
       <div><strong>{label}</strong><span>{description}</span></div>

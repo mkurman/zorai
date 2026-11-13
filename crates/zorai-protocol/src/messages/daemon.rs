@@ -216,4 +216,5 @@ pub enum DaemonMessage {
     AgentGenerateMusicResult { content: String },
     AgentThreadOperations { thread_id: String, operations_json: String },
     AgentCommitMessageGenerated { message: String, #[serde(default)] error: Option<String> },
+    AgentAnalyzeImageResult { content: String },
 }

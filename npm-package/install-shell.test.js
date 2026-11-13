@@ -38,7 +38,7 @@ test("shell installer dry-run targets GitHub release zip assets", { skip: proces
 
 test("shell installer provisions bundled skills into canonical zorai root", function () {
   const scriptPath = path.join(__dirname, "..", "scripts", "install.sh");
-  const script = childProcess.execFileSync("sed", ["-n", "1,430p", scriptPath], {
+  const script = childProcess.execFileSync("sed", ["-n", "p", scriptPath], {
     cwd: path.join(__dirname, ".."),
     encoding: "utf8",
   });
@@ -50,6 +50,9 @@ test("shell installer provisions bundled skills into canonical zorai root", func
   assert.match(script, /verify_extracted_binaries="\$\{1:-true\}"/);
   assert.match(script, /cp -R "\$EXTRACT_DIR\/skills\/\." "\$SKILLS_DIR\/"/);
   assert.match(script, /install_guidelines\(\)/);
+  assert.match(script, /BUNDLED_PLUGINS_DIR="\$\{ZORAI_BUNDLED_PLUGINS_DIR:-\$HOME\/\.zorai\/bundled-plugins\}"/);
+  assert.match(script, /install_bundled_plugins\(\)/);
+  assert.match(script, /^install_bundled_plugins$/m);
   assert.match(script, /if \[ -e "\$target_path" \]; then/);
   assert.match(script, /install_cli_alias\(\)/);
   assert.match(script, /ln -sf "zorai" "\$alias_path"/);

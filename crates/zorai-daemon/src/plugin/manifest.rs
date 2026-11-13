@@ -72,8 +72,12 @@ pub struct ApiSection {
 /// A single API endpoint definition. Per PLUG-05.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EndpointDef {
+    #[serde(default)]
     pub method: String,
+    #[serde(default)]
     pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run: Option<EndpointRunDef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub params: Option<HashMap<String, serde_json::Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -82,6 +86,14 @@ pub struct EndpointDef {
     pub body: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub response_template: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EndpointRunDef {
+    #[serde(flatten)]
+    pub python: PythonCommandDef,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_secs: Option<u64>,
 }
 
 /// Rate limit configuration for a plugin's API. Per PLUG-05.
