@@ -21,15 +21,17 @@
     <button role="tab" data-tab="ablate"><b>3</b><span>Ablate<small>Which change caused the gain</small></span></button>
     <button role="tab" data-tab="report"><b>4</b><span>Report<small>Grounded write-up with citations</small></span></button>
     <span class="grow"></span>
+    <button role="tab" data-tab="dashboard" class="side">Dashboard</button>
     <button role="tab" data-tab="runtimes" class="side">Runtimes</button>
     <button role="tab" data-tab="data" class="side">Data SQL</button>
     <button role="tab" data-tab="setup" class="side">Setup</button>
   </nav>
 
   <main>
+    <p id="loading" class="empty">Loading campaigns…</p>
     <p id="no-campaign" class="empty" hidden>No campaign yet. <b>Open repository…</b> registers a git repo that has an <code>experiment.yaml</code>, or <b>Try the example</b> builds a toy one in seconds.</p>
 
-    <section id="contract" class="tab">
+    <section id="contract" class="tab" hidden>
       <div class="split">
         <div class="col">
           <section class="card">
@@ -84,6 +86,31 @@
           <pre id="log" class="code log">Pick a run to see its output.</pre>
         </section>
       </div>
+    </section>
+
+    <section id="dashboard" class="tab" hidden>
+      <div class="bar">
+        <label>Chart <select id="d-key" aria-label="Value to chart"></select></label>
+        <label class="check"><input id="d-smooth" type="checkbox"> Smooth</label>
+        <label class="check"><input id="d-log" type="checkbox"> Log scale</label>
+        <label class="check"><input id="d-invalid" type="checkbox"> Show invalid runs</label>
+        <span class="grow"></span>
+        <span id="d-updated" class="muted small"></span>
+      </div>
+      <div id="d-running" class="run-cards"></div>
+      <section class="card">
+        <header><h2 id="d-title">Curves</h2><span id="d-legend" class="legend"></span></header>
+        <div id="d-chart" class="chart"></div>
+        <p id="d-empty" class="muted small"><span id="d-empty-runs">No runs yet. Start one with <b>Run sweep</b> on the Investigate step; its curves appear here while it trains.</span><span id="d-empty-curves" hidden>No curves yet. Runs that print progress while they train show up here live: <code>METRIC loss=2.31 step=400</code>, a JSON line such as <code>{"loss": 2.31, "step": 400}</code>, or the dicts the Hugging Face Trainer logs. A run that prints only its final score is a single point.</span></p>
+      </section>
+      <section class="card">
+        <header><h2>Latest values</h2><span class="muted small">per run, for the value charted above</span></header>
+        <div class="scroll"><table id="d-table"><thead><tr><th>Run</th><th>Code</th><th>Seed</th><th>Status</th><th>Step</th><th>Latest</th><th>Best</th></tr></thead><tbody></tbody></table></div>
+      </section>
+      <section class="card" id="d-gpu-card" hidden>
+        <header><h2>GPUs</h2><span class="muted small">while runs are going, since this panel opened</span></header>
+        <div id="d-gpus" class="gpu-grid"></div>
+      </section>
     </section>
 
     <section id="ablate" class="tab" hidden>

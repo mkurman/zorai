@@ -58,10 +58,59 @@ function routePicker(kind, value, onChange) {
   provider.setAttribute("aria-label", "Cloud provider");
   const model = document.createElement("input");
   model.setAttribute("aria-label", "Cloud model");
-  const list = document.createElement("datalist");
-  list.id = `models-${kind}-${Math.random().toString(36).slice(2, 8)}`;
-  model.setAttribute("list", list.id);
-  wrap.append(provider, model, list);
+  model.setAttribute("autocomplete", "off");
+  const list = document.createElement("ul");
+  list.className = "suggest";
+  list.setAttribute("role", "listbox");
+  list.hidden = true;
+  const combo = document.createElement("span");
+  combo.className = "combo";
+  combo.append(model, list);
+  wrap.append(provider, combo);
+  let models = [];
+  let active = -1;
+  const matches = () => {
+    const query = model.value.trim().toLowerCase();
+    return models.filter((item) => !query || `${item.id} ${item.name}`.toLowerCase().includes(query)).slice(0, 60);
+  };
+  const pick = (id) => {
+    model.value = id;
+    list.hidden = true;
+    emit();
+  };
+  const render = () => {
+    const found = matches();
+    active = Math.min(active, found.length - 1);
+    list.replaceChildren(...found.map((item, index) => {
+      const option = document.createElement("li");
+      option.setAttribute("role", "option");
+      option.setAttribute("aria-selected", String(index === active));
+      option.append(Object.assign(document.createElement("b"), { textContent: item.id }), ...(item.name && item.name !== item.id ? [Object.assign(document.createElement("span"), { textContent: item.name })] : []));
+      option.addEventListener("pointerdown", (event) => { event.preventDefault(); pick(item.id); });
+      return option;
+    }));
+    list.hidden = !found.length || document.activeElement !== model;
+    list.classList.toggle("up", model.getBoundingClientRect().bottom + 230 > innerHeight && model.getBoundingClientRect().top > 230);
+    list.children[active]?.scrollIntoView({ block: "nearest" });
+    return found;
+  };
+  model.addEventListener("focus", () => { active = -1; render(); });
+  model.addEventListener("input", () => { active = -1; render(); });
+  model.addEventListener("blur", () => { list.hidden = true; });
+  model.addEventListener("keydown", (event) => {
+    const found = matches();
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      if (!found.length) return;
+      event.preventDefault();
+      active = (active + (event.key === "ArrowDown" ? 1 : -1) + found.length) % found.length;
+      render();
+    } else if (event.key === "Enter" && !list.hidden && active >= 0) {
+      event.preventDefault();
+      pick(found[active].id);
+    } else if (event.key === "Escape") {
+      list.hidden = true;
+    }
+  });
   const emit = () => onChange(provider.value ? { provider: provider.value, ...(model.value.trim() ? { model: model.value.trim() } : {}) } : null);
   provider.append(new Option("zorai default", ""));
   model.disabled = true;
@@ -77,7 +126,7 @@ function routePicker(kind, value, onChange) {
     model.value = value?.model ?? "";
     const fill = () => {
       const entry = providers.find((item) => item.id === provider.value);
-      list.replaceChildren(...(entry?.models ?? []).map((item) => new Option(item.name, item.id)));
+      models = entry?.models ?? [];
       model.disabled = !provider.value;
       model.placeholder = provider.value ? `model (default for ${entry?.label ?? provider.value})` : current.model || "model";
     };

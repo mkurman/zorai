@@ -92,3 +92,29 @@ mark.ungrounded { background: color-mix(in srgb, #eb5757 30%, transparent); colo
 .runtime a { color: var(--accent, #d9a548); }
 .card[hidden] { display: none; }
 p.placeholder { color: var(--text-muted, #a89f8c); font-style: italic; }
+#dashboard { --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767; }
+:root[data-appearance="light"] #dashboard { --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948; }
+.chart { position: relative; min-height: 300px; }
+.chart svg { display: block; width: 100%; overflow: visible; }
+.chart .grid line { stroke: var(--border, #3a352d); stroke-width: 1; }
+.chart .axis text, .chart .end-label { fill: var(--text-muted, #a89f8c); font-size: 11px; }
+.chart .end-label { fill: var(--text-primary, #ece4d3); }
+.chart path.curve { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .cross { stroke: var(--text-muted, #a89f8c); stroke-width: 1; stroke-dasharray: 3 3; }
+.chart .live { stroke: var(--bg-primary, #1d1b17); stroke-width: 2; }
+.tip { position: absolute; pointer-events: none; z-index: 2; min-width: 160px; padding: 6px 8px; border-radius: 7px; border: 1px solid var(--border, #3a352d); background: var(--bg-elevated, #2b2822); font-size: 12px; box-shadow: 0 6px 18px rgb(0 0 0 / .25); }
+.tip b { display: block; margin-bottom: 3px; font-weight: 600; }
+.tip div { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.tip div span:last-child { margin-left: auto; padding-left: 10px; font-family: var(--font-mono, ui-monospace, monospace); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: flex-end; font-size: 12px; }
+.legend span, .tip div > i { display: inline-flex; align-items: center; gap: 5px; }
+.swatch { display: inline-block; width: 14px; height: 0; border-top: 2px solid; }
+.swatch.dashed { border-top-style: dashed; }
+.run-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--gap); margin-bottom: var(--gap); }
+.run-cards:empty { display: none; }
+.run-card { border: 1px solid var(--border, #3a352d); border-radius: 9px; padding: 9px 10px; display: flex; flex-direction: column; gap: 5px; background: color-mix(in srgb, var(--bg-elevated, #2b2822) 45%, transparent); }
+.run-card header { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.run-card .value { font: 600 18px/1.2 var(--font-mono, ui-monospace, monospace); }
+.gpu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); }
+.gpu-grid svg { display: block; width: 100%; height: 54px; }
+.gpu-grid path { fill: none; stroke-width: 2; }

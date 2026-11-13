@@ -114,3 +114,14 @@ button.armed { background: #eb5757; border-color: #eb5757; color: #fff; }
 .route select { max-width: 260px; font-size: 12px; }
 .route input { width: 220px; font-size: 12px; }
 .route input:disabled { opacity: .5; }
+.combo { position: relative; display: inline-flex; min-width: 0; max-width: 100%; }
+.combo input { min-width: 0; max-width: 100%; }
+.suggest { position: absolute; z-index: 30; left: 0; top: calc(100% + 4px); min-width: 100%; max-width: 380px; max-height: 220px; overflow: auto; margin: 0; padding: 4px; list-style: none; border: 1px solid var(--border, #3a352d); border-radius: 8px; background: var(--bg-elevated, #2b2822); box-shadow: 0 8px 24px rgb(0 0 0 / .3); }
+.suggest[hidden] { display: none; }
+.suggest.up { top: auto; bottom: calc(100% + 4px); }
+.suggest li { display: flex; flex-direction: column; padding: 4px 8px; border-radius: 5px; cursor: pointer; font-size: 12px; }
+.suggest li b { font-weight: 500; overflow-wrap: anywhere; }
+.suggest li span { color: var(--text-muted, #a89f8c); font-size: 11px; }
+.suggest li:hover, .suggest li[aria-selected="true"] { background: color-mix(in srgb, var(--accent, #d9a548) 16%, transparent); }
+.route { max-width: 100%; }
+.route select { max-width: min(260px, 100%); min-width: 0; }

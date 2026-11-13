@@ -9,7 +9,7 @@ from mlresearch.paths import campaign_dir  # noqa: E402
 
 ENTRY = Path(__file__).resolve()
 WORKERS = {"sweep": "mlresearch.runner:sweep", "ablate": "mlresearch.runner:ablate"}
-COMMANDS = "check, example, open, campaigns, spec, contract, lock, sweep, ablate, leaderboard, runs, log, watch, attribution, report, paper, audit, runtimes, launch, sql, status, cancel or jobs"
+COMMANDS = "check, example, open, campaigns, spec, contract, lock, sweep, ablate, leaderboard, runs, log, series, watch, attribution, report, paper, audit, runtimes, launch, sql, status, cancel or jobs"
 
 
 def stdin_payload(argv) -> str:
@@ -145,6 +145,24 @@ def main(argv):
         path = Path(run["log"])
         text = path.read_text(errors="replace") if path.is_file() else ""
         return {"run": run, "log": text[-20000:], "truncated": len(text) > 20000}
+    if command == "series":
+        from mlresearch import series
+
+        logs = campaign_dir(campaign_name(params)).resolve() / "logs"
+        wanted = params.get("logs") or []
+        wanted = json.loads(wanted) if isinstance(wanted, str) else wanted
+        found = []
+        for item in wanted:
+            path = Path(str(item.get("path") or "")).resolve()
+            if path.parent != logs:
+                raise ValueError(f"{path} is not a log of this campaign.")
+            found.append({"path": item["path"], **series.read(path, int(item.get("offset") or 0), float(item.get("last") or 0), bool(item.get("explicit")))})
+        result = {"logs": found}
+        if str(params.get("gpus", "")).lower() in ("1", "true", "yes"):
+            from mlresearch.check import gpus
+
+            result["gpus"] = gpus()
+        return result
     if command == "watch":
         return {"tabs": watch_tabs(params)}
     if command == "paper":
