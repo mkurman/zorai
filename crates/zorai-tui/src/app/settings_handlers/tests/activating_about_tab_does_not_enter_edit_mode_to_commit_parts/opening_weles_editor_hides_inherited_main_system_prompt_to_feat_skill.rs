@@ -662,6 +662,7 @@ fn every_field_on_the_new_settings_pages_reacts_to_its_key() {
             ("exa", "heuristic"),
             ("tavily", "heuristic"),
             ("keenable", "heuristic"),
+            ("youcom", "heuristic"),
         ] {
             let mut visible_config = crate::state::config::ConfigState::new();
             visible_config.search_provider = provider.to_string();

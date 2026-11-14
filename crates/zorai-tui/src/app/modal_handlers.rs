@@ -516,6 +516,7 @@ impl TuiModel {
                             "exa_api_key" => self.config.exa_api_key = value,
                             "tavily_api_key" => self.config.tavily_api_key = value,
                             "keenable_api_key" => self.config.keenable_api_key = value,
+                            "youcom_api_key" => self.config.youcom_api_key = value,
                             "search_max_results" => {
                                 if let Ok(n) = value.parse::<u32>() {
                                     self.config.search_max_results = n.clamp(1, 20);

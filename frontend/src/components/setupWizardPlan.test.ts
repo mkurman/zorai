@@ -34,6 +34,14 @@ describe("GUI setup writes the same daemon config as `zorai setup`", () => {
     expect(webSearchWrites("keenable", "kn-1")).toContainEqual({ keyPath: "/keenable_api_key", value: "kn-1" });
   });
 
+  it("You.com works without a key and stores one when given", () => {
+    expect(webSearchWrites("youcom", "")).toEqual([
+      { keyPath: "/tools/web_search", value: true },
+      { keyPath: "/search_provider", value: "youcom" },
+    ]);
+    expect(webSearchWrites("youcom", "ydc-1")).toContainEqual({ keyPath: "/youcom_api_key", value: "ydc-1" });
+  });
+
   it("key-based search providers refuse to enable search without a key", () => {
     expect(webSearchWrites("tavily", " ")).toBeNull();
     expect(webSearchWrites("duckduckgo", "")).toHaveLength(2);

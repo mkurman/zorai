@@ -24,6 +24,7 @@ fn build_config_patch_value_round_trips_daemon_backed_settings() {
     model.config.exa_api_key = "exa-secret".to_string();
     model.config.tavily_api_key = "tavily-secret".to_string();
     model.config.keenable_api_key = "keenable-secret".to_string();
+    model.config.youcom_api_key = "youcom-secret".to_string();
     model.config.search_max_results = 12;
     model.config.search_timeout_secs = 45;
     model.config.browse_provider = "chrome".to_string();
@@ -118,6 +119,7 @@ fn build_config_patch_value_round_trips_daemon_backed_settings() {
     assert_eq!(reloaded.config.exa_api_key, "exa-secret");
     assert_eq!(reloaded.config.tavily_api_key, "tavily-secret");
     assert_eq!(reloaded.config.keenable_api_key, "keenable-secret");
+    assert_eq!(reloaded.config.youcom_api_key, "youcom-secret");
     assert_eq!(reloaded.config.search_max_results, 12);
     assert_eq!(reloaded.config.search_timeout_secs, 45);
     assert_eq!(reloaded.config.browse_provider, "chrome");

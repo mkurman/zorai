@@ -20,6 +20,7 @@ fn configs() -> Vec<ConfigState> {
         "exa",
         "tavily",
         "keenable",
+        "youcom",
     ]
     .into_iter()
     .map(|provider| {
@@ -89,6 +90,7 @@ fn web_page_shows_only_the_selected_providers_settings() {
             "exa_api_key",
             "tavily_api_key",
             "keenable_api_key",
+            "youcom_api_key",
         ]
         .into_iter()
         .filter(|name| names.contains(name))
@@ -98,6 +100,7 @@ fn web_page_shows_only_the_selected_providers_settings() {
             "exa" => assert_eq!(keys, vec!["exa_api_key"]),
             "tavily" => assert_eq!(keys, vec!["tavily_api_key"]),
             "keenable" => assert_eq!(keys, vec!["keenable_api_key"]),
+            "youcom" => assert_eq!(keys, vec!["youcom_api_key"]),
             _ => assert!(keys.is_empty(), "{}: {keys:?}", config.search_provider),
         }
         assert_eq!(

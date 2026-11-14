@@ -1,10 +1,11 @@
 use super::flow::set_config_item;
 use super::*;
 
-const WEB_SEARCH_CHOICES: [(&str, &str); 6] = [
+const WEB_SEARCH_CHOICES: [(&str, &str); 7] = [
     ("Firecrawl", "firecrawl_api_key"),
     ("DuckDuckGo", "duckduckgo"),
     ("Keenable", "keenable_api_key"),
+    ("You.com", "youcom_api_key"),
     ("Exa", "exa_api_key"),
     ("Tavily", "tavily_api_key"),
     ("Skip", ""),
@@ -16,6 +17,7 @@ pub(super) fn web_search_provider_for_key(key_name: &str) -> Option<&'static str
         "exa_api_key" => Some("exa"),
         "tavily_api_key" => Some("tavily"),
         "keenable_api_key" => Some("keenable"),
+        "youcom_api_key" => Some("youcom"),
         _ => None,
     }
 }
@@ -39,6 +41,9 @@ pub(super) fn web_search_api_key_prompt_for_choice(choice: &str) -> Option<&'sta
         "keenable_api_key" => {
             Some("Enter Keenable API key (optional, leave empty for the free public endpoint)")
         }
+        "youcom_api_key" => {
+            Some("Enter You.com API key (optional, leave empty for the free keyless endpoint)")
+        }
         _ => None,
     }
 }
@@ -56,10 +61,13 @@ pub(super) async fn configure_web_search(
         Some("Tavily")
     } else if read_config_key("keenable_api_key").await.is_some() {
         Some("Keenable")
+    } else if read_config_key("youcom_api_key").await.is_some() {
+        Some("You.com")
     } else if let Some(provider) = read_config_key("search_provider").await {
         match provider.as_str() {
             "duckduckgo" => Some("DuckDuckGo"),
             "keenable" => Some("Keenable"),
+            "youcom" => Some("You.com"),
             _ => None,
         }
     } else {
@@ -99,7 +107,11 @@ pub(super) async fn configure_web_search(
                     None => Some(String::new()),
                 };
                 if let Some(key) = api_key {
-                    if !key.is_empty() || choice == "duckduckgo" || choice == "keenable_api_key" {
+                    if !key.is_empty()
+                        || choice == "duckduckgo"
+                        || choice == "keenable_api_key"
+                        || choice == "youcom_api_key"
+                    {
                         set_config_item(framed, "/tools/web_search", "true")
                             .await
                             .context("Failed to enable web search")?;
