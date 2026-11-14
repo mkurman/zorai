@@ -15,6 +15,16 @@ describe("thread operations", () => {
     expect(latestMessageMentioningOperation(messages.slice(1, 2), { operation_id: "operation-real", handle: "op9" })).toBeNull();
   });
 
+  it("falls back to the tool call that started the command when no message names the operation", () => {
+    const messages = [
+      { id: "call", content: "", toolName: "run_terminal", toolArguments: JSON.stringify({ command: "cd \"/repo\" && python -m unittest" }) },
+      { id: "later", content: "Still waiting." },
+    ] as AgentMessage[];
+    const operation = { operation_id: "x", handle: "op83", tool_name: "run_terminal", command: "cd \"/repo\" && python -m unittest" };
+    expect(latestMessageMentioningOperation(messages, operation)?.id).toBe("call");
+    expect(latestMessageMentioningOperation(messages, { ...operation, tool_name: "python_execute" })).toBeNull();
+  });
+
   it("shows how long an operation has been running in compact units", () => {
     expect(formatOperationAge(42_000)).toBe("42s");
     expect(formatOperationAge(5 * 60_000)).toBe("5m");

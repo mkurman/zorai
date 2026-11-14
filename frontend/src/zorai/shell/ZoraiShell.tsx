@@ -167,7 +167,10 @@ export function ZoraiShell() {
   }, []);
 
   useLayoutEffect(() => {
-    if (compactShell && !wasCompactShell.current) setRailOpen(false);
+    if (compactShell && !wasCompactShell.current) {
+      setRailOpen(false);
+      setContextOpen(false);
+    }
     wasCompactShell.current = compactShell;
   }, [compactShell]);
 
@@ -287,12 +290,15 @@ export function ZoraiShell() {
         contextOpen ? "zorai-shell--context-open" : "",
       ].filter(Boolean).join(" ")}
       style={shellStyle}>
-        {compactShell && railOpen ? (
+        {compactShell && (railOpen || contextOpen) ? (
           <button
             type="button"
             className="zorai-rail-overlay-backdrop"
-            aria-label="Collapse sidebar"
-            onClick={() => setRailOpen(false)}
+            aria-label={railOpen ? "Collapse sidebar" : "Collapse context"}
+            onClick={() => {
+              setRailOpen(false);
+              setContextOpen(false);
+            }}
           />
         ) : null}
         <nav className="zorai-global-rail" aria-label="Zorai navigation">

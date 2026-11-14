@@ -45,7 +45,7 @@ export function ThreadSidePanel({ title, subtitle, onClose, closing, children }:
 
   if (typeof document === "undefined") return null;
   return createPortal(
-    <aside data-closing={closing || undefined} className="zorai-thread-side-panel" role="dialog" aria-label={title} style={top === null ? undefined : { top }}>
+    <aside data-closing={closing || undefined} className="zorai-thread-side-panel" role="dialog" aria-label={title} style={top === null ? undefined : { top, maxHeight: `calc(100vh - ${top + 16}px)` }}>
       <header>
         <div>
           <h2>{title}</h2>
