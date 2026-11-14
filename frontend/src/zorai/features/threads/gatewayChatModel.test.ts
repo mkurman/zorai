@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   gatewayChatLabel,
+  gatewayChatName,
+  gatewayChatOtherThread,
   gatewayChatLinkState,
   gatewayLinkedThreadIds,
   linkedGatewayChat,
@@ -33,6 +35,22 @@ describe("gateway chat model", () => {
     const [first, second] = parseGatewayChats([telegram, discord]);
     expect(gatewayChatLabel(first)).toBe("Telegram alice");
     expect(gatewayChatLabel(second)).toBe("Discord 7");
+  });
+
+  it("names auto-titled chats by their sender alone, so the gateway list is not a wall of repeated platform text and ids", () => {
+    const whatsapp = {
+      ...telegram,
+      channel_key: "WhatsApp:1203@lid",
+      platform: "WhatsApp",
+      channel_id: "1203@lid",
+      thread_title: "[WhatsApp message from Dominik (120363404786272668@lid",
+      last_thread_title: "[WhatsApp message from Dominik (120363404786272668@lid",
+    };
+    const [chat] = parseGatewayChats([whatsapp]);
+    expect(gatewayChatName(chat)).toBe("Dominik");
+    expect(gatewayChatLabel(chat)).toBe("WhatsApp Dominik");
+    expect(gatewayChatOtherThread(chat)).toBeNull();
+    expect(gatewayChatOtherThread({ ...chat, thread_title: "Plan S3 Streaming" })).toBe("Plan S3 Streaming");
   });
 
   it("marks only the chat linked to this daemon thread as linked, and others as busy on another thread", () => {

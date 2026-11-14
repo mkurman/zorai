@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
-import { useCodeWorkspaceBindingStore } from "../code/codeWorkspaceBindingStore";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import {
   blobToBase64,
@@ -81,15 +80,6 @@ export function ThreadComposer({
   const activeThreadId = useAgentStore((state) => state.activeThreadId);
   const workspaceContext = useWorkspaceContextStore((state) => activeThreadId ? state.byThreadId[activeThreadId] : undefined);
   const toggleAttachedFile = useWorkspaceContextStore((state) => state.toggleAttachedFile);
-  const clearWorkspaceRoot = useWorkspaceContextStore((state) => state.clearRoot);
-  const bindWorkspaceRoot = useWorkspaceContextStore((state) => state.bindRoot);
-  const pickWorkspaceRoot = async () => {
-    if (!activeThreadId || !window.zorai?.workspaceSelectFolder) return;
-    const selection = await window.zorai.workspaceSelectFolder().catch(() => null);
-    if (!selection || selection.canceled || !selection.root) return;
-    bindWorkspaceRoot(activeThreadId, selection.root.root);
-  };
-  const [contextPreviewOpen, setContextPreviewOpen] = useState(false);
   const subAgents = useAgentStore((state) => state.subAgents);
   const agentDisplayName = useAgentDisplayName();
   const activeResponderId = runtime.activeThread?.threadHandoffState?.activeAgentId
@@ -551,60 +541,16 @@ export function ThreadComposer({
       onDrop={onDrop}
       onPaste={onPaste}
     >
-      {workspaceContext ? (
+      {workspaceContext?.activeFile || (workspaceContext?.attachedFiles.length ?? 0) > 0 || (compact && activeThreadId) ? (
         <div className="zorai-composer-workspace-context">
-          <div className="zorai-composer-workspace-context-header">
-            <button type="button" className="zorai-composer-context-chip" onClick={() => setContextPreviewOpen((open) => !open)} title={workspaceContext.root}>
-              {workspaceContext.root.split(/[\\/]/).slice(-1)[0]}
-            </button>
-            <button
-              type="button"
-              className="zorai-composer-context-chip"
-              aria-label="Change workspace"
-              title="Change workspace"
-              onClick={() => void pickWorkspaceRoot()}
-            ><ComposerIcon kind="edit" /></button>
-            <button
-              type="button"
-              className="zorai-composer-context-chip"
-              aria-label="Unpin workspace from thread"
-              title="Unpin workspace from thread"
-              onClick={() => {
-                if (!activeThreadId) return;
-                const unpinnedRoot = workspaceContext.root;
-                clearWorkspaceRoot(activeThreadId);
-                setContextPreviewOpen(false);
-                const daemonThreadId = runtime.activeThread?.daemonThreadId;
-                const bindings = useCodeWorkspaceBindingStore.getState();
-                bindings.forgetProjectThread(unpinnedRoot, activeThreadId);
-                if (daemonThreadId) bindings.forgetProjectThread(unpinnedRoot, daemonThreadId);
-                if (daemonThreadId) void window.zorai?.agentSetThreadWorkspaceContext?.(daemonThreadId, null);
-              }}
-            ><ComposerIcon kind="cancel" /></button>
-            </div>
-            {workspaceContext.activeFile ? <span className="zorai-composer-context-chip">Active · {workspaceContext.activeFile}</span> : null}
-            {workspaceContext.selection && workspaceContext.activeFile ? <span className="zorai-composer-context-chip">Lines {workspaceContext.selection.startLine}-{workspaceContext.selection.endLine}</span> : null}
-            {workspaceContext.attachedFiles.map((filePath) => (
-              <span key={filePath} className="zorai-composer-context-chip zorai-composer-context-chip--attached">
-                {filePath}
-                <button type="button" aria-label={`Detach ${filePath}`} onClick={() => activeThreadId && toggleAttachedFile(activeThreadId, filePath)}>×</button>
-              </span>
-            ))}
-            {contextPreviewOpen ? (
-              <div className="zorai-composer-context-preview">
-                <strong>Effective daemon workspace context</strong>
-                <code>Workspace: {workspaceContext.root}</code>
-                {workspaceContext.activeFile ? <code>Active file: {workspaceContext.activeFile}</code> : null}
-                {workspaceContext.selection && workspaceContext.activeFile ? <code>Selection: {workspaceContext.activeFile}:{workspaceContext.selection.startLine}-{workspaceContext.selection.endLine}</code> : null}
-                {workspaceContext.attachedFiles.length > 0 ? <code>Explicit attachments: {workspaceContext.attachedFiles.join(", ")}</code> : null}
-                <span>File contents are read from disk by tools on demand; they are not injected automatically.</span>
-              </div>
-            ) : null}
-          {compact ? <CodeThreadRuntimeSwitcher thread={runtime.activeThread ?? null} variant="composer" /> : null}
-        </div>
-      ) : activeThreadId ? (
-        <div className="zorai-composer-workspace-context">
-          <button type="button" className="zorai-composer-context-chip" onClick={() => void pickWorkspaceRoot()}>Pin workspace…</button>
+          {workspaceContext?.activeFile ? <span className="zorai-composer-context-chip">Active · {workspaceContext.activeFile}</span> : null}
+          {workspaceContext?.selection && workspaceContext.activeFile ? <span className="zorai-composer-context-chip">Lines {workspaceContext.selection.startLine}-{workspaceContext.selection.endLine}</span> : null}
+          {workspaceContext?.attachedFiles.map((filePath) => (
+            <span key={filePath} className="zorai-composer-context-chip zorai-composer-context-chip--attached">
+              {filePath}
+              <button type="button" aria-label={`Detach ${filePath}`} onClick={() => activeThreadId && toggleAttachedFile(activeThreadId, filePath)}>×</button>
+            </span>
+          ))}
           {compact ? <CodeThreadRuntimeSwitcher thread={runtime.activeThread ?? null} variant="composer" /> : null}
         </div>
       ) : null}
@@ -786,7 +732,7 @@ export function ThreadComposer({
   );
 }
 
-function ComposerIcon({ kind }: { kind: "attach" | "sketch" | "browser" | "terminal" | "mic" | "send" | "stop" | "queue" | "autoplay" | "edit" | "cancel" | "accept" }) {
+export function ComposerIcon({ kind }: { kind: "attach" | "sketch" | "browser" | "terminal" | "mic" | "send" | "stop" | "queue" | "autoplay" | "edit" | "cancel" | "accept" }) {
   const common = {
     width: 16,
     height: 16,

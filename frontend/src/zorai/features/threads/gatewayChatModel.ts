@@ -37,11 +37,26 @@ export function parseGatewayChats(value: unknown): GatewayChat[] {
   });
 }
 
+function chatName(platform: string, title: string | null): string {
+  let name = (title ?? "").trim().replace(/^\[(.*)\]?$/s, "$1").replace(/\]$/, "").trim();
+  const prefix = `${platform.toLowerCase()} `;
+  if (name.toLowerCase().startsWith(prefix)) name = name.slice(prefix.length).trim();
+  name = name.replace(/^message from\s+/i, "").replace(/\s*\([^()]*\)?$/, "").trim();
+  return name;
+}
+
+export function gatewayChatName(chat: GatewayChat): string {
+  return chatName(chat.platform, chat.last_thread_title) || chat.channel_id;
+}
+
 export function gatewayChatLabel(chat: GatewayChat): string {
-  const title = (chat.last_thread_title ?? "").trim();
-  const prefix = `${chat.platform.toLowerCase()} `;
-  const name = title.toLowerCase().startsWith(prefix) ? title.slice(prefix.length).trim() : title;
-  return `${chat.platform} ${name || chat.channel_id}`.trim();
+  return `${chat.platform} ${gatewayChatName(chat)}`.trim();
+}
+
+export function gatewayChatOtherThread(chat: GatewayChat): string | null {
+  const title = chat.thread_title?.trim();
+  if (!title || chatName(chat.platform, title) === gatewayChatName(chat)) return null;
+  return title;
 }
 
 export function gatewayChatLinkState(chat: GatewayChat, daemonThreadId: string | null | undefined): GatewayChatLinkState {

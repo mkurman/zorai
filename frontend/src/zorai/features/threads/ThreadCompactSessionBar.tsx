@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import {
   fetchGitDiff,
@@ -31,6 +31,7 @@ import { SpawnedContext } from "./ThreadsSpawnedContext";
 import { pushToast } from "@/lib/toastStore";
 import { CodeFileIcon } from "@/zorai/features/code/CodeFileIcon";
 import { usePresence } from "@/hooks/usePresence";
+import { ThreadWorkspacePin } from "./ThreadWorkspacePin";
 
 const MAX_TRACKED_FILES = 40;
 
@@ -119,7 +120,40 @@ export function ThreadCompactSessionBar({ reviewActions = true }: { reviewAction
   const filesPresence = usePresence(openSection === "files" && entries.length > 0);
   const todosPresence = usePresence(openSection === "todos" && todos.length > 0);
   const spawnedPresence = usePresence(openSection === "spawned" && spawned.length > 0);
-  if (!compactSessionHasContent(entries, todos, spawned)) {
+  const hasContent = compactSessionHasContent(entries, todos, spawned);
+  const summaryRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const summary = summaryRef.current;
+    if (!summary || typeof ResizeObserver === "undefined") return;
+    let wrapped: boolean | null = null;
+    let last = new Map<Element, { x: number; y: number }>();
+    const observer = new ResizeObserver(() => {
+      const box = summary.getBoundingClientRect();
+      const children = [...summary.children];
+      const next = new Map(children.map((child) => {
+        const rect = child.getBoundingClientRect();
+        return [child, { x: rect.left - box.left, y: rect.top - box.top }] as const;
+      }));
+      const tops = new Set(children.map((child) => Math.round(next.get(child)!.y)));
+      const isWrapped = tops.size > 1;
+      if (wrapped !== null && wrapped !== isWrapped && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+        for (const child of children) {
+          const before = last.get(child);
+          const after = next.get(child)!;
+          if (!before) continue;
+          child.animate(
+            [{ translate: `${before.x - after.x}px ${before.y - after.y}px` }, { translate: "0 0" }],
+            { duration: 260, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
+          );
+        }
+      }
+      wrapped = isWrapped;
+      last = next;
+    });
+    observer.observe(summary);
+    return () => observer.disconnect();
+  }, [hasContent, localThreadId]);
+  if (!hasContent && !localThreadId) {
     return null;
   }
 
@@ -216,38 +250,43 @@ export function ThreadCompactSessionBar({ reviewActions = true }: { reviewAction
 
   return (
     <div className="zorai-compact-session">
-      <div className="zorai-compact-session__summary">
-        {entries.length > 0 ? (
-          <button type="button" className={["zorai-compact-session__pill", openSection === "files" ? "is-open" : ""].filter(Boolean).join(" ")} aria-expanded={openSection === "files"} onClick={() => toggle("files")}>
-            {chevron("files")}
-            <span>{entries.length} {entries.length === 1 ? "File" : "Files"}</span>
-            {reviewActions && pending.length > 0 ? <span className="zorai-compact-session__badge">{pending.length} to review</span> : null}
-          </button>
-        ) : null}
-        {todos.length > 0 ? (
-          <button type="button" className={["zorai-compact-session__pill", openSection === "todos" ? "is-open" : ""].filter(Boolean).join(" ")} aria-expanded={openSection === "todos"} onClick={() => toggle("todos")}>
-            {chevron("todos")}
-            <span>Todos</span>
-            <span className="zorai-compact-session__meter" aria-hidden="true"><span style={{ width: `${percent}%` }} /></span>
-            <span className="zorai-compact-session__count">{progress.done}/{progress.total}</span>
-          </button>
-        ) : null}
-        {spawned.length > 0 ? (
-          <button type="button" className={["zorai-compact-session__pill", openSection === "spawned" ? "is-open" : ""].filter(Boolean).join(" ")} aria-expanded={openSection === "spawned"} onClick={() => toggle("spawned")}>
-            {chevron("spawned")}
-            <span>{spawned.length} {spawned.length === 1 ? "Agent" : "Agents"}</span>
-          </button>
-        ) : null}
-        {reviewActions && pending.length > 0 ? (
-          <div className="zorai-compact-session__actions">
-            <button type="button" className="zorai-compact-session__keep" disabled={Boolean(busyPath)} title="Accept the agent's changes by staging them in git" onClick={() => void keepAll()}>
-              Keep All
-            </button>
-            <button type="button" className="zorai-compact-session__reject" disabled={Boolean(busyPath)} title="Undo the agent's changes: restore the pre-operation snapshot or discard them in git" onClick={() => void rejectAll()}>
-              Reject All
-            </button>
+      <div ref={summaryRef} className="zorai-compact-session__summary">
+        {hasContent ? (
+          <div className="zorai-compact-session__items">
+            {entries.length > 0 ? (
+              <button type="button" className={["zorai-compact-session__pill", openSection === "files" ? "is-open" : ""].filter(Boolean).join(" ")} aria-expanded={openSection === "files"} onClick={() => toggle("files")}>
+                {chevron("files")}
+                <span>{entries.length} {entries.length === 1 ? "File" : "Files"}</span>
+                {reviewActions && pending.length > 0 ? <span className="zorai-compact-session__badge">{pending.length} to review</span> : null}
+              </button>
+            ) : null}
+            {todos.length > 0 ? (
+              <button type="button" className={["zorai-compact-session__pill", openSection === "todos" ? "is-open" : ""].filter(Boolean).join(" ")} aria-expanded={openSection === "todos"} onClick={() => toggle("todos")}>
+                {chevron("todos")}
+                <span>Todos</span>
+                <span className="zorai-compact-session__meter" aria-hidden="true"><span style={{ width: `${percent}%` }} /></span>
+                <span className="zorai-compact-session__count">{progress.done}/{progress.total}</span>
+              </button>
+            ) : null}
+            {spawned.length > 0 ? (
+              <button type="button" className={["zorai-compact-session__pill", openSection === "spawned" ? "is-open" : ""].filter(Boolean).join(" ")} aria-expanded={openSection === "spawned"} onClick={() => toggle("spawned")}>
+                {chevron("spawned")}
+                <span>{spawned.length} {spawned.length === 1 ? "Agent" : "Agents"}</span>
+              </button>
+            ) : null}
+            {reviewActions && pending.length > 0 ? (
+              <div className="zorai-compact-session__actions">
+                <button type="button" className="zorai-compact-session__keep" disabled={Boolean(busyPath)} title="Accept the agent's changes by staging them in git" onClick={() => void keepAll()}>
+                  Keep All
+                </button>
+                <button type="button" className="zorai-compact-session__reject" disabled={Boolean(busyPath)} title="Undo the agent's changes: restore the pre-operation snapshot or discard them in git" onClick={() => void rejectAll()}>
+                  Reject All
+                </button>
+              </div>
+            ) : null}
           </div>
         ) : null}
+        <ThreadWorkspacePin />
       </div>
 
       {filesPresence.mounted ? (

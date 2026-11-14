@@ -604,6 +604,39 @@ impl AgentEngine {
         updated
     }
 
+    async fn cancel_background_operation(&self, operation_id: &str) -> bool {
+        if self
+            .session_manager
+            .cancel_queued_managed_command(operation_id)
+            .await
+        {
+            return true;
+        }
+        let Ok(Some(status)) = self
+            .session_manager
+            .get_background_task_status(operation_id)
+            .await
+        else {
+            return false;
+        };
+        if !matches!(
+            status.state,
+            crate::session_manager::BackgroundTaskState::Running
+        ) {
+            return false;
+        }
+        let Some(session_id) = status
+            .session_id
+            .and_then(|value| Uuid::parse_str(&value).ok())
+        else {
+            return false;
+        };
+        self.session_manager
+            .write_input(session_id, &[3])
+            .await
+            .is_ok()
+    }
+
     pub async fn cancel_task(&self, task_id: &str) -> bool {
         let mut tasks = self.tasks.lock().await;
         if let Some(task) = tasks.iter_mut().find(|t| t.id == task_id) {
@@ -688,7 +721,7 @@ impl AgentEngine {
             .into_iter()
             .next()
         else {
-            return false;
+            return self.cancel_background_operation(task_id).await;
         };
         if !matches!(
             task.status,

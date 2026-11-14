@@ -3,6 +3,8 @@ import { notifyThreadListRefresh } from "../../shell/zoraiNavigationEvents";
 import {
   fetchGatewayChats,
   gatewayChatLabel,
+  gatewayChatName,
+  gatewayChatOtherThread,
   gatewayChatLinkState,
   linkThreadToGatewayChat,
   linkedGatewayChat,
@@ -10,6 +12,7 @@ import {
 } from "./gatewayChatModel";
 import { ThreadSidePanel, useThreadPanelStore } from "./threadSidePanel";
 import { usePresence } from "@/hooks/usePresence";
+import { GatewayPlatformIcon } from "./GatewayPlatformIcon";
 
 export function ThreadGatewayControl({ daemonThreadId, icon }: { daemonThreadId: string | null | undefined; icon?: ReactNode }) {
   const open = useThreadPanelStore((state) => state.open === "gateway");
@@ -93,24 +96,31 @@ export function ThreadGatewayControl({ daemonThreadId, icon }: { daemonThreadId:
             <ul className="zorai-handoff-stack" aria-label="Gateway chats">
               {chats.map((chat) => {
                 const state = gatewayChatLinkState(chat, daemonThreadId);
+                const otherThread = gatewayChatOtherThread(chat);
                 return (
                   <li key={chat.channel_key}>
                     <button
                       type="button"
-                      className="zorai-ghost-button"
+                      className={["zorai-ghost-button", "zorai-gateway-chat", state === "this" ? "is-linked" : ""].filter(Boolean).join(" ")}
                       aria-pressed={state === "this"}
+                      aria-label={gatewayChatLabel(chat)}
+                      title={chat.channel_id}
                       disabled={!daemonThreadId || pending || state === "this"}
                       onClick={() => void link(chat.channel_key)}
                     >
-                      <strong>{gatewayChatLabel(chat)}</strong>
-                      {" · "}
-                      {pendingKey === chat.channel_key
-                        ? "Linking…"
-                        : state === "this"
-                          ? "Linked to this thread"
-                          : state === "other"
-                            ? `On ${chat.thread_title ?? chat.thread_id}`
-                            : "Not linked"}
+                      <GatewayPlatformIcon platform={chat.platform} />
+                      <span className="zorai-gateway-chat__text">
+                        <span className="zorai-gateway-chat__name">{gatewayChatName(chat)}</span>
+                        <span className="zorai-gateway-chat__state">
+                          {pendingKey === chat.channel_key
+                            ? "Linking…"
+                            : state === "this"
+                              ? "Linked to this thread"
+                              : state === "other"
+                                ? otherThread ? `On ${otherThread}` : "Linked to its own thread"
+                                : `${chat.platform} · not linked`}
+                        </span>
+                      </span>
                     </button>
                   </li>
                 );

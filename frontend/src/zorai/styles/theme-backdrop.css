@@ -59,3 +59,10 @@
 :root[data-corners="square"] *::after {
   border-radius: 0 !important;
 }
+
+@media (max-width: 900px) {
+  :root[data-backdrop] .zorai-shell.zorai-shell--context-open .zorai-context-panel,
+  :root[data-backdrop] .zorai-shell:not(.zorai-shell--rail-collapsed) .zorai-contextual-rail {
+    background: var(--zorai-backdrop-solid);
+  }
+}
