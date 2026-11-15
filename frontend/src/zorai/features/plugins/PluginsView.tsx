@@ -282,7 +282,8 @@ function PluginConversation({ plugin, askCommand }: { plugin: ZoraiPluginUiManif
       <ThreadsView
         variant="compact"
         compactHeaderActions={<button type="button" className="zorai-ghost-button zorai-plugin-new-chat" onClick={() => usePluginPrefsStore.getState().setCurrentConversation(plugin.name, null)}>New conversation</button>}
-        sessionTabFilter={(id, entry) => known.has(id) || Boolean(entry && (known.has(entry.id) || (entry.daemonThreadId && known.has(entry.daemonThreadId))))} />
+        sessionTabFilter={(id, entry) => known.has(id) || Boolean(entry && (known.has(entry.id) || (entry.daemonThreadId && known.has(entry.daemonThreadId))))}
+        onNewSession={() => usePluginPrefsStore.getState().setCurrentConversation(plugin.name, null)} />
     </div>
   );
 }

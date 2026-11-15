@@ -9704,3 +9704,8 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-compact-session__tree-folder button { display: flex; align-items: center; gap: 6px; min-width: 0; width: 100%; padding: 0; border: 0; background: transparent; color: var(--zorai-muted); font: 12px var(--font-ui); text-align: left; cursor: pointer; }
 .zorai-compact-session__tree-folder button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .zorai-compact-session__tree-folder button:hover { color: var(--zorai-text); }
+
+.zorai-session-tabs__new { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 10px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--zorai-muted); font: var(--text-xs) var(--font-ui); white-space: nowrap; cursor: pointer; }
+.zorai-session-tabs__new span { font-size: var(--text-base); line-height: 1; }
+.zorai-session-tabs__new:hover { background: color-mix(in srgb, var(--zorai-text) 5%, transparent); color: var(--zorai-text); }
+.zorai-session-tabs__new:focus-visible { outline: 2px solid var(--zorai-accent); outline-offset: 1px; }

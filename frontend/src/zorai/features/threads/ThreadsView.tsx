@@ -79,6 +79,7 @@ export function ThreadsView({
   compactHeaderActions = null,
   sessionTabFilter,
   onLastSessionClosed,
+  onNewSession,
 }: {
   returnTarget?: ZoraiReturnTarget | null;
   onReturnTarget?: () => void;
@@ -86,6 +87,7 @@ export function ThreadsView({
   compactHeaderActions?: ReactNode;
   sessionTabFilter?: (id: string, thread: AgentThread | undefined) => boolean;
   onLastSessionClosed?: () => void;
+  onNewSession?: () => void;
 } = {}) {
   const threadLoadingPending = useThreadLoadingStore((state) => state.pending);
   const threadLoadingByThreadId = useThreadLoadingStore((state) => state.byThreadId);
@@ -346,7 +348,7 @@ export function ThreadsView({
       className={["zorai-thread-surface", "zorai-native-thread-surface", variant === "compact" ? "zorai-thread-surface--compact" : "", activeTint ? "zorai-tinted-surface" : ""].filter(Boolean).join(" ")}
       style={tintStyle(activeTint) as CSSProperties | undefined}
     >
-      <ThreadSessionTabs includeSession={sessionTabFilter} onLastSessionClosed={onLastSessionClosed} />
+      <ThreadSessionTabs includeSession={sessionTabFilter} onLastSessionClosed={onLastSessionClosed} onNewSession={onNewSession} />
       <ThreadHeader
         thread={runtime.activeThread}
         messageCount={runtime.messages.length}
