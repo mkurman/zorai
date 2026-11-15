@@ -1063,6 +1063,67 @@ fn headless_operation_cancel_tokens(
     TOKENS.get_or_init(Default::default)
 }
 
+type HeadlessOutputBuffers = (
+    String,
+    Arc<std::sync::Mutex<Vec<u8>>>,
+    Arc<std::sync::Mutex<Vec<u8>>>,
+);
+
+fn headless_operation_outputs(
+) -> &'static std::sync::Mutex<std::collections::HashMap<String, HeadlessOutputBuffers>> {
+    static OUTPUTS: std::sync::OnceLock<
+        std::sync::Mutex<std::collections::HashMap<String, HeadlessOutputBuffers>>,
+    > = std::sync::OnceLock::new();
+    OUTPUTS.get_or_init(Default::default)
+}
+
+pub(crate) fn register_headless_operation_output(
+    operation_id: &str,
+    command: &str,
+    stdout: &HeadlessOutputCapture,
+    stderr: &HeadlessOutputCapture,
+) {
+    headless_operation_outputs()
+        .lock()
+        .expect("headless operation output mutex poisoned")
+        .insert(
+            operation_id.to_string(),
+            (
+                command.to_string(),
+                Arc::clone(&stdout.buffer),
+                Arc::clone(&stderr.buffer),
+            ),
+        );
+}
+
+pub(crate) fn forget_headless_operation_output(operation_id: &str) {
+    headless_operation_outputs()
+        .lock()
+        .expect("headless operation output mutex poisoned")
+        .remove(operation_id);
+}
+
+pub(crate) fn headless_operation_output(operation_id: &str) -> Option<(String, Vec<u8>)> {
+    let outputs = headless_operation_outputs()
+        .lock()
+        .expect("headless operation output mutex poisoned");
+    let (command, stdout, stderr) = outputs.get(operation_id)?;
+    let mut bytes = stdout
+        .lock()
+        .expect("headless command output buffer mutex poisoned")
+        .clone();
+    let stderr = stderr
+        .lock()
+        .expect("headless command output buffer mutex poisoned");
+    if !stderr.is_empty() {
+        if !bytes.is_empty() && !bytes.ends_with(b"\n") {
+            bytes.push(b'\n');
+        }
+        bytes.extend_from_slice(&stderr);
+    }
+    Some((command.clone(), bytes))
+}
+
 pub(crate) fn cancel_headless_operation(operation_id: &str) -> bool {
     let tokens = headless_operation_cancel_tokens()
         .lock()
@@ -1091,6 +1152,7 @@ fn spawn_headless_shell_monitor(
         .lock()
         .expect("headless operation cancel mutex poisoned")
         .insert(operation_id.clone(), kill_token.clone());
+    register_headless_operation_output(&operation_id, &command, &stdout_capture, &stderr_capture);
     tokio::spawn(async move {
         let outcome = tokio::select! {
             outcome = child.wait() => outcome,
@@ -1104,6 +1166,7 @@ fn spawn_headless_shell_monitor(
             .lock()
             .expect("headless operation cancel mutex poisoned")
             .remove(&operation_id);
+        forget_headless_operation_output(&operation_id);
         let stdout = collect_headless_output_capture(
             stdout_capture,
             4000,

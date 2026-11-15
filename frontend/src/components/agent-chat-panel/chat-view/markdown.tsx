@@ -25,8 +25,20 @@ export const KATEX_DELIMITERS = [
   { left: "\\begin{gather}", right: "\\end{gather}", display: true },
   { left: "\\begin{gather*}", right: "\\end{gather*}", display: true },
   { left: "\\(", right: "\\)", display: false },
-  { left: "$", right: "$", display: false },
 ] as const;
+
+export function inlineDollarMathEnd(source: string, start: number): number {
+  const next = source[start + 1];
+  if (!next || /\s|\$/.test(next)) return -1;
+  const lineEnd = source.indexOf("\n", start);
+  const limit = lineEnd < 0 ? source.length : lineEnd;
+  for (let index = start + 2; index < limit; index += 1) {
+    if (source[index] !== "$" || source[index - 1] === "\\") continue;
+    if (/\s/.test(source[index - 1]) || /\d/.test(source[index + 1] ?? "")) continue;
+    return index;
+  }
+  return -1;
+}
 
 export function isRelativeFileHref(href: string | undefined): boolean {
   if (!href) return false;
@@ -267,6 +279,21 @@ export function protectMathSegments(source: string): ProtectedMath {
       }
     }
 
+    if (source[cursor] === "$" && source[cursor - 1] !== "\\") {
+      if (source[cursor + 1] === "$") {
+        output += "$$";
+        cursor += 2;
+        continue;
+      }
+      const end = inlineDollarMathEnd(source, cursor);
+      if (end >= 0) {
+        const index = segments.push(`\\(${source.slice(cursor + 1, end)}\\)`) - 1;
+        output += `${MATH_TOKEN_OPEN}${index}${MATH_TOKEN_CLOSE}`;
+        cursor = end + 1;
+        continue;
+      }
+    }
+
     output += source[cursor];
     cursor += 1;
   }
@@ -293,6 +320,65 @@ function restoreMathSegments(root: HTMLElement, segments: string[]): void {
 export function markdownRenderMode(streaming: boolean | undefined): "plain" | "markdown" {
   return streaming ? "plain" : "markdown";
 }
+
+export type StreamingMarkdownBlocks = { blocks: string[]; consumed: number; text: string };
+
+const DISPLAY_MATH_OPEN_CLOSE = new Map([["$$", "$$"], ["\\[", "\\]"]]);
+
+export function advanceStreamingMarkdownBlocks(previous: StreamingMarkdownBlocks, content: string): StreamingMarkdownBlocks {
+  const committed = content.startsWith(previous.text)
+    ? previous
+    : { blocks: [], consumed: 0, text: "" };
+  const blocks = [...committed.blocks];
+  let blockStart = committed.consumed;
+  let cursor = blockStart;
+  let fence: string | null = null;
+  let math: string | null = null;
+  let blankAt = -1;
+  while (cursor < content.length) {
+    const lineEnd = content.indexOf("\n", cursor);
+    if (lineEnd < 0) break;
+    const line = content.slice(cursor, lineEnd);
+    const trimmed = line.trim();
+    if (blankAt >= 0 && trimmed !== "" && fence === null && math === null) {
+      if (!/^[ \t]/.test(line)) {
+        blocks.push(content.slice(blockStart, cursor));
+        blockStart = cursor;
+      }
+      blankAt = -1;
+    }
+    if (fence !== null) {
+      if (trimmed.startsWith(fence) && trimmed.slice(fence.length).trim() === "") fence = null;
+    } else if (math !== null) {
+      if (trimmed === math) math = null;
+    } else {
+      const fenceMatch = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+      if (fenceMatch) fence = fenceMatch[1];
+      else if (DISPLAY_MATH_OPEN_CLOSE.has(trimmed)) math = DISPLAY_MATH_OPEN_CLOSE.get(trimmed) ?? null;
+      else if (trimmed === "") blankAt = cursor;
+    }
+    cursor = lineEnd + 1;
+  }
+  if (blankAt >= 0 && cursor < content.length && /^[^ \t\r\n]/.test(content.slice(cursor, cursor + 1))) {
+    blocks.push(content.slice(blockStart, cursor));
+    blockStart = cursor;
+  }
+  if (blocks.length === committed.blocks.length) return committed;
+  return { blocks, consumed: blockStart, text: content.slice(0, blockStart) };
+}
+
+const StreamingMarkdown = memo(function StreamingMarkdown({ content }: { content: string }) {
+  const stateRef = useRef<StreamingMarkdownBlocks>({ blocks: [], consumed: 0, text: "" });
+  stateRef.current = advanceStreamingMarkdownBlocks(stateRef.current, content);
+  const { blocks, consumed } = stateRef.current;
+  const tail = content.slice(consumed);
+  return (
+    <div className="acp-md-stream">
+      {blocks.map((block, index) => <MarkdownContent key={index} content={block} />)}
+      {tail ? <div className="acp-md acp-md--streaming">{tail}</div> : null}
+    </div>
+  );
+});
 
 export const MarkdownContent = memo(function MarkdownContent({
   content,
@@ -322,7 +408,7 @@ export const MarkdownContent = memo(function MarkdownContent({
   }, [protectedMath, renderMode]);
 
   if (renderMode === "plain") {
-    return <div ref={rootRef} className="acp-md acp-md--streaming">{content}</div>;
+    return <StreamingMarkdown content={content} />;
   }
   return (
     <div ref={rootRef} className="acp-md">

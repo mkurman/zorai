@@ -3,7 +3,7 @@ import type { AgentRun } from "@/lib/agentRuns";
 import type { WorkContextEntry } from "@/lib/agentWorkContext";
 import type { SpawnedAgentTree, SpawnedAgentTreeNode } from "@/lib/spawnedAgentTree";
 
-export type CompactSessionSection = "files" | "todos" | "spawned";
+export type CompactSessionSection = "files" | "todos" | "spawned" | "goal";
 
 export type FileLineStats = {
   additions: number;

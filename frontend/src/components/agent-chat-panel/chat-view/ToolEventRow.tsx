@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { buildToolReviewPresentation } from "../toolReviewPresentation";
 import type { ToolEventGroup } from "./types";
 import { getToolDiffPresentation, ToolDiffView } from "./toolDiffPresentation";
@@ -12,10 +12,28 @@ import {
   ToolStructuredValueView,
 } from "./toolValuePresentation";
 import { usePresence } from "@/hooks/usePresence";
+import { useToolRevealStore } from "./toolRevealStore";
 
 export function ToolEventRow({ group }: { group: ToolEventGroup }) {
   const [collapsed, setCollapsed] = useState(true);
   const presence = usePresence(!collapsed);
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const [revealed, setRevealed] = useState(false);
+  const revealNonce = useToolRevealStore((state) => (state.key === group.key ? state.nonce : 0));
+  useEffect(() => {
+    if (!revealNonce) return;
+    setCollapsed(false);
+    setRevealed(true);
+    const frame = window.requestAnimationFrame(() => rowRef.current?.scrollIntoView({ block: "center", behavior: "smooth" }));
+    const timer = window.setTimeout(() => {
+      setRevealed(false);
+      useToolRevealStore.getState().clear(group.key);
+    }, 1800);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [group.key, revealNonce]);
   const artifacts = useMemo(
     () => extractToolArtifacts(group.toolArguments, group.resultContent),
     [group.resultContent, group.toolArguments],
@@ -36,7 +54,7 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
   const toolName = useMemo(() => group.toolName.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" "), [group.toolName]);
 
   return (
-    <div className="acp-tool-row">
+    <div ref={rowRef} className={revealed ? "acp-tool-row acp-tool-row--revealed" : "acp-tool-row"}>
       <div className="acp-tool-row__header">
         <button
           type="button"

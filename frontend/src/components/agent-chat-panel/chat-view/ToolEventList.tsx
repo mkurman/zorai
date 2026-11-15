@@ -3,6 +3,7 @@ import type { ToolEventAttribution, ToolEventGroup } from "./types";
 import { MemoizedToolEventRow, sameToolEventGroup } from "./ToolEventRow";
 import { ZoraiToolMark } from "./ZoraiToolMark";
 import { usePresence } from "@/hooks/usePresence";
+import { useToolRevealStore } from "./toolRevealStore";
 
 const TOOL_TITLE_RISE_MS = 400;
 
@@ -55,6 +56,10 @@ export const ToolEventList = memo(function ToolEventList({
   const presence = usePresence(expanded);
   const headerRef = useRef<HTMLButtonElement | null>(null);
   const summary = summarizeToolGroups(groups);
+  const revealNonce = useToolRevealStore((state) => (state.key && groups.some((group) => group.key === state.key) ? state.nonce : 0));
+  useEffect(() => {
+    if (revealNonce) setExpanded(true);
+  }, [revealNonce]);
 
   if (groups.length === 0 || !summary) {
     return null;

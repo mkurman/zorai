@@ -1,5 +1,18 @@
 use super::*;
 
+const THREAD_OPERATION_OUTPUT_LINES: usize = 200;
+const THREAD_OPERATION_OUTPUT_CHARS: usize = 20_000;
+
+fn thread_operation_output_tail(text: &str) -> String {
+    let lines = text.lines().collect::<Vec<_>>();
+    let text = lines[lines.len().saturating_sub(THREAD_OPERATION_OUTPUT_LINES)..].join("\n");
+    let skip = text
+        .chars()
+        .count()
+        .saturating_sub(THREAD_OPERATION_OUTPUT_CHARS);
+    text.chars().skip(skip).collect()
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct OperationWakeup {
     pub(super) operation_id: String,
@@ -152,6 +165,32 @@ impl AgentEngine {
             );
             status["tool_name"] = serde_json::Value::String(wakeup.tool_name.clone());
             status["registered_at"] = serde_json::Value::Number(wakeup.registered_at.into());
+            let session_output = match status["session_id"]
+                .as_str()
+                .and_then(|value| value.parse::<zorai_protocol::SessionId>().ok())
+            {
+                Some(session_id) => self
+                    .session_manager
+                    .get_analysis_text(session_id, Some(THREAD_OPERATION_OUTPUT_LINES))
+                    .await
+                    .ok(),
+                None => None,
+            };
+            let headless =
+                crate::agent::tool_executor::headless_operation_output(&wakeup.operation_id);
+            if status["command"].is_null() {
+                if let Some((command, _)) = headless.as_ref() {
+                    status["command"] = serde_json::Value::String(command.clone());
+                }
+            }
+            if let Some(text) = session_output.or_else(|| {
+                headless.map(|(_, bytes)| {
+                    String::from_utf8_lossy(&strip_ansi_escapes::strip(bytes)).into_owned()
+                })
+            }) {
+                status["output_tail"] =
+                    serde_json::Value::String(thread_operation_output_tail(&text));
+            }
             operations.push(status);
         }
         operations.sort_by_key(|operation| operation["registered_at"].as_u64().unwrap_or(0));
@@ -673,6 +712,63 @@ mod tests {
                 .saturating_sub(operation_wakeup_debounce_ms())
                 .saturating_sub(1),
         );
+    }
+
+    #[test]
+    fn thread_operation_output_tail_keeps_the_newest_lines_so_the_operator_sees_current_progress() {
+        let text = (1..=250)
+            .map(|line| format!("line {line}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let tail = thread_operation_output_tail(&text);
+        assert!(tail.starts_with("line 51\n"), "{}", &tail[..20]);
+        assert!(tail.ends_with("line 250"));
+
+        let wide = "x".repeat(THREAD_OPERATION_OUTPUT_CHARS + 10) + "end";
+        let tail = thread_operation_output_tail(&wide);
+        assert_eq!(tail.chars().count(), THREAD_OPERATION_OUTPUT_CHARS);
+        assert!(tail.ends_with("end"));
+    }
+
+    #[tokio::test]
+    async fn thread_operations_show_live_python_code_and_output_so_the_operator_can_watch_it() {
+        let root = tempdir().expect("tempdir should succeed");
+        let manager = SessionManager::new_test(root.path()).await;
+        let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+        let registry = crate::server::operation_registry();
+        let running = registry.accept_operation(zorai_protocol::tool_names::PYTHON_EXECUTE, None);
+        registry.mark_started(&running.operation_id);
+        engine
+            .register_operation_wakeup(
+                "thread-live-output",
+                zorai_protocol::tool_names::PYTHON_EXECUTE,
+                &running.operation_id,
+                true,
+            )
+            .await;
+        let (_, stdout) = tokio::io::duplex(64);
+        let (_, stderr) = tokio::io::duplex(64);
+        let stdout = crate::agent::tool_executor::spawn_headless_output_capture(stdout);
+        let stderr = crate::agent::tool_executor::spawn_headless_output_capture(stderr);
+        stdout
+            .buffer
+            .lock()
+            .unwrap()
+            .extend_from_slice(b"\x1b[32mstep 1\x1b[0m\n");
+        stderr.buffer.lock().unwrap().extend_from_slice(b"warning");
+        crate::agent::tool_executor::register_headless_operation_output(
+            &running.operation_id,
+            "print('step 1')",
+            &stdout,
+            &stderr,
+        );
+
+        let operations = engine.list_thread_operations("thread-live-output").await;
+        crate::agent::tool_executor::forget_headless_operation_output(&running.operation_id);
+
+        assert_eq!(operations.len(), 1, "{operations:?}");
+        assert_eq!(operations[0]["command"], "print('step 1')");
+        assert_eq!(operations[0]["output_tail"], "step 1\nwarning");
     }
 
     #[tokio::test]

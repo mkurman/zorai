@@ -15,25 +15,39 @@ function mentions(text: string, token: string): boolean {
   return new RegExp(`(^|[^A-Za-z0-9_-])${escaped}($|[^A-Za-z0-9_-])`).test(text);
 }
 
+function startingCall(message: AgentMessage, toolName: string | undefined, command: string) {
+  const escaped = JSON.stringify(command).slice(1, -1);
+  return message.toolCalls?.find((call) => call.function.name === toolName && call.function.arguments.includes(escaped));
+}
+
 function startsCommand(message: AgentMessage, toolName: string | undefined, command: string): boolean {
   const escaped = JSON.stringify(command).slice(1, -1);
   if (message.toolName === toolName && message.toolArguments?.includes(escaped)) return true;
-  return Boolean(message.toolCalls?.some((call) => call.function.name === toolName && call.function.arguments.includes(escaped)));
+  return Boolean(startingCall(message, toolName, command));
+}
+
+export function operationRevealId(
+  message: AgentMessage,
+  operation: Partial<Pick<ZoraiThreadOperation, "tool_name" | "command">>,
+): string {
+  if (message.toolCallId) return message.toolCallId;
+  const command = operation.command?.trim();
+  return (command && startingCall(message, operation.tool_name, command)?.id) || message.id;
 }
 
 export function latestMessageMentioningOperation(
   messages: AgentMessage[],
   operation: Pick<ZoraiThreadOperation, "operation_id" | "handle"> & Partial<Pick<ZoraiThreadOperation, "tool_name" | "command">>,
 ): AgentMessage | null {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    const text = message.content ?? "";
-    if (mentions(text, operation.operation_id) || mentions(text, operation.handle)) return message;
-  }
   const command = operation.command?.trim();
-  if (!command) return null;
+  if (command) {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (startsCommand(messages[index], operation.tool_name, command)) return messages[index];
+    }
+  }
   for (let index = messages.length - 1; index >= 0; index -= 1) {
-    if (startsCommand(messages[index], operation.tool_name, command)) return messages[index];
+    const text = messages[index].content ?? "";
+    if (mentions(text, operation.operation_id) || mentions(text, operation.handle)) return messages[index];
   }
   return null;
 }

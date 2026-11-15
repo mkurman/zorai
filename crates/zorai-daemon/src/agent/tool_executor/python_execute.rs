@@ -154,6 +154,7 @@ pub(crate) async fn execute_python_execute(
             spawn_python_execute_monitor(
                 operation_id.clone(),
                 python_bin.clone(),
+                code,
                 cwd.clone(),
                 child,
                 stdout_capture,
@@ -271,6 +272,7 @@ async fn spawn_python_execute_background(
     spawn_python_execute_monitor(
         operation_id.clone(),
         python_bin.to_string(),
+        code,
         cwd.clone(),
         child,
         stdout_capture,
@@ -307,6 +309,7 @@ async fn spawn_python_execute_background(
 fn spawn_python_execute_monitor(
     operation_id: String,
     interpreter: String,
+    code: &str,
     cwd: Option<PathBuf>,
     mut child: tokio::process::Child,
     stdout_capture: HeadlessOutputCapture,
@@ -314,8 +317,10 @@ fn spawn_python_execute_monitor(
 ) {
     let cwd_for_task = cwd.as_ref().map(|path| path.display().to_string());
     let started_at = std::time::Instant::now();
+    register_headless_operation_output(&operation_id, code, &stdout_capture, &stderr_capture);
     tokio::spawn(async move {
         let outcome = child.wait().await;
+        forget_headless_operation_output(&operation_id);
         let stdout = collect_headless_output_capture(
             stdout_capture,
             4000,

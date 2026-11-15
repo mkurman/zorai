@@ -536,3 +536,50 @@ async fn review_wakes_owner_that_is_the_worker_thread_of_a_finished_goal() {
         "the finished first goal must not block its thread from reviewing the second goal"
     );
 }
+
+#[tokio::test]
+async fn paused_goal_keeps_child_report_queued_until_the_operator_resumes_it() {
+    let root = tempdir().expect("tempdir");
+    let manager = SessionManager::new_test(root.path()).await;
+    let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+    let goal = start_supervised_goal(&engine).await;
+    let worker = enqueue_worker(&engine, &goal.id).await;
+    let worker_thread = goal.thread_id.clone().expect("worker thread");
+    engine
+        .get_or_create_thread_with_target(Some(&worker_thread), "Worker thread", None)
+        .await;
+    assert!(engine.control_goal_run(&goal.id, "pause", None, None).await);
+    engine.persist_goal_runs().await;
+    engine
+        .enqueue_visible_thread_continuation(
+            &worker_thread,
+            DeferredVisibleThreadContinuation {
+                agent_id: MAIN_AGENT_ID.to_string(),
+                task_id: Some(worker.id.clone()),
+                preferred_session_hint: None,
+                llm_user_content: "Child `carbon` finished and reported back.".to_string(),
+                queued_at_ms: 0,
+                force_compaction: false,
+                rerun_participant_observers_after_turn: true,
+                internal_delegate_sender: None,
+                internal_delegate_message: None,
+            },
+        )
+        .await;
+
+    for _ in 0..5 {
+        engine
+            .supervise_idle_deferred_thread_continuations()
+            .await
+            .expect("supervision pass");
+    }
+
+    assert_eq!(
+        engine
+            .deferred_visible_thread_continuations_for(&worker_thread)
+            .await
+            .len(),
+        1,
+        "a paused goal must keep the child's report so resuming the goal delivers it"
+    );
+}

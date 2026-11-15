@@ -278,6 +278,16 @@ export function CodeView({
     useCodeWorkspaceBindingStore.getState().recordProjectThread(boundRoot, local.daemonThreadId ?? local.id);
   }, [boundRoot, runtime.threads]);
 
+  const activeThread = runtime.activeThread;
+  useEffect(() => {
+    if (!boundRoot || activatingRoot || !activeThread) return;
+    const bindings = useCodeWorkspaceBindingStore.getState();
+    const projectIds = bindings.projectThreadIdsForRoot(boundRoot);
+    if (!projectIds.includes(activeThread.id) && !(activeThread.daemonThreadId && projectIds.includes(activeThread.daemonThreadId))) return;
+    codeThreadLocalIdRef.current = activeThread.id;
+    bindings.recordProjectThread(boundRoot, activeThread.daemonThreadId ?? activeThread.id);
+  }, [activatingRoot, activeThread, boundRoot]);
+
   const handleRootSelected = useCallback<CodeOpenWorkspaceBoundary>(
     (root, source) => {
       useCodeWorkspaceBindingStore.getState().setLastRoot(root.root);

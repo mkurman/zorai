@@ -3,11 +3,12 @@ import type { WorkContextEntry } from "@/lib/agentWorkContext";
 
 export type ThreadFilePreviewTarget = {
   entry: WorkContextEntry;
+  trail?: WorkContextEntry[];
 };
 
 export type ThreadFilePreviewContextValue = {
   previewTarget: ThreadFilePreviewTarget | null;
-  openThreadFilePreview: (entry: WorkContextEntry) => void;
+  openThreadFilePreview: (entry: WorkContextEntry, trail?: WorkContextEntry[]) => void;
   closeThreadFilePreview: () => void;
 };
 

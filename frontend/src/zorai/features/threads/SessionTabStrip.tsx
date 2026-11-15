@@ -7,6 +7,8 @@ import { neighborSessionId, sessionCloseFollowUp, useOpenSessionTabs } from "./o
 import { threadIsUnread } from "./sessionCooperation";
 import { threadReadKey, useThreadReadStateStore } from "./threadReadStateStore";
 import { ThreadNeedsActionIcon, useThreadIdsNeedingAction } from "./threadNeedsAction";
+import { useThreadRailTabStore } from "./threadRailTabStore";
+import { resolveThreadCreationAgent } from "./threadFilterModel";
 
 export type SessionTabModel = {
   id: string;
@@ -29,6 +31,7 @@ export function SessionTabStrip({
   onClose,
   onMove,
   onTogglePin,
+  onNew,
   label = "Open sessions",
 }: {
   tabs: SessionTabModel[];
@@ -36,11 +39,12 @@ export function SessionTabStrip({
   onClose: (id: string) => void;
   onMove?: (id: string, targetId: string, placeAfter: boolean) => void;
   onTogglePin?: (id: string) => void;
+  onNew?: () => void;
   label?: string;
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [drop, setDrop] = useState<SessionTabDrop | null>(null);
-  if (tabs.length === 0) return null;
+  if (tabs.length === 0 && !onNew) return null;
 
   const endDrag = () => {
     setDraggingId(null);
@@ -119,6 +123,11 @@ export function SessionTabStrip({
           </div>
         );
       })}
+      {onNew ? (
+        <button type="button" className="zorai-session-tabs__new" title="New thread" aria-label="New thread" onClick={onNew}>
+          <span aria-hidden="true">+</span> New
+        </button>
+      ) : null}
     </nav>
   );
 }
@@ -140,7 +149,13 @@ export function sessionTabModel(
   };
 }
 
-export function ThreadSessionTabs({ includeSession }: { includeSession?: (id: string, thread: AgentThread | undefined) => boolean } = {}) {
+export function ThreadSessionTabs({ includeSession, onLastSessionClosed, onNewSession }: {
+  includeSession?: (id: string, thread: AgentThread | undefined) => boolean;
+  onLastSessionClosed?: () => void;
+  onNewSession?: () => void;
+} = {}) {
+  const railTab = useThreadRailTabStore((state) => state.tab);
+  const subAgents = useAgentStore((state) => state.subAgents);
   const runtime = useAgentChatPanelRuntime();
   const threads = useAgentStore((state) => state.threads);
   const openSessionIds = useOpenSessionTabs((state) => state.ids);
@@ -151,10 +166,12 @@ export function ThreadSessionTabs({ includeSession }: { includeSession?: (id: st
   const threadIdsNeedingAction = useThreadIdsNeedingAction();
   const threadTints = useTintStore((state) => state.threads);
   const activeId = runtime.activeThread?.id ?? null;
+  const activeDaemonId = runtime.activeThread?.daemonThreadId ?? null;
+  const activeAlreadyOpen = openSessionIds.some((id) => id === activeId || (activeDaemonId !== null && id === activeDaemonId));
 
   useEffect(() => {
-    if (activeId) rememberOpenSession(activeId);
-  }, [activeId, rememberOpenSession]);
+    if (activeId && !activeAlreadyOpen) rememberOpenSession(activeId);
+  }, [activeAlreadyOpen, activeId, rememberOpenSession]);
 
   const visibleIds = includeSession
     ? openSessionIds.filter((id) => includeSession(id, threads.find((item) => item.id === id || item.daemonThreadId === id)))
@@ -180,6 +197,16 @@ export function ThreadSessionTabs({ includeSession }: { includeSession?: (id: st
     <SessionTabStrip
       tabs={tabs}
       onSelect={(id) => void openThreadTarget(runtime, id)}
+      onNew={onNewSession ?? (includeSession ? undefined : () => {
+        const agent = resolveThreadCreationAgent(railTab, subAgents);
+        runtime.createThread({
+          workspaceId: runtime.activeWorkspace?.id ?? null,
+          agentId: agent?.id ?? null,
+          agentName: agent?.name ?? null,
+        });
+        runtime.setChatBackView("threads");
+        runtime.setView("chat");
+      })}
       onMove={moveOpenSession}
       onClose={(id) => {
         const visibleNext = neighborSessionId(visibleIds, id);
@@ -192,7 +219,10 @@ export function ThreadSessionTabs({ includeSession }: { includeSession?: (id: st
           openCount: includeSession ? visibleIds.length - 1 : useOpenSessionTabs.getState().ids.length,
         });
         if (action.kind === "follow") void openThreadTarget(runtime, action.id);
-        if (action.kind === "clear") runtime.setActiveThread(null);
+        if (action.kind === "clear") {
+          if (onLastSessionClosed) onLastSessionClosed();
+          else runtime.setActiveThread(null);
+        }
       }}
     />
   );
