@@ -833,7 +833,7 @@ impl AgentEngine {
                 && !force_compaction_queued
                 && !self.thread_supervises_goal_awaiting_review(thread_id).await
             {
-                tracing::debug!(goal_run_id = %goal.id, thread_id, "not flushing deferred continuation for paused or terminal goal");
+                tracing::info!(goal_run_id = %goal.id, thread_id, status = ?goal.status, "not flushing deferred continuation for paused or terminal goal");
                 return Ok(());
             }
             if force_compaction_queued
@@ -948,6 +948,25 @@ impl AgentEngine {
         result
     }
 
+    async fn paused_goal_holds_deferred_continuations(&self, thread_id: &str) -> bool {
+        let force_compaction_queued = {
+            let queued = self.deferred_visible_thread_continuations.lock().await;
+            queued.get(thread_id).is_some_and(|items| {
+                items
+                    .iter()
+                    .any(|continuation| continuation.force_compaction)
+            })
+        };
+        if force_compaction_queued {
+            return false;
+        }
+        let Some(goal) = self.goal_for_execution_thread(thread_id).await else {
+            return false;
+        };
+        goal.status == GoalRunStatus::Paused
+            && !self.thread_supervises_goal_awaiting_review(thread_id).await
+    }
+
     pub(in crate::agent) async fn supervise_idle_deferred_thread_continuations(
         &self,
     ) -> Result<()> {
@@ -971,6 +990,16 @@ impl AgentEngine {
                 continue;
             }
             if !self.thread_is_idle_for_subagent_wakeup(&thread_id).await {
+                continue;
+            }
+            if self
+                .paused_goal_holds_deferred_continuations(&thread_id)
+                .await
+            {
+                idle_continuation_drain_misses()
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .remove(&thread_id);
                 continue;
             }
             let queued_before = continuation_signatures(

@@ -17,8 +17,11 @@ import { SpawnedContext } from "./ThreadsSpawnedContext";
 import { ThreadRuntimeBar } from "./ThreadRuntimeBar";
 import { resolveThreadOwnerRuntimeProfile } from "./threadOwnerRuntime";
 import { revealThreadMessage } from "./useThreadMessageWindow";
+import { ThreadGoalStatus } from "./ThreadGoalStatus";
+import { goalRunForThread } from "./threadGoalModel";
+import { formatGoalRunStatus } from "@/lib/goalRuns";
 
-type ContextTab = "todos" | "files" | "spawned";
+type ContextTab = "todos" | "files" | "spawned" | "goal";
 
 export function ThreadsContext() {
   const runtime = useAgentChatPanelRuntime();
@@ -37,6 +40,11 @@ export function ThreadsContext() {
     ? resolveThreadOwnerRuntimeProfile(activeThread, subAgents, agentSettings, conciergeConfig).contextWindowTokens
     : Math.max(1, Math.trunc(agentSettings.context_window_tokens || 1));
   const currentContextTokens = resolveCurrentContextTokens(activeThread, runtime.messages);
+  const goal = useMemo(
+    () => goalRunForThread(runtime.goalRunsForTrace, [daemonThreadId, activeThread?.id]),
+    [activeThread?.id, daemonThreadId, runtime.goalRunsForTrace],
+  );
+  const visibleTab = activeTab === "goal" && !goal ? "todos" : activeTab;
 
   useEffect(() => {
     if (!daemonThreadId) {
@@ -98,14 +106,16 @@ export function ThreadsContext() {
       />
 
       <div className="zorai-context-tabs" role="tablist" aria-label="Thread context">
-        <ContextTabButton id="todos" label="Todos" count={runtime.todos.length} activeTab={activeTab} onSelect={setActiveTab} />
-        <ContextTabButton id="files" label="Files" count={workContext.entries.length} activeTab={activeTab} onSelect={setActiveTab} />
-        <ContextTabButton id="spawned" label="Spawned" count={spawnedCount} activeTab={activeTab} onSelect={setActiveTab} />
+        <ContextTabButton id="todos" label="Todos" count={runtime.todos.length} activeTab={visibleTab} onSelect={setActiveTab} />
+        <ContextTabButton id="files" label="Files" count={workContext.entries.length} activeTab={visibleTab} onSelect={setActiveTab} />
+        <ContextTabButton id="spawned" label="Spawned" count={spawnedCount} activeTab={visibleTab} onSelect={setActiveTab} />
+        {goal ? <ContextTabButton id="goal" label="Goal" count={formatGoalRunStatus(goal.status)} activeTab={visibleTab} onSelect={setActiveTab} /> : null}
       </div>
 
-      {activeTab === "todos" ? <TodoContext todos={runtime.todos} /> : null}
-      {activeTab === "files" ? <FilesContext entries={workContext.entries} activeThreadId={activeThread?.id ?? null} /> : null}
-      {activeTab === "spawned" ? (
+      {visibleTab === "todos" ? <TodoContext todos={runtime.todos} /> : null}
+      {visibleTab === "files" ? <FilesContext entries={workContext.entries} activeThreadId={activeThread?.id ?? null} /> : null}
+      {visibleTab === "goal" && goal ? <ThreadGoalStatus goal={goal} /> : null}
+      {visibleTab === "spawned" ? (
         <SpawnedContext
           tree={runtime.spawnedAgentTree}
           selectedDaemonThreadId={runtime.activeThread?.daemonThreadId ?? null}
@@ -172,7 +182,7 @@ function ContextTabButton({
 }: {
   id: ContextTab;
   label: string;
-  count: number;
+  count: number | string;
   activeTab: ContextTab;
   onSelect: (tab: ContextTab) => void;
 }) {

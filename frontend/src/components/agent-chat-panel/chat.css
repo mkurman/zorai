@@ -669,6 +669,13 @@
   box-sizing: border-box;
 }
 
+.acp-tool-row--revealed {
+  outline: 1px solid var(--accent);
+  outline-offset: 3px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  transition: outline-color 400ms ease, background-color 400ms ease;
+}
+
 .acp-tool-row__header {
   display: flex;
   align-items: center;
@@ -1483,4 +1490,8 @@
   font-size: var(--text-xs);
   color: var(--text-muted);
   text-transform: capitalize;
+}
+
+.acp-md-stream > .acp-md + .acp-md {
+  padding-top: 14px;
 }

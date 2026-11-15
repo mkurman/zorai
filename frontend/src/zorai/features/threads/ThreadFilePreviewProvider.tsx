@@ -10,7 +10,7 @@ export function ThreadFilePreviewProvider({ children }: { children: ReactNode })
   const [previewTarget, setPreviewTarget] = useState<ThreadFilePreviewTarget | null>(null);
   const value = useMemo<ThreadFilePreviewContextValue>(() => ({
     previewTarget,
-    openThreadFilePreview: (entry: WorkContextEntry) => setPreviewTarget({ entry }),
+    openThreadFilePreview: (entry: WorkContextEntry, trail?: WorkContextEntry[]) => setPreviewTarget({ entry, trail }),
     closeThreadFilePreview: () => setPreviewTarget(null),
   }), [previewTarget]);
 

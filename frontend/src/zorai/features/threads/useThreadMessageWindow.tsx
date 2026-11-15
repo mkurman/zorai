@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { ThreadDisplayItem } from "./threadTurnActivity";
+import { useToolRevealStore } from "@/components/agent-chat-panel/chat-view/toolRevealStore";
 import { setFollowThreadHistoryBottom } from "@/components/agent-chat-panel/runtime/threadHistoryScroll";
 import {
   resolveThreadMessageWindow,
@@ -172,10 +173,19 @@ export function useThreadMessageWindow(options: {
       const scroller = scrollerRef.current;
       const keys = itemKeysRef.current;
       const directIndex = keys.indexOf(`message:${messageId}`);
+      const toolIndex = directIndex >= 0 ? -1 : itemsRef.current.findIndex((item) => {
+        if (item.type === "tool") return item.group.key === messageId;
+        if (item.type === "toolList") return item.groups.some((group) => group.key === messageId);
+        return item.type === "turnActivity"
+          && item.entries.some((entry) => entry.kind === "tools" && entry.groups.some((group) => group.key === messageId));
+      });
       const index = directIndex >= 0
         ? directIndex
-        : itemsRef.current.findIndex((item) => item.type === "turnActivity" && item.messageIds.includes(messageId));
+        : toolIndex >= 0
+          ? toolIndex
+          : itemsRef.current.findIndex((item) => item.type === "turnActivity" && item.messageIds.includes(messageId));
       if (!scroller || index < 0) return;
+      if (toolIndex >= 0) useToolRevealStore.getState().reveal(messageId);
       setFollowThreadHistoryBottom(false);
       onReleaseFollowRef.current?.();
       const top = stackedThreadMessageHeight(

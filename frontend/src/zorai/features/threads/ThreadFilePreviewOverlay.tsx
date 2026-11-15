@@ -107,8 +107,13 @@ export function mediaUrlForPath(path: string): string {
 }
 
 export function ThreadFilePreviewOverlay() {
-  const { previewTarget, closeThreadFilePreview } = useThreadFilePreview();
+  const { previewTarget, openThreadFilePreview, closeThreadFilePreview } = useThreadFilePreview();
   const entry = previewTarget?.entry ?? null;
+  const trail = previewTarget?.trail ?? [];
+  const backTarget = trail[trail.length - 1] ?? null;
+  const goBack = () => {
+    if (backTarget) openThreadFilePreview(backTarget, trail.slice(0, -1));
+  };
   const [sections, setSections] = useState<PreviewSection[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -164,31 +169,41 @@ export function ThreadFilePreviewOverlay() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         closeThreadFilePreview();
+      } else if (event.altKey && event.key === "ArrowLeft" && backTarget) {
+        event.preventDefault();
+        openThreadFilePreview(backTarget, trail.slice(0, -1));
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closeThreadFilePreview, entry]);
+  }, [backTarget, closeThreadFilePreview, entry, openThreadFilePreview, trail]);
 
   if (!entry) return null;
 
   const mediaName = entry.path.split(/[\\/]/).pop() || entry.path;
+  const closeMedia = backTarget ? goBack : closeThreadFilePreview;
   const mediaSection = !loading && !error ? sections.find((section) => section.kind === "image" || section.kind === "video" || section.kind === "audio") : undefined;
   if (mediaSection?.kind === "image") {
-    return <ImageLightbox src={mediaSection.text} name={mediaName} vector={/\.svg$/i.test(entry.path)} onClose={closeThreadFilePreview} />;
+    return <ImageLightbox src={mediaSection.text} name={mediaName} vector={/\.svg$/i.test(entry.path)} onClose={closeMedia} />;
   }
   if (mediaSection?.kind === "video" || mediaSection?.kind === "audio") {
-    return <MediaLightbox src={mediaSection.text} name={mediaName} kind={mediaSection.kind} onClose={closeThreadFilePreview} />;
+    return <MediaLightbox src={mediaSection.text} name={mediaName} kind={mediaSection.kind} onClose={closeMedia} />;
   }
   if (loading && mediaKindForPath(entry.path)) {
-    return <MediaLightbox src={null} name={mediaName} kind={mediaKindForPath(entry.path) === "video" ? "video" : "audio"} onClose={closeThreadFilePreview} />;
+    return <MediaLightbox src={null} name={mediaName} kind={mediaKindForPath(entry.path) === "video" ? "video" : "audio"} onClose={closeMedia} />;
   }
 
   return (
     <section className="zorai-file-preview-overlay" aria-label="File preview">
       <header className="zorai-file-preview-overlay__header">
-        <div>
-          <div className="zorai-kicker">Files</div>
+        <div className="zorai-file-preview-overlay__title">
+          {backTarget ? (
+            <button type="button" className="zorai-file-preview-overlay__back" title="Back (Alt+←)" onClick={goBack}>
+              ← {backTarget.path.split(/[\\/]/).filter(Boolean).pop() || backTarget.path}
+            </button>
+          ) : (
+            <div className="zorai-kicker">Files</div>
+          )}
           <h2>{threadContextEntryDisplayPath(entry, shortenHomePath)}</h2>
           <span>Type: {entry.kind ?? "file"}</span>
         </div>
@@ -272,20 +287,27 @@ function PreviewSectionView({ section }: { section: PreviewSection }) {
 
 function DirectoryListing({ path, entries }: { path: string; entries: ZoraiWorkspaceEntry[] }) {
   const { previewTarget, openThreadFilePreview } = useThreadFilePreview();
+  const sorted = useMemo(
+    () => [...entries].sort((left, right) => Number(right.isDirectory) - Number(left.isDirectory) || left.name.localeCompare(right.name)),
+    [entries],
+  );
   if (entries.length === 0) return <div className="zorai-empty">This folder is empty.</div>;
   const base = path.replace(/[\\/]+$/, "");
   return (
     <ul className="zorai-file-preview-overlay__directory">
-      {entries.map((entry) => (
+      {sorted.map((entry) => (
         <li key={entry.path}>
           <button
             type="button"
             title={`${base}/${entry.name}`}
             disabled={!previewTarget}
-            onClick={() => previewTarget && openThreadFilePreview({ ...previewTarget.entry, path: `${base}/${entry.name}` })}
+            onClick={() => previewTarget && openThreadFilePreview(
+              { ...previewTarget.entry, path: `${base}/${entry.name}` },
+              [...(previewTarget.trail ?? []), previewTarget.entry],
+            )}
           >
             {entry.isDirectory ? <CodeFolderChevron expanded={false} /> : <CodeFileIcon path={entry.name} />}
-            <span>{entry.name}{entry.isDirectory ? "/" : ""}</span>
+            <span className="zorai-file-preview-overlay__entry-name">{entry.name}{entry.isDirectory ? "/" : ""}</span>
             {!entry.isDirectory && typeof entry.sizeBytes === "number" ? <small>{formatPreviewBytes(entry.sizeBytes)}</small> : null}
           </button>
         </li>

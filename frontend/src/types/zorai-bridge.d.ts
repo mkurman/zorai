@@ -300,6 +300,7 @@ declare global {
         state: string;
         registered_at: number;
         command?: string | null;
+        output_tail?: string | null;
     };
 
     type ZoraiAgentRunStatus =

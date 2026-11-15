@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { KATEX_DELIMITERS, isRelativeFileHref, localFilePathFromHref, markdownRenderMode, protectMathSegments, resolveRelativeFileLink } from "./markdown";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { KATEX_DELIMITERS, MarkdownContent, advanceStreamingMarkdownBlocks, isRelativeFileHref, localFilePathFromHref, markdownRenderMode, protectMathSegments, resolveRelativeFileLink } from "./markdown";
 
 describe("markdownRenderMode", () => {
   it("skips markdown while streaming so each token does not re-parse the whole bubble", () => {
@@ -42,7 +44,6 @@ describe("protectMathSegments", () => {
 describe("KaTeX delimiters", () => {
   it("supports common model-generated inline and display LaTeX forms", () => {
     expect(KATEX_DELIMITERS).toEqual(expect.arrayContaining([
-      { left: "$", right: "$", display: false },
       { left: "$$", right: "$$", display: true },
       { left: "\\(", right: "\\)", display: false },
       { left: "\\[", right: "\\]", display: true },
@@ -51,11 +52,18 @@ describe("KaTeX delimiters", () => {
     ]));
   });
 
-  it("checks double-dollar display math before single-dollar inline math", () => {
-    const displayIndex = KATEX_DELIMITERS.findIndex(({ left }) => left === "$$");
-    const inlineIndex = KATEX_DELIMITERS.findIndex(({ left }) => left === "$");
-    expect(displayIndex).toBeGreaterThanOrEqual(0);
-    expect(inlineIndex).toBeGreaterThan(displayIndex);
+  it("never lets a lone dollar sign start a formula, so prices stay prose", () => {
+    expect(KATEX_DELIMITERS.some(({ left }) => left === "$")).toBe(false);
+    const prices = protectMathSegments("snapshot showed $0.276 metered and $0 billed, under the $28 ceiling");
+    expect(prices.segments).toEqual([]);
+    expect(prices.content).toBe("snapshot showed $0.276 metered and $0 billed, under the $28 ceiling");
+    expect(protectMathSegments("costs $5 and $10 today").segments).toEqual([]);
+  });
+
+  it("still renders real single-dollar inline math by handing it to KaTeX as \\(...\\)", () => {
+    const math = protectMathSegments("Energy $E = mc^2$ and $x$, but not \\$5 or $$ alone");
+    expect(math.segments).toEqual(["\\(E = mc^2\\)", "\\(x\\)"]);
+    expect(protectMathSegments("`$a$` stays code").segments).toEqual([]);
   });
 });
 
@@ -119,5 +127,63 @@ describe("resolveRelativeFileLink", () => {
 
   it("reports nothing to open when there is no folder to resolve against", async () => {
     await expect(resolveRelativeFileLink("artifacts/media/clip.mp4", [], async () => true)).resolves.toBeNull();
+  });
+});
+
+describe("advanceStreamingMarkdownBlocks", () => {
+  const empty = { blocks: [], consumed: 0, text: "" };
+  const stream = (chunks: string[]) => {
+    let state = advanceStreamingMarkdownBlocks(empty, "");
+    let content = "";
+    for (const chunk of chunks) {
+      content += chunk;
+      state = advanceStreamingMarkdownBlocks(state, content);
+    }
+    return { state, tail: content.slice(state.consumed) };
+  };
+
+  it("renders a paragraph as markdown once the next one starts, keeping the unfinished one as plain text", () => {
+    const { state, tail } = stream(["**Bold** intro", ".\n\n", "Second para", "graph is still typ"]);
+    expect(state.blocks).toEqual(["**Bold** intro.\n\n"]);
+    expect(tail).toBe("Second paragraph is still typ");
+  });
+
+  it("never splits a code fence on its blank lines, so the block renders whole once the fence closes", () => {
+    const open = stream(["Intro\n\n```py\n", "a = 1\n\n", "b = 2\n\n", "c"]);
+    expect(open.state.blocks).toEqual(["Intro\n\n"]);
+    expect(open.tail).toBe("```py\na = 1\n\nb = 2\n\nc");
+    const closed = stream(["Intro\n\n```py\na = 1\n\nb = 2\n```\n\n", "After"]);
+    expect(closed.state.blocks).toEqual(["Intro\n\n", "```py\na = 1\n\nb = 2\n```\n\n"]);
+    expect(closed.tail).toBe("After");
+  });
+
+  it("keeps display math and indented list continuations with their block", () => {
+    const math = stream(["$$\nx\n\ny\n$$\n\nNext"]);
+    expect(math.state.blocks).toEqual(["$$\nx\n\ny\n$$\n\n"]);
+    const list = stream(["- item\n\n  more of the item\n\n- next\n"]);
+    expect(list.state.blocks).toEqual(["- item\n\n  more of the item\n\n"]);
+  });
+
+  it("starts over when the streamed text is replaced instead of extended", () => {
+    const first = advanceStreamingMarkdownBlocks(empty, "One\n\nTwo");
+    expect(first.blocks).toEqual(["One\n\n"]);
+    expect(advanceStreamingMarkdownBlocks(first, "Other\n\nText").blocks).toEqual(["Other\n\n"]);
+    expect(advanceStreamingMarkdownBlocks(first, "Short").blocks).toEqual([]);
+  });
+
+  it("shows finished paragraphs and closed fences formatted while the unfinished tail stays plain", () => {
+    const html = renderToStaticMarkup(createElement(MarkdownContent, {
+      content: "**Done** para\n\n```js\nconst a = 1;\n```\n\nStill **typing",
+      streaming: true,
+    }));
+    expect(html).toContain("<strong>Done</strong>");
+    expect(html).toContain("<pre");
+    expect(html).toContain('<div class="acp-md acp-md--streaming">Still **typing</div>');
+  });
+
+  it("keeps finished blocks identical across tokens so they are not re-rendered", () => {
+    const first = advanceStreamingMarkdownBlocks(empty, "One\n\nTwo");
+    const next = advanceStreamingMarkdownBlocks(first, "One\n\nTwo more");
+    expect(next).toBe(first);
   });
 });

@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { getBridge } from "@/lib/bridge";
 import type { AgentMessage } from "@/lib/agentStore";
-import { formatOperationAge, latestMessageMentioningOperation } from "./threadOperationsModel";
+import { formatOperationAge, latestMessageMentioningOperation, operationRevealId } from "./threadOperationsModel";
 import { revealThreadMessage } from "./useThreadMessageWindow";
 import { ThreadSidePanel, useThreadPanelStore } from "./threadSidePanel";
 import { usePresence } from "@/hooks/usePresence";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import { pushToast } from "@/lib/toastStore";
 import { useDaemonPromptQueue } from "./useDaemonPromptQueue";
+import { ThreadOperationDialog } from "./ThreadOperationDialog";
 
 const THREAD_OPERATIONS_POLL_MS = 5000;
+const THREAD_OPERATION_VIEW_POLL_MS = 2000;
 const MAX_ENDED_OPERATIONS = 10;
 
 type EndedOperation = ZoraiThreadOperation & { ended_at: number };
@@ -30,11 +32,13 @@ export function ThreadOperationsControl({ daemonThreadId, messages, icon }: {
   const [ended, setEnded] = useState<EndedOperation[]>([]);
   const runningRef = useRef<ZoraiThreadOperation[]>([]);
   const stoppedRef = useRef(new Set<string>());
+  const [viewingId, setViewingId] = useState<string | null>(null);
 
   useEffect(() => {
     runningRef.current = [];
     stoppedRef.current = new Set();
     setEnded([]);
+    setViewingId(null);
   }, [daemonThreadId]);
 
   useEffect(() => {
@@ -77,11 +81,13 @@ export function ThreadOperationsControl({ daemonThreadId, messages, icon }: {
     setNow(Date.now());
   }, [daemonThreadId]);
 
+  const viewingRunning = operations.some((operation) => operation.operation_id === viewingId);
+
   useEffect(() => {
     void load();
-    const timer = window.setInterval(() => void load(), THREAD_OPERATIONS_POLL_MS);
+    const timer = window.setInterval(() => void load(), viewingRunning ? THREAD_OPERATION_VIEW_POLL_MS : THREAD_OPERATIONS_POLL_MS);
     return () => window.clearInterval(timer);
-  }, [load]);
+  }, [load, viewingRunning]);
 
   const runtime = useAgentChatPanelRuntime();
   const queue = useDaemonPromptQueue(daemonThreadId);
@@ -113,15 +119,26 @@ export function ThreadOperationsControl({ daemonThreadId, messages, icon }: {
     }
   };
 
+  const confirmStop = (operation: ZoraiThreadOperation) => {
+    if (window.confirm(`Stop ${operation.handle || operation.operation_id}?`)) void stop(operation);
+  };
+
+  const runningStatus = (operation: ZoraiThreadOperation) =>
+    `${busyId === operation.operation_id ? "stopping…" : operation.state} · ${formatOperationAge(now - operation.registered_at)}`;
+  const endedStatus = (operation: EndedOperation) => `${operation.state} · ${formatOperationAge(now - operation.ended_at)} ago`;
+
+  const viewingOperation = operations.find((operation) => operation.operation_id === viewingId) ?? null;
+  const viewingEnded = viewingOperation ? null : ended.find((operation) => operation.operation_id === viewingId) ?? null;
+  const viewed = viewingOperation ?? viewingEnded;
+  const viewedHost = viewed ? latestMessageMentioningOperation(messages, viewed) : null;
+
   const operationRow = (operation: ZoraiThreadOperation, status: string) => {
-    const host = latestMessageMentioningOperation(messages, operation);
     return (
       <button
         type="button"
         className="zorai-ghost-button"
-        disabled={!host}
-        title={host ? "Show where it started" : "Its starting message is not loaded in this thread"}
-        onClick={() => host && revealThreadMessage(host.id)}
+        title="Show input and output"
+        onClick={() => setViewingId(operation.operation_id)}
       >
         <span className="zorai-thread-operations__head">
           <strong>{operation.handle || operation.operation_id}</strong>
@@ -165,16 +182,14 @@ export function ThreadOperationsControl({ daemonThreadId, messages, icon }: {
                 const busy = busyId === operation.operation_id;
                 return (
                   <li key={operation.operation_id}>
-                    {operationRow(operation, `${busy ? "stopping…" : operation.state} · ${formatOperationAge(now - operation.registered_at)}`)}
+                    {operationRow(operation, runningStatus(operation))}
                     <div className="zorai-thread-operations__actions">
                       <button
                         type="button"
                         className="zorai-thread-operations__action"
                         disabled={busy}
                         title="Interrupt this operation"
-                        onClick={() => {
-                          if (window.confirm(`Stop ${operation.handle || operation.operation_id}?`)) void stop(operation);
-                        }}
+                        onClick={() => confirmStop(operation)}
                       >Stop</button>
                     </div>
                   </li>
@@ -188,7 +203,7 @@ export function ThreadOperationsControl({ daemonThreadId, messages, icon }: {
               <ul className="zorai-handoff-stack zorai-thread-operations" aria-label="Recently ended operations">
                 {ended.map((operation) => (
                   <li key={operation.operation_id}>
-                    {operationRow(operation, `${operation.state} · ${formatOperationAge(now - operation.ended_at)} ago`)}
+                    {operationRow(operation, endedStatus(operation))}
                     <div className="zorai-thread-operations__actions">
                       <button
                         type="button"
@@ -206,6 +221,24 @@ export function ThreadOperationsControl({ daemonThreadId, messages, icon }: {
           {error ? <p className="zorai-inline-error" role="alert">{error}</p> : null}
         </div>
         </ThreadSidePanel>
+      ) : null}
+      {viewed ? (
+        <ThreadOperationDialog
+          operation={viewed}
+          status={viewingEnded ? endedStatus(viewingEnded) : runningStatus(viewed)}
+          ended={Boolean(viewingEnded)}
+          busy={busyId === viewed.operation_id}
+          onStop={() => confirmStop(viewed)}
+          onRerun={() => {
+            setViewingId(null);
+            if (viewingEnded) void rerun(viewingEnded);
+          }}
+          onShowInChat={viewedHost ? () => {
+            setViewingId(null);
+            revealThreadMessage(operationRevealId(viewedHost, viewed));
+          } : null}
+          onClose={() => setViewingId(null)}
+        />
       ) : null}
     </div>
   );

@@ -48,6 +48,9 @@ import { ZoraiBrandMark, ZoraiHamburgerIcon, ZoraiNavIcon } from "./ZoraiIcons";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import { ZORAI_NAVIGATE_EVENT, type ZoraiNavigateDetail, type ZoraiReturnTarget } from "./zoraiNavigationEvents";
 import { useSettingsStore } from "@/lib/settingsStore";
+import { useAgentStore } from "@/lib/agentStore";
+import { openThreadTarget } from "@/zorai/features/threads/openThreadTarget";
+import { finishSessionRestore, rememberThreadsViewThread, startSessionPersistence } from "@/zorai/features/threads/sessionRestore";
 import { chatMaxWidth } from "@/lib/uiInterfacePrefs";
 import {
   normalizeNightMode,
@@ -126,6 +129,22 @@ export function ZoraiShell() {
   const threadsViewThreadRef = useRef<string | null>(null);
   const previousViewRef = useRef(activeView);
   useEffect(() => {
+    const saved = startSessionPersistence();
+    const restored = saved.active
+      ? useAgentStore.getState().threads.find((thread) => thread.daemonThreadId === saved.active) ?? null
+      : null;
+    if (!restored) {
+      finishSessionRestore(activeView === "code" ? null : runtime.activeThreadId);
+      return;
+    }
+    if (activeView === "code") {
+      threadsViewThreadRef.current = restored.id;
+      finishSessionRestore(restored.id);
+      return;
+    }
+    void openThreadTarget(runtime, restored.id).finally(() => finishSessionRestore(restored.id));
+  }, []);
+  useEffect(() => {
     const previous = previousViewRef.current;
     previousViewRef.current = activeView;
     if (activeView === "code") return;
@@ -135,6 +154,7 @@ export function ZoraiShell() {
       return;
     }
     threadsViewThreadRef.current = runtime.activeThreadId;
+    rememberThreadsViewThread(runtime.activeThreadId);
   }, [activeView, runtime.activeThreadId]);
 
   useEffect(() => {

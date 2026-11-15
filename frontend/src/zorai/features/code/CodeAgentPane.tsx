@@ -201,6 +201,7 @@ export function CodeAgentPane() {
       <ThreadsView
         variant="compact"
         sessionTabFilter={(id, thread) => isCodeProjectThread(projectThreadIds, thread ?? { id })}
+        onLastSessionClosed={root ? createProjectThread : undefined}
         compactHeaderActions={
           <CodeThreadHistoryMenu
             entries={entries}

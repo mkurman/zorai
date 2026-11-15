@@ -1,4 +1,4 @@
-import { memo, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { MemoizedToolEventRow, sameToolEventGroup } from "@/components/agent-chat-panel/chat-view/ToolEventRow";
 import { ZoraiToolMark } from "@/components/agent-chat-panel/chat-view/ZoraiToolMark";
 import { ToolListCollapseFooter } from "@/components/agent-chat-panel/chat-view/ToolEventList";
@@ -12,6 +12,7 @@ import { classifySystemNotice, classifyThreadActivityMessage } from "./threadAct
 import { ThreadReasoningBlock } from "./NativeThreadMessageBubble";
 import type { TurnActivityEntry } from "./threadTurnActivity";
 import { usePresence } from "@/hooks/usePresence";
+import { useToolRevealStore } from "@/components/agent-chat-panel/chat-view/toolRevealStore";
 
 export function summarizeTurnActivity(entries: TurnActivityEntry[]): {
   title: string;
@@ -59,6 +60,12 @@ export const ThreadTurnActivityList = memo(function ThreadTurnActivityList({
   const [expanded, setExpanded] = useState(false);
   const presence = usePresence(expanded);
   const headerRef = useRef<HTMLButtonElement | null>(null);
+  const revealNonce = useToolRevealStore((state) => (
+    state.key && entries.some((entry) => entry.kind === "tools" && entry.groups.some((group) => group.key === state.key)) ? state.nonce : 0
+  ));
+  useEffect(() => {
+    if (revealNonce) setExpanded(true);
+  }, [revealNonce]);
   if (entries.length === 0) return null;
   const { title, working, toolCount, doneCount } = summarizeTurnActivity(entries);
 

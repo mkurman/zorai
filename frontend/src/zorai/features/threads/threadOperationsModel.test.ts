@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AgentMessage } from "@/lib/agentStore";
-import { formatOperationAge, latestMessageMentioningOperation } from "./threadOperationsModel";
+import { formatOperationAge, latestMessageMentioningOperation, operationRevealId } from "./threadOperationsModel";
 
 const message = (id: string, content: string) => ({ id, content }) as AgentMessage;
 
@@ -23,6 +23,23 @@ describe("thread operations", () => {
     const operation = { operation_id: "x", handle: "op83", tool_name: "run_terminal", command: "cd \"/repo\" && python -m unittest" };
     expect(latestMessageMentioningOperation(messages, operation)?.id).toBe("call");
     expect(latestMessageMentioningOperation(messages, { ...operation, tool_name: "python_execute" })).toBeNull();
+    const withStatus = [...messages, { id: "status", content: "Watcher op83 is still waiting." } as AgentMessage];
+    expect(latestMessageMentioningOperation(withStatus, operation)?.id).toBe("call");
+  });
+
+  it("reveals the tool row, since tool calls render as grouped rows keyed by call id rather than as messages", () => {
+    const operation = { tool_name: "bash", command: "python train.py" };
+    expect(operationRevealId({ id: "m1", content: "", toolCallId: "call-1" } as AgentMessage, operation)).toBe("call-1");
+    const envelope = {
+      id: "m2",
+      content: "",
+      toolCalls: [
+        { id: "call-a", type: "function", function: { name: "bash", arguments: JSON.stringify({ command: "ls" }) } },
+        { id: "call-b", type: "function", function: { name: "bash", arguments: JSON.stringify({ command: "python train.py" }) } },
+      ],
+    } as AgentMessage;
+    expect(operationRevealId(envelope, operation)).toBe("call-b");
+    expect(operationRevealId(message("m3", "op9 started"), operation)).toBe("m3");
   });
 
   it("shows how long an operation has been running in compact units", () => {
