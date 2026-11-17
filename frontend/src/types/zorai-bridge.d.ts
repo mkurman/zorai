@@ -359,6 +359,14 @@ declare global {
         model_count: number;
     };
 
+    type ZoraiAgentStatisticsContent = {
+        tool_result_chars: number;
+        user_chars: number;
+        system_chars: number;
+        assistant_chars: number;
+        reasoning_chars: number;
+    };
+
     type ZoraiProviderStatisticsRow = {
         provider: string;
         input_tokens: number;
@@ -412,6 +420,7 @@ declare global {
         session_total: number;
         session_limit: number;
         session_offset: number;
+        content?: ZoraiAgentStatisticsContent;
     };
 
     type ZoraiWorkspaceOperator = "user" | "svarog";

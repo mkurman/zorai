@@ -400,3 +400,101 @@ async fn agent_statistics_sessions_are_sql_paginated_and_skip_deleted_threads_an
     fs::remove_dir_all(root)?;
     Ok(())
 }
+
+#[tokio::test]
+async fn agent_statistics_content_counts_stored_text_separately_from_resent_context() -> Result<()>
+{
+    let (store, root) = make_test_store().await?;
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("now should be after epoch")
+        .as_millis() as i64;
+    let day_ms = 24 * 60 * 60 * 1000;
+    let thread_id = "thread-statistics-content";
+    store
+        .create_thread(&AgentDbThread {
+            id: thread_id.to_string(),
+            workspace_id: None,
+            surface_id: None,
+            pane_id: None,
+            agent_name: Some("Svarog".to_string()),
+            title: "Content".to_string(),
+            created_at: now_ms - 40 * day_ms,
+            updated_at: now_ms,
+            message_count: 0,
+            total_tokens: 0,
+            last_preview: String::new(),
+            metadata_json: None,
+        })
+        .await?;
+    let message = |id: &str,
+                   role: &str,
+                   content: &str,
+                   reasoning: Option<&str>,
+                   input: Option<i64>,
+                   age_ms: i64| AgentDbMessage {
+        id: id.to_string(),
+        thread_id: thread_id.to_string(),
+        created_at: now_ms - age_ms,
+        role: role.to_string(),
+        content: content.to_string(),
+        provider: input.map(|_| "openai".to_string()),
+        model: input.map(|_| "gpt-5.4-mini".to_string()),
+        input_tokens: input,
+        output_tokens: input.map(|_| 5),
+        total_tokens: input.map(|value| value + 5),
+        cost_usd: None,
+        reasoning: reasoning.map(str::to_string),
+        tool_calls_json: None,
+        metadata_json: None,
+    };
+    for item in [
+        message("system", "system", &"s".repeat(30), None, None, 1_000),
+        message("user", "user", &"u".repeat(20), None, None, 900),
+        message(
+            "step-1",
+            "assistant",
+            &"a".repeat(10),
+            Some(&"r".repeat(50)),
+            Some(1_000),
+            800,
+        ),
+        message("tool", "tool", &"t".repeat(400), None, None, 700),
+        message(
+            "step-2",
+            "assistant",
+            &"a".repeat(30),
+            None,
+            Some(1_400),
+            600,
+        ),
+        message(
+            "old-tool",
+            "tool",
+            &"t".repeat(9_000),
+            None,
+            None,
+            35 * day_ms,
+        ),
+    ] {
+        store.add_message(&item).await?;
+    }
+
+    let recent = store
+        .get_agent_statistics(AgentStatisticsWindow::Last30Days, None, None)
+        .await?;
+    assert_eq!(recent.totals.input_tokens, 2_400);
+    assert_eq!(recent.content.tool_result_chars, 400);
+    assert_eq!(recent.content.user_chars, 20);
+    assert_eq!(recent.content.system_chars, 30);
+    assert_eq!(recent.content.assistant_chars, 40);
+    assert_eq!(recent.content.reasoning_chars, 50);
+
+    let all = store
+        .get_agent_statistics(AgentStatisticsWindow::All, None, None)
+        .await?;
+    assert_eq!(all.content.tool_result_chars, 9_400);
+
+    fs::remove_dir_all(root)?;
+    Ok(())
+}

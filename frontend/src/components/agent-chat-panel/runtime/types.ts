@@ -71,6 +71,7 @@ export type AgentChatPanelRuntimeValue = {
   threadNavigationDepth: number;
   backThreadTitle: string | null;
   goalRunsForTrace: GoalRun[];
+  refreshGoalRuns: () => Promise<void>;
   allMessagesByThread: Record<string, AgentMessage[]>;
   pendingApprovals: AgentMissionStoreState["approvals"];
   scopedOperationalEvents: AgentMissionStoreState["operationalEvents"];

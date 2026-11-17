@@ -96,27 +96,6 @@ fn monitored_change_matches(
             .any(|root| absolute.starts_with(root))
 }
 
-/// Map a `GoalRunStatus` to an event-kind string for autonomy-level filtering.
-fn goal_run_status_to_event_kind(status: GoalRunStatus) -> &'static str {
-    match status {
-        GoalRunStatus::Completed => "completed",
-        GoalRunStatus::Failed | GoalRunStatus::Cancelled => "failed",
-        GoalRunStatus::Planning | GoalRunStatus::Queued => "planning",
-        GoalRunStatus::Running => "step_started",
-        GoalRunStatus::AwaitingApproval => "step_started",
-        GoalRunStatus::AwaitingReview => "step_started",
-        GoalRunStatus::Paused => "paused",
-        GoalRunStatus::Blocked => "paused",
-        // Break-glass and compensated outcomes are terminal-ish "completed"
-        // for autonomy-level filtering; the audit trail distinguishes them.
-        GoalRunStatus::Compensated | GoalRunStatus::BreakGlass => "completed",
-        // Contained and PartiallyCompensated landed in degraded outcomes —
-        // bucket with "failed" so autonomy filters surface them as needing
-        // operator follow-up.
-        GoalRunStatus::Contained | GoalRunStatus::PartiallyCompensated => "failed",
-    }
-}
-
 /// Default operator-response window before an awaiting-approval task is
 /// considered stale enough to escalate to the external (L3) tier. Matches
 /// `EscalationCriteria::user_response_timeout_secs` (300s) — so the timeout
@@ -281,10 +260,6 @@ impl AgentEngine {
     }
 
     pub(super) fn emit_goal_run_update(&self, goal_run: &GoalRun, message: Option<String>) {
-        let event_kind = goal_run_status_to_event_kind(goal_run.status);
-        if !super::autonomy::should_emit_event(goal_run.autonomy_level, event_kind) {
-            return;
-        }
         let _ = self.event_tx.send(AgentEvent::GoalRunUpdate {
             goal_run_id: goal_run.id.clone(),
             status: goal_run.status,

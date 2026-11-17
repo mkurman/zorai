@@ -40,6 +40,7 @@ impl AutonomyLevel {
 /// - `"completed"`, `"failed"`, `"budget_alert"`, `"paused"` — always emitted.
 /// - `"step_started"`, `"planning"`, `"step_completed"` — emitted at Aware and Supervised.
 /// - `"step_detail"` — only emitted at Supervised.
+#[cfg(test)]
 pub fn should_emit_event(level: AutonomyLevel, event_kind: &str) -> bool {
     match level {
         AutonomyLevel::Autonomous => {
