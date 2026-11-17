@@ -85,6 +85,45 @@ async fn request_goal_review_blocks_worker_and_sets_awaiting_review() {
 }
 
 #[tokio::test]
+async fn autonomous_goal_still_tells_clients_it_awaits_review() {
+    let engine = test_engine().await;
+    let goal = start_supervised_goal(&engine).await;
+    {
+        let mut goal_runs = engine.goal_runs.lock().await;
+        let run = goal_runs
+            .iter_mut()
+            .find(|item| item.id == goal.id)
+            .expect("goal");
+        run.autonomy_level = AutonomyLevel::Autonomous;
+    }
+    let worker = enqueue_worker(&engine, &goal.id).await;
+    let mut events = engine.event_tx.subscribe();
+
+    engine
+        .request_goal_review(&goal.id, &worker.id, "Delivered.")
+        .await
+        .expect("review request");
+
+    let mut saw_awaiting_review = false;
+    while let Ok(event) = events.try_recv() {
+        if let AgentEvent::GoalRunUpdate {
+            goal_run_id,
+            status,
+            ..
+        } = event
+        {
+            if goal_run_id == goal.id && status == GoalRunStatus::AwaitingReview {
+                saw_awaiting_review = true;
+            }
+        }
+    }
+    assert!(
+        saw_awaiting_review,
+        "clients must learn the goal awaits review even when autonomy hides step chatter"
+    );
+}
+
+#[tokio::test]
 async fn accept_completes_goal_stops_worker_and_unpins_owner() {
     let engine = test_engine().await;
     let goal = start_supervised_goal(&engine).await;

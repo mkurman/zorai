@@ -1,6 +1,6 @@
 use super::*;
 use chrono::{Datelike, Duration, Local, TimeZone};
-use zorai_protocol::{DailyStatisticsRow, SessionStatisticsRow};
+use zorai_protocol::{AgentStatisticsContent, DailyStatisticsRow, SessionStatisticsRow};
 
 #[derive(Debug)]
 struct StatisticsTotalsRow {
@@ -193,6 +193,30 @@ impl HistoryStore {
             })
             .collect::<Result<Vec<_>>>()?;
 
+        let content_row = self
+            .read_db
+            .query_opt(
+                "SELECT
+                        COALESCE(SUM(CASE WHEN role = 'tool' THEN LENGTH(content) ELSE 0 END), 0),
+                        COALESCE(SUM(CASE WHEN role = 'user' THEN LENGTH(content) ELSE 0 END), 0),
+                        COALESCE(SUM(CASE WHEN role = 'system' THEN LENGTH(content) ELSE 0 END), 0),
+                        COALESCE(SUM(CASE WHEN role = 'assistant' THEN LENGTH(content) ELSE 0 END), 0),
+                        COALESCE(SUM(CASE WHEN role = 'assistant' THEN LENGTH(COALESCE(reasoning, '')) ELSE 0 END), 0)
+                     FROM agent_messages
+                     WHERE deleted_at IS NULL
+                       AND (?1 IS NULL OR created_at >= ?1)",
+                db::db_params![cutoff_ms],
+            )
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("statistics content query returned no row"))?;
+        let content = AgentStatisticsContent {
+            tool_result_chars: content_row.get::<i64>(0)?.max(0) as u64,
+            user_chars: content_row.get::<i64>(1)?.max(0) as u64,
+            system_chars: content_row.get::<i64>(2)?.max(0) as u64,
+            assistant_chars: content_row.get::<i64>(3)?.max(0) as u64,
+            reasoning_chars: content_row.get::<i64>(4)?.max(0) as u64,
+        };
+
         let (sessions, session_total) = self
             .load_session_statistics(window, session_limit, session_offset)
             .await?;
@@ -218,6 +242,7 @@ impl HistoryStore {
             session_total,
             session_limit: session_limit as u64,
             session_offset: session_offset as u64,
+            content,
         })
     }
 
@@ -253,6 +278,7 @@ impl HistoryStore {
             session_total,
             session_limit: session_limit as u64,
             session_offset: session_offset as u64,
+            content: AgentStatisticsContent::default(),
         })
     }
 

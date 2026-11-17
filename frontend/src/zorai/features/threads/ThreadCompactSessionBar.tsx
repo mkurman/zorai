@@ -37,9 +37,10 @@ import { usePresence } from "@/hooks/usePresence";
 import { ThreadWorkspacePin } from "./ThreadWorkspacePin";
 import { ThreadGoalStatus, ThreadGoalStatusDot } from "./ThreadGoalStatus";
 import { goalRunForThread } from "./threadGoalModel";
-import { formatGoalRunStatus } from "@/lib/goalRuns";
+import { formatGoalRunStatus, isGoalRunTerminal } from "@/lib/goalRuns";
 
 const MAX_TRACKED_FILES = 40;
+const GOAL_REFRESH_MS = 10_000;
 
 export function ThreadCompactSessionBar({ reviewActions = true }: { reviewActions?: boolean } = {}) {
   const runtime = useAgentChatPanelRuntime();
@@ -65,6 +66,14 @@ export function ThreadCompactSessionBar({ reviewActions = true }: { reviewAction
     () => goalRunForThread(runtime.goalRunsForTrace, [daemonThreadId, localThreadId]),
     [daemonThreadId, localThreadId, runtime.goalRunsForTrace],
   );
+  const liveGoalId = goal && !isGoalRunTerminal(goal) ? goal.id : null;
+  const { refreshGoalRuns } = runtime;
+
+  useEffect(() => {
+    if (!liveGoalId) return;
+    const timer = window.setInterval(() => void refreshGoalRuns(), GOAL_REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [liveGoalId, refreshGoalRuns]);
 
   const refresh = useCallback(async () => {
     if (!daemonThreadId) {

@@ -12,6 +12,7 @@ import { CostAreaChart, DailyTokenChart, ShareDonut, TotalsSplitBar, UsageBarLis
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import { openThreadTarget } from "../threads/openThreadTarget";
 import { navigateZorai } from "../../shell/zoraiNavigationEvents";
+import { statisticsContentRows } from "./statisticsContentModel";
 
 type UsageTab = "overview" | "providers" | "models" | "rankings";
 
@@ -218,24 +219,31 @@ function StatisticsBody({ snapshot, tab }: { snapshot: ZoraiAgentStatisticsSnaps
   if (tab === "rankings") return <Rankings snapshot={snapshot} />;
 
   const models = [...snapshot.models].sort((a, b) => b.total_tokens - a.total_tokens);
+  const contentRows = statisticsContentRows(snapshot.content);
 
   return (
     <div className="zorai-usage-grid">
       <div className="zorai-panel zorai-usage-panel--wide">
         <div className="zorai-section-label">Totals</div>
         <div className="zorai-metric-grid">
-          <UsageMetric label="Input tokens" value={`${formatTokenValue(snapshot.totals.input_tokens)} tok`} />
-          <UsageMetric label="Output tokens" value={`${formatTokenValue(snapshot.totals.output_tokens)} tok`} />
-          <UsageMetric label="Total tokens" value={`${formatTokenValue(snapshot.totals.total_tokens)} tok`} />
+          <UsageMetric label="Context sent (input)" value={`${formatTokenValue(snapshot.totals.input_tokens)} tok`} />
+          <UsageMetric label="Model output" value={`${formatTokenValue(snapshot.totals.output_tokens)} tok`} />
+          <UsageMetric label="Total processed" value={`${formatTokenValue(snapshot.totals.total_tokens)} tok`} />
           <UsageMetric label="Total cost" value={formatCost(snapshot.totals.cost_usd)} />
           <UsageMetric label="Providers" value={String(snapshot.totals.provider_count)} />
           <UsageMetric label="Models" value={String(snapshot.totals.model_count)} />
         </div>
+        <p className="zorai-empty-state">Input counts the whole conversation context, re-sent to the provider on every agent step, so it grows much faster than the text actually written. Stored content below is what was written once.</p>
         <p className="zorai-empty-state">Generated at: {formatGeneratedAt(snapshot.generated_at)}</p>
         {snapshot.has_incomplete_cost_history ? (
           <p className="zorai-empty-state">Warning: historical cost is incomplete for this window. Older rows without stored cost are counted as $0.</p>
         ) : null}
       </div>
+      <UsageTable title="Stored content" columns={["Content", "Chars", "≈ Tokens"]} empty="No stored content for this window.">
+        {contentRows.map((row) => (
+          <tr key={row.label}><td>{row.label}</td><td>{formatTokenValue(row.chars)}</td><td>{formatTokenValue(row.tokens)} tok</td></tr>
+        ))}
+      </UsageTable>
       <div className="zorai-panel">
         <div className="zorai-section-label">Token Share By Model</div>
         <ShareDonut rows={models.map(toUsageRow)} metric="totalTokens" emptyText="No model share for this window." />

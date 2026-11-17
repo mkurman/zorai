@@ -359,6 +359,14 @@ declare global {
         model_count: number;
     };
 
+    type ZoraiAgentStatisticsContent = {
+        tool_result_chars: number;
+        user_chars: number;
+        system_chars: number;
+        assistant_chars: number;
+        reasoning_chars: number;
+    };
+
     type ZoraiProviderStatisticsRow = {
         provider: string;
         input_tokens: number;
@@ -412,6 +420,7 @@ declare global {
         session_total: number;
         session_limit: number;
         session_offset: number;
+        content?: ZoraiAgentStatisticsContent;
     };
 
     type ZoraiWorkspaceOperator = "user" | "svarog";
@@ -702,6 +711,9 @@ declare global {
         workspaceGitUnstageMany?: (rootPath: string, relativePaths: string[]) => Promise<ZoraiWorkspaceGitStatus[]>;
         workspaceGitBranches?: (rootPath: string) => Promise<Array<{ name: string; isCurrent: boolean }>>;
         workspaceGitCheckout?: (rootPath: string, branch: string) => Promise<{ overview: ZoraiWorkspaceGitOverview; status: ZoraiWorkspaceGitStatus[] }>;
+        onGitAskpassRequest?: (cb: (request: { id: string; prompt: string }) => void) => () => void;
+        onGitAskpassCancel?: (cb: (id: string) => void) => () => void;
+        gitAskpassRespond?: (id: string, value: string | null) => Promise<void>;
         workspaceGitRemote?: (rootPath: string, action: "pull" | "push" | "fetch" | "sync") => Promise<{ output: string; overview: ZoraiWorkspaceGitOverview; status: ZoraiWorkspaceGitStatus[] }>;
         workspaceGitAction?: (rootPath: string, action: ZoraiGitAction, params?: Record<string, string | boolean>) => Promise<{ output: string; overview: ZoraiWorkspaceGitOverview; status: ZoraiWorkspaceGitStatus[] }>;
         workspaceGitList?: (rootPath: string, kind: "branches" | "localBranches" | "tags" | "stashes" | "remotes") => Promise<Array<{ value: string; label: string }>>;

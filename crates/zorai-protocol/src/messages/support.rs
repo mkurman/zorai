@@ -771,6 +771,15 @@ pub struct SessionStatisticsRow {
     pub cost_usd: f64,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct AgentStatisticsContent {
+    pub tool_result_chars: u64,
+    pub user_chars: u64,
+    pub system_chars: u64,
+    pub assistant_chars: u64,
+    pub reasoning_chars: u64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AgentStatisticsSnapshot {
     pub window: AgentStatisticsWindow,
@@ -791,6 +800,8 @@ pub struct AgentStatisticsSnapshot {
     pub session_limit: u64,
     #[serde(default)]
     pub session_offset: u64,
+    #[serde(default)]
+    pub content: AgentStatisticsContent,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

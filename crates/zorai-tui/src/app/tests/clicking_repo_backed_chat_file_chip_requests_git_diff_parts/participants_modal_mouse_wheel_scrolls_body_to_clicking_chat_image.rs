@@ -81,6 +81,7 @@ fn statistics_modal_mouse_wheel_scrolls_body() {
         session_total: 0,
         session_limit: 25,
         session_offset: 0,
+        content: Default::default(),
     });
     model
         .modal

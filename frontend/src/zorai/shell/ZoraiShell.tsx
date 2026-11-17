@@ -52,6 +52,7 @@ import { useAgentStore } from "@/lib/agentStore";
 import { openThreadTarget } from "@/zorai/features/threads/openThreadTarget";
 import { finishSessionRestore, rememberThreadsViewThread, startSessionPersistence } from "@/zorai/features/threads/sessionRestore";
 import { chatMaxWidth } from "@/lib/uiInterfacePrefs";
+import { GitCredentialPrompt } from "@/zorai/features/code/GitCredentialPrompt";
 import {
   normalizeNightMode,
   resolveAppearance,
@@ -303,6 +304,7 @@ export function ZoraiShell() {
 
   return (
     <ThreadFilePreviewProvider>
+      <GitCredentialPrompt />
       <div className={[
         "zorai-shell",
         activeView === "code" ? "zorai-shell--code" : "",

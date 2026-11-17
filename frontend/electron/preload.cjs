@@ -211,6 +211,17 @@ const bridgeApi = {
     workspaceLspRequest: (rootPath, relativePath, language, method, position) => ipcRenderer.invoke('workspace-lsp-request', rootPath, relativePath, language, method, position),
     workspaceLspClose: (rootPath, relativePath, language) => ipcRenderer.invoke('workspace-lsp-close', rootPath, relativePath, language),
     workspaceLspUnsubscribe: (rootPath, language) => ipcRenderer.invoke('workspace-lsp-unsubscribe', rootPath, language),
+    onGitAskpassRequest: (cb) => {
+        const listener = (_event, request) => cb(request);
+        ipcRenderer.on('git-askpass-request', listener);
+        return () => ipcRenderer.removeListener('git-askpass-request', listener);
+    },
+    onGitAskpassCancel: (cb) => {
+        const listener = (_event, id) => cb(id);
+        ipcRenderer.on('git-askpass-cancel', listener);
+        return () => ipcRenderer.removeListener('git-askpass-cancel', listener);
+    },
+    gitAskpassRespond: (id, value) => ipcRenderer.invoke('git-askpass-respond', id, value),
     onWorkspaceLspDiagnostics: (cb) => {
         const listener = (_event, payload) => cb(payload);
         ipcRenderer.on('workspace-lsp-diagnostics', listener);

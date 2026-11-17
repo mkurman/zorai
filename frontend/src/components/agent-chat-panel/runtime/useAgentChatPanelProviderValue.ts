@@ -31,7 +31,7 @@ import { useTranscriptStore } from "@/lib/transcriptStore";
 import { useWorkspaceStore } from "@/lib/workspaceStore";
 import type { AgentThread, AgentTodoItem } from "@/lib/agentStore";
 import { isGatewayAgentThread, isInternalAgentThread } from "@/lib/agentStore";
-import type { GoalRun } from "@/lib/goalRuns";
+import { fetchGoalRuns, type GoalRun } from "@/lib/goalRuns";
 import type { Workspace } from "@/lib/types";
 import type { WelesHealthState } from "@/lib/agentStore/types";
 import { useDaemonAgentActions } from "./useDaemonAgentActions";
@@ -420,6 +420,9 @@ export function useAgentChatPanelProviderValue(): {
   const [symbolQuery, setSymbolQuery] = useState("");
   const [daemonTodosByThread, setDaemonTodosByThread] = useState<Record<string, AgentTodoItem[]>>({});
   const [goalRunsForTrace, setGoalRunsForTrace] = useState<GoalRun[]>([]);
+  const refreshGoalRuns = useCallback(async () => {
+    setGoalRunsForTrace(await fetchGoalRuns());
+  }, []);
   const [spawnedAgentRuns, setSpawnedAgentRuns] = useState<AgentRun[]>([]);
   const spawnedAgentRunsRef = useRef(spawnedAgentRuns);
   spawnedAgentRunsRef.current = spawnedAgentRuns;
@@ -1349,6 +1352,7 @@ export function useAgentChatPanelProviderValue(): {
     threadNavigationDepth: spawnedAgentNavigation.threadNavigationDepth,
     backThreadTitle: spawnedAgentNavigation.backThreadTitle,
     goalRunsForTrace,
+    refreshGoalRuns,
     allMessagesByThread,
     pendingApprovals,
     scopedOperationalEvents,
@@ -1427,6 +1431,7 @@ export function useAgentChatPanelProviderValue(): {
     dismissParticipantSuggestion,
     filteredThreads,
     goalRunsForTrace,
+    refreshGoalRuns,
     goBackThread,
     handleSend,
     handleKeyDown,

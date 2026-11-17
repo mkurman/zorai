@@ -421,6 +421,7 @@ mod tests {
             session_total: 0,
             session_limit: 25,
             session_offset: 0,
+            content: Default::default(),
         }
     }
 
