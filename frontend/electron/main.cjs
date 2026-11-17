@@ -58,6 +58,8 @@ const { createWhatsAppRuntime } = require('./main/whatsapp-runtime.cjs');
 const { createWindowRuntime } = require('./main/window-runtime.cjs');
 const { createChildLogEnv } = require('./main/log-env.cjs');
 const workspaceService = require('./main/workspace-service.cjs');
+const { startGitAskpass } = require('./main/git-askpass.cjs');
+const crypto = require('crypto');
 const { createWorkspaceWatcher } = require('./main/workspace-watch-service.cjs');
 const { createLspRuntime } = require('./main/lsp-runtime.cjs');
 const { createTestRuntime } = require('./main/test-runtime.cjs');
@@ -430,6 +432,28 @@ async function spawnDaemon() {
     return false;
 }
 
+const pendingGitAskpass = new Map();
+let gitAskpass = null;
+
+function requestGitCredential(prompt, signal) {
+    const target = BrowserWindow.getFocusedWindow() || mainWindow;
+    if (!target || target.isDestroyed()) return Promise.resolve(null);
+    const id = crypto.randomUUID();
+    return new Promise((resolve) => {
+        const done = (value) => {
+            if (!pendingGitAskpass.has(id)) return;
+            pendingGitAskpass.delete(id);
+            resolve(value);
+        };
+        pendingGitAskpass.set(id, done);
+        signal.addEventListener('abort', () => {
+            if (!target.isDestroyed()) target.webContents.send('git-askpass-cancel', id);
+            done(null);
+        }, { once: true });
+        target.webContents.send('git-askpass-request', { id, prompt });
+    });
+}
+
 function registerIpcHandlers() {
     const { sendAgentCommand, sendAgentQuery, sendDbAckCommand, sendDbQuery } = agentDbBridgeRuntime;
     const openAICodexAuthHandlers = createOpenAICodexAuthHandlers(sendAgentQuery);
@@ -602,6 +626,9 @@ function registerIpcHandlers() {
     });
     registerDbIpcHandlers(ipcMain, { sendDbAckCommand, sendDbQuery });
 
+    ipcMain.handle('git-askpass-respond', (_event, id, value) => {
+        pendingGitAskpass.get(id)?.(typeof value === 'string' ? value : null);
+    });
     ipcMain.handle('app-update-check', () => updateRuntime.check());
     ipcMain.handle('app-update-install', () => updateRuntime.install());
     ipcMain.handle('app-update-restart', () => updateRuntime.restart());
@@ -682,6 +709,11 @@ app.whenReady().then(async () => {
     });
 
     registerIpcHandlers();
+    try {
+        gitAskpass = startGitAskpass({ requestPrompt: requestGitCredential });
+    } catch (error) {
+        logToFile('error', 'git askpass unavailable', { message: error?.message || String(error) });
+    }
     await spawnDaemon();
     windowRuntime.createWindow();
 
@@ -698,6 +730,7 @@ app.on('before-quit', () => {
     workspaceWatchers.clear();
     void lspRuntime.stopAll();
     testRuntime.stopAll();
+    gitAskpass?.stop();
     if (whatsAppRuntime.isDaemonSubscribed() && sendAgentCommandFn) {
         try {
             sendAgentCommandFn({ type: 'whats-app-link-unsubscribe' });

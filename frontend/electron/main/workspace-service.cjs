@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFile, spawn } = require('child_process');
 const { promisify } = require('util');
+const { gitAskpassEnv } = require('./git-askpass.cjs');
 
 const execFileAsync = promisify(execFile);
 const DEFAULT_MAX_FILE_BYTES = 2 * 1024 * 1024;
@@ -571,7 +572,7 @@ async function runGitLogged(cwd, args, timeout = 120000) {
             encoding: 'utf8',
             timeout,
             maxBuffer: GIT_MAX_BUFFER,
-            env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+            env: { ...process.env, GIT_TERMINAL_PROMPT: '0', ...gitAskpassEnv() },
         });
         const output = [stdout, stderr].filter((text) => text && text.trim()).join('\n').trim();
         recordGitOutput({ cwd, command, ok: true, output });
