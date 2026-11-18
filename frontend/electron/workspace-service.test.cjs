@@ -177,6 +177,28 @@ test('staging many paths skips ones a newer .gitignore excludes instead of faili
     fs.rmSync(root, { recursive: true, force: true });
 });
 
+test('staging waits out a brief index.lock from a concurrent status instead of failing', async () => {
+    const root = tempWorkspace();
+    const runGit = (...args) => require('node:child_process').execFileSync('git', args, { cwd: root, encoding: 'utf8' });
+    runGit('init', '-b', 'main');
+    fs.writeFileSync(path.join(root, 'a.txt'), 'x');
+    const lock = path.join(root, '.git', 'index.lock');
+    fs.writeFileSync(lock, '');
+    setTimeout(() => fs.rmSync(lock, { force: true }), 200);
+    await require('./main/workspace-service.cjs').workspaceGitStageMany(root, ['a.txt']);
+    assert.equal(runGit('diff', '--cached', '--name-only').trim(), 'a.txt');
+    fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('a lock left by a crashed git process still surfaces after the retries', async () => {
+    const root = tempWorkspace();
+    require('node:child_process').execFileSync('git', ['init', '-b', 'main'], { cwd: root });
+    fs.writeFileSync(path.join(root, 'a.txt'), 'x');
+    fs.writeFileSync(path.join(root, '.git', 'index.lock'), '');
+    await assert.rejects(require('./main/workspace-service.cjs').workspaceGitStageMany(root, ['a.txt']), /index\.lock/);
+    fs.rmSync(root, { recursive: true, force: true });
+});
+
 test('unified diff parser returns stable structured hunks', () => {
     const diff = [
         'diff --git a/file.txt b/file.txt',

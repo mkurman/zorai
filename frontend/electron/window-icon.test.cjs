@@ -62,14 +62,15 @@ test("every platform drops the native title bar so the in-app title bar owns the
     }
 });
 
-test("File menu opens another Zorai window from the first item", () => {
+test("Window menu holds window actions only: new window, minimize, maximize, close", () => {
     const source = fs.readFileSync(path.join(__dirname, "main", "window-runtime.cjs"), "utf8");
+    const windowMenu = source.slice(source.indexOf("label: 'Window'"), source.indexOf("label: 'Help'"));
     const fileMenu = source.slice(source.indexOf("label: 'File'"), source.indexOf("label: 'Edit'"));
-    const newWindow = fileMenu.indexOf("label: 'New Window'");
-    const newWorkspace = fileMenu.indexOf("label: 'New Workspace'");
-    assert.ok(newWindow >= 0);
-    assert.ok(newWindow < newWorkspace);
-    assert.match(fileMenu, /label: 'New Window'[\s\S]*click: \(\) => createWindow\(\)/);
+    assert.match(windowMenu, /label: 'New Window'[\s\S]*click: \(\) => createWindow\(\)/);
+    assert.doesNotMatch(fileMenu, /New Window/);
+    assert.ok(windowMenu.indexOf("role: 'minimize'") < windowMenu.indexOf("label: 'Maximize'"));
+    assert.match(windowMenu, /label: 'Maximize'[\s\S]*unmaximize\(\)[\s\S]*maximize\(\)/);
+    assert.doesNotMatch(windowMenu, /Split|Zoom Pane/, "pane splitting is not wired in Zorai, so the menu must not offer it");
 });
 
 test("developer tools toggle opens a detached window so Linux can inspect the page", () => {

@@ -117,8 +117,8 @@ describe("openThreadTarget", () => {
 
     await expect(openThreadTarget(runtime, gatewayDaemonId)).resolves.toBe(true);
 
-    expect(runtime.openThread).toHaveBeenCalledWith("local-discord");
-    expect(runtime.openThread).not.toHaveBeenCalledWith("local-jspace-goal");
+    expect(runtime.openThread).toHaveBeenCalledWith("local-discord", undefined);
+    expect(runtime.openThread).not.toHaveBeenCalledWith("local-jspace-goal", undefined);
     expect(agentGetThread).not.toHaveBeenCalled();
   });
 
@@ -139,8 +139,8 @@ describe("openThreadTarget", () => {
 
     await expect(openThreadTarget(runtime, "gateway-discord-thread")).resolves.toBe(true);
 
-    expect(runtime.openThread).toHaveBeenCalledWith("local-gateway");
-    expect(runtime.openThread).not.toHaveBeenCalledWith("local-svarog");
+    expect(runtime.openThread).toHaveBeenCalledWith("local-gateway", undefined);
+    expect(runtime.openThread).not.toHaveBeenCalledWith("local-svarog", undefined);
     expect(agentGetThread).not.toHaveBeenCalled();
   });
 
@@ -149,7 +149,7 @@ describe("openThreadTarget", () => {
 
     await expect(openThreadTarget(runtime, "daemon-main")).resolves.toBe(true);
 
-    expect(runtime.openThread).toHaveBeenCalledWith("local-main");
+    expect(runtime.openThread).toHaveBeenCalledWith("local-main", undefined);
     expect(runtime.refreshThreadList).not.toHaveBeenCalled();
     expect(agentGetThread).not.toHaveBeenCalled();
   });

@@ -1,3 +1,4 @@
+import { createContext } from "react";
 import { create } from "zustand";
 
 type ComposerDraftState = {
@@ -11,6 +12,8 @@ export const useComposerDraftStore = create<ComposerDraftState>((set) => ({
     input: typeof value === "function" ? value(state.input) : value,
   })),
 }));
+
+export const ComposerDraftOverrideContext = createContext<string | null>(null);
 
 export function readComposerDraftInput(): string {
   return useComposerDraftStore.getState().input;

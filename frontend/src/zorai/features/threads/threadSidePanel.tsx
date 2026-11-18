@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { create } from "zustand";
 
@@ -18,21 +18,28 @@ export const useThreadPanelStore = create<ThreadPanelState>((set) => ({
   close: (id) => set((state) => (id === undefined || state.open === id ? { open: null } : {})),
 }));
 
+export const ThreadPanelHostContext = createContext<{ active: boolean; element: () => HTMLElement | null } | null>(null);
+
 export function ThreadSidePanel({ title, subtitle, onClose, closing, children }: { title: string; subtitle?: string; onClose: () => void; closing?: boolean; children: ReactNode }) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const host = useContext(ThreadPanelHostContext);
   const [top, setTop] = useState<number | null>(null);
+  const [right, setRight] = useState<number | null>(null);
 
   useLayoutEffect(() => {
     const place = () => {
-      const header = [...document.querySelectorAll(".zorai-thread-header")].find((element) => element.getBoundingClientRect().height > 0);
+      const hostElement = host?.element() ?? null;
+      const header = hostElement?.querySelector(".zorai-thread-header")
+        ?? [...document.querySelectorAll(".zorai-thread-header")].find((element) => element.getBoundingClientRect().height > 0);
       setTop(header ? Math.round(header.getBoundingClientRect().bottom + 8) : null);
+      setRight(hostElement ? Math.max(16, Math.round(window.innerWidth - hostElement.getBoundingClientRect().right + 8)) : null);
     };
     place();
     window.addEventListener("resize", place);
     return () => window.removeEventListener("resize", place);
-  }, []);
+  }, [host]);
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -43,9 +50,9 @@ export function ThreadSidePanel({ title, subtitle, onClose, closing, children }:
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  if (typeof document === "undefined") return null;
+  if (typeof document === "undefined" || host?.active === false) return null;
   return createPortal(
-    <aside data-closing={closing || undefined} className="zorai-thread-side-panel" role="dialog" aria-label={title} style={top === null ? undefined : { top, maxHeight: `calc(100vh - ${top + 16}px)` }}>
+    <aside data-closing={closing || undefined} className="zorai-thread-side-panel" role="dialog" aria-label={title} style={top === null ? undefined : { top, maxHeight: `calc(100vh - ${top + 16}px)`, ...(right === null ? {} : { right }) }}>
       <header>
         <div>
           <h2>{title}</h2>

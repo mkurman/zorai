@@ -22,3 +22,21 @@ export async function runWorkspaceGitBulkMutation<T>(items: T[], mutate: (item: 
 export function confirmWorkspaceDiscard(message: string, confirm: (message: string) => boolean = window.confirm): boolean {
   return confirm(message);
 }
+
+export function optimisticBulkGitStatus(
+  statuses: readonly ZoraiWorkspaceGitStatus[],
+  action: "stage" | "unstage",
+  paths: readonly string[],
+): ZoraiWorkspaceGitStatus[] {
+  const targets = new Set(paths);
+  return statuses.map((entry) => {
+    if (!targets.has(entry.path)) return entry;
+    if (action === "stage") {
+      const indexUnset = !entry.indexStatus.trim() || entry.indexStatus === "?";
+      const indexStatus = indexUnset ? (entry.worktreeStatus === "?" ? "A" : entry.worktreeStatus) : entry.indexStatus;
+      return { ...entry, indexStatus, worktreeStatus: " " };
+    }
+    if (entry.indexStatus === "A") return { ...entry, indexStatus: "?", worktreeStatus: "?" };
+    return { ...entry, indexStatus: " ", worktreeStatus: entry.worktreeStatus.trim() ? entry.worktreeStatus : entry.indexStatus };
+  });
+}

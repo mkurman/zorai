@@ -28,6 +28,7 @@ import {
   visibleThreadTabs,
 } from "./threadFilterModel";
 import { openListedThread, openThreadTarget } from "./openThreadTarget";
+import { THREAD_DRAG_TYPE } from "./threadSplitModel";
 import {
   searchThreads,
   THREAD_SEARCH_DEBOUNCE_MS,
@@ -666,6 +667,12 @@ function ThreadSessionRow({
       className={["zorai-thread-row", active ? "zorai-thread-row--active" : "", loading ? "zorai-thread-row--loading" : "", tint ? "zorai-thread-row--tinted" : ""].filter(Boolean).join(" ")}
       style={tintStyle(tint) as CSSProperties | undefined}
       data-status={status}
+      draggable={!editing}
+      onDragStart={(event) => {
+        hideHoverCard();
+        event.dataTransfer.setData(THREAD_DRAG_TYPE, thread.daemonThreadId?.trim() || thread.id);
+        event.dataTransfer.effectAllowed = "copy";
+      }}
       onContextMenu={(event) => {
         if (editing) return;
         event.preventDefault();

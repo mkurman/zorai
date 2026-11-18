@@ -31,9 +31,6 @@ const MENU_COMMANDS: Record<string, ZoraiAppCommandResolution> = {
   "toggle-session-vault": { kind: "navigate", detail: { view: "tools", tool: "vault" } },
   "toggle-system-monitor": { kind: "navigate", detail: { view: "tools", tool: "system" } },
   "toggle-canvas": { kind: "navigate", detail: { view: "tools", tool: "canvas" } },
-  "split-right": { kind: "navigate", detail: { view: "tools", tool: "terminal" } },
-  "split-down": { kind: "navigate", detail: { view: "tools", tool: "terminal" } },
-  "toggle-zoom": { kind: "navigate", detail: { view: "tools", tool: "terminal" } },
   "toggle-time-travel": { kind: "time-travel" },
 };
 

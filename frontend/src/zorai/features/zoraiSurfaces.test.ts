@@ -31,7 +31,7 @@ describe("Zorai feature surfaces", () => {
     expect(threadsSource).toContain("canGoBackThread");
     expect(threadsSource).toContain("goBackThread");
     expect(threadsSource).toContain("Back to parent");
-    expect(threadsSource).toContain('extraActions={variant === "compact" ? compactHeaderActions : null}');
+    expect(threadsSource).toContain('extraActions={variant === "compact" ? compactHeaderActions : splitPane?.actions ?? null}');
     expect(threadsSource).not.toContain("zorai-code-agent-thread-header");
     expect(readFeature("./threads/ThreadCompactSessionBar.tsx")).toContain("Keep");
     expect(readFeature("./threads/ThreadCompactSessionBar.tsx")).toContain("Reject");

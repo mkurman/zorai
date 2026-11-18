@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { getBridge } from "@/lib/bridge";
 import { ImageLightbox } from "@/zorai/features/threads/ImageLightbox";
 import { Presence } from "@/components/Presence";
+import { standaloneSvg, svgViewBoxSize, svgWithIntrinsicSize } from "./mermaidSvg";
 
 type MermaidModule = typeof import("mermaid")["default"];
 
@@ -60,23 +61,6 @@ function downloadBlob(blob: Blob, fileName: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function svgViewBoxSize(svg: string): { width: number; height: number } | null {
-  const root = new DOMParser().parseFromString(svg, "image/svg+xml").documentElement;
-  const viewBox = root.getAttribute("viewBox")?.trim().split(/[\s,]+/).map(Number);
-  if (root.nodeName !== "svg" || !viewBox || viewBox.length !== 4 || !(viewBox[2] > 0) || !(viewBox[3] > 0)) return null;
-  return { width: viewBox[2], height: viewBox[3] };
-}
-
-function svgWithIntrinsicSize(svg: string): string {
-  const size = svgViewBoxSize(svg);
-  if (!size) return svg;
-  const root = new DOMParser().parseFromString(svg, "image/svg+xml").documentElement;
-  root.setAttribute("width", String(size.width));
-  root.setAttribute("height", String(size.height));
-  root.style.removeProperty("max-width");
-  return new XMLSerializer().serializeToString(root);
-}
-
 function exportPng(svg: string, fileName: string) {
   const image = new Image();
   image.onload = () => {
@@ -93,7 +77,7 @@ function exportPng(svg: string, fileName: string) {
       if (blob) downloadBlob(blob, fileName);
     }, "image/png");
   };
-  image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(standaloneSvg(svg))}`;
 }
 
 export function MermaidDiagram({ source, fileName = "diagram" }: { source: string; fileName?: string }) {
@@ -135,7 +119,7 @@ export function MermaidDiagram({ source, fileName = "diagram" }: { source: strin
           type="button"
           className="zorai-data-table__action"
           disabled={!svg}
-          onClick={() => svg && downloadBlob(new Blob([svg], { type: "image/svg+xml" }), `${fileName}.svg`)}
+          onClick={() => svg && downloadBlob(new Blob([standaloneSvg(svg)], { type: "image/svg+xml" }), `${fileName}.svg`)}
         >
           SVG
         </button>

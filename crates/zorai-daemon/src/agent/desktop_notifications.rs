@@ -1,4 +1,19 @@
 use super::*;
+use regex::Regex;
+use std::sync::LazyLock;
+
+static MARKDOWN_LINK: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"!?\[([^\]]*)\]\([^)]*\)").expect("valid link pattern"));
+static MARKDOWN_LINE_PREFIX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s*(?:#{1,6}\s+|>\s?|[-*+]\s+\[[ xX]\]\s+|[-*+]\s+)")
+        .expect("valid prefix pattern")
+});
+static MARKDOWN_RULE_OR_FENCE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"^\s*(?:```.*|~~~.*|(?:[-*_]\s*){3,}|\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)*\|?)\s*$",
+    )
+    .expect("valid rule pattern")
+});
 
 const DESKTOP_NOTIFICATION_APP_NAME: &str = "Zorai";
 const DESKTOP_NOTIFICATION_BODY_MAX_CHARS: usize = 240;
@@ -72,7 +87,7 @@ impl AgentEngine {
                 };
                 Some(DesktopNotification {
                     title,
-                    body: truncate_notification_body(content),
+                    body: truncate_notification_body(&markdown_notification_text(content)),
                 })
             }
             AgentEvent::Done {
@@ -140,7 +155,7 @@ impl AgentEngine {
             .unwrap_or("Agent");
         Some(DesktopNotification {
             title: format!("{author} · {}", thread.title),
-            body: truncate_notification_body(&reply.content),
+            body: truncate_notification_body(&markdown_notification_text(&reply.content)),
         })
     }
 
@@ -152,6 +167,22 @@ impl AgentEngine {
             .map(|thread| thread.title.clone())
             .unwrap_or_else(|| thread_id.to_string())
     }
+}
+
+fn markdown_notification_text(text: &str) -> String {
+    text.lines()
+        .filter(|line| !MARKDOWN_RULE_OR_FENCE.is_match(line))
+        .map(|line| {
+            let line = MARKDOWN_LINE_PREFIX.replace(line, "");
+            let line = MARKDOWN_LINK.replace_all(&line, "$1");
+            let line = line.trim().trim_matches('|').replace('|', " · ");
+            line.replace("**", "")
+                .replace("__", "")
+                .replace("~~", "")
+                .replace(['*', '`'], "")
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn truncate_notification_body(text: &str) -> String {
