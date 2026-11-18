@@ -1,11 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
 import { AgentChatPanelRuntimeContext, useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
+import { loadDaemonThreadPageIntoLocalState, threadHistoryReplaceEpoch } from "@/components/agent-chat-panel/runtime/daemonHelpers";
 import { findThreadByAuthoritativeIdentity } from "@/components/agent-chat-panel/runtime/threadListQueries";
 import { threadTurnIsActive } from "@/components/agent-chat-panel/runtime/threadTurnState";
 import { useAgentStore, type AgentMessage, type AgentThread, type AgentTodoItem } from "@/lib/agentStore";
 import type { ZoraiReturnTarget } from "@/zorai/shell/zoraiNavigationEvents";
 import { ComposerDraftOverrideContext, readComposerDraftInput, writeComposerDraftInput } from "./composerDraftStore";
 import { openThreadTarget } from "./openThreadTarget";
+import { beginThreadLoadingFor } from "./threadLoadingStore";
 import { SESSION_TAB_DRAG_TYPE, ThreadSessionTabs } from "./SessionTabStrip";
 import { ThreadFilePreviewOverlay } from "./ThreadFilePreviewOverlay";
 import { ThreadPanelHostContext, useThreadPanelStore } from "./threadSidePanel";
@@ -159,6 +161,22 @@ function ThreadSplitPane({ thread, focused, onClose }: { thread: AgentThread; fo
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const paneRef = useRef<HTMLDivElement | null>(null);
+  const historyRequestedRef = useRef(false);
+  const daemonThreadId = thread.daemonThreadId;
+  useEffect(() => {
+    if (focused || historyRequestedRef.current || messages.length > 0 || !daemonThreadId) return;
+    historyRequestedRef.current = true;
+    const finish = beginThreadLoadingFor([thread.id, daemonThreadId]);
+    void loadDaemonThreadPageIntoLocalState({
+      daemonThreadId,
+      localThreadId: thread.id,
+      messageOffset: 0,
+      mergeMode: "replace",
+      replaceEpoch: threadHistoryReplaceEpoch(thread.id),
+      setThreadTodos: useAgentStore.getState().setThreadTodos,
+      setDaemonTodosByThread: () => {},
+    }).finally(finish);
+  }, [daemonThreadId, focused, messages.length, thread.id]);
   const panelHost = useMemo(() => ({ active: focused, element: () => paneRef.current }), [focused]);
   const value = useMemo(() => (focused ? runtime : {
     ...runtime,
@@ -191,7 +209,16 @@ function ThreadSplitPane({ thread, focused, onClose }: { thread: AgentThread; fo
       <AgentChatPanelRuntimeContext.Provider value={value}>
         <ComposerDraftOverrideContext.Provider value={focused ? null : savedDraft}>
           <ThreadPanelHostContext.Provider value={panelHost}>
-            <ThreadsView splitPane={{ actions, focused }} />
+            <ThreadsView
+            splitPane={{
+              actions,
+              focused,
+              onHeaderDragStart: (event) => {
+                event.dataTransfer.setData(THREAD_DRAG_TYPE, thread.id);
+                event.dataTransfer.effectAllowed = "copyMove";
+              },
+            }}
+          />
           </ThreadPanelHostContext.Provider>
         </ComposerDraftOverrideContext.Provider>
       </AgentChatPanelRuntimeContext.Provider>

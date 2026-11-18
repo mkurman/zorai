@@ -1,5 +1,5 @@
 import { LoadingState } from "@/components/LoadingState";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type UIEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode, type UIEvent } from "react";
 import { threadTint, tintStyle, useTintStore } from "@/zorai/features/tints/tintStore";
 import { shortcutMatches } from "@/zorai/features/shortcuts/appShortcuts";
 import { MemoizedToolEventRow } from "@/components/agent-chat-panel/chat-view/ToolEventRow";
@@ -89,7 +89,7 @@ export function ThreadsView({
   sessionTabFilter?: (id: string, thread: AgentThread | undefined) => boolean;
   onLastSessionClosed?: () => void;
   onNewSession?: () => void;
-  splitPane?: { actions: ReactNode; focused: boolean };
+  splitPane?: { actions: ReactNode; focused: boolean; onHeaderDragStart?: (event: DragEvent<HTMLElement>) => void };
 } = {}) {
   const threadLoadingPending = useThreadLoadingStore((state) => state.pending);
   const threadLoadingByThreadId = useThreadLoadingStore((state) => state.byThreadId);
@@ -364,6 +364,7 @@ export function ThreadsView({
         onOpenParticipants={() => useThreadPanelStore.getState().toggle("participants")}
         messages={runtime.messages}
         extraActions={variant === "compact" ? compactHeaderActions : splitPane?.actions ?? null}
+        onDragStart={splitPane?.onHeaderDragStart}
       />
       {variant === "full" ? <ParticipantStrip thread={runtime.activeThread} onOpen={() => useThreadPanelStore.getState().toggle("participants")} /> : null}
 
@@ -511,6 +512,7 @@ function ThreadHeader({
   onOpenParticipants,
   messages,
   extraActions = null,
+  onDragStart,
 }: {
   thread: AgentThread;
   messageCount: number;
@@ -522,6 +524,7 @@ function ThreadHeader({
   onOpenParticipants: () => void;
   messages: AgentMessage[];
   extraActions?: ReactNode;
+  onDragStart?: (event: DragEvent<HTMLElement>) => void;
 }) {
   const participants = thread.threadParticipants ?? [];
   const activeParticipants = participants.filter((participant) => participant.status === "active");
@@ -547,7 +550,7 @@ function ThreadHeader({
     ["Context", `${context} tokens`],
   ];
   return (
-    <header className="zorai-thread-header zorai-thread-header--slim">
+    <header className="zorai-thread-header zorai-thread-header--slim" draggable={Boolean(onDragStart)} onDragStart={onDragStart}>
       <h3 title={thread.title}>{thread.title}</h3>
       <div className="zorai-thread-header__actions">
         {extraActions}

@@ -1,4 +1,6 @@
+import { useContext } from "react";
 import { getBridge } from "../../../lib/bridge";
+import { ThreadFilePreviewContext } from "@/zorai/features/threads/ThreadFilePreviewContext";
 
 import { TOOL_NAMES } from "@/lib/agentTools/toolNames";
 
@@ -79,8 +81,13 @@ export function ToolFileTargetView({
     summaryText?: string;
 }) {
     const bridge = getBridge();
+    const filePreview = useContext(ThreadFilePreviewContext);
 
     async function openPath() {
+        if (filePreview) {
+            filePreview.openThreadFilePreview({ path, kind: "artifact", source: "tool-file", isText: true, updatedAt: Date.now() });
+            return;
+        }
         try {
             await bridge?.openFsPath?.(path);
         } catch {

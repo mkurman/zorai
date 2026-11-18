@@ -7736,7 +7736,14 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-workspace-source-control details > summary .zorai-workspace-changes-actions { margin-left: auto; }
 .zorai-workspace-source-control details > summary .zorai-workspace-changes-view { width: 20px; height: 20px; display: grid; place-items: center; padding: 0; border-radius: 4px; }
 .zorai-workspace-source-control details > summary .zorai-workspace-changes-view:hover { background: var(--zorai-bg-active); color: var(--zorai-text); }
-.zorai-workspace-changes-view svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; animation: zorai-changes-view-swap 200ms cubic-bezier(.2, .8, .2, 1); }
+.zorai-workspace-changes-view svg,
+.zorai-workspace-changes-refresh svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.zorai-workspace-changes-view svg.is-swapped { animation: zorai-changes-view-swap 200ms cubic-bezier(.2, .8, .2, 1); }
+.zorai-workspace-source-control details > summary .zorai-workspace-changes-refresh { width: 26px; height: 24px; display: grid; place-items: center; padding: 0; border-radius: 5px; transition: background-color 140ms ease, color 140ms ease, transform 90ms ease; }
+.zorai-workspace-source-control details > summary .zorai-workspace-changes-refresh:hover:not(:disabled) { background: var(--zorai-bg-active); color: var(--zorai-text); }
+.zorai-workspace-source-control details > summary .zorai-workspace-changes-refresh:active:not(:disabled) { transform: scale(.92); }
+.zorai-workspace-source-control details > summary .zorai-workspace-changes-refresh.is-busy svg { animation: zorai-changes-refresh-spin 700ms linear infinite; }
+@keyframes zorai-changes-refresh-spin { to { transform: rotate(360deg); } }
 .zorai-workspace-source-control details > summary .zorai-workspace-changes-view,
 .zorai-workspace-source-control details > summary .zorai-workspace-changes-bulk { height: 24px; border-radius: 5px; transition: background-color 140ms ease, color 140ms ease, transform 90ms ease, opacity 140ms ease; }
 .zorai-workspace-source-control details > summary .zorai-workspace-changes-view { width: 26px; }
@@ -7746,13 +7753,14 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-workspace-source-control details > summary .zorai-workspace-changes-bulk:active:not(:disabled) { transform: scale(.92); }
 .zorai-workspace-source-control details > summary .zorai-workspace-changes-bulk:disabled { cursor: default; opacity: .55; }
 .zorai-workspace-source-control details > summary .zorai-workspace-changes-bulk.is-busy { opacity: 1; color: var(--zorai-text); animation: zorai-changes-bulk-busy 900ms ease-in-out infinite; }
-.zorai-workspace-changes-body { animation: zorai-changes-body-in 180ms ease-out; }
+.zorai-workspace-changes-body.is-swapped { animation: zorai-changes-body-in 180ms ease-out; }
 @keyframes zorai-changes-view-swap { from { opacity: 0; transform: rotate(-90deg) scale(.6); } to { opacity: 1; transform: none; } }
 @keyframes zorai-changes-body-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @keyframes zorai-changes-bulk-busy { 0%, 100% { background: transparent; } 50% { background: var(--zorai-bg-active); } }
 @media (prefers-reduced-motion: reduce) {
-  .zorai-workspace-changes-view svg,
-  .zorai-workspace-changes-body,
+  .zorai-workspace-changes-view svg.is-swapped,
+  .zorai-workspace-source-control details > summary .zorai-workspace-changes-refresh.is-busy svg,
+  .zorai-workspace-changes-body.is-swapped,
   .zorai-workspace-source-control details > summary .zorai-workspace-changes-bulk.is-busy { animation: none; }
   .zorai-workspace-source-control details > summary .zorai-workspace-changes-view,
   .zorai-workspace-source-control details > summary .zorai-workspace-changes-bulk { transition: none; }
@@ -9740,7 +9748,6 @@ button.zorai-composer-context-chip { cursor: pointer; }
   height: 100%;
   min-height: 0;
   min-width: 0;
-  background: var(--zorai-bg-surface);
 }
 
 .zorai-thread-split > .zorai-session-tabs {
@@ -9792,6 +9799,14 @@ button.zorai-composer-context-chip { cursor: pointer; }
 
 .zorai-thread-split__pane > .zorai-native-thread-surface {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.zorai-thread-split__pane .zorai-thread-header[draggable="true"] {
+  cursor: grab;
+}
+
+.zorai-thread-split__pane .zorai-thread-header[draggable="true"]:active {
+  cursor: grabbing;
 }
 
 .zorai-thread-split__pane:hover {

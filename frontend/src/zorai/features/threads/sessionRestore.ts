@@ -1,9 +1,10 @@
 import { useAgentStore, type AgentThread } from "@/lib/agentStore";
 import { useOpenSessionTabs } from "./openSessionTabs";
+import { mapSplitPaneIds, splitOrNull, useThreadSplitStore, type ThreadSplitNode } from "./threadSplitModel";
 
 export const LAST_SESSION_STORAGE_KEY = "zorai-last-session";
 
-export type SavedSession = { tabs: string[]; active: string | null };
+export type SavedSession = { tabs: string[]; active: string | null; split?: ThreadSplitNode };
 
 type SessionStorage = Pick<Storage, "getItem" | "setItem">;
 
@@ -13,13 +14,28 @@ function daemonIdFor(threads: readonly AgentThread[], id: string | null): string
   return thread?.daemonThreadId?.trim() || null;
 }
 
-export function savedSessionFor(threads: readonly AgentThread[], tabIds: readonly string[], activeId: string | null): SavedSession {
+export function savedSessionFor(threads: readonly AgentThread[], tabIds: readonly string[], activeId: string | null, split: ThreadSplitNode | null = null): SavedSession {
   const tabs: string[] = [];
   for (const id of tabIds) {
     const daemonId = daemonIdFor(threads, id);
     if (daemonId && !tabs.includes(daemonId)) tabs.push(daemonId);
   }
-  return { tabs, active: daemonIdFor(threads, activeId) };
+  const savedSplit = splitOrNull(mapSplitPaneIds(split, (id) => daemonIdFor(threads, id)));
+  return { tabs, active: daemonIdFor(threads, activeId), split: savedSplit ?? undefined };
+}
+
+function isSplitNode(value: unknown): value is ThreadSplitNode {
+  if (!value || typeof value !== "object") return false;
+  const node = value as Partial<{ kind: unknown; id: unknown; direction: unknown; children: unknown }>;
+  if (node.kind === "pane") return typeof node.id === "string" && node.id.trim() !== "";
+  return node.kind === "split"
+    && (node.direction === "row" || node.direction === "column")
+    && Array.isArray(node.children)
+    && node.children.every(isSplitNode);
+}
+
+export function restoredSplitFor(threads: readonly AgentThread[], split: ThreadSplitNode | undefined): ThreadSplitNode | null {
+  return splitOrNull(mapSplitPaneIds(split ?? null, (daemonId) => threads.find((thread) => thread.daemonThreadId === daemonId)?.id ?? null));
 }
 
 export function readSavedSession(storage: SessionStorage | undefined): SavedSession {
@@ -28,6 +44,7 @@ export function readSavedSession(storage: SessionStorage | undefined): SavedSess
     return {
       tabs: Array.isArray(parsed?.tabs) ? parsed.tabs.filter((id): id is string => typeof id === "string" && id.trim() !== "") : [],
       active: typeof parsed?.active === "string" && parsed.active.trim() ? parsed.active : null,
+      split: isSplitNode(parsed?.split) ? parsed.split : undefined,
     };
   } catch {
     return { tabs: [], active: null };
@@ -55,15 +72,20 @@ export function startSessionPersistence(storage: SessionStorage | undefined = ty
   const threads = useAgentStore.getState().threads;
   const known = saved.tabs.filter((id) => threads.some((thread) => thread.daemonThreadId === id));
   if (known.length > 0 && useOpenSessionTabs.getState().ids.length === 0) useOpenSessionTabs.setState({ ids: known });
+  const split = restoredSplitFor(threads, saved.split);
+  if (split && !useThreadSplitStore.getState().root) useThreadSplitStore.setState({ root: split });
   let last = JSON.stringify(saved);
   writeSession = () => {
     if (restoring) return;
-    const next = JSON.stringify(savedSessionFor(useAgentStore.getState().threads, useOpenSessionTabs.getState().ids, threadsViewThreadId));
+    const next = JSON.stringify(savedSessionFor(useAgentStore.getState().threads, useOpenSessionTabs.getState().ids, threadsViewThreadId, useThreadSplitStore.getState().root));
     if (next === last) return;
     last = next;
     storage.setItem(LAST_SESSION_STORAGE_KEY, next);
   };
   useOpenSessionTabs.subscribe(() => writeSession?.());
+  useThreadSplitStore.subscribe((state, previous) => {
+    if (state.root !== previous.root) writeSession?.();
+  });
   useAgentStore.subscribe((state, previous) => {
     if (state.threads !== previous.threads) writeSession?.();
   });

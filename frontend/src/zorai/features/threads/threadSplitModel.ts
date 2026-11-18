@@ -68,6 +68,15 @@ function normalize(node: ThreadSplitNode | null): ThreadSplitNode | null {
   return { ...node, children };
 }
 
+export function mapSplitPaneIds(node: ThreadSplitNode | null, map: (id: string) => string | null): ThreadSplitNode | null {
+  if (!node) return null;
+  if (node.kind === "pane") {
+    const id = map(node.id);
+    return id ? pane(id) : null;
+  }
+  return normalize({ ...node, children: node.children.map((child) => mapSplitPaneIds(child, map)).filter((child): child is ThreadSplitNode => Boolean(child)) });
+}
+
 export function removeSplitPaneNode(node: ThreadSplitNode | null, id: string): ThreadSplitNode | null {
   if (!node) return null;
   if (node.kind === "pane") return node.id === id ? null : node;
@@ -120,7 +129,7 @@ type ThreadSplitState = {
   clear: () => void;
 };
 
-const splitOrNull = (root: ThreadSplitNode | null) => (splitPaneIds(root).length >= 2 ? root : null);
+export const splitOrNull = (root: ThreadSplitNode | null) => (splitPaneIds(root).length >= 2 ? root : null);
 
 export const useThreadSplitStore = create<ThreadSplitState>((set) => ({
   root: null,

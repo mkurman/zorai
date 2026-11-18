@@ -42,7 +42,7 @@ import { CommitGraph } from "@/zorai/features/code/CommitGraph";
 import { AgentReviewPanel } from "@/zorai/features/code/AgentReviewPanel";
 import { buildReviewPrompt, extractSpawnedSubagentId, resolveCodeReviewer, resolveReviewReport, useCodeReviewStore, waitForSubagentRun } from "@/zorai/features/code/codeReview";
 import { fetchAgentRuns } from "@/lib/agentRuns";
-import { confirmWorkspaceDiscard, runWorkspaceGitMutation } from "@/zorai/features/code/workspaceGitActions";
+import { confirmWorkspaceDiscard, optimisticBulkGitStatus, runWorkspaceGitMutation } from "@/zorai/features/code/workspaceGitActions";
 import { cachedWorkspaceRootState, loadWorkspaceRootState, loadWorkspaceGitState, rememberWorkspaceRootState, runWorkspacePathMutation } from "@/zorai/features/code/workspaceRefresh";
 import { useComposerDraftStore } from "@/zorai/features/threads/composerDraftStore";
 import { isRelativeWorkspacePath, workContextRelativePath } from "@/zorai/features/threads/compactSessionModel";
@@ -1045,19 +1045,17 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
 
   const runBulkGitAction = async (action: "stage" | "unstage", entries: ZoraiWorkspaceGitStatus[]) => {
     if (!context?.root) return;
+    const root = context.root;
     const paths = entries.map((entry) => entry.path);
+    setGitStatus((current) => optimisticBulkGitStatus(current, action, paths));
     try {
-      await runWorkspaceGitMutation(async () => {
-        const result = action === "stage"
-          ? await bridge?.workspaceGitStageMany?.(context.root!, paths)
-          : await bridge?.workspaceGitUnstageMany?.(context.root!, paths);
-        if (result) {
-          setGitStatus(result);
-        }
-        return result;
-      }, () => refreshGitOnly(context.root));
+      const result = action === "stage"
+        ? await bridge?.workspaceGitStageMany?.(root, paths)
+        : await bridge?.workspaceGitUnstageMany?.(root, paths);
+      if (result) setGitStatus(result);
       setError(null);
     } catch (reason: any) { setError(reason?.message ?? String(reason)); }
+    void refreshGitOnly(root);
   };
 
   const runSearch = async () => {
@@ -1378,6 +1376,15 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   }, [documents, editorSettings.autoSave, editorSettings.autoSaveDelayMs]);
 
   useEffect(() => {
+    const root = context?.root;
+    if (!root) return;
+    const refresh = () => { if (document.visibilityState === "visible") void refreshGitOnly(root); };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
+  }, [context?.root, refreshGitOnly]);
+
+  useEffect(() => {
     if (editorSettings.autoSave !== "code_window_focus_lost") return;
     const saveDirty = () => { for (const [path, document] of Object.entries(documents)) if (document.dirty && document.externalContent === undefined) void saveDocumentRef.current(path); };
     const onVisibility = () => { if (document.visibilityState === "hidden") saveDirty(); };
@@ -1607,7 +1614,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                     ) : null}
                   </>
                 ) : null}
-                <WorkspaceSourceControlChanges status={gitStatus} onOpen={(path) => openFile(path, undefined, "diff")} onReview={reviewHunks} onAction={runGitAction} onBulkAction={runBulkGitAction} />
+                <WorkspaceSourceControlChanges status={gitStatus} onOpen={(path) => openFile(path, undefined, "diff")} onReview={reviewHunks} onAction={runGitAction} onBulkAction={runBulkGitAction} onRefresh={() => refreshGitOnly(context?.root)} />
                 {reviewedChange ? (
                   <div className="zorai-workspace-hunk-review">
                     <div className="zorai-workspace-hunk-heading">

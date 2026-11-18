@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { confirmWorkspaceDiscard, runWorkspaceGitBulkMutation, runWorkspaceGitMutation } from "./workspaceGitActions";
+import { confirmWorkspaceDiscard, optimisticBulkGitStatus, runWorkspaceGitBulkMutation, runWorkspaceGitMutation } from "./workspaceGitActions";
 
 describe("workspace Git action coordination", () => {
   it("awaits a file or hunk mutation before one coherent refresh", async () => {
@@ -72,5 +72,29 @@ describe("workspace Git action coordination", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("optimistic bulk staging", () => {
+  const entry = (path: string, indexStatus: string, worktreeStatus: string) => ({ path, indexStatus, worktreeStatus }) as ZoraiWorkspaceGitStatus;
+
+  it("moves every picked file to staged right away so + All feels instant", () => {
+    const before = [entry("new.ts", "?", "?"), entry("edit.ts", " ", "M"), entry("both.ts", "M", "M"), entry("gone.ts", " ", "D"), entry("other.ts", " ", "M")];
+    expect(optimisticBulkGitStatus(before, "stage", ["new.ts", "edit.ts", "both.ts", "gone.ts"])).toEqual([
+      entry("new.ts", "A", " "),
+      entry("edit.ts", "M", " "),
+      entry("both.ts", "M", " "),
+      entry("gone.ts", "D", " "),
+      entry("other.ts", " ", "M"),
+    ]);
+  });
+
+  it("returns unstaged files to the state git would show, keeping new files untracked", () => {
+    const before = [entry("new.ts", "A", " "), entry("edit.ts", "M", " "), entry("both.ts", "M", "M")];
+    expect(optimisticBulkGitStatus(before, "unstage", ["new.ts", "edit.ts", "both.ts"])).toEqual([
+      entry("new.ts", "?", "?"),
+      entry("edit.ts", " ", "M"),
+      entry("both.ts", " ", "M"),
+    ]);
   });
 });

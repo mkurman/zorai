@@ -45,17 +45,20 @@ type RowHandlers = {
   onAction: (action: WorkspaceGitAction, path: string) => Promise<void>;
 };
 
-export function WorkspaceSourceControlChanges({ status, onOpen, onReview, onAction, onBulkAction, presentation = "auto" }: {
+export function WorkspaceSourceControlChanges({ status, onOpen, onReview, onAction, onBulkAction, onRefresh, presentation = "auto" }: {
   status: ZoraiWorkspaceGitStatus[];
   onOpen: (path: string) => Promise<void>;
   onReview: (path: string, staged: boolean) => Promise<void>;
   onAction: (action: WorkspaceGitAction, path: string) => Promise<void>;
   onBulkAction: (action: "stage" | "unstage", entries: ZoraiWorkspaceGitStatus[]) => Promise<void>;
+  onRefresh?: () => Promise<void>;
   presentation?: WorkspaceSourceControlPresentation;
 }) {
   const [view, setView] = useState<WorkspaceChangesView>(readChangesView);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const [bulkBusy, setBulkBusy] = useState<"stage" | "unstage" | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [viewSwapped, setViewSwapped] = useState(false);
   const staged = status.filter((entry) => entry.indexStatus.trim() && entry.indexStatus !== "?");
   const unstaged = status.filter((entry) => entry.worktreeStatus.trim() || entry.indexStatus === "?");
   if (staged.length === 0 && unstaged.length === 0) return null;
@@ -63,6 +66,7 @@ export function WorkspaceSourceControlChanges({ status, onOpen, onReview, onActi
   const toggleView = () => {
     const next = view === "list" ? "tree" : "list";
     setView(next);
+    setViewSwapped(true);
     if (typeof localStorage !== "undefined") localStorage.setItem(CHANGES_VIEW_STORAGE_KEY, next);
   };
   const runBulk = async (action: "stage" | "unstage", entries: ZoraiWorkspaceGitStatus[]) => {
@@ -91,21 +95,36 @@ export function WorkspaceSourceControlChanges({ status, onOpen, onReview, onActi
   });
   const viewButton = (
     <button type="button" className="zorai-workspace-changes-view" title={view === "list" ? "View as tree" : "View as list"} aria-label={view === "list" ? "View as tree" : "View as list"} onClick={toggleView}>
-      <svg key={view} viewBox="0 0 16 16" aria-hidden="true">
+      <svg key={view} className={viewSwapped ? "is-swapped" : undefined} viewBox="0 0 16 16" aria-hidden="true" onAnimationEnd={() => setViewSwapped(false)}>
         {view === "list"
           ? <path d="M2.5 3.5h3M5 3.5v8M5 7.5h3.5M5 11.5h3.5M10.5 7.5h3M10.5 11.5h3M7.5 3.5h6" />
           : <path d="M2.5 4h11M2.5 8h11M2.5 12h11" />}
       </svg>
     </button>
   );
-  const renderEntries = (entries: ZoraiWorkspaceGitStatus[], isStaged: boolean) => <div key={view} className="zorai-workspace-changes-body">
+  const refreshButton = onRefresh ? (
+    <button
+      type="button"
+      className={["zorai-workspace-changes-refresh", refreshing ? "is-busy" : ""].filter(Boolean).join(" ")}
+      title="Refresh changes"
+      aria-label="Refresh changes"
+      disabled={refreshing}
+      onClick={() => {
+        setRefreshing(true);
+        void onRefresh().finally(() => setRefreshing(false));
+      }}
+    >
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3" /></svg>
+    </button>
+  ) : null;
+  const renderEntries = (entries: ZoraiWorkspaceGitStatus[], isStaged: boolean) => <div key={view} className={["zorai-workspace-changes-body", viewSwapped ? "is-swapped" : ""].filter(Boolean).join(" ")}>
     {view === "tree"
       ? <GitChangeTree nodes={buildGitChangeTree(entries.slice(0, 500))} staged={isStaged} depth={0} collapsed={collapsed} onToggle={toggleFolder} handlers={handlers} />
       : entries.slice(0, 500).map((entry) => <WorkspaceGitChangeRow key={`${isStaged ? "staged" : "change"}:${entry.path}`} entry={entry} staged={isStaged} {...handlers} />)}
   </div>;
   return <div className={`zorai-workspace-source-control is-${presentation}`} data-presentation={presentation}>
-    {staged.length > 0 ? <details open><summary><span>Staged Changes</span><span className="zorai-workspace-changes-actions" onClick={(event) => event.preventDefault()}>{viewButton}{bulkButton("unstage", staged)}</span></summary>{renderEntries(staged, true)}</details> : null}
-    {unstaged.length > 0 ? <details open><summary><span>Changes</span><span className="zorai-workspace-changes-actions" onClick={(event) => event.preventDefault()}>{staged.length > 0 ? null : viewButton}{bulkButton("stage", unstaged)}</span></summary>{renderEntries(unstaged, false)}</details> : null}
+    {staged.length > 0 ? <details open><summary><span>Staged Changes</span><span className="zorai-workspace-changes-actions" onClick={(event) => event.preventDefault()}>{refreshButton}{viewButton}{bulkButton("unstage", staged)}</span></summary>{renderEntries(staged, true)}</details> : null}
+    {unstaged.length > 0 ? <details open><summary><span>Changes</span><span className="zorai-workspace-changes-actions" onClick={(event) => event.preventDefault()}>{staged.length > 0 ? null : refreshButton}{staged.length > 0 ? null : viewButton}{bulkButton("stage", unstaged)}</span></summary>{renderEntries(unstaged, false)}</details> : null}
   </div>;
 }
 
