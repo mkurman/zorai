@@ -468,12 +468,14 @@ describe("frontend curated media provider catalog", () => {
     ]);
     expect(getProviderModels("openai").map((model) => model.id)).toEqual(expect.arrayContaining([
       "gpt-6-astra",
+      "gpt-6.2-astra",
+      "gpt-6.2-sol",
       "gpt-5.6-sol",
       "gpt-5.6-terra",
       "gpt-5.6-luna",
     ]));
     expect(getProviderModels("openai", "chatgpt_subscription").map((model) => model.id)).toEqual(
-      expect.arrayContaining(["gpt-6-astra", "gpt-5.6-sol-pro"]),
+      expect.arrayContaining(["gpt-6-astra", "gpt-6.2-astra", "gpt-6.2-sol", "gpt-5.6-sol-pro"]),
     );
     expect(getProviderModels("openai").find((model) => model.id === "gpt-5.3-codex-spark")).toMatchObject({
       contextWindow: 128_000,

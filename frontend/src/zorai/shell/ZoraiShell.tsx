@@ -7,7 +7,7 @@ import { SettingsRail, SettingsView } from "../features/settings/SettingsView";
 import { getDefaultZoraiSettingsTab, type ZoraiSettingsTabId } from "../features/settings/settingsTabs";
 import { ThreadsContext } from "../features/threads/ThreadsContextPanel";
 import { ThreadFilePreviewProvider } from "../features/threads/ThreadFilePreviewProvider";
-import { ThreadsView } from "../features/threads/ThreadsView";
+import { ThreadSplitView } from "../features/threads/ThreadSplitView";
 import { ThreadsRail } from "../features/threads/ThreadsRail";
 import { CodeAgentPane, CodeRail, CodeView } from "../features/code/CodeView";
 import { CodeResizeHandle } from "../features/code/CodeResizeHandle";
@@ -507,7 +507,7 @@ function renderMain(
   onReturnTarget: () => void,
 ) {
   if (view === "code") return <CodeView />;
-  if (view === "threads") return <ThreadsView returnTarget={returnTarget} onReturnTarget={onReturnTarget} />;
+  if (view === "threads") return <ThreadSplitView returnTarget={returnTarget} onReturnTarget={onReturnTarget} />;
   if (view === "goals") return <GoalsView openGoalRunRequest={goalOpenRequest} returnTarget={returnTarget} onReturnTarget={onReturnTarget} />;
   if (view === "workspaces") return <WorkspacesView />;
   if (view === "database") return <DatabaseView activeTable={activeDatabaseTable} onSelectTable={setActiveDatabaseTable} />;

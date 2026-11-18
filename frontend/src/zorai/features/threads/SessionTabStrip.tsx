@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties, type DragEvent } from "react";
+import { CodeContextMenu, type CodeToolbarMenuItem } from "@/zorai/features/code/CodeToolbarMenu";
 import { threadTint, tintColor, useTintStore } from "@/zorai/features/tints/tintStore";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import { useAgentStore, type AgentThread } from "@/lib/agentStore";
@@ -9,6 +10,7 @@ import { threadReadKey, useThreadReadStateStore } from "./threadReadStateStore";
 import { ThreadNeedsActionIcon, useThreadIdsNeedingAction } from "./threadNeedsAction";
 import { useThreadRailTabStore } from "./threadRailTabStore";
 import { resolveThreadCreationAgent } from "./threadFilterModel";
+import { MAX_SPLIT_PANES, splitLayoutsFor, splitPaneIds, useThreadSplitStore, type ThreadSplitLayout } from "./threadSplitModel";
 
 export type SessionTabModel = {
   id: string;
@@ -21,7 +23,7 @@ export type SessionTabModel = {
   tint?: string | null;
 };
 
-const SESSION_TAB_DRAG_TYPE = "application/x-zorai-session-tab";
+export const SESSION_TAB_DRAG_TYPE = "application/x-zorai-session-tab";
 
 type SessionTabDrop = { id: string; after: boolean };
 
@@ -32,6 +34,9 @@ export function SessionTabStrip({
   onMove,
   onTogglePin,
   onNew,
+  selectedIds,
+  onToggleSelect,
+  onTabContextMenu,
   label = "Open sessions",
 }: {
   tabs: SessionTabModel[];
@@ -40,6 +45,9 @@ export function SessionTabStrip({
   onMove?: (id: string, targetId: string, placeAfter: boolean) => void;
   onTogglePin?: (id: string) => void;
   onNew?: () => void;
+  selectedIds?: ReadonlySet<string>;
+  onToggleSelect?: (id: string) => void;
+  onTabContextMenu?: (id: string, x: number, y: number) => void;
   label?: string;
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -62,6 +70,7 @@ export function SessionTabStrip({
         const classes = ["zorai-session-tab"];
         if (tab.active) classes.push("zorai-session-tab--active");
         if (tab.pinned) classes.push("is-pinned");
+        if (selectedIds?.has(tab.id)) classes.push("is-selected");
         if (tab.tint) classes.push("zorai-session-tab--tinted");
         if (tab.id === draggingId) classes.push("is-dragging");
         if (drop?.id === tab.id && draggingId && draggingId !== tab.id) classes.push(drop.after ? "is-drop-after" : "is-drop-before");
@@ -74,7 +83,7 @@ export function SessionTabStrip({
             draggable={Boolean(onMove)}
             onDragStart={(event) => {
               event.dataTransfer.setData(SESSION_TAB_DRAG_TYPE, tab.id);
-              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.effectAllowed = "copyMove";
               setDraggingId(tab.id);
             }}
             onDragOver={(event) => {
@@ -93,11 +102,18 @@ export function SessionTabStrip({
               endDrag();
             }}
             onDragEnd={endDrag}
+            onContextMenu={onTabContextMenu ? (event) => {
+              event.preventDefault();
+              onTabContextMenu(tab.id, event.clientX, event.clientY);
+            } : undefined}
             onAuxClick={(event) => {
               if (event.button === 1 && !tab.pinned) onClose(tab.id);
             }}
           >
-            <button type="button" className="zorai-session-tab__main" aria-current={tab.active ? "page" : undefined} onClick={() => onSelect(tab.id)}>
+            <button type="button" className="zorai-session-tab__main" aria-current={tab.active ? "page" : undefined} onClick={(event) => {
+              if ((event.ctrlKey || event.metaKey) && onToggleSelect) onToggleSelect(tab.id);
+              else onSelect(tab.id);
+            }}>
               {tab.needsAction ? <span className="zorai-thread-needs-action-slot" title="Waiting for your approval or answer"><ThreadNeedsActionIcon /></span> : tab.working ? <span className="zorai-thread-dot zorai-thread-dot--working" aria-hidden="true" /> : null}
               <span>{tab.title}</span>
             </button>
@@ -168,6 +184,9 @@ export function ThreadSessionTabs({ includeSession, onLastSessionClosed, onNewSe
   const activeId = runtime.activeThread?.id ?? null;
   const activeDaemonId = runtime.activeThread?.daemonThreadId ?? null;
   const activeAlreadyOpen = openSessionIds.some((id) => id === activeId || (activeDaemonId !== null && id === activeDaemonId));
+  const splitRoot = useThreadSplitStore((state) => state.root);
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (activeId && !activeAlreadyOpen) rememberOpenSession(activeId);
@@ -193,10 +212,46 @@ export function ThreadSessionTabs({ includeSession, onLastSessionClosed, onNewSe
     };
   });
 
+  const localThreadId = (id: string) => threads.find((item) => item.id === id || item.daemonThreadId === id)?.id ?? null;
+  const showSplit = (tabIds: string[], focusTabId: string, layout: ThreadSplitLayout) => {
+    const localIds = tabIds.map(localThreadId).filter((id): id is string => Boolean(id));
+    const focusId = localThreadId(focusTabId) ?? localIds[0];
+    useThreadSplitStore.getState().setLayout(localIds, layout);
+    localIds.filter((id) => id !== focusId).forEach((id) => runtime.openThread(id, { reuseLoaded: true }));
+    if (focusId) runtime.openThread(focusId, { reuseLoaded: true });
+    setSelectedIds(new Set());
+  };
+  const menuItems = (clickedId: string): CodeToolbarMenuItem[] => {
+    const picked = new Set(selectedIds).add(clickedId);
+    const activeTab = tabs.find((tab) => tab.active);
+    if (picked.size < 2 && activeTab) picked.add(activeTab.id);
+    const pickedIds = visibleIds.filter((id) => picked.has(id));
+    const items: CodeToolbarMenuItem[] = pickedIds.length > MAX_SPLIT_PANES
+      ? [{ key: "too-many", label: `Pick up to ${MAX_SPLIT_PANES} threads (${pickedIds.length} picked)`, disabled: true }]
+      : pickedIds.length >= 2
+        ? splitLayoutsFor(pickedIds.length).map((option) => ({ key: option.layout, label: option.label, onSelect: () => showSplit(pickedIds, clickedId, option.layout) }))
+        : [{ key: "hint", label: "Ctrl+click tabs to pick threads to show together", disabled: true }];
+    if (selectedIds.size > 0) items.push({ key: "clear-selection", label: "Clear selection", separatorBefore: true, onSelect: () => setSelectedIds(new Set()) });
+    if (splitRoot) items.push({ key: "close-split", label: "Close split view", separatorBefore: selectedIds.size === 0, onSelect: () => useThreadSplitStore.getState().clear() });
+    return items;
+  };
+
   return (
+    <>
     <SessionTabStrip
       tabs={tabs}
-      onSelect={(id) => void openThreadTarget(runtime, id)}
+      selectedIds={selectedIds}
+      onToggleSelect={(id) => setSelectedIds((current) => {
+        const next = new Set(current);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      })}
+      onTabContextMenu={(id, x, y) => setMenu({ id, x, y })}
+      onSelect={(id) => {
+        setSelectedIds(new Set());
+        void openThreadTarget(runtime, id, { reuseLoaded: true });
+      }}
       onNew={onNewSession ?? (includeSession ? undefined : () => {
         const agent = resolveThreadCreationAgent(railTab, subAgents);
         runtime.createThread({
@@ -209,6 +264,17 @@ export function ThreadSessionTabs({ includeSession, onLastSessionClosed, onNewSe
       })}
       onMove={moveOpenSession}
       onClose={(id) => {
+        const closedLocalId = localThreadId(id);
+        const paneIds = splitPaneIds(useThreadSplitStore.getState().root);
+        if (closedLocalId && paneIds.includes(closedLocalId)) {
+          useThreadSplitStore.getState().removePane(closedLocalId);
+          const remaining = paneIds.find((paneId) => paneId !== closedLocalId);
+          if (remaining && closedLocalId === runtime.activeThread?.id) {
+            closeOpenSession(id);
+            runtime.openThread(remaining, { reuseLoaded: true });
+            return;
+          }
+        }
         const visibleNext = neighborSessionId(visibleIds, id);
         const next = closeOpenSession(id);
         const action = sessionCloseFollowUp({
@@ -225,5 +291,15 @@ export function ThreadSessionTabs({ includeSession, onLastSessionClosed, onNewSe
         }
       }}
     />
+    {menu ? (
+      <CodeContextMenu
+        x={menu.x}
+        y={menu.y}
+        label="Show threads together"
+        onClose={() => setMenu(null)}
+        items={menuItems(menu.id)}
+      />
+    ) : null}
+    </>
   );
 }

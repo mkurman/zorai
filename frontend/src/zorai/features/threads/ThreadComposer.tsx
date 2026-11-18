@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useContext, useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import {
   blobToBase64,
@@ -14,7 +14,7 @@ import {
 import type { ComposerAttachment } from "@/components/agent-chat-panel/chat-view/types";
 import { useAgentStore } from "@/lib/agentStore";
 import { useWorkspaceContextStore } from "@/lib/workspaceContextStore";
-import { useComposerDraftStore } from "./composerDraftStore";
+import { ComposerDraftOverrideContext, useComposerDraftStore } from "./composerDraftStore";
 import { COMPOSER_TOOL_IDS, type ComposerToolId } from "./composerToolLayout";
 import { runPluginCommand, usePluginUiStore } from "@/zorai/features/plugins/pluginUiStore";
 import { visibleItemIds } from "@/lib/itemLayout";
@@ -74,7 +74,9 @@ export function ThreadComposer({
     .map((command) => ({ plugin, command }))), [pluginUi]);
   const voiceShortcut = useSettingsStore((state) => shortcutCombo(state.settings.shortcuts, "thread.recordVoice"));
   const voiceShortcutHint = voiceShortcut ? ` (${voiceShortcut})` : "";
-  const input = useComposerDraftStore((state) => state.input);
+  const draftOverride = useContext(ComposerDraftOverrideContext);
+  const storeInput = useComposerDraftStore((state) => state.input);
+  const input = draftOverride ?? storeInput;
   const setInput = useComposerDraftStore((state) => state.setInput);
   const agentSettings = useAgentStore((state) => state.agentSettings);
   const activeThreadId = useAgentStore((state) => state.activeThreadId);

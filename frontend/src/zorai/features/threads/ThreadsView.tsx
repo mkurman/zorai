@@ -80,6 +80,7 @@ export function ThreadsView({
   sessionTabFilter,
   onLastSessionClosed,
   onNewSession,
+  splitPane,
 }: {
   returnTarget?: ZoraiReturnTarget | null;
   onReturnTarget?: () => void;
@@ -88,6 +89,7 @@ export function ThreadsView({
   sessionTabFilter?: (id: string, thread: AgentThread | undefined) => boolean;
   onLastSessionClosed?: () => void;
   onNewSession?: () => void;
+  splitPane?: { actions: ReactNode; focused: boolean };
 } = {}) {
   const threadLoadingPending = useThreadLoadingStore((state) => state.pending);
   const threadLoadingByThreadId = useThreadLoadingStore((state) => state.byThreadId);
@@ -348,7 +350,7 @@ export function ThreadsView({
       className={["zorai-thread-surface", "zorai-native-thread-surface", variant === "compact" ? "zorai-thread-surface--compact" : "", activeTint ? "zorai-tinted-surface" : ""].filter(Boolean).join(" ")}
       style={tintStyle(activeTint) as CSSProperties | undefined}
     >
-      <ThreadSessionTabs includeSession={sessionTabFilter} onLastSessionClosed={onLastSessionClosed} onNewSession={onNewSession} />
+      {splitPane ? null : <ThreadSessionTabs includeSession={sessionTabFilter} onLastSessionClosed={onLastSessionClosed} onNewSession={onNewSession} />}
       <ThreadHeader
         thread={runtime.activeThread}
         messageCount={runtime.messages.length}
@@ -361,7 +363,7 @@ export function ThreadsView({
         onReturnHandoff={runtime.returnHandoff}
         onOpenParticipants={() => useThreadPanelStore.getState().toggle("participants")}
         messages={runtime.messages}
-        extraActions={variant === "compact" ? compactHeaderActions : null}
+        extraActions={variant === "compact" ? compactHeaderActions : splitPane?.actions ?? null}
       />
       {variant === "full" ? <ParticipantStrip thread={runtime.activeThread} onOpen={() => useThreadPanelStore.getState().toggle("participants")} /> : null}
 
@@ -463,7 +465,7 @@ export function ThreadsView({
       <Presence value={variant === "full" && pinLimitResult}>
         {(result) => <PinLimitModal result={result} onClose={() => setPinLimitResult(null)} />}
       </Presence>
-      <Presence value={participantsOpen && runtime.activeThread}>{(thread) => (
+      <Presence value={participantsOpen && (!splitPane || splitPane.focused) && runtime.activeThread}>{(thread) => (
         <ThreadParticipantsDrawer
           thread={thread}
           agentOptions={agentOptions}
@@ -474,7 +476,7 @@ export function ThreadsView({
           onDismissSuggestion={runtime.dismissParticipantSuggestion}
         />
       )}</Presence>
-      <ThreadFilePreviewOverlay />
+      {splitPane ? null : <ThreadFilePreviewOverlay />}
     </section>
   );
 }

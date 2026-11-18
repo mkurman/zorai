@@ -212,7 +212,6 @@ function createWindowRuntime(options) {
     function buildAppMenu() {
         return Menu.buildFromTemplate([
             { label: 'File', submenu: [
-                { label: 'New Window', accelerator: 'Ctrl+Alt+N', click: () => createWindow() },
                 { label: 'New Workspace', accelerator: menuAccelerator('new-workspace', 'Ctrl+Shift+N'), click: () => sendAppCommand('new-workspace') },
                 { label: 'New Surface', accelerator: menuAccelerator('new-surface', 'Ctrl+T'), click: () => sendAppCommand('new-surface') },
                 { type: 'separator' },
@@ -248,10 +247,10 @@ function createWindowRuntime(options) {
                 { label: 'Developer Tools', click: () => sendAppCommand('developer-tools') },
             ] },
             { label: 'Window', submenu: [
-                { label: 'Split Right', accelerator: 'Ctrl+D', click: () => sendAppCommand('split-right') },
-                { label: 'Split Down', accelerator: 'Ctrl+Shift+D', click: () => sendAppCommand('split-down') },
-                { label: 'Zoom Pane', accelerator: 'Ctrl+Shift+Z', click: () => sendAppCommand('toggle-zoom') },
-                { type: 'separator' }, { role: 'minimize' }, { role: 'close' },
+                { label: 'New Window', accelerator: 'Ctrl+Alt+N', click: () => createWindow() },
+                { type: 'separator' }, { role: 'minimize' },
+                { label: 'Maximize', click: (_item, window) => { if (window?.isMaximized()) window.unmaximize(); else window?.maximize(); } },
+                { role: 'close' },
             ] },
             { label: 'Help', submenu: [
                 { label: 'Check for Updates…', click: () => sendAppCommand('check-updates') },

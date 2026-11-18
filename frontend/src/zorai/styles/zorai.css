@@ -9731,3 +9731,132 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-session-tabs__new span { font-size: var(--text-base); line-height: 1; }
 .zorai-session-tabs__new:hover { background: color-mix(in srgb, var(--zorai-text) 5%, transparent); color: var(--zorai-text); }
 .zorai-session-tabs__new:focus-visible { outline: 2px solid var(--zorai-accent); outline-offset: 1px; }
+
+.zorai-thread-split {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  background: var(--zorai-bg-surface);
+}
+
+.zorai-thread-split > .zorai-session-tabs {
+  grid-area: auto;
+}
+
+.zorai-thread-split--single {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.zorai-thread-split > .zorai-empty-main {
+  width: 100%;
+}
+
+.zorai-thread-split__grid {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  padding: 6px;
+}
+
+.zorai-thread-split__node {
+  display: flex;
+  flex: 1 1 0;
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.zorai-thread-split__node--row {
+  flex-direction: row;
+}
+
+.zorai-thread-split__node--column {
+  flex-direction: column;
+}
+
+.zorai-thread-split__pane {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--zorai-border);
+  border-radius: 10px;
+  opacity: 0.86;
+  transition: border-color 140ms ease, opacity 140ms ease, box-shadow 140ms ease;
+  animation: zorai-thread-split-pane-in 180ms var(--ease-out) backwards;
+}
+
+.zorai-thread-split__pane > .zorai-native-thread-surface {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.zorai-thread-split__pane:hover {
+  opacity: 0.95;
+}
+
+.zorai-thread-split__pane.is-focused {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--zorai-accent) 55%, var(--zorai-border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--zorai-accent) 25%, transparent);
+}
+
+.zorai-thread-split__close {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--zorai-muted);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, scale 120ms var(--ease-out);
+}
+
+.zorai-thread-split__close:hover {
+  background: color-mix(in srgb, var(--zorai-text) 8%, transparent);
+  color: var(--zorai-text);
+}
+
+.zorai-thread-split__close:active {
+  scale: 0.92;
+}
+
+.zorai-thread-split__drop {
+  position: absolute;
+  z-index: 30;
+  pointer-events: none;
+  border: 2px dashed color-mix(in srgb, var(--zorai-accent) 70%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--zorai-accent) 14%, transparent);
+  transition: left 120ms var(--ease-out), top 120ms var(--ease-out), width 120ms var(--ease-out), height 120ms var(--ease-out);
+  animation: zorai-thread-split-drop-in 120ms ease-out both;
+}
+
+
+.zorai-session-tab.is-selected {
+  border-color: color-mix(in srgb, var(--zorai-accent) 60%, var(--zorai-border));
+  background: color-mix(in srgb, var(--zorai-accent) 12%, transparent);
+  color: var(--zorai-text);
+}
+
+@keyframes zorai-thread-split-pane-in {
+  from { opacity: 0; scale: 0.985; }
+}
+
+@keyframes zorai-thread-split-drop-in {
+  from { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zorai-thread-split__pane,
+  .zorai-thread-split__drop {
+    animation: none;
+  }
+}

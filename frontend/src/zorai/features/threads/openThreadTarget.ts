@@ -41,14 +41,14 @@ function ensureListedThread(listed: AgentThread): string {
   return thread.id;
 }
 
-export async function openThreadTarget(runtime: AgentChatPanelRuntimeValue, targetThreadId: string): Promise<boolean> {
+export async function openThreadTarget(runtime: AgentChatPanelRuntimeValue, targetThreadId: string, options?: { reuseLoaded?: boolean }): Promise<boolean> {
   const target = targetThreadId.trim();
   if (!target) return false;
 
   const local = findThreadByAuthoritativeIdentity(runtime.threads, target)
     ?? findThreadByAuthoritativeIdentity(useAgentStore.getState().threads, target);
   if (local) {
-    runtime.openThread(local.id);
+    runtime.openThread(local.id, options);
     return true;
   }
 

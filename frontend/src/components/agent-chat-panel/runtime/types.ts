@@ -51,7 +51,7 @@ export type AgentChatPanelRuntimeValue = {
   createThread: AgentStoreState["createThread"];
   deleteThread: AgentStoreState["deleteThread"];
   setActiveThread: AgentStoreState["setActiveThread"];
-  openThread: (threadId: string) => void;
+  openThread: (threadId: string, options?: { reuseLoaded?: boolean }) => void;
   agentSettings: AgentStoreState["agentSettings"];
   updateAgentSetting: AgentStoreState["updateAgentSetting"];
   searchQuery: string;

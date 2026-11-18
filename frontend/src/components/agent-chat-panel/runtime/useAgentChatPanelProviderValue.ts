@@ -1013,7 +1013,7 @@ export function useAgentChatPanelProviderValue(): {
     return runThreadPageLoad();
   }, [agentSettings.react_chat_history_page_size, setThreadTodos]);
 
-  const openThread = useCallback((threadId: string) => {
+  const openThread = useCallback((threadId: string, options?: { reuseLoaded?: boolean }) => {
     const state = useAgentStore.getState();
     const thread = findThreadByAuthoritativeIdentity(state.threads, threadId);
     const localId = thread?.id ?? threadId;
@@ -1027,11 +1027,14 @@ export function useAgentChatPanelProviderValue(): {
     latestLoadedThreadIdRef.current = localId;
     daemonLocalThreadRef.current = localId;
     daemonThreadIdRef.current = thread?.daemonThreadId ?? null;
-    setFollowThreadHistoryBottom(true);
-    setActiveThread(localId);
+    const loadedCount = useAgentStore.getState().messages[localId]?.length ?? 0;
+    const reuseLoaded = options?.reuseLoaded === true && loadedCount > 0;
+    if (!reuseLoaded) setFollowThreadHistoryBottom(true);
+    if (reuseLoaded) storeSetActiveThread(localId);
+    else setActiveThread(localId);
     setChatBackView("threads");
     setView("chat");
-    const loadedCount = useAgentStore.getState().messages[localId]?.length ?? 0;
+    if (reuseLoaded) return;
     const needsHistoryWindow = Boolean(
       thread?.daemonThreadId
       && (
@@ -1042,7 +1045,7 @@ export function useAgentChatPanelProviderValue(): {
     if (!alreadyLatest || needsHistoryWindow) {
       void loadThreadPage(localId, "latest");
     }
-  }, [loadThreadPage, setActiveThread, setChatBackView, setFollowThreadHistoryBottom, setView]);
+  }, [loadThreadPage, setActiveThread, setChatBackView, setFollowThreadHistoryBottom, setView, storeSetActiveThread]);
 
   const forkThread = useCallback(async (messageId: string) => {
     const notify = useNotificationStore.getState().addNotification;
