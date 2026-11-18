@@ -158,13 +158,14 @@ export interface AgentSettings {
   enable_web_browsing_tool: boolean;
   bash_timeout_seconds: number;
   enable_web_search_tool: boolean;
-  search_provider: "none" | "firecrawl" | "duckduckgo" | "exa" | "tavily" | "keenable";
+  search_provider: "none" | "firecrawl" | "duckduckgo" | "exa" | "tavily" | "keenable" | "youcom";
   duckduckgo_region: string;
   duckduckgo_safe_search: "off" | "moderate" | "strict";
   firecrawl_api_key: string;
   exa_api_key: string;
   tavily_api_key: string;
   keenable_api_key: string;
+  youcom_api_key: string;
   search_max_results: number;
   search_timeout_secs: number;
   browse_provider: "auto" | "lightpanda" | "chrome" | "none";
@@ -338,6 +339,7 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   exa_api_key: "",
   tavily_api_key: "",
   keenable_api_key: "",
+  youcom_api_key: "",
   search_max_results: 8,
   search_timeout_secs: 20,
   browse_provider: "auto",

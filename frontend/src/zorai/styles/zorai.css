@@ -9792,8 +9792,8 @@ button.zorai-composer-context-chip { cursor: pointer; }
   overflow: hidden;
   border: 1px solid var(--zorai-border);
   border-radius: 10px;
-  opacity: 0.86;
-  transition: border-color 140ms ease, opacity 140ms ease, box-shadow 140ms ease;
+  opacity: 0.6;
+  transition: opacity 140ms ease;
   animation: zorai-thread-split-pane-in 180ms var(--ease-out) backwards;
 }
 
@@ -9810,13 +9810,11 @@ button.zorai-composer-context-chip { cursor: pointer; }
 }
 
 .zorai-thread-split__pane:hover {
-  opacity: 0.95;
+  opacity: 0.8;
 }
 
 .zorai-thread-split__pane.is-focused {
   opacity: 1;
-  border-color: color-mix(in srgb, var(--zorai-accent) 55%, var(--zorai-border));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--zorai-accent) 25%, transparent);
 }
 
 .zorai-thread-split__close {

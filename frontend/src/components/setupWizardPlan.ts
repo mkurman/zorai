@@ -28,6 +28,7 @@ export const WEB_SEARCH_CHOICES = [
   { id: "firecrawl", label: "Firecrawl", keyName: "firecrawl_api_key", keyRequired: true },
   { id: "duckduckgo", label: "DuckDuckGo", keyName: null, keyRequired: false },
   { id: "keenable", label: "Keenable", keyName: "keenable_api_key", keyRequired: false },
+  { id: "youcom", label: "You.com", keyName: "youcom_api_key", keyRequired: false },
   { id: "exa", label: "Exa", keyName: "exa_api_key", keyRequired: true },
   { id: "tavily", label: "Tavily", keyName: "tavily_api_key", keyRequired: true },
 ] as const;

@@ -572,3 +572,98 @@ fn firecrawl_v2_web_results_are_formatted_like_other_providers() {
         "No web results found for: nothing"
     );
 }
+
+#[tokio::test]
+async fn web_search_runtime_routes_youcom_without_a_key() {
+    let args = serde_json::json!({ "query": "you.com" });
+    let provider = execute_web_search_with_runner(
+        &args,
+        "youcom",
+        "",
+        "",
+        "",
+        |_request: super::WebSearchRequest, provider| async move {
+            Ok::<String, anyhow::Error>(provider.to_string())
+        },
+    )
+    .await
+    .expect("search");
+    assert_eq!(provider, "youcom");
+}
+
+#[test]
+fn youcom_uses_the_keyless_endpoint_without_a_key() {
+    let client = reqwest::Client::new();
+    let request = super::build_youcom_search_request(&client, "rust async", 80, "  ", "strict")
+        .build()
+        .expect("request");
+    assert_eq!(request.method(), reqwest::Method::GET);
+    let url = request.url();
+    assert_eq!(url.host_str(), Some("api.you.com"));
+    assert_eq!(url.path(), "/v1/agents/search");
+    let pairs: Vec<(String, String)> = url.query_pairs().into_owned().collect();
+    assert!(pairs.contains(&("query".into(), "rust async".into())));
+    assert!(pairs.contains(&("count".into(), "50".into())));
+    assert!(pairs.contains(&("safesearch".into(), "strict".into())));
+    assert!(request.headers().get("X-API-Key").is_none());
+    assert_eq!(request.headers()["User-Agent"], super::YOUCOM_USER_AGENT);
+}
+
+#[test]
+fn youcom_uses_the_keyed_endpoint_when_a_key_is_set() {
+    let client = reqwest::Client::new();
+    let request =
+        super::build_youcom_search_request(&client, "rust async", 5, "ydc-key", "moderate")
+            .build()
+            .expect("request");
+    assert_eq!(request.method(), reqwest::Method::POST);
+    assert_eq!(request.url().as_str(), super::YOUCOM_KEYED_SEARCH_URL);
+    assert_eq!(request.headers()["X-API-Key"], "ydc-key");
+    let body: serde_json::Value =
+        serde_json::from_slice(request.body().and_then(|b| b.as_bytes()).expect("body"))
+            .expect("json body");
+    assert_eq!(body["query"], "rust async");
+    assert_eq!(body["count"], 5);
+}
+
+#[test]
+fn youcom_key_prefers_config_then_ydc_api_key_env() {
+    assert_eq!(
+        super::resolve_youcom_api_key("cfg", Some("env".into())),
+        "cfg"
+    );
+    assert_eq!(
+        super::resolve_youcom_api_key(" ", Some("env".into())),
+        "env"
+    );
+    assert_eq!(super::resolve_youcom_api_key("", None), "");
+}
+
+#[test]
+fn youcom_results_use_web_then_news_and_skip_empty_urls() {
+    let text = super::format_youcom_search_results(
+        "rust async",
+        &serde_json::json!({
+            "results": {
+                "web": [
+                    { "title": "A", "url": "https://a.example", "description": "short", "snippets": ["long body"] },
+                    { "title": "B", "url": "https://b.example", "description": "", "snippets": ["fallback"] },
+                    { "title": "C", "url": "" }
+                ],
+                "news": [
+                    { "title": "N", "url": "https://n.example", "description": "news item", "page_age": "2026-11-12T10:00:00" }
+                ]
+            }
+        }),
+        10,
+    );
+    assert!(text.starts_with("Web results for \"rust async\""), "{text}");
+    assert!(text.contains("short"));
+    assert!(!text.contains("long body"));
+    assert!(text.contains("fallback"));
+    assert!(text.contains("news item"));
+    assert!(!text.contains("(no title)"));
+
+    let empty = super::format_youcom_search_results("nothing", &serde_json::json!({}), 10);
+    assert_eq!(empty, "No web results found for: nothing");
+}
