@@ -225,6 +225,7 @@ const WEB_PAGE: SettingsPageSpec = SettingsPageSpec {
                 field!(Secret, "exa_api_key", "Exa key", c => c.exa_api_key.as_str(), if c => c.search_provider == "exa"),
                 field!(Secret, "tavily_api_key", "Tavily key", c => c.tavily_api_key.as_str(), if c => c.search_provider == "tavily"),
                 field!(Secret, "keenable_api_key", "Keenable key", c => c.keenable_api_key.as_str(), if c => c.search_provider == "keenable"),
+                field!(Secret, "youcom_api_key", "You.com key", c => c.youcom_api_key.as_str(), if c => c.search_provider == "youcom"),
                 field!(Number, "search_max_results", "Max results", c => c.search_max_results.to_string()),
                 field!(Number, "search_timeout", "Timeout (s)", c => c.search_timeout_secs.to_string()),
             ]

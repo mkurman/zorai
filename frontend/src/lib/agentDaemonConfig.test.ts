@@ -14,6 +14,7 @@ describe("daemon agent config audio wiring", () => {
       exa_api_key: "exa-key",
       tavily_api_key: "tavily-key",
       keenable_api_key: "keenable-key",
+      youcom_api_key: "youcom-key",
       search_max_results: 12,
       search_timeout_secs: 45,
     });
@@ -26,6 +27,7 @@ describe("daemon agent config audio wiring", () => {
     expect(daemonConfig.exa_api_key).toBe("exa-key");
     expect(daemonConfig.tavily_api_key).toBe("tavily-key");
     expect(daemonConfig.keenable_api_key).toBe("keenable-key");
+    expect(daemonConfig.youcom_api_key).toBe("youcom-key");
     expect(daemonConfig.search_max_results).toBe(12);
     expect(daemonConfig.search_timeout_secs).toBe(45);
   });

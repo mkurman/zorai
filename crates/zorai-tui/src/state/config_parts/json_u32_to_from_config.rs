@@ -235,6 +235,7 @@ pub struct ConfigState {
     pub exa_api_key: String,
     pub tavily_api_key: String,
     pub keenable_api_key: String,
+    pub youcom_api_key: String,
     pub search_max_results: u32,
     pub search_timeout_secs: u32,
 

@@ -110,6 +110,9 @@ fn websearch_provider_cycle_reaches_keenable_and_keeps_going() {
     assert_eq!(model.config.search_provider, "keenable");
 
     model.activate_settings_field();
+    assert_eq!(model.config.search_provider, "youcom");
+
+    model.activate_settings_field();
     assert_eq!(model.config.search_provider, "none");
 }
 

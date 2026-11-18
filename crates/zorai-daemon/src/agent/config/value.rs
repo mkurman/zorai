@@ -14,6 +14,7 @@ pub(super) fn is_sensitive_config_key(key: &str) -> bool {
             | "exa_api_key"
             | "tavily_api_key"
             | "keenable_api_key"
+            | "youcom_api_key"
             | "honcho_api_key"
             | "client_secret"
             | "access_token"

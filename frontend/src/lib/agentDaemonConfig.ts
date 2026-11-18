@@ -208,6 +208,7 @@ export function buildDaemonAgentConfig(
     exa_api_key: agentSettings.exa_api_key,
     tavily_api_key: agentSettings.tavily_api_key,
     keenable_api_key: agentSettings.keenable_api_key,
+    youcom_api_key: agentSettings.youcom_api_key,
     search_max_results: agentSettings.search_max_results,
     search_timeout_secs: agentSettings.search_timeout_secs,
     browse_provider: agentSettings.browse_provider,

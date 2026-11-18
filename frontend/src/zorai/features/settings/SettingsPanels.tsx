@@ -484,6 +484,7 @@ function SearchPanel() {
         {provider === "exa" ? <SecretRow label="Exa Key" description="API key for Exa search." value={agentSettings.exa_api_key} onChange={(value) => updateAgentSetting("exa_api_key", value)} /> : null}
         {provider === "tavily" ? <SecretRow label="Tavily Key" description="API key for Tavily search." value={agentSettings.tavily_api_key} onChange={(value) => updateAgentSetting("tavily_api_key", value)} /> : null}
         {provider === "keenable" ? <SecretRow label="Keenable Key" description="Optional API key for Keenable search. Leave empty to use the free public endpoint." value={agentSettings.keenable_api_key} onChange={(value) => updateAgentSetting("keenable_api_key", value)} /> : null}
+        {provider === "youcom" ? <SecretRow label="You.com Key" description="Optional API key for You.com search. Leave empty to use the free keyless endpoint." value={agentSettings.youcom_api_key} onChange={(value) => updateAgentSetting("youcom_api_key", value)} /> : null}
         <NumberRow label="Max Results" description="Maximum search results." value={agentSettings.search_max_results} onChange={(value) => updateAgentSetting("search_max_results", value)} min={1} max={50} />
         <NumberRow label="Timeout" description="Search timeout in seconds." value={agentSettings.search_timeout_secs} onChange={(value) => updateAgentSetting("search_timeout_secs", value)} min={1} max={120} />
       </Panel>
