@@ -10,16 +10,29 @@ const DEFAULT_MAX_FILE_BYTES = 2 * 1024 * 1024;
 const GIT_MAX_BUFFER = 8 * 1024 * 1024;
 const GIT_REPOSITORY_CHANGING_COMMANDS = new Set(['add', 'apply', 'branch', 'checkout', 'cherry-pick', 'clean', 'commit', 'merge', 'mv', 'rebase', 'reset', 'restore', 'rm', 'stash', 'switch', 'tag', 'worktree']);
 const GIT_READ_ONLY_FLAGS = new Set(['--show-current', '--list', '--format', '-l', 'list']);
+const INDEX_LOCK_RETRY_DELAYS_MS = [100, 250, 500, 1000];
 
 function changesRepository(args) {
     if (!GIT_REPOSITORY_CHANGING_COMMANDS.has(args[0])) return false;
     return !args.slice(1).some((arg) => GIT_READ_ONLY_FLAGS.has(arg) || arg.startsWith('--format='));
 }
 
+async function execGitWaitingForIndexLock(args, options) {
+    for (let attempt = 0; ; attempt += 1) {
+        try {
+            return await execFileAsync('git', args, options);
+        } catch (error) {
+            const delay = INDEX_LOCK_RETRY_DELAYS_MS[attempt];
+            if (delay === undefined || !/index\.lock'?: File exists/.test(String(error?.stderr ?? ''))) throw error;
+            await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+    }
+}
+
 async function execGit(args, options = {}) {
     const record = changesRepository(args);
     try {
-        const result = await execFileAsync('git', args, options);
+        const result = await execGitWaitingForIndexLock(args, options);
         if (record) recordGitOutput({ cwd: options.cwd ?? '', command: `git ${args.join(' ')}`, ok: true, output: [result.stdout, result.stderr].filter((text) => text && String(text).trim()).join('\n').trim() });
         return result;
     } catch (error) {

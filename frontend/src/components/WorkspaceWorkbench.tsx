@@ -1379,6 +1379,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     const root = context?.root;
     if (!root) return;
     const refresh = () => { if (document.visibilityState === "visible") void refreshGitOnly(root); };
+    refresh();
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
     return () => { window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };

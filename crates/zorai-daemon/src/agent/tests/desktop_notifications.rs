@@ -144,3 +144,20 @@ async fn approvals_and_questions_notify_from_any_thread_because_they_block_work(
     assert_eq!(question.title, "Question from an agent");
     assert_eq!(question.body, "Ship it?");
 }
+
+#[tokio::test]
+async fn reply_notifications_show_readable_text_instead_of_raw_markdown() {
+    let engine = test_engine().await;
+    let reply = "## Bottom line\n**I would fix** the `learning-signal` path, see [the run](https://mlflow/run/1).\n\n- **Truncated** completions\n- second_item.py\n\n| a | b |\n|---|---|\n| 1 | 2 |\n```rust\nlet x = 1;\n```";
+    let message_id = thread_with_reply(&engine, "thread-md", "Boosting", reply).await;
+
+    let notification = engine
+        .desktop_notification_for_event(&done("thread-md", &message_id))
+        .await
+        .expect("operator thread reply should notify");
+
+    assert_eq!(
+        notification.body,
+        "Bottom line I would fix the learning-signal path, see the run. Truncated completions second_item.py a · b 1 · 2 let x = 1;"
+    );
+}
