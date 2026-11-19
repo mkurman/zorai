@@ -121,8 +121,8 @@ describe("Zorai feature surfaces", () => {
     expect(shellSource).toContain("useShellLayoutStore.getState().markCodeContextAutoOpened()");
     expect(shellSource).toContain("setContextOpen(true)");
     expect(codeSource).toContain('export { CodeAgentPane } from "./CodeAgentPane"');
-    expect(readFeature("./threads/ThreadComposer.tsx")).toContain('CodeThreadRuntimeSwitcher');
-    expect(readFeature("./threads/ThreadComposer.tsx")).toContain('variant="composer"');
+    expect(readFeature("./threads/ThreadsView.tsx")).toContain('CodeThreadRuntimeSwitcher');
+    expect(readFeature("./threads/ThreadsView.tsx")).toContain('variant="composer"');
     expect(agentPaneSource).not.toContain('CodeContextWindowMeter');
     expect(agentPaneSource).not.toContain('className="zorai-code-context-chips"');
     expect(agentPaneSource).not.toContain('className="zorai-code-agent-toolbar"');

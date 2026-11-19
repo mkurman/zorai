@@ -20,6 +20,7 @@ import { useAgentStore, type AgentMessage, type AgentThread } from "@/lib/agentS
 import { fetchAgentTasksFiltered, type AgentQueueTask } from "@/lib/agentTaskQueue";
 import { ThreadFilePreviewOverlay } from "./ThreadFilePreviewOverlay";
 import { ThreadComposer } from "./ThreadComposer";
+import { CodeThreadRuntimeSwitcher } from "../code/CodeThreadRuntimeSwitcher";
 import { ThreadCompactSessionBar } from "./ThreadCompactSessionBar";
 import { ThreadActivityRow } from "./ThreadActivityRow";
 import { ThreadTurnActivityList } from "./ThreadTurnActivityList";
@@ -526,6 +527,11 @@ export function ThreadsView({
 
       <div className="zorai-thread-composer-stack">
         <div ref={setAttachmentSlot} className="zorai-composer-attachment-slot" />
+        {variant === "compact" ? (
+          <div className="zorai-composer-runtime-row">
+            <CodeThreadRuntimeSwitcher thread={runtime.activeThread ?? null} variant="composer" />
+          </div>
+        ) : null}
         <ThreadCompactSessionBar reviewActions={variant === "compact"} />
         <ThreadComposer showTargetSelector={variant === "compact"} compact={variant === "compact"} attachmentSlot={attachmentSlot} />
       </div>

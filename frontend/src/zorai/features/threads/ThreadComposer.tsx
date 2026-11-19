@@ -34,7 +34,6 @@ import { activeThreadBudgetExceededNotice } from "./threadBudgetNotice";
 import { ManagedSecurityShield } from "./ManagedSecurityShield";
 import { ThreadEffortGauge } from "./ThreadEffortGauge";
 import { ComposerContextCircle } from "./ComposerContextCircle";
-import { CodeThreadRuntimeSwitcher } from "../code/CodeThreadRuntimeSwitcher";
 import { AttachmentTiles, composerAttachmentToTile } from "./attachmentTiles";
 import { useComposerSketch } from "./useComposerSketch";
 import { ComposerBrowserPanel } from "../browser/ComposerBrowserPanel";
@@ -563,7 +562,7 @@ export function ThreadComposer({
       onDrop={onDrop}
       onPaste={onPaste}
     >
-      {workspaceContext?.activeFile || (workspaceContext?.attachedFiles.length ?? 0) > 0 || (compact && activeThreadId) ? (
+      {workspaceContext?.activeFile || (workspaceContext?.attachedFiles.length ?? 0) > 0 ? (
         <div className="zorai-composer-workspace-context">
           {workspaceContext?.activeFile ? <span className="zorai-composer-context-chip">Active · {workspaceContext.activeFile}</span> : null}
           {workspaceContext?.selection && workspaceContext.activeFile ? <span className="zorai-composer-context-chip">Lines {workspaceContext.selection.startLine}-{workspaceContext.selection.endLine}</span> : null}
@@ -573,7 +572,6 @@ export function ThreadComposer({
               <button type="button" aria-label={`Detach ${filePath}`} onClick={() => activeThreadId && toggleAttachedFile(activeThreadId, filePath)}>×</button>
             </span>
           ))}
-          {compact ? <CodeThreadRuntimeSwitcher thread={runtime.activeThread ?? null} variant="composer" /> : null}
         </div>
       ) : null}
 
