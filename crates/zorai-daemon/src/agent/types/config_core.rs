@@ -142,6 +142,8 @@ pub struct AgentConfig {
     pub system_prompt: String,
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub agent_aliases: std::collections::BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub model_modalities: std::collections::BTreeMap<String, Vec<Modality>>,
     #[serde(default = "default_max_tool_loops")]
     pub max_tool_loops: u32,
     #[serde(default = "default_max_subagent_budget_extensions")]

@@ -4,6 +4,40 @@ use crate::state::settings::SettingsAction;
 const CUSTOM_MODEL_EDIT_FIELD: &str = "thread_owner_custom_model";
 
 impl TuiModel {
+    pub(crate) fn custom_model_modalities(raw: &str) -> Vec<&'static str> {
+        let requested = raw
+            .split([',', ' '])
+            .map(|item| item.trim().to_ascii_lowercase())
+            .collect::<Vec<_>>();
+        ["text", "image", "video", "audio"]
+            .into_iter()
+            .filter(|modality| *modality == "text" || requested.iter().any(|item| item == modality))
+            .collect()
+    }
+
+    pub(crate) fn set_custom_model_modalities(&mut self, model_id: &str, raw: &str) {
+        let modalities = Self::custom_model_modalities(raw);
+        let key = format!("{}::{}", self.config.provider, model_id);
+        let value = serde_json::json!(modalities);
+        if let Some(config) = self.config.agent_config_raw.as_mut() {
+            if !config
+                .get("model_modalities")
+                .is_some_and(|map| map.is_object())
+            {
+                config["model_modalities"] = serde_json::json!({});
+            }
+            config["model_modalities"][&key] = value.clone();
+        }
+        self.send_daemon_command(DaemonCommand::SetConfigItem {
+            key_path: format!(
+                "/model_modalities/{}",
+                key.replace('~', "~0").replace('/', "~1")
+            ),
+            value_json: value.to_string(),
+        });
+        self.status_line = format!("{model_id} accepts {}", modalities.join(", "));
+    }
+
     pub(crate) fn parse_custom_model_entry(raw: &str) -> Option<(String, String)> {
         let trimmed = raw.trim();
         if trimmed.is_empty() {

@@ -245,15 +245,21 @@ export function readSpeechToTextContent(result: unknown): string {
   return readNestedSpeechText(record.data);
 }
 
+const VIDEO_FILE_PATTERN = /\.(mp4|webm|mov|m4v)$/i;
+
+function isVideoPathAttachment(attachment: ComposerAttachment): boolean {
+  return attachment.kind === "file" && Boolean(attachment.path) && (attachment.mimeType.startsWith("video/") || VIDEO_FILE_PATTERN.test(attachment.path ?? ""));
+}
+
 export function buildAttachmentSendPayload(text: string, attachments: ComposerAttachment[]): SendMessagePayload {
   const trimmedText = text.trim();
   const textAttachmentWrappers = attachments
     .filter((attachment) => attachment.kind === "text" && attachment.textContent)
     .map((attachment) => `<attached_file name="${attachment.name}">\n${attachment.textContent}\n</attached_file>`);
   const pathAttachmentReferences = attachments
-    .filter((attachment) => attachment.kind === "file" && attachment.path)
+    .filter((attachment) => attachment.kind === "file" && attachment.path && !isVideoPathAttachment(attachment))
     .map((attachment) => `<attached_file name="${attachment.name}" path="${attachment.path}" mime_type="${attachment.mimeType}" />`);
-  const mediaAttachments = attachments.filter((attachment) => attachment.kind === "image" || attachment.kind === "audio");
+  const mediaAttachments = attachments.filter((attachment) => attachment.kind === "image" || attachment.kind === "audio" || isVideoPathAttachment(attachment));
   const finalText = [...textAttachmentWrappers, ...pathAttachmentReferences, trimmedText].filter(Boolean).join("\n\n").trim();
 
   if (mediaAttachments.length === 0) {
@@ -268,11 +274,17 @@ export function buildAttachmentSendPayload(text: string, attachments: ComposerAt
             data_url: attachment.dataUrl,
             mime_type: attachment.mimeType,
           } as const)
-        : ({
-            type: "audio",
-            data_url: attachment.dataUrl,
-            mime_type: attachment.mimeType,
-          } as const),
+        : attachment.kind === "audio"
+          ? ({
+              type: "audio",
+              data_url: attachment.dataUrl,
+              mime_type: attachment.mimeType,
+            } as const)
+          : ({
+              type: "video",
+              url: `file://${attachment.path}`,
+              mime_type: attachment.mimeType.startsWith("video/") ? attachment.mimeType : "video/mp4",
+            } as const),
     ),
   ];
   const localContentBlocks = contentBlocks.map((block, index) => {

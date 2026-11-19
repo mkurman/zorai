@@ -311,6 +311,35 @@ export function SubAgentsTab() {
                             placeholder="256000"
                         />
                     </Field>
+                    <Field label="Reasoning Effort">
+                        <select
+                            className="zorai-input"
+                            value={form.reasoning_effort}
+                            onChange={(e) => setForm({ ...form, reasoning_effort: e.target.value })}
+                        >
+                            <option value="">None</option>
+                            <option value="minimal">Minimal</option>
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="xhigh">Extra High</option>
+                            <option value="max">Max</option>
+                        </select>
+                    </Field>
+                    <Field label="API Transport">
+                        <select
+                            className="zorai-input"
+                            value={form.api_transport}
+                            onChange={(e) => setForm({ ...form, api_transport: e.target.value })}
+                        >
+                            <option value="">Provider default</option>
+                            {form.provider
+                                ? getSupportedApiTransports(form.provider as AgentProviderId).map((transport) => (
+                                    <option key={transport} value={transport}>{transport}</option>
+                                ))
+                                : null}
+                        </select>
+                    </Field>
                     {form.provider === "openrouter" ? (
                         <OpenRouterProviderRoutingControls
                             config={{
@@ -353,35 +382,6 @@ export function SubAgentsTab() {
                             <PreferredSkillsEditor agentId={preferredSkillScopeId(editingId)} agentName={form.name || editingId} />
                         </Field>
                     ) : null}
-                    <Field label="Reasoning Effort">
-                        <select
-                            className="zorai-input"
-                            value={form.reasoning_effort}
-                            onChange={(e) => setForm({ ...form, reasoning_effort: e.target.value })}
-                        >
-                            <option value="">None</option>
-                            <option value="minimal">Minimal</option>
-                            <option value="low">Low</option>
-                            <option value="medium">Medium</option>
-                            <option value="high">High</option>
-                            <option value="xhigh">Extra High</option>
-                            <option value="max">Max</option>
-                        </select>
-                    </Field>
-                    <Field label="API Transport">
-                        <select
-                            className="zorai-input"
-                            value={form.api_transport}
-                            onChange={(e) => setForm({ ...form, api_transport: e.target.value })}
-                        >
-                            <option value="">Provider default</option>
-                            {form.provider
-                                ? getSupportedApiTransports(form.provider as AgentProviderId).map((transport) => (
-                                    <option key={transport} value={transport}>{transport}</option>
-                                ))
-                                : null}
-                        </select>
-                    </Field>
                     <div className="zorai-subagents__advanced">
                         <button
                             type="button"

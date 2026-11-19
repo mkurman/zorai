@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { TINT_COLORS, threadTint, threadTintKey, tintColor, tintMenuItem, tintStyle, useTintStore } from "./tintStore";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { TINT_COLORS, localTintsToUpload, resetDaemonColorsAvailabilityForTest, syncTintsWithDaemon, threadTint, threadTintKey, tintColor, tintMenuItem, tintStyle, tintsFromDaemon, useTintStore } from "./tintStore";
 
 describe("tints", () => {
   beforeEach(() => useTintStore.setState({ threads: {}, roots: {} }));
@@ -39,5 +39,53 @@ describe("tints", () => {
     expect(tintColor("chartreuse" as never)).toBeNull();
     expect(tintStyle(undefined)).toBeUndefined();
     expect(tintStyle("purple")).toEqual({ "--zorai-tint": TINT_COLORS.purple });
+  });
+});
+
+describe("colours stored by the daemon", () => {
+  it("drops unknown colour names the daemon returns instead of painting with them", () => {
+    expect(tintsFromDaemon({ thread: { t1: "teal", t2: "chartreuse" }, root: { "/repo": "blue" } })).toEqual({
+      threads: { t1: "teal" },
+      roots: { "/repo": "blue" },
+    });
+  });
+
+  it("copies colours picked before daemon storage up once, so they are not lost", () => {
+    const local = { threads: { t1: "red" as const }, roots: { "/repo": "green" as const }, daemonSynced: false };
+    expect(localTintsToUpload(local, { thread: {}, root: {} })).toEqual([
+      { kind: "thread", key: "t1", tint: "red" },
+      { kind: "root", key: "/repo", tint: "green" },
+    ]);
+  });
+
+  it("never re-uploads stale local colours over what the daemon already holds or after the first sync", () => {
+    const local = { threads: { t1: "red" as const }, roots: {}, daemonSynced: false };
+    expect(localTintsToUpload(local, { thread: { t9: "blue" }, root: {} })).toEqual([]);
+    expect(localTintsToUpload({ ...local, daemonSynced: true }, { thread: {}, root: {} })).toEqual([]);
+  });
+
+  it("asks the daemon to save a colour change so it follows the thread to other windows", () => {
+    const agentSetUiColor = vi.fn(() => Promise.resolve({ thread: { t1: "purple" }, root: {} }));
+    (globalThis as { window?: unknown }).window = { zorai: { agentSetUiColor } };
+    useTintStore.getState().setThreadTint("t1", "purple");
+    expect(agentSetUiColor).toHaveBeenCalledWith("thread", "t1", "purple");
+    delete (globalThis as { window?: unknown }).window;
+  });
+});
+
+describe("daemon without colour storage", () => {
+  it("stops asking after the first failure so an older daemon does not keep dropping the connection", async () => {
+    resetDaemonColorsAvailabilityForTest();
+    const agentListUiColors = vi.fn(() => Promise.resolve({ error: "agent bridge exited" }));
+    const agentSetUiColor = vi.fn(() => Promise.resolve({}));
+    (globalThis as { window?: unknown }).window = { zorai: { agentListUiColors, agentSetUiColor } };
+    await syncTintsWithDaemon();
+    await syncTintsWithDaemon();
+    useTintStore.getState().setThreadTint("t1", "red");
+    expect(agentListUiColors).toHaveBeenCalledTimes(1);
+    expect(agentSetUiColor).not.toHaveBeenCalled();
+    expect(useTintStore.getState().threads.t1).toBe("red");
+    delete (globalThis as { window?: unknown }).window;
+    resetDaemonColorsAvailabilityForTest();
   });
 });

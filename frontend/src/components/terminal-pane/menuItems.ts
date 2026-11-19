@@ -1,5 +1,6 @@
 import type { MutableRefObject } from "react";
 import type { Terminal } from "@xterm/xterm";
+import { getBridge } from "@/lib/bridge";
 import type { TerminalContextMenuItem } from "./TerminalContextMenu";
 
 export function buildTerminalContextMenuItems({
@@ -60,5 +61,7 @@ export function buildTerminalContextMenuItems({
             },
         },
         { label: "Search", shortcut: "Ctrl+Shift+F", action: () => toggleSearch() },
+        { separator: true },
+        { label: "Take Screenshot", action: () => void getBridge()?.contextMenuAction?.("screenshot") },
     ];
 }

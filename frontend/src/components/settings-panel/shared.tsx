@@ -8,6 +8,7 @@ import { useSettingsStore } from "../../lib/settingsStore";
 import type { AgentProviderId, AuthSource, ModelDefinition } from "../../lib/agentStore";
 import { getProviderDefinition, getProviderModels } from "../../lib/agentStore";
 import { buildModelSelectorMetadata } from "./modelSelectorMetadata";
+import { CustomModelModalities } from "./CustomModelModalities";
 import {
     normalizeFetchedRemoteModel,
     type FetchedRemoteModel,
@@ -530,6 +531,9 @@ export function ModelSelector({ providerId, value, customName, onChange, disable
                     </button>
                 )}
             </div>
+            {!isOpen && value.trim() && !allModels.some((model) => model.id === value) ? (
+                <CustomModelModalities providerId={providerId} modelId={value} disabled={disabled} />
+            ) : null}
 
             {isOpen && (
                 <div style={{

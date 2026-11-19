@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { getBridge } from "@/lib/bridge";
+import { syncTintsWithDaemon } from "@/zorai/features/tints/tintStore";
 import { OperatorQuestionDock } from "@/components/OperatorQuestionDock";
 import { ActivityRail, ActivityView } from "../features/activity/ActivityView";
 import { DatabaseRail, DatabaseView } from "../features/database/DatabaseView";
@@ -50,7 +52,7 @@ import { ZORAI_NAVIGATE_EVENT, type ZoraiNavigateDetail, type ZoraiReturnTarget 
 import { useSettingsStore } from "@/lib/settingsStore";
 import { useAgentStore } from "@/lib/agentStore";
 import { openThreadTarget } from "@/zorai/features/threads/openThreadTarget";
-import { finishSessionRestore, rememberThreadsViewThread, startSessionPersistence } from "@/zorai/features/threads/sessionRestore";
+import { finishSessionRestore, rememberThreadsViewThread, restoreSavedLayout, startSessionPersistence, whenThreadsLoaded } from "@/zorai/features/threads/sessionRestore";
 import { chatMaxWidth } from "@/lib/uiInterfacePrefs";
 import { GitCredentialPrompt } from "@/zorai/features/code/GitCredentialPrompt";
 import {
@@ -113,6 +115,15 @@ export function ZoraiShell() {
   const wasCompactShell = useRef(false);
   const contextOpen = useShellLayoutStore((state) => state.contextOpen);
   const setContextOpen = useShellLayoutStore((state) => state.setContextOpen);
+  useEffect(() => {
+    void getBridge()?.appSetMenuState?.({ railOpen, contextOpen });
+  }, [contextOpen, railOpen]);
+  useEffect(() => {
+    const sync = () => void syncTintsWithDaemon();
+    sync();
+    window.addEventListener("focus", sync);
+    return () => window.removeEventListener("focus", sync);
+  }, []);
   const [viewportWidth, setViewportWidth] = useState(() => typeof window === "undefined" ? 1600 : window.innerWidth);
   const explorerPreferredWidth = useCodeLayoutStore((state) => state.explorerPreferredWidth);
   const agentPreferredWidth = useCodeLayoutStore((state) => state.agentPreferredWidth);
@@ -128,22 +139,29 @@ export function ZoraiShell() {
 
   const runtime = useAgentChatPanelRuntime();
   const threadsViewThreadRef = useRef<string | null>(null);
+  const runtimeRef = useRef(runtime);
+  runtimeRef.current = runtime;
+  const activeViewRef = useRef(activeView);
+  activeViewRef.current = activeView;
   const previousViewRef = useRef(activeView);
   useEffect(() => {
     const saved = startSessionPersistence();
-    const restored = saved.active
-      ? useAgentStore.getState().threads.find((thread) => thread.daemonThreadId === saved.active) ?? null
-      : null;
-    if (!restored) {
-      finishSessionRestore(activeView === "code" ? null : runtime.activeThreadId);
-      return;
-    }
-    if (activeView === "code") {
-      threadsViewThreadRef.current = restored.id;
-      finishSessionRestore(restored.id);
-      return;
-    }
-    void openThreadTarget(runtime, restored.id).finally(() => finishSessionRestore(restored.id));
+    whenThreadsLoaded(() => {
+      restoreSavedLayout(saved);
+      const restored = saved.active
+        ? useAgentStore.getState().threads.find((thread) => thread.daemonThreadId === saved.active) ?? null
+        : null;
+      if (!restored) {
+        finishSessionRestore(activeViewRef.current === "code" ? null : runtimeRef.current.activeThreadId);
+        return;
+      }
+      if (activeViewRef.current === "code") {
+        threadsViewThreadRef.current = restored.id;
+        finishSessionRestore(restored.id);
+        return;
+      }
+      void openThreadTarget(runtimeRef.current, restored.id).finally(() => finishSessionRestore(restored.id));
+    });
   }, []);
   useEffect(() => {
     const previous = previousViewRef.current;

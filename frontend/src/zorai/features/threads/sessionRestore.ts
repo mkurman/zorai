@@ -66,17 +66,39 @@ export function finishSessionRestore(id: string | null): void {
   rememberThreadsViewThread(id);
 }
 
-export function startSessionPersistence(storage: SessionStorage | undefined = typeof localStorage === "undefined" ? undefined : localStorage): SavedSession {
-  const saved = readSavedSession(storage);
-  if (!storage || writeSession) return saved;
+export function restoreSavedLayout(saved: SavedSession): void {
   const threads = useAgentStore.getState().threads;
   const known = saved.tabs.filter((id) => threads.some((thread) => thread.daemonThreadId === id));
   if (known.length > 0 && useOpenSessionTabs.getState().ids.length === 0) useOpenSessionTabs.setState({ ids: known });
   const split = restoredSplitFor(threads, saved.split);
   if (split && !useThreadSplitStore.getState().root) useThreadSplitStore.setState({ root: split });
+}
+
+export function whenThreadsLoaded(callback: () => void, timeoutMs = 20_000): void {
+  if (useAgentStore.getState().threads.length > 0) {
+    callback();
+    return;
+  }
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    unsubscribe();
+    clearTimeout(timer);
+    callback();
+  };
+  const unsubscribe = useAgentStore.subscribe((state) => {
+    if (state.threads.length > 0) finish();
+  });
+  const timer = setTimeout(finish, timeoutMs);
+}
+
+export function startSessionPersistence(storage: SessionStorage | undefined = typeof localStorage === "undefined" ? undefined : localStorage): SavedSession {
+  const saved = readSavedSession(storage);
+  if (!storage || writeSession) return saved;
   let last = JSON.stringify(saved);
   writeSession = () => {
-    if (restoring) return;
+    if (restoring || useAgentStore.getState().threads.length === 0) return;
     const next = JSON.stringify(savedSessionFor(useAgentStore.getState().threads, useOpenSessionTabs.getState().ids, threadsViewThreadId, useThreadSplitStore.getState().root));
     if (next === last) return;
     last = next;

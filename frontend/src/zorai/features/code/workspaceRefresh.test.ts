@@ -120,4 +120,18 @@ describe("workspace root state cache", () => {
     expect(cached?.statuses).toHaveLength(1);
     expect(cachedWorkspaceRootState(null)).toBeNull();
   });
+
+  it("hands over the folder listing before slow git queries finish so the explorer is not blocked on git", async () => {
+    let releaseGit: (value: unknown[]) => void = () => {};
+    const slowGit = new Promise<unknown[]>((resolve) => { releaseGit = resolve; });
+    const entries = [{ path: "src", name: "src", isDirectory: true }];
+    const onEntries = vi.fn();
+    const loading = loadWorkspaceRootState({
+      workspaceListDirectory: vi.fn(async () => entries),
+      workspaceGitStatus: vi.fn(() => slowGit),
+    } as never, "/workspace", onEntries);
+    await vi.waitFor(() => expect(onEntries).toHaveBeenCalledWith(entries));
+    releaseGit([]);
+    expect((await loading).entries).toBe(entries);
+  });
 });

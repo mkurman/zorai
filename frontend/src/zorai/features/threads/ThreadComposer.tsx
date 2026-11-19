@@ -1,4 +1,5 @@
 import { useContext, useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import {
   blobToBase64,
@@ -59,7 +60,9 @@ export function ThreadComposer({
   onStartThread,
   onSendNewThread,
   placeholder,
+  attachmentSlot,
 }: {
+  attachmentSlot?: HTMLElement | null;
   showTargetSelector?: boolean;
   compact?: boolean;
   onStartThread?: (firstMessage: string) => void;
@@ -528,6 +531,23 @@ export function ThreadComposer({
     ) : null,
   };
 
+  const attachmentTiles = attachments.length > 0 ? (
+    <AttachmentTiles
+      items={attachments.map((attachment) => ({
+        ...composerAttachmentToTile(attachment),
+        badge: sketch.tileBadge(attachment.id),
+      }))}
+      onRemove={(id) => {
+        setAttachments((current) => current.filter((item) => item.id !== id));
+        sketch.forgetAttachment(id);
+      }}
+      onAnnotate={(attachmentId) => {
+        showOnlyPanel("sketch");
+        sketch.openAnnotation(attachmentId);
+      }}
+    />
+  ) : null;
+
   return (
     <div
       className={[
@@ -557,22 +577,7 @@ export function ThreadComposer({
         </div>
       ) : null}
 
-      {attachments.length > 0 ? (
-        <AttachmentTiles
-          items={attachments.map((attachment) => ({
-            ...composerAttachmentToTile(attachment),
-            badge: sketch.tileBadge(attachment.id),
-          }))}
-          onRemove={(id) => {
-            setAttachments((current) => current.filter((item) => item.id !== id));
-            sketch.forgetAttachment(id);
-          }}
-          onAnnotate={(attachmentId) => {
-            showOnlyPanel("sketch");
-            sketch.openAnnotation(attachmentId);
-          }}
-        />
-      ) : null}
+      {attachmentTiles && attachmentSlot ? createPortal(attachmentTiles, attachmentSlot) : attachmentTiles}
 
       {budgetNotice ? (
         <p className="zorai-composer-budget-notice" role="alert">{budgetNotice}</p>

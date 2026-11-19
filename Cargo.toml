@@ -46,3 +46,9 @@ arrow-schema = "57.3.0"
 # Protocol
 zorai-shared = { package = "zorai-shared", path = "crates/zorai-shared" }
 zorai-protocol = { package = "zorai-protocol", path = "crates/zorai-protocol" }
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

@@ -413,14 +413,18 @@ impl TuiModel {
                             }
                             "custom_model_entry" => {
                                 let trimmed = value.trim();
-                                let (name, model_id) =
-                                    if let Some((lhs, rhs)) = trimmed.split_once('|') {
-                                        (lhs.trim(), rhs.trim())
-                                    } else {
-                                        ("", trimmed)
-                                    };
+                                let parts = trimmed.split('|').map(str::trim).collect::<Vec<_>>();
+                                let (name, model_id, modalities) = match parts.as_slice() {
+                                    [id] => ("", *id, None),
+                                    [name, id] => (*name, *id, None),
+                                    [name, id, modalities, ..] => (*name, *id, Some(*modalities)),
+                                    [] => ("", "", None),
+                                };
                                 if !model_id.is_empty() {
                                     self.config.model = model_id.to_string();
+                                    if let Some(modalities) = modalities {
+                                        self.set_custom_model_modalities(model_id, modalities);
+                                    }
                                     let resolved_context_window =
                                         providers::resolve_context_window_for_provider_auth(
                                             &self.config.provider,
@@ -854,7 +858,8 @@ impl TuiModel {
                             | "feat_memory_limit_memory_chars"
                             | "feat_memory_limit_user_chars" => {
                                 if let Ok(n) = value.trim().parse::<u64>() {
-                                    let (key, _) = crate::state::settings_registry::memory_limit_key(&field);
+                                    let (key, _) =
+                                        crate::state::settings_registry::memory_limit_key(&field);
                                     self.set_raw_config_item(
                                         &["memory_limits", key],
                                         serde_json::json!(n.clamp(200, 100_000)),

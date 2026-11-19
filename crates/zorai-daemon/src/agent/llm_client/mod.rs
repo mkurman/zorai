@@ -25,6 +25,7 @@ mod openai_sse;
 mod openai_transport;
 mod prelude;
 mod public_api;
+mod video_blocks;
 
 pub(crate) use anthropic::*;
 #[allow(unused_imports)]
@@ -47,6 +48,7 @@ pub(crate) use openai_sse::*;
 pub(crate) use openai_transport::*;
 pub(crate) use prelude::*;
 pub(crate) use public_api::*;
+pub(crate) use video_blocks::*;
 
 #[cfg(test)]
 mod tests;

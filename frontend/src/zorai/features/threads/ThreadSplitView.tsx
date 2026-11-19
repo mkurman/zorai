@@ -4,6 +4,8 @@ import { loadDaemonThreadPageIntoLocalState, threadHistoryReplaceEpoch } from "@
 import { findThreadByAuthoritativeIdentity } from "@/components/agent-chat-panel/runtime/threadListQueries";
 import { threadTurnIsActive } from "@/components/agent-chat-panel/runtime/threadTurnState";
 import { useAgentStore, type AgentMessage, type AgentThread, type AgentTodoItem } from "@/lib/agentStore";
+import { fetchAgentRuns, IDLE_RUN_POLL_MS, isSubagentRun, runListIsActive, type AgentRun } from "@/lib/agentRuns";
+import { deriveSpawnedAgentTree } from "@/lib/spawnedAgentTree";
 import type { ZoraiReturnTarget } from "@/zorai/shell/zoraiNavigationEvents";
 import { ComposerDraftOverrideContext, readComposerDraftInput, writeComposerDraftInput } from "./composerDraftStore";
 import { openThreadTarget } from "./openThreadTarget";
@@ -12,7 +14,7 @@ import { SESSION_TAB_DRAG_TYPE, ThreadSessionTabs } from "./SessionTabStrip";
 import { ThreadFilePreviewOverlay } from "./ThreadFilePreviewOverlay";
 import { ThreadPanelHostContext, useThreadPanelStore } from "./threadSidePanel";
 import { ThreadsView } from "./ThreadsView";
-import { THREAD_DRAG_TYPE, splitDropZone, splitPaneIds, useThreadSplitStore, type ThreadSplitDropZone, type ThreadSplitNode } from "./threadSplitModel";
+import { THREAD_DRAG_TYPE, resizeSplitChildren, splitChildSizes, splitDropZone, splitEdgeDropZone, splitPaneIds, useThreadSplitStore, type ThreadSplitDropZone, type ThreadSplitNode } from "./threadSplitModel";
 
 const EMPTY_MESSAGES: AgentMessage[] = [];
 const EMPTY_TODOS: AgentTodoItem[] = [];
@@ -27,7 +29,7 @@ function acceptsThreadDrag(event: DragEvent<HTMLElement>): boolean {
   return !(event.target as Element | null)?.closest?.(".zorai-session-tabs");
 }
 
-type ThreadSplitDrop = { targetId: string; zone: ThreadSplitDropZone; box: CSSProperties };
+type ThreadSplitDrop = { targetId: string | null; zone: ThreadSplitDropZone; box: CSSProperties };
 
 function dropBox(zone: ThreadSplitDropZone, target: DOMRect, container: DOMRect): CSSProperties {
   const left = target.left - container.left;
@@ -70,6 +72,9 @@ export function ThreadSplitView({ returnTarget, onReturnTarget }: { returnTarget
 
   const dropTarget = (event: DragEvent<HTMLDivElement>): ThreadSplitDrop | null => {
     const container = event.currentTarget.getBoundingClientRect();
+    const grid = split ? event.currentTarget.querySelector<HTMLElement>(".zorai-thread-split__grid")?.getBoundingClientRect() : null;
+    const edge = grid ? splitEdgeDropZone(grid, event.clientX, event.clientY) : null;
+    if (grid && edge) return { targetId: null, zone: edge, box: dropBox(edge, grid, container) };
     const paneElement = split ? (event.target as Element).closest<HTMLElement>("[data-split-pane]") : null;
     const targetId = paneElement?.dataset.splitPane ?? (split ? null : activeId);
     if (!targetId) return null;
@@ -100,7 +105,8 @@ export function ThreadSplitView({ returnTarget, onReturnTarget }: { returnTarget
       if (!(await openThreadTarget(runtime, droppedId, { reuseLoaded: true }))) return;
       const localId = findThreadByAuthoritativeIdentity(useAgentStore.getState().threads, droppedId)?.id;
       if (!localId) return;
-      useThreadSplitStore.getState().insert(target.targetId, localId, target.zone);
+      if (target.targetId) useThreadSplitStore.getState().insert(target.targetId, localId, target.zone);
+      else useThreadSplitStore.getState().insertAtEdge(localId, target.zone);
       useThreadSplitStore.getState().setFocused(localId);
     } finally {
       dropPendingRef.current = false;
@@ -131,14 +137,22 @@ export function ThreadSplitView({ returnTarget, onReturnTarget }: { returnTarget
     if (threadId === activeId && neighbor) runtime.openThread(neighbor, { reuseLoaded: true });
   };
 
-  const renderNode = (node: ThreadSplitNode, key: string): ReactNode => {
+  const renderNode = (node: ThreadSplitNode, key: string, path: number[], grow = 1): ReactNode => {
     if (node.kind === "pane") {
       const thread = threads.find((item) => item.id === node.id);
-      return thread ? <ThreadSplitPane key={node.id} thread={thread} focused={thread.id === activeId} onClose={() => closePane(thread.id)} /> : null;
+      return thread ? <ThreadSplitPane key={node.id} thread={thread} grow={grow} focused={thread.id === activeId} onClose={() => closePane(thread.id)} /> : null;
     }
+    const sizes = splitChildSizes(node);
     return (
-      <div key={key} className={`zorai-thread-split__node zorai-thread-split__node--${node.direction}`}>
-        {node.children.map((child, index) => renderNode(child, `${key}.${index}`))}
+      <div key={key} className={`zorai-thread-split__node zorai-thread-split__node--${node.direction}`} style={{ flexGrow: grow }}>
+        {node.children.flatMap((child, index) => {
+          const rendered = renderNode(child, `${key}.${index}`, [...path, index], sizes[index]);
+          if (index === 0) return [rendered];
+          return [
+            <ThreadSplitDivider key={`${key}.divider.${index}`} direction={node.direction} sizes={sizes} index={index - 1} onCommit={(next) => useThreadSplitStore.getState().setSizes(path, next)} />,
+            rendered,
+          ];
+        })}
       </div>
     );
   };
@@ -146,14 +160,88 @@ export function ThreadSplitView({ returnTarget, onReturnTarget }: { returnTarget
   return (
     <div className="zorai-thread-split" {...dropProps}>
       <ThreadSessionTabs />
-      <div className="zorai-thread-split__grid">{renderNode(root, "root")}</div>
+      <div className="zorai-thread-split__grid">{renderNode(root, "root", [])}</div>
       {dropOverlay}
       <ThreadFilePreviewOverlay />
     </div>
   );
 }
 
-function ThreadSplitPane({ thread, focused, onClose }: { thread: AgentThread; focused: boolean; onClose: () => void }) {
+function usePaneSpawnedRuns(daemonThreadId: string | null | undefined, enabled: boolean): AgentRun[] {
+  const [runs, setRuns] = useState<AgentRun[]>([]);
+  useEffect(() => {
+    if (!enabled || !daemonThreadId) return;
+    let cancelled = false;
+    let timer: number | undefined;
+    const load = async () => {
+      const next = (await fetchAgentRuns(daemonThreadId).catch(() => [])).filter(isSubagentRun);
+      if (cancelled) return;
+      setRuns(next);
+      timer = window.setTimeout(() => void load(), runListIsActive(next) ? 5_000 : IDLE_RUN_POLL_MS);
+    };
+    void load();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [daemonThreadId, enabled]);
+  return runs;
+}
+
+function ThreadSplitDivider({ direction, sizes, index, onCommit }: {
+  direction: "row" | "column";
+  sizes: number[];
+  index: number;
+  onCommit: (sizes: number[]) => void;
+}) {
+  const horizontal = direction === "row";
+  return (
+    <div
+      role="separator"
+      aria-orientation={horizontal ? "vertical" : "horizontal"}
+      title="Drag to resize · double-click to even out"
+      className={`zorai-thread-split__divider zorai-thread-split__divider--${direction}`}
+      onDoubleClick={() => {
+        const next = [...sizes];
+        const pair = next[index] + next[index + 1];
+        next[index] = pair / 2;
+        next[index + 1] = pair / 2;
+        onCommit(next);
+      }}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        const handle = event.currentTarget;
+        const container = handle.parentElement;
+        const before = handle.previousElementSibling as HTMLElement | null;
+        const after = handle.nextElementSibling as HTMLElement | null;
+        if (!container || !before || !after) return;
+        const rect = container.getBoundingClientRect();
+        let latest = sizes;
+        handle.setPointerCapture(event.pointerId);
+        handle.classList.add("is-dragging");
+        const onMove = (move: PointerEvent) => {
+          const fraction = horizontal ? (move.clientX - rect.left) / rect.width : (move.clientY - rect.top) / rect.height;
+          latest = resizeSplitChildren(sizes, index, fraction);
+          before.style.flexGrow = String(latest[index]);
+          after.style.flexGrow = String(latest[index + 1]);
+        };
+        const onUp = () => {
+          handle.removeEventListener("pointermove", onMove);
+          handle.removeEventListener("pointerup", onUp);
+          handle.removeEventListener("pointercancel", onUp);
+          handle.classList.remove("is-dragging");
+          if (latest !== sizes) onCommit(latest);
+        };
+        handle.addEventListener("pointermove", onMove);
+        handle.addEventListener("pointerup", onUp);
+        handle.addEventListener("pointercancel", onUp);
+      }}
+    />
+  );
+}
+
+function ThreadSplitPane({ thread, focused, grow, onClose }: { thread: AgentThread; focused: boolean; grow: number; onClose: () => void }) {
   const runtime = useAgentChatPanelRuntime();
   const messages = useAgentStore((state) => state.messages[thread.id]) ?? EMPTY_MESSAGES;
   const todos = useAgentStore((state) => state.todos[thread.id]) ?? EMPTY_TODOS;
@@ -177,6 +265,8 @@ function ThreadSplitPane({ thread, focused, onClose }: { thread: AgentThread; fo
       setDaemonTodosByThread: () => {},
     }).finally(finish);
   }, [daemonThreadId, focused, messages.length, thread.id]);
+  const paneRuns = usePaneSpawnedRuns(daemonThreadId, !focused);
+  const paneSpawnedTree = useMemo(() => deriveSpawnedAgentTree(paneRuns, daemonThreadId), [daemonThreadId, paneRuns]);
   const panelHost = useMemo(() => ({ active: focused, element: () => paneRef.current }), [focused]);
   const value = useMemo(() => (focused ? runtime : {
     ...runtime,
@@ -188,7 +278,8 @@ function ThreadSplitPane({ thread, focused, onClose }: { thread: AgentThread; fo
     loadOlderThreadMessages: async () => false,
     inputRef,
     messagesEndRef,
-  }), [focused, messages, runtime, thread, todos]);
+    spawnedAgentTree: paneSpawnedTree,
+  }), [focused, messages, paneSpawnedTree, runtime, thread, todos]);
   const actions: ReactNode = (
     <button type="button" className="zorai-thread-split__close" aria-label={`Close ${thread.title} pane`} title="Close pane" onClick={onClose}>
       ×
@@ -197,6 +288,7 @@ function ThreadSplitPane({ thread, focused, onClose }: { thread: AgentThread; fo
   return (
     <div
       className={["zorai-thread-split__pane", focused ? "is-focused" : ""].filter(Boolean).join(" ")}
+      style={{ flexGrow: grow }}
       ref={paneRef}
       data-split-pane={thread.id}
       onPointerDownCapture={(event) => {

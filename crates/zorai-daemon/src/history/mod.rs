@@ -1787,6 +1787,7 @@ pub(crate) use semantic_documents::SemanticDocumentSyncSummary;
 mod skill_generation;
 mod skill_reads;
 pub(crate) use skill_reads::ThreadSkillRead;
+mod ui_colors;
 mod guideline_catalog;
 pub(crate) use guideline_catalog::GuidelineDocumentRecord;
 mod statistics;

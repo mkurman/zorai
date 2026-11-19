@@ -275,6 +275,18 @@ declare global {
 
     type ZoraiContextMenuAction = "cut" | "copy" | "paste" | "selectAll" | "openLink" | "copyLink" | "screenshot";
 
+    type ZoraiUiColors = { thread?: Record<string, string>; root?: Record<string, string>; error?: string };
+
+    type ZoraiWindowMenuItem = {
+        index: number;
+        type: "normal" | "separator";
+        label: string;
+        accelerator: string;
+        enabled: boolean;
+        checked?: boolean;
+        children?: ZoraiWindowMenuItem[];
+    };
+
     type ZoraiContextMenuRequest = {
         x: number;
         y: number;
@@ -872,6 +884,8 @@ declare global {
         agentHandoffThread?: (payload: ZoraiAgentThreadHandoffPayload) => Promise<ZoraiAgentThreadHandoffResult | { ok?: boolean; thread_id?: string | null; error?: string } | unknown>;
         agentGetOperationStatus?: (id: string) => Promise<ZoraiOperationStatusSnapshot | { ok?: boolean; operation_id?: string; error?: string } | unknown>;
         agentListThreadOperations?: (threadId: string) => Promise<{ thread_id: string; operations: ZoraiThreadOperation[]; error?: string }>;
+        agentListUiColors?: () => Promise<ZoraiUiColors>;
+        agentSetUiColor?: (kind: "thread" | "root", key: string, color: string | null) => Promise<ZoraiUiColors>;
         agentGenerateCommitMessage?: (diff: string, recentSubjects: string[]) => Promise<{ message: string; error?: string | null }>;
         agentCancelOperation?: (id: string) => Promise<{ ok?: boolean; error?: string } | unknown>;
         agentDismissParticipantSuggestion?: (payload: {
@@ -1049,6 +1063,7 @@ declare global {
         appUpdateRestart?: () => Promise<void>;
         appRestartDaemon?: () => Promise<{ ok: boolean; output: string }>;
         appSetMenuAccelerators?: (overrides: Record<string, string>) => Promise<boolean>;
+        appSetMenuState?: (state: { railOpen?: boolean; contextOpen?: boolean }) => Promise<boolean>;
         themesList?: () => Promise<{ dir: string; themes: ZoraiUserThemeRecord[]; customCss?: { path: string; css: string | null } }>;
         themesSave?: (payload: { id?: string | null; theme: ZoraiUserThemeFile; css?: string | null; backgroundSource?: string | null }) => Promise<string>;
         themesDelete?: (id: string) => Promise<boolean>;
@@ -1066,8 +1081,8 @@ declare global {
         themesWindowAppearance?: () => Promise<{ seeThroughAtLaunch: boolean; seeThrough: boolean }>;
         themesSetSeeThrough?: (seeThrough: boolean) => Promise<{ seeThroughAtLaunch: boolean; seeThrough: boolean }>;
         onThemesChanged?: (cb: () => void) => () => void;
-        windowMenuItems?: (label: string) => Promise<Array<{ index: number; type: "normal" | "separator"; label: string; accelerator: string; enabled: boolean }>>;
-        windowMenuInvoke?: (label: string, index: number) => Promise<boolean>;
+        windowMenuItems?: (label: string) => Promise<ZoraiWindowMenuItem[]>;
+        windowMenuInvoke?: (label: string, indexPath: number | number[]) => Promise<boolean>;
         onWindowState?: (cb: (state: any) => void) => (() => void) | void;
         contextMenuAction?: (action: ZoraiContextMenuAction, payload?: string) => Promise<boolean>;
         onContextMenuRequest?: (cb: (request: ZoraiContextMenuRequest) => void) => () => void;

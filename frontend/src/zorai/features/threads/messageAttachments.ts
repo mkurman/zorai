@@ -1,5 +1,5 @@
 import type { AgentContentBlock } from "@/lib/agentStore/types";
-import type { AttachmentTileModel } from "./attachmentTiles";
+import { pathAttachmentTile, type AttachmentTileModel } from "./attachmentTiles";
 
 const ATTACHED_FILE_PATTERN = /<attached_file name="([^"]*)">\r?\n?([\s\S]*?)\r?\n?<\/attached_file>/g;
 const ATTACHED_PATH_PATTERN = /<attached_file name="([^"]*)" path="([^"]*)"[^>]*\/>/g;
@@ -39,11 +39,7 @@ export function splitMessageAttachments(
 
   [...content.matchAll(ATTACHED_PATH_PATTERN)].forEach((match, index) => {
     const name = match[1]?.trim() || `file-${index + 1}`;
-    tiles.push({
-      id: `attached-path:${match[2]}:${index}`,
-      kind: "file",
-      name,
-    });
+    tiles.push(pathAttachmentTile(`attached-path:${match[2]}:${index}`, name, match[2]));
   });
 
   const mediaKinds = new Set(tiles.map((tile) => tile.kind));

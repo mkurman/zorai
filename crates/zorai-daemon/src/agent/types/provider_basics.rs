@@ -590,9 +590,56 @@ pub const GITHUB_COPILOT_MODELS: &[ModelDefinition] = &[
     },
 ];
 
+const MODALITY_OVERRIDE_SETS: [&[Modality]; 8] = [
+    TEXT_ONLY,
+    TEXT_IMAGE,
+    &[Modality::Text, Modality::Video],
+    &[Modality::Text, Modality::Image, Modality::Video],
+    TEXT_AUDIO,
+    TEXT_IMAGE_AUDIO,
+    &[Modality::Text, Modality::Video, Modality::Audio],
+    MULTIMODAL,
+];
+
+fn model_modality_overrides(
+) -> &'static std::sync::RwLock<std::collections::HashMap<String, &'static [Modality]>> {
+    static OVERRIDES: std::sync::OnceLock<
+        std::sync::RwLock<std::collections::HashMap<String, &'static [Modality]>>,
+    > = std::sync::OnceLock::new();
+    OVERRIDES.get_or_init(Default::default)
+}
+
+pub fn model_modality_key(provider_id: &str, model_id: &str) -> String {
+    format!("{provider_id}::{model_id}")
+}
+
+pub fn modality_override_set(modalities: &[Modality]) -> &'static [Modality] {
+    let index = usize::from(modalities.contains(&Modality::Image))
+        | usize::from(modalities.contains(&Modality::Video)) << 1
+        | usize::from(modalities.contains(&Modality::Audio)) << 2;
+    MODALITY_OVERRIDE_SETS[index]
+}
+
+pub fn set_model_modality_overrides(overrides: &std::collections::BTreeMap<String, Vec<Modality>>) {
+    let next = overrides
+        .iter()
+        .map(|(key, modalities)| (key.clone(), modality_override_set(modalities)))
+        .collect();
+    if let Ok(mut guard) = model_modality_overrides().write() {
+        *guard = next;
+    }
+}
+
 /// Look up the modalities for a model by provider and model ID.
-/// Returns TEXT_ONLY if the model is not in the known list.
+/// User overrides win; otherwise TEXT_ONLY if the model is not in the known list.
 pub fn model_modalities(provider_id: &str, model_id: &str) -> &'static [Modality] {
+    if let Some(set) = model_modality_overrides().read().ok().and_then(|guard| {
+        guard
+            .get(&model_modality_key(provider_id, model_id))
+            .copied()
+    }) {
+        return set;
+    }
     get_provider_definition(provider_id)
         .and_then(|def| def.models.iter().find(|m| m.id == model_id))
         .map(|m| m.modalities)

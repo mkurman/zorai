@@ -212,6 +212,14 @@ where
                 })
                 .await?;
         }
+        AgentBridgeCommand::ListUiColors => {
+            framed.send(ClientMessage::AgentListUiColors).await?;
+        }
+        AgentBridgeCommand::SetUiColor { kind, key, color } => {
+            framed
+                .send(ClientMessage::AgentSetUiColor { kind, key, color })
+                .await?;
+        }
         AgentBridgeCommand::ListThreadOperations { thread_id } => {
             framed
                 .send(ClientMessage::AgentListThreadOperations { thread_id })

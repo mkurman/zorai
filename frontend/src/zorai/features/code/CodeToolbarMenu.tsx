@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePresence } from "@/hooks/usePresence";
+import { getBridge } from "@/lib/bridge";
 import { clampMenuPosition } from "@/zorai/shell/contextMenuModel";
 import { CodeIcon } from "./CodeIcon";
 import { codeCommandById, displayCodeBinding, type CodeCommandId } from "./codeCommands";
@@ -94,22 +96,55 @@ export function CodeContextMenu({ x, y, items, label, onClose }: { x: number; y:
     };
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div
       ref={rootRef}
       className="zorai-code-context-menu"
       style={{ left: position?.left ?? x, top: position?.top ?? y, visibility: position ? "visible" : "hidden" }}
-      onContextMenu={(event) => event.preventDefault()}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
     >
-      <CodeToolbarMenuList items={items} label={label} onDone={onClose} />
-    </div>
+      <CodeToolbarMenuList items={withScreenshotItem(items)} label={label} onDone={onClose} />
+    </div>,
+    document.body,
   );
+}
+
+export function withScreenshotItem(items: CodeToolbarMenuItem[]): CodeToolbarMenuItem[] {
+  if (items.some((item) => item.key === "screenshot")) return items;
+  return [...items, { key: "screenshot", label: "Take Screenshot", separatorBefore: items.length > 0, onSelect: () => void getBridge()?.contextMenuAction?.("screenshot") }];
+}
+
+export function submenuPlacement(rect: { right: number; bottom: number; width: number }, parentLeft: number, viewport: { width: number; height: number }): { flipX: boolean; shiftY: number } {
+  const margin = 4;
+  const flipX = rect.right + margin > viewport.width && parentLeft - rect.width - margin >= 0;
+  const shiftY = Math.max(0, rect.bottom + margin - viewport.height);
+  return { flipX, shiftY };
 }
 
 function CodeToolbarMenuList({ items, label, onDone, submenu = false, closing }: { items: CodeToolbarMenuItem[]; label: string; onDone: () => void; submenu?: boolean; closing?: boolean }) {
   const [openChild, setOpenChild] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const [placement, setPlacement] = useState<{ flipX: boolean; shiftY: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    const parent = list?.parentElement;
+    if (!submenu || !list || !parent) return;
+    setPlacement(submenuPlacement(list.getBoundingClientRect(), parent.getBoundingClientRect().left, { width: window.innerWidth, height: window.innerHeight }));
+  }, [submenu]);
+
   return (
-    <div data-closing={closing || undefined} className={submenu ? "zorai-code-toolbar-menu__list zorai-code-toolbar-menu__sub" : "zorai-code-toolbar-menu__list"} role="menu" aria-label={label}>
+    <div
+      ref={listRef}
+      data-closing={closing || undefined}
+      className={[submenu ? "zorai-code-toolbar-menu__list zorai-code-toolbar-menu__sub" : "zorai-code-toolbar-menu__list", placement?.flipX ? "is-flipped" : ""].filter(Boolean).join(" ")}
+      style={submenu ? { marginTop: placement?.shiftY ? -placement.shiftY : undefined, visibility: placement ? undefined : "hidden" } : undefined}
+      role="menu"
+      aria-label={label}
+    >
       {items.map((item) => {
         const { label: itemLabel, shortcut } = codeToolbarMenuItemLabel(item);
         const hasChildren = Boolean(item.children?.length);

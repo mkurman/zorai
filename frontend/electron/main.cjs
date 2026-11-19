@@ -642,6 +642,7 @@ function registerIpcHandlers() {
         presetDirs: [path.join(__dirname, '..', 'public', 'theme-backgrounds'), path.join(__dirname, '..', 'dist', 'theme-backgrounds')],
     });
     ipcMain.handle('app-set-menu-accelerators', (_event, overrides) => windowRuntime.setMenuAccelerators(overrides));
+    ipcMain.handle('app-set-menu-state', (_event, state) => windowRuntime.setMenuState(state));
     ipcMain.handle('plugin-ui-manifests', () => readPluginUiManifests(getPluginsRootDir()));
     registerPluginCliIpcHandlers(ipcMain, { execFileImpl: require('child_process').execFile, getCliPath, dialog, logToFile });
     ipcMain.handle('plugin-api-call', (_event, pluginName, endpointName, params) => {

@@ -5,6 +5,7 @@ import type { ZoraiViewId } from "./navigation";
 export const ZORAI_NAVIGATE_EVENT = "zorai-navigate";
 export const ZORAI_FOCUS_SEARCH_EVENT = "zorai-focus-search";
 export const ZORAI_THREAD_LIST_REFRESH_EVENT = "zorai-thread-list-refresh";
+export const ZORAI_RENAME_THREAD_EVENT = "zorai-rename-thread";
 
 export type ZoraiReturnTarget = {
   view: ZoraiViewId;
@@ -23,6 +24,18 @@ export type ZoraiNavigateDetail = {
 };
 
 let pendingFocusSearch = false;
+let pendingRenameIds: string[] | null = null;
+
+export function requestThreadRename(ids: Array<string | null | undefined>): void {
+  pendingRenameIds = ids.filter((id): id is string => Boolean(id));
+  window.dispatchEvent(new CustomEvent(ZORAI_RENAME_THREAD_EVENT));
+}
+
+export function consumePendingThreadRename(): string[] | null {
+  const ids = pendingRenameIds;
+  pendingRenameIds = null;
+  return ids;
+}
 
 export function consumePendingFocusSearch(): boolean {
   if (!pendingFocusSearch) return false;

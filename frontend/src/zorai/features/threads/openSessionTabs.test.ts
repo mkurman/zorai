@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moveOpenSessionId, neighborSessionId, rememberOpenSessionId, sessionCloseFollowUp } from "./openSessionTabs";
+import { moveOpenSessionId, neighborSessionId, rememberOpenSessionId, sessionCloseFollowUp, useOpenSessionTabs } from "./openSessionTabs";
 
 describe("open session tabs", () => {
   it("appends a new session and leaves the existing order in place when one is selected again", () => {
@@ -70,5 +70,16 @@ describe("filtered session tabs", () => {
     expect(neighborSessionId(visible, "code-c")).toBe("code-b");
     expect(neighborSessionId(["code-a"], "code-a")).toBeNull();
     expect(neighborSessionId(visible, "threads-only")).toBeNull();
+  });
+
+  it("reopens closed tabs newest first, and forgets a closed tab once it is open again", () => {
+    useOpenSessionTabs.setState({ ids: ["a", "b", "c"], closedIds: [] });
+    const tabs = useOpenSessionTabs.getState();
+    tabs.close("a");
+    tabs.close("c");
+    tabs.close("missing");
+    expect(useOpenSessionTabs.getState().takeLastClosed()).toBe("c");
+    useOpenSessionTabs.getState().remember("a");
+    expect(useOpenSessionTabs.getState().takeLastClosed()).toBeNull();
   });
 });

@@ -4,7 +4,7 @@ import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { threadDateGroupLabel } from "./threadDateGroups";
 import { ThreadRowHoverCard } from "./ThreadRowHoverCard";
 import { Fragment, memo, startTransition, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
-import { CodeContextMenu } from "@/zorai/features/code/CodeToolbarMenu";
+import { CodeContextMenu, type CodeToolbarMenuItem } from "@/zorai/features/code/CodeToolbarMenu";
 import { threadTint, threadTintKey, tintMenuItem, tintStyle, useTintStore } from "@/zorai/features/tints/tintStore";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import type { AgentChatPanelRuntimeValue } from "@/components/agent-chat-panel/runtime/types";
@@ -15,7 +15,6 @@ import {
   buildThreadFilterTabs,
   daemonAgentFilterForThreadTab,
   dateFilters,
-  DEFAULT_THREAD_DATE_FILTER,
   filterThreads,
   mergeLocalDraftThreads,
   overlayStoreThreadTitles,
@@ -27,8 +26,8 @@ import {
   type ThreadFilterTab,
   visibleThreadTabs,
 } from "./threadFilterModel";
-import { openListedThread, openThreadTarget } from "./openThreadTarget";
-import { THREAD_DRAG_TYPE } from "./threadSplitModel";
+import { openListedThread, openListedThreadInSplit, openThreadTarget } from "./openThreadTarget";
+import { THREAD_DRAG_TYPE, type ThreadSplitDropZone } from "./threadSplitModel";
 import {
   searchThreads,
   THREAD_SEARCH_DEBOUNCE_MS,
@@ -49,7 +48,7 @@ import {
   workerCountForThread,
   workerThreadIds,
 } from "./sessionCooperation";
-import { ZORAI_FOCUS_SEARCH_EVENT, ZORAI_THREAD_LIST_REFRESH_EVENT, consumePendingFocusSearch } from "../../shell/zoraiNavigationEvents";
+import { ZORAI_FOCUS_SEARCH_EVENT, ZORAI_RENAME_THREAD_EVENT, ZORAI_THREAD_LIST_REFRESH_EVENT, consumePendingFocusSearch, consumePendingThreadRename } from "../../shell/zoraiNavigationEvents";
 import { usePresence } from "@/hooks/usePresence";
 
 const THREAD_FILTER_FETCH_DEBOUNCE_MS = 1000;
@@ -116,16 +115,20 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
   const toggleFavorite = useThreadRailTabStore((state) => state.toggleFavorite);
   const agentDisplayName = useAgentDisplayName();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersOpen = useThreadRailTabStore((state) => state.filtersOpen);
+  const setFiltersOpen = useThreadRailTabStore((state) => state.setFiltersOpen);
   const [searchOpen, setSearchOpen] = useState(false);
   const showSearch = searchOpen || Boolean(runtime.searchQuery);
   const pickerPresence = usePresence(pickerOpen);
   const filtersPresence = usePresence(filtersOpen);
   const searchPresence = usePresence(showSearch);
   const [pickerQuery, setPickerQuery] = useState("");
-  const [dateFilter, setDateFilter] = useState<DateFilterId>(DEFAULT_THREAD_DATE_FILTER);
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const dateFilter = useThreadRailTabStore((state) => state.dateFilter);
+  const setDateFilter = useThreadRailTabStore((state) => state.setDateFilter);
+  const fromDate = useThreadRailTabStore((state) => state.fromDate);
+  const setFromDate = useThreadRailTabStore((state) => state.setFromDate);
+  const toDate = useThreadRailTabStore((state) => state.toDate);
+  const setToDate = useThreadRailTabStore((state) => state.setToDate);
   const [daemonFilteredThreads, setDaemonFilteredThreads] = useState<AgentThread[] | null>(null);
   const [gatewayThreadIds, setGatewayThreadIds] = useState<Set<string>>(() => new Set());
   const [loadingTab, setLoadingTab] = useState<ThreadFilterTab | null>(tab);
@@ -185,6 +188,20 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
   useEffect(() => {
     void refreshSubAgents();
   }, [refreshSubAgents]);
+
+  const listedThreadsRef = useRef(listedThreads);
+  listedThreadsRef.current = listedThreads;
+  useEffect(() => {
+    const onRename = () => {
+      const ids = consumePendingThreadRename();
+      if (!ids) return;
+      const match = listedThreadsRef.current.find((thread) => ids.includes(thread.id) || (thread.daemonThreadId != null && ids.includes(thread.daemonThreadId)));
+      if (match) setEditingThreadId(match.id);
+    };
+    onRename();
+    window.addEventListener(ZORAI_RENAME_THREAD_EVENT, onRename);
+    return () => window.removeEventListener(ZORAI_RENAME_THREAD_EVENT, onRename);
+  }, []);
 
   useEffect(() => {
     const query = runtime.searchQuery.trim();
@@ -529,6 +546,7 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
               activity={sessionActivityLabel(thread.updatedAt, now)}
               editing={editingThreadId === thread.id}
               onOpen={() => void openListedThread(runtimeRef.current, thread)}
+              onOpenSplit={(zone) => openListedThreadInSplit(runtimeRef.current, thread, zone)}
               onStartRename={() => setEditingThreadId(thread.id)}
               onRename={(title) => {
                 updateThreadTitle(thread.id, title);
@@ -619,6 +637,7 @@ function ThreadSessionRow({
   activity,
   editing,
   onOpen,
+  onOpenSplit,
   onStartRename,
   onRename,
   onCancelRename,
@@ -634,6 +653,7 @@ function ThreadSessionRow({
   activity: string;
   editing: boolean;
   onOpen: () => void;
+  onOpenSplit: (zone: ThreadSplitDropZone) => void;
   onStartRename: () => void;
   onRename: (title: string) => void;
   onCancelRename: () => void;
@@ -744,16 +764,55 @@ function ThreadSessionRow({
           y={menuAt.y}
           label={`Actions for ${thread.title}`}
           onClose={closeMenu}
-          items={[
-            tintMenuItem(tint, (next) => setThreadTint(tintKey, next)),
-            { key: "rename", label: "Rename", separatorBefore: true, onSelect: onStartRename },
-            { key: "delete", label: "Delete…", danger: true, onSelect: onDelete },
-          ]}
+          items={threadRowMenuItems({
+            active,
+            unread,
+            daemonThreadId: thread.daemonThreadId ?? null,
+            tintItem: tintMenuItem(tint, (next) => setThreadTint(tintKey, next)),
+            onOpen,
+            onOpenSplit,
+            onMarkUnread: () => {
+              const key = threadReadKey(thread);
+              if (key) useThreadReadStateStore.getState().markUnread(key);
+            },
+            onStartRename,
+            onDelete,
+          })}
         />
       ) : null}
       {hoverAnchor && !editing ? <ThreadRowHoverCard anchor={hoverAnchor} thread={thread} activity={activity} workers={workers} working={working} /> : null}
     </div>
   );
+}
+
+export function threadRowMenuItems({ active, unread, daemonThreadId, tintItem, onOpen, onOpenSplit, onMarkUnread, onStartRename, onDelete }: {
+  active: boolean;
+  unread: boolean;
+  daemonThreadId: string | null;
+  tintItem: CodeToolbarMenuItem;
+  onOpen: () => void;
+  onOpenSplit: (zone: ThreadSplitDropZone) => void;
+  onMarkUnread: () => void;
+  onStartRename: () => void;
+  onDelete: () => void;
+}): CodeToolbarMenuItem[] {
+  return [
+    { key: "open", label: "Open", disabled: active, onSelect: onOpen },
+    {
+      key: "open-in",
+      label: "Open in",
+      disabled: active,
+      children: [
+        { key: "split-right", label: "Split Right", onSelect: () => onOpenSplit("right") },
+        { key: "split-down", label: "Split Down", onSelect: () => onOpenSplit("bottom") },
+      ],
+    },
+    { key: "mark-unread", label: "Mark as Unread", separatorBefore: true, disabled: active || unread, onSelect: onMarkUnread },
+    { key: "rename", label: "Rename", onSelect: onStartRename },
+    tintItem,
+    { key: "copy-id", label: "Copy Thread ID", separatorBefore: true, disabled: !daemonThreadId, onSelect: () => { if (daemonThreadId) void navigator.clipboard?.writeText(daemonThreadId); } },
+    { key: "delete", label: "Delete…", danger: true, separatorBefore: true, onSelect: onDelete },
+  ];
 }
 
 function filterThreadsForSearchQuery(threads: AgentThread[], searchQuery: string): AgentThread[] {

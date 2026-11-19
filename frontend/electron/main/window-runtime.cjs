@@ -209,15 +209,30 @@ function createWindowRuntime(options) {
         }
     }
 
+    let menuState = { railOpen: true, contextOpen: false };
+
+    function setMenuState(state) {
+        menuState = { ...menuState, ...(state && typeof state === 'object' ? state : {}) };
+        Menu.setApplicationMenu(buildAppMenu());
+        return true;
+    }
+
+    function commandItem(label, command, fallbackAccelerator) {
+        return { label, accelerator: menuAccelerator(command, fallbackAccelerator), click: () => sendAppCommand(command) };
+    }
+
     function buildAppMenu() {
         return Menu.buildFromTemplate([
             { label: 'File', submenu: [
-                { label: 'New Workspace', accelerator: menuAccelerator('new-workspace', 'Ctrl+Shift+N'), click: () => sendAppCommand('new-workspace') },
-                { label: 'New Surface', accelerator: menuAccelerator('new-surface', 'Ctrl+T'), click: () => sendAppCommand('new-surface') },
+                commandItem('New Thread', 'new-surface', 'Ctrl+T'),
+                commandItem('New Workspace', 'new-workspace', 'Ctrl+Shift+N'),
                 { type: 'separator' },
-                { label: 'Settings', accelerator: menuAccelerator('toggle-settings', 'Ctrl+,'), click: () => sendAppCommand('toggle-settings') },
+                commandItem('Close Thread Tab', 'close-thread-tab'),
+                commandItem('Reopen Closed Thread', 'reopen-closed-thread', 'Ctrl+Shift+T'),
                 { type: 'separator' },
-                { role: 'quit', label: 'Exit' },
+                commandItem('Settings', 'toggle-settings', 'Ctrl+,'),
+                { type: 'separator' },
+                { role: 'quit', label: 'Quit' },
             ] },
             { label: 'Edit', submenu: [
                 { role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' },
@@ -226,25 +241,55 @@ function createWindowRuntime(options) {
                 { label: 'Select All', accelerator: 'Ctrl+A', click: () => { getMainWindow()?.webContents.selectAll(); sendAppCommand('select-all'); } },
             ] },
             { label: 'View', submenu: [
-                { label: 'Command Palette', accelerator: menuAccelerator('toggle-command-palette', 'Ctrl+Shift+P'), click: () => sendAppCommand('toggle-command-palette') },
-                { label: 'Search', accelerator: menuAccelerator('toggle-search', 'Ctrl+Shift+F'), click: () => sendAppCommand('toggle-search') },
-                { label: 'File Manager', accelerator: menuAccelerator('toggle-file-manager', 'Ctrl+Shift+E'), click: () => sendAppCommand('toggle-file-manager') },
-                { label: 'Toggle Sidebar', accelerator: menuAccelerator('toggle-sidebar', 'Ctrl+B'), click: () => sendAppCommand('toggle-sidebar') },
-                { type: 'separator' }, { role: 'reload' }, { role: 'forceReload' },
-                { label: 'Toggle Developer Tools', accelerator: devToolsAccelerator(), click: () => toggleWindowDevTools(getMainWindow()?.webContents) },
-                { type: 'separator' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'togglefullscreen' },
+                commandItem('Command Palette…', 'toggle-command-palette', 'Ctrl+Shift+P'),
                 { type: 'separator' },
+                { label: 'Sidebar', type: 'checkbox', checked: menuState.railOpen !== false, accelerator: menuAccelerator('toggle-rail'), click: () => sendAppCommand('toggle-rail') },
+                { label: 'Context Panel', type: 'checkbox', checked: menuState.contextOpen === true, accelerator: menuAccelerator('toggle-sidebar', 'Ctrl+B'), click: () => sendAppCommand('toggle-sidebar') },
+                commandItem('Files', 'toggle-file-manager', 'Ctrl+Shift+E'),
+                { label: 'Thread Panels', submenu: [
+                    commandItem('Participants', 'thread-panel-participants'),
+                    commandItem('Handoff', 'thread-panel-handoff'),
+                    commandItem('Gateway', 'thread-panel-gateway'),
+                    commandItem('Operations', 'thread-panel-operations'),
+                ] },
+                { label: 'Tools', submenu: [
+                    commandItem('Command History', 'toggle-command-history'),
+                    commandItem('Session Vault', 'toggle-session-vault'),
+                    commandItem('System Monitor', 'toggle-system-monitor'),
+                    commandItem('Execution Canvas', 'toggle-canvas'),
+                    commandItem('Time Travel Snapshots', 'toggle-time-travel'),
+                ] },
+                { type: 'separator' },
+                { label: 'Split View', submenu: [
+                    commandItem('Split Right', 'split-right'),
+                    commandItem('Split Down', 'split-down'),
+                    { type: 'separator' },
+                    commandItem('Close Pane', 'split-close-pane'),
+                    commandItem('Close Split View', 'split-close'),
+                ] },
+                { type: 'separator' }, { role: 'resetZoom', label: 'Actual Size' }, { role: 'zoomIn' }, { role: 'zoomOut' },
+                { type: 'separator' }, { role: 'togglefullscreen', label: 'Full Screen' },
+                { type: 'separator' }, { role: 'reload' }, { role: 'forceReload' },
+                { label: 'Developer Tools', accelerator: devToolsAccelerator(), click: () => toggleWindowDevTools(getMainWindow()?.webContents) },
                 { label: 'Take Screenshot', click: () => { const window = getMainWindow(); if (window) void takeScreenshot(window); } },
             ] },
-            { label: 'Features', submenu: [
-                { label: 'Mission Console', click: () => sendAppCommand('toggle-mission') },
-                { label: 'Command History', click: () => sendAppCommand('toggle-command-history') },
-                { label: 'Command Log', click: () => sendAppCommand('toggle-command-log') },
-                { label: 'Session Vault', click: () => sendAppCommand('toggle-session-vault') },
-                { label: 'System Monitor', click: () => sendAppCommand('toggle-system-monitor') },
-                { label: 'Execution Canvas', click: () => sendAppCommand('toggle-canvas') },
-                { label: 'Time Travel Snapshots', click: () => sendAppCommand('toggle-time-travel') },
-                { label: 'Developer Tools', click: () => sendAppCommand('developer-tools') },
+            { label: 'Go', submenu: [
+                commandItem('Back', 'thread-back'),
+                { type: 'separator' },
+                commandItem('Threads', 'go-threads'),
+                commandItem('Code', 'go-code'),
+                commandItem('Goals', 'go-goals'),
+                commandItem('Workspaces', 'go-workspaces'),
+                commandItem('Database', 'go-database'),
+                commandItem('Tools', 'go-tools'),
+                commandItem('Skills', 'go-skills'),
+                commandItem('Activity', 'go-activity'),
+                commandItem('Plugins', 'go-plugins'),
+                { type: 'separator' },
+                commandItem('Previous Thread', 'previous-thread', 'Ctrl+Shift+PageUp'),
+                commandItem('Next Thread', 'next-thread', 'Ctrl+Shift+PageDown'),
+                { type: 'separator' },
+                commandItem('Search Threads…', 'toggle-search', 'Ctrl+Shift+F'),
             ] },
             { label: 'Window', submenu: [
                 { label: 'New Window', accelerator: 'Ctrl+Alt+N', click: () => createWindow() },
@@ -253,8 +298,11 @@ function createWindowRuntime(options) {
                 { role: 'close' },
             ] },
             { label: 'Help', submenu: [
-                { label: 'Check for Updates…', click: () => sendAppCommand('check-updates') },
-                { label: 'About', click: () => sendAppCommand('about') },
+                commandItem('Keyboard Shortcuts', 'keyboard-shortcuts'),
+                commandItem('Developer Settings', 'developer-tools'),
+                { type: 'separator' },
+                commandItem('Check for Updates…', 'check-updates'),
+                commandItem('About Zorai', 'about'),
             ] },
         ]);
     }
@@ -342,7 +390,7 @@ function createWindowRuntime(options) {
         });
     }
 
-    return { createWindow, defaultScreenshotDirectory, runContextMenuAction, setMenuAccelerators, setWindowOpacity };
+    return { createWindow, defaultScreenshotDirectory, runContextMenuAction, setMenuAccelerators, setMenuState, setWindowOpacity };
 }
 
 module.exports = {

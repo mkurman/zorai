@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
-import type { AgentThread } from "@/lib/agentStore";
-import { LAST_SESSION_STORAGE_KEY, readSavedSession, restoredSplitFor, savedSessionFor } from "./sessionRestore";
+import { describe, expect, it, vi } from "vitest";
+import { useAgentStore, type AgentThread } from "@/lib/agentStore";
+import { LAST_SESSION_STORAGE_KEY, readSavedSession, restoredSplitFor, savedSessionFor, whenThreadsLoaded } from "./sessionRestore";
 import { splitLayoutTree, splitPaneIds } from "./threadSplitModel";
 
 const thread = (id: string, daemonThreadId: string | null) => ({ id, daemonThreadId }) as AgentThread;
@@ -35,5 +35,16 @@ describe("session restore", () => {
     });
     expect(restoredSplitFor([thread("new-1", "thread-a")], restored)).toBeNull();
     expect(readSavedSession({ getItem: () => JSON.stringify({ tabs: [], active: null, split: { kind: "split", children: "x" } }), setItem: () => {} }).split).toBeUndefined();
+  });
+
+  it("waits for the thread list before restoring, so a launch without a daemon connection does not throw the saved layout away", () => {
+    useAgentStore.setState({ threads: [] });
+    const restore = vi.fn();
+    whenThreadsLoaded(restore, 60_000);
+    expect(restore).not.toHaveBeenCalled();
+    useAgentStore.setState({ threads: [thread("local-1", "thread-a")] });
+    expect(restore).toHaveBeenCalledTimes(1);
+    useAgentStore.setState({ threads: [thread("local-1", "thread-a"), thread("local-2", "thread-b")] });
+    expect(restore).toHaveBeenCalledTimes(1);
   });
 });

@@ -125,4 +125,17 @@ describe("non-text file attachments", () => {
 
     expect(await readComposerAttachment(pdf)).toBeNull();
   });
+
+  it("sends a video as a video block pointing at its file so the daemon can stream it or route it to analyze_video", () => {
+    const payload = buildAttachmentSendPayload("what happens?", [
+      { id: "v", name: "clip.mov", size: 10, kind: "file", mimeType: "video/quicktime", path: "/home/op/clip.mov" },
+      { id: "p", name: "notes.pdf", size: 10, kind: "file", mimeType: "application/pdf", path: "/home/op/notes.pdf" },
+    ]);
+    expect(payload.text).toContain('path="/home/op/notes.pdf"');
+    expect(payload.text).not.toContain("clip.mov");
+    expect(JSON.parse(payload.contentBlocksJson ?? "[]")).toEqual([
+      { type: "text", text: payload.text },
+      { type: "video", url: "file:///home/op/clip.mov", mime_type: "video/quicktime" },
+    ]);
+  });
 });

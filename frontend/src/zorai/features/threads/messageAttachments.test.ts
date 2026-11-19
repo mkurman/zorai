@@ -77,4 +77,14 @@ describe("splitMessageAttachments", () => {
     expect(tiles).toEqual([{ id: "attached-path:/tmp/report.pdf:0", kind: "file", name: "report.pdf" }]);
     expect(displayText).toBe("summarize this");
   });
+
+  it("shows attached video and audio paths as playable media tiles instead of generic files", () => {
+    const { tiles } = splitMessageAttachments(
+      '<attached_file name="clip.mp4" path="/tmp/clip.mp4" />\n<attached_file name="take.wav" path="/tmp/take.wav" />',
+    );
+    expect(tiles.map((tile) => [tile.kind, tile.previewUrl])).toEqual([
+      ["video", "zorai-media://local/tmp/clip.mp4"],
+      ["audio", "zorai-media://local/tmp/take.wav"],
+    ]);
+  });
 });

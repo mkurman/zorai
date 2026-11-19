@@ -1,16 +1,18 @@
-import { useEffect, useState, type CSSProperties, type DragEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type DragEvent } from "react";
 import { CodeContextMenu, type CodeToolbarMenuItem } from "@/zorai/features/code/CodeToolbarMenu";
 import { threadTint, tintColor, useTintStore } from "@/zorai/features/tints/tintStore";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import { useAgentStore, type AgentThread } from "@/lib/agentStore";
-import { openThreadTarget } from "./openThreadTarget";
+import { openThreadTarget, splitCandidateFor } from "./openThreadTarget";
+import { tabStripMenuItems } from "./threadContextMenus";
 import { neighborSessionId, sessionCloseFollowUp, useOpenSessionTabs } from "./openSessionTabs";
 import { threadIsUnread } from "./sessionCooperation";
 import { threadReadKey, useThreadReadStateStore } from "./threadReadStateStore";
 import { ThreadNeedsActionIcon, useThreadIdsNeedingAction } from "./threadNeedsAction";
 import { useThreadRailTabStore } from "./threadRailTabStore";
 import { resolveThreadCreationAgent } from "./threadFilterModel";
-import { MAX_SPLIT_PANES, splitLayoutsFor, splitPaneIds, useThreadSplitStore, type ThreadSplitLayout } from "./threadSplitModel";
+import { MAX_SPLIT_PANES, splitLayoutsFor, splitPaneIds, useThreadSplitStore, type ThreadSplitDropZone, type ThreadSplitLayout } from "./threadSplitModel";
+import { consumePendingThreadCommand, ZORAI_THREAD_COMMAND_EVENT, type ZoraiThreadCommand } from "@/zorai/shell/zoraiAppCommands";
 
 export type SessionTabModel = {
   id: string;
@@ -37,6 +39,7 @@ export function SessionTabStrip({
   selectedIds,
   onToggleSelect,
   onTabContextMenu,
+  onStripContextMenu,
   label = "Open sessions",
 }: {
   tabs: SessionTabModel[];
@@ -48,6 +51,7 @@ export function SessionTabStrip({
   selectedIds?: ReadonlySet<string>;
   onToggleSelect?: (id: string) => void;
   onTabContextMenu?: (id: string, x: number, y: number) => void;
+  onStripContextMenu?: (x: number, y: number) => void;
   label?: string;
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -65,7 +69,16 @@ export function SessionTabStrip({
   };
 
   return (
-    <nav className="zorai-session-tabs" aria-label={label}>
+    <nav
+      className="zorai-session-tabs"
+      aria-label={label}
+      onContextMenu={onStripContextMenu ? (event) => {
+        if ((event.target as Element).closest(".zorai-session-tab")) return;
+        event.preventDefault();
+        event.stopPropagation();
+        onStripContextMenu(event.clientX, event.clientY);
+      } : undefined}
+    >
       {tabs.map((tab) => {
         const classes = ["zorai-session-tab"];
         if (tab.active) classes.push("zorai-session-tab--active");
@@ -186,7 +199,7 @@ export function ThreadSessionTabs({ includeSession, onLastSessionClosed, onNewSe
   const activeAlreadyOpen = openSessionIds.some((id) => id === activeId || (activeDaemonId !== null && id === activeDaemonId));
   const splitRoot = useThreadSplitStore((state) => state.root);
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
-  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [menu, setMenu] = useState<{ id: string | null; x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (activeId && !activeAlreadyOpen) rememberOpenSession(activeId);
@@ -236,6 +249,104 @@ export function ThreadSessionTabs({ includeSession, onLastSessionClosed, onNewSe
     return items;
   };
 
+  const closeTab = (id: string) => {
+    const closedLocalId = localThreadId(id);
+    const paneIds = splitPaneIds(useThreadSplitStore.getState().root);
+    if (closedLocalId && paneIds.includes(closedLocalId)) {
+      useThreadSplitStore.getState().removePane(closedLocalId);
+      const remaining = paneIds.find((paneId) => paneId !== closedLocalId);
+      if (remaining && closedLocalId === runtime.activeThread?.id) {
+        closeOpenSession(id);
+        runtime.openThread(remaining, { reuseLoaded: true });
+        return;
+      }
+    }
+    const visibleNext = neighborSessionId(visibleIds, id);
+    const next = closeOpenSession(id);
+    const action = sessionCloseFollowUp({
+      closedId: id,
+      activeThreadId: runtime.activeThread?.id ?? null,
+      activeDaemonThreadId: runtime.activeThread?.daemonThreadId ?? null,
+      nextOpenId: includeSession ? visibleNext : next,
+      openCount: includeSession ? visibleIds.length - 1 : useOpenSessionTabs.getState().ids.length,
+    });
+    if (action.kind === "follow") void openThreadTarget(runtime, action.id);
+    if (action.kind === "clear") {
+      if (onLastSessionClosed) onLastSessionClosed();
+      else runtime.setActiveThread(null);
+    }
+  };
+  const splitActive = (zone: ThreadSplitDropZone) => {
+    const candidate = splitCandidateFor(runtime);
+    if (!activeId || !candidate) return;
+    useThreadSplitStore.getState().insert(activeId, candidate, zone);
+    runtime.openThread(candidate, { reuseLoaded: true });
+  };
+  const stepTab = (delta: number) => {
+    const index = tabs.findIndex((tab) => tab.active);
+    if (tabs.length < 2) return;
+    const next = tabs[(Math.max(index, 0) + delta + tabs.length) % tabs.length];
+    if (next) void openThreadTarget(runtime, next.id, { reuseLoaded: true });
+  };
+  const runThreadCommand = (command: ZoraiThreadCommand) => {
+    const activeTabId = tabs.find((tab) => tab.active)?.id ?? null;
+    if (command === "close-thread-tab" && activeTabId) closeTab(activeTabId);
+    else if (command === "reopen-closed-thread") {
+      const id = useOpenSessionTabs.getState().takeLastClosed();
+      if (id) void openThreadTarget(runtime, id);
+    } else if (command === "previous-thread") stepTab(-1);
+    else if (command === "next-thread") stepTab(1);
+    else if (command === "thread-back" && runtime.canGoBackThread) runtime.goBackThread();
+    else if (command === "split-right") splitActive("right");
+    else if (command === "split-down") splitActive("bottom");
+    else if (command === "split-close") useThreadSplitStore.getState().clear();
+    else if (command === "split-close-pane" && activeId) {
+      const remaining = splitPaneIds(useThreadSplitStore.getState().root).find((id) => id !== activeId);
+      useThreadSplitStore.getState().removePane(activeId);
+      if (remaining) runtime.openThread(remaining, { reuseLoaded: true });
+    }
+  };
+  const createDefaultThread = () => {
+    const agent = resolveThreadCreationAgent(railTab, subAgents);
+    const id = runtime.createThread({
+      workspaceId: runtime.activeWorkspace?.id ?? null,
+      agentId: agent?.id ?? null,
+      agentName: agent?.name ?? null,
+    });
+    runtime.setChatBackView("threads");
+    runtime.setView("chat");
+    return id;
+  };
+  const newThread = onNewSession ?? (includeSession ? undefined : () => void createDefaultThread());
+  const newThreadInSplit = (zone: ThreadSplitDropZone) => {
+    const anchorId = runtime.activeThread?.id;
+    if (!anchorId) return;
+    const id = createDefaultThread();
+    useThreadSplitStore.getState().insert(anchorId, id, zone);
+    useThreadSplitStore.getState().setFocused(id);
+  };
+  const stripMenuItems = () => tabStripMenuItems({
+    canReopen: useOpenSessionTabs.getState().closedIds.length > 0,
+    canSplit: Boolean(runtime.activeThread) && splitPaneIds(splitRoot).length < MAX_SPLIT_PANES,
+    inSplit: Boolean(splitRoot),
+    onNew: () => newThread?.(),
+    onReopen: () => runThreadCommand("reopen-closed-thread"),
+    onSplit: (direction) => newThreadInSplit(direction === "right" ? "right" : "bottom"),
+    onCloseSplit: () => useThreadSplitStore.getState().clear(),
+  });
+  const runThreadCommandRef = useRef(runThreadCommand);
+  runThreadCommandRef.current = runThreadCommand;
+  useEffect(() => {
+    if (includeSession) return;
+    const onCommand = () => {
+      const command = consumePendingThreadCommand();
+      if (command) runThreadCommandRef.current(command);
+    };
+    onCommand();
+    window.addEventListener(ZORAI_THREAD_COMMAND_EVENT, onCommand);
+    return () => window.removeEventListener(ZORAI_THREAD_COMMAND_EVENT, onCommand);
+  }, [includeSession]);
+
   return (
     <>
     <SessionTabStrip
@@ -252,52 +363,18 @@ export function ThreadSessionTabs({ includeSession, onLastSessionClosed, onNewSe
         setSelectedIds(new Set());
         void openThreadTarget(runtime, id, { reuseLoaded: true });
       }}
-      onNew={onNewSession ?? (includeSession ? undefined : () => {
-        const agent = resolveThreadCreationAgent(railTab, subAgents);
-        runtime.createThread({
-          workspaceId: runtime.activeWorkspace?.id ?? null,
-          agentId: agent?.id ?? null,
-          agentName: agent?.name ?? null,
-        });
-        runtime.setChatBackView("threads");
-        runtime.setView("chat");
-      })}
+      onStripContextMenu={newThread ? (x, y) => setMenu({ id: null, x, y }) : undefined}
+      onNew={newThread}
       onMove={moveOpenSession}
-      onClose={(id) => {
-        const closedLocalId = localThreadId(id);
-        const paneIds = splitPaneIds(useThreadSplitStore.getState().root);
-        if (closedLocalId && paneIds.includes(closedLocalId)) {
-          useThreadSplitStore.getState().removePane(closedLocalId);
-          const remaining = paneIds.find((paneId) => paneId !== closedLocalId);
-          if (remaining && closedLocalId === runtime.activeThread?.id) {
-            closeOpenSession(id);
-            runtime.openThread(remaining, { reuseLoaded: true });
-            return;
-          }
-        }
-        const visibleNext = neighborSessionId(visibleIds, id);
-        const next = closeOpenSession(id);
-        const action = sessionCloseFollowUp({
-          closedId: id,
-          activeThreadId: runtime.activeThread?.id ?? null,
-          activeDaemonThreadId: runtime.activeThread?.daemonThreadId ?? null,
-          nextOpenId: includeSession ? visibleNext : next,
-          openCount: includeSession ? visibleIds.length - 1 : useOpenSessionTabs.getState().ids.length,
-        });
-        if (action.kind === "follow") void openThreadTarget(runtime, action.id);
-        if (action.kind === "clear") {
-          if (onLastSessionClosed) onLastSessionClosed();
-          else runtime.setActiveThread(null);
-        }
-      }}
+      onClose={closeTab}
     />
     {menu ? (
       <CodeContextMenu
         x={menu.x}
         y={menu.y}
-        label="Show threads together"
+        label={menu.id ? "Show threads together" : "Thread tabs"}
         onClose={() => setMenu(null)}
-        items={menuItems(menu.id)}
+        items={menu.id ? menuItems(menu.id) : stripMenuItems()}
       />
     ) : null}
     </>

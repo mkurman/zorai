@@ -36,6 +36,7 @@ mod statistics;
 mod tasks;
 mod temporal_foresight;
 mod tombstones_gateway;
+mod ui_colors;
 #[cfg(feature = "lancedb-vector")]
 mod vector_index;
 mod workspaces;

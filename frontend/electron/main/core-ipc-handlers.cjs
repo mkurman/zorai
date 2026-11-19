@@ -194,7 +194,7 @@ function registerCoreIpcHandlers(ipcMain, options) {
     ipcMain.handle('window-close', (event) => { BrowserWindow.fromWebContents(event.sender)?.close(); return true; });
     ipcMain.handle('window-menu-labels', () => (Menu.getApplicationMenu()?.items ?? []).filter((item) => item.submenu && item.visible !== false).map((item) => item.label));
     const appSubmenu = (label) => Menu.getApplicationMenu()?.items.find((entry) => entry.label === label && entry.submenu)?.submenu ?? null;
-    ipcMain.handle('window-menu-items', (_event, label) => (appSubmenu(label)?.items ?? [])
+    const serializeMenuItems = (items) => items
         .map((item, index) => ({ item, index }))
         .filter(({ item }) => item.visible !== false)
         .map(({ item, index }) => ({
@@ -203,11 +203,20 @@ function registerCoreIpcHandlers(ipcMain, options) {
             label: item.label,
             accelerator: String(item.accelerator ?? item.getDefaultRoleAccelerator?.() ?? ''),
             enabled: item.enabled !== false,
-        })));
-    ipcMain.handle('window-menu-invoke', (event, label, index) => {
-        const item = appSubmenu(label)?.items[index];
+            checked: item.type === 'checkbox' || item.type === 'radio' ? item.checked === true : undefined,
+            children: item.submenu ? serializeMenuItems(item.submenu.items) : undefined,
+        }));
+    ipcMain.handle('window-menu-items', (_event, label) => serializeMenuItems(appSubmenu(label)?.items ?? []));
+    ipcMain.handle('window-menu-invoke', (event, label, indexPath) => {
+        const path = Array.isArray(indexPath) ? indexPath : [indexPath];
+        let item = null;
+        let menu = appSubmenu(label);
+        for (const index of path) {
+            item = menu?.items[index] ?? null;
+            menu = item?.submenu ?? null;
+        }
         const window = BrowserWindow.fromWebContents(event.sender);
-        if (!item || !window || item.enabled === false) return false;
+        if (!item || item.submenu || !window || item.enabled === false) return false;
         item.click(undefined, window, window.webContents);
         return true;
     });

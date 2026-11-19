@@ -27,6 +27,7 @@ import {
   type FileLineStats,
 } from "./compactSessionModel";
 import { useThreadFilePreview } from "./ThreadFilePreviewContext";
+import { useDragScroll } from "./useDragScroll";
 import { SpawnedContext } from "./ThreadsSpawnedContext";
 import { pushToast } from "@/lib/toastStore";
 import { CodeFileIcon, CodeFolderChevron } from "@/zorai/features/code/CodeFileIcon";
@@ -56,6 +57,8 @@ export function ThreadCompactSessionBar({ reviewActions = true }: { reviewAction
   const [busyPath, setBusyPath] = useState<string | null>(null);
   const [statusByRoot, setStatusByRoot] = useState<Record<string, ZoraiWorkspaceGitStatus[]>>({});
   const [openSection, setOpenSection] = useState<CompactSessionSection | null>(null);
+  const [itemsElement, setItemsElement] = useState<HTMLDivElement | null>(null);
+  useDragScroll(itemsElement);
   const spawned = useMemo(
     () => flattenSpawnedRuns(runtime.spawnedAgentTree),
     [runtime.spawnedAgentTree],
@@ -348,7 +351,7 @@ export function ThreadCompactSessionBar({ reviewActions = true }: { reviewAction
     <div className="zorai-compact-session">
       <div ref={summaryRef} className="zorai-compact-session__summary">
         {hasContent || goal ? (
-          <div className="zorai-compact-session__items">
+          <div ref={setItemsElement} className="zorai-compact-session__items">
             {goal ? (
               <button type="button" className={["zorai-compact-session__pill", openSection === "goal" ? "is-open" : ""].filter(Boolean).join(" ")} aria-expanded={openSection === "goal"} title={goal.title} onClick={() => toggle("goal")}>
                 {chevron("goal")}

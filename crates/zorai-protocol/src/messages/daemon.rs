@@ -217,4 +217,5 @@ pub enum DaemonMessage {
     AgentThreadOperations { thread_id: String, operations_json: String },
     AgentCommitMessageGenerated { message: String, #[serde(default)] error: Option<String> },
     AgentAnalyzeImageResult { content: String },
+    AgentUiColors { colors_json: String },
 }

@@ -509,3 +509,33 @@ fn mission_control_custom_model_entry_updates_selected_assignment_not_global_mod
         "gpt-5.4-minix"
     );
 }
+
+#[test]
+fn custom_model_modalities_reach_the_daemon_under_the_shared_provider_model_key() {
+    let (_daemon_tx, daemon_rx) = std::sync::mpsc::channel();
+    let (cmd_tx, mut cmd_rx) = tokio::sync::mpsc::unbounded_channel();
+    let mut model = TuiModel::new(daemon_rx, cmd_tx);
+    model.config.provider = "openrouter".to_string();
+    assert_eq!(
+        TuiModel::custom_model_modalities("Video, image bogus"),
+        vec!["text", "image", "video"]
+    );
+    model.set_custom_model_modalities("qwen/qwen3-vl", "video");
+    let mut sent = None;
+    while let Ok(command) = cmd_rx.try_recv() {
+        if let DaemonCommand::SetConfigItem {
+            key_path,
+            value_json,
+        } = command
+        {
+            sent = Some((key_path, value_json));
+        }
+    }
+    assert_eq!(
+        sent,
+        Some((
+            "/model_modalities/openrouter::qwen~1qwen3-vl".to_string(),
+            "[\"text\",\"video\"]".to_string()
+        ))
+    );
+}

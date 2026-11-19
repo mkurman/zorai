@@ -199,6 +199,20 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
             return { message: '', error: err?.message || String(err) };
         }
     });
+    ipcMain.handle('agent-list-ui-colors', async () => {
+        try {
+            return await sendAgentQuery({ type: 'list-ui-colors' }, 'ui-colors', 15000);
+        } catch (err) {
+            return { error: err?.message || String(err) };
+        }
+    });
+    ipcMain.handle('agent-set-ui-color', async (_event, kind, key, color) => {
+        try {
+            return await sendAgentQuery({ type: 'set-ui-color', kind, key, color: color ?? null }, 'ui-colors', 15000);
+        } catch (err) {
+            return { error: err?.message || String(err) };
+        }
+    });
     ipcMain.handle('agent-list-thread-operations', async (_event, threadId) => {
         try {
             return await sendAgentQuery({

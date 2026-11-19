@@ -32,6 +32,18 @@ function without(widths: Record<string, number>, view: string): Record<string, n
   return rest;
 }
 
+export function persistedShellLayout(state: ShellLayoutStore) {
+  return {
+    railOpen: state.railOpen,
+    contextOpen: state.contextOpen,
+    codeContextAutoOpened: state.codeContextAutoOpened,
+    codeContextOpen: state.codeContextOpen,
+    otherContextOpen: state.otherContextOpen,
+    railWidths: state.railWidths,
+    contextWidths: state.contextWidths,
+  };
+}
+
 export const useShellLayoutStore = create<ShellLayoutStore>()(
   persist(
     (set) => ({
@@ -62,7 +74,7 @@ export const useShellLayoutStore = create<ShellLayoutStore>()(
       name: "zorai-shell-layout",
       version: 1,
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ railWidths: state.railWidths, contextWidths: state.contextWidths }),
+      partialize: persistedShellLayout,
     },
   ),
 );

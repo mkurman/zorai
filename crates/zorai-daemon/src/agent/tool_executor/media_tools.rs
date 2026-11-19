@@ -3,8 +3,10 @@ use futures::StreamExt;
 use super::*;
 
 mod music_generation;
+mod video_analysis;
 mod video_generation;
 pub(crate) use music_generation::*;
+pub(crate) use video_analysis::*;
 pub(crate) use video_generation::*;
 
 const DEFAULT_IMAGE_ANALYSIS_PROMPT: &str = "Analyze this image in detail.";

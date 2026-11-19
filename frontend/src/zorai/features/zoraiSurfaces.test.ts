@@ -25,7 +25,7 @@ describe("Zorai feature surfaces", () => {
     expect(agentPaneSource).toContain('<ThreadsView\n        variant="compact"');
     expect(agentPaneSource).not.toContain("AgentChatPanelProvider");
     expect(threadsSource).toContain('variant?: "full" | "compact"');
-    expect(threadsSource).toContain('<ThreadComposer showTargetSelector={variant === "compact"} compact={variant === "compact"} />');
+    expect(threadsSource).toContain('<ThreadComposer showTargetSelector={variant === "compact"} compact={variant === "compact"} attachmentSlot={attachmentSlot} />');
     expect(threadsSource).not.toContain("<ThreadComposer />");
     expect(threadsSource).toContain("ThreadCompactSessionBar");
     expect(threadsSource).toContain("canGoBackThread");
@@ -201,7 +201,7 @@ describe("Zorai feature surfaces", () => {
     expect(composerSource).toContain("Choose thread owner");
     expect(composerSource).toContain("Choose agent or subagent");
     expect(composerSource).toContain('compact ? "zorai-thread-composer--compact" : ""');
-    expect(threadsSource).toContain('<ThreadComposer showTargetSelector={variant === "compact"} compact={variant === "compact"} />');
+    expect(threadsSource).toContain('<ThreadComposer showTargetSelector={variant === "compact"} compact={variant === "compact"} attachmentSlot={attachmentSlot} />');
     expect(styleSource).toContain(".zorai-thread-surface--compact.zorai-native-thread-surface");
     expect(styleSource).toContain("grid-template-rows: auto minmax(0, 1fr) auto");
     expect(styleSource).toContain(".zorai-thread-composer--compact .zorai-composer-target");
@@ -863,7 +863,7 @@ describe("Zorai feature surfaces", () => {
 
     expect(railSource).toContain("openThreadTarget");
     expect(railSource).not.toContain("runtime.openThread(thread.id)");
-    expect(railSource).toContain("DEFAULT_THREAD_DATE_FILTER");
+    expect(readFileSync(new URL("./threads/threadRailTabStore.ts", import.meta.url), "utf8")).toContain("dateFilter: DEFAULT_THREAD_DATE_FILTER");
     expect(railSource).toContain("useState<ThreadFilterTab | null>(tab)");
     expect(railSource).toContain("ThreadListSkeleton");
     expect(railSource).toContain("loadedAgentFilterRef.current == null ? 0");

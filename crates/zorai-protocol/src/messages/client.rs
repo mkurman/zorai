@@ -341,4 +341,6 @@ pub enum ClientMessage {
     AgentListThreadOperations { thread_id: String },
     AgentGenerateCommitMessage { diff: String, #[serde(default)] recent_subjects: Vec<String> },
     AgentAnalyzeImage { args_json: String },
+    AgentListUiColors,
+    AgentSetUiColor { kind: String, key: String, color: Option<String> },
 }
