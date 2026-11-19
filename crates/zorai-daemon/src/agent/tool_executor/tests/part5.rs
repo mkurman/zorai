@@ -1997,11 +1997,10 @@ async fn route_to_specialist_dispatches_a_spawned_subagent_that_can_report_back(
     let payload: serde_json::Value = serde_json::from_str(&response).expect("json payload");
     let task_id = payload["task_id"].as_str().expect("dispatched task id");
 
-    let task = crate::agent::tool_executor::memory_tools::task_by_id_for_tool_scope(
-        &engine, task_id,
-    )
-    .await
-    .expect("dispatched task exists");
+    let task =
+        crate::agent::tool_executor::memory_tools::task_by_id_for_tool_scope(&engine, task_id)
+            .await
+            .expect("dispatched task exists");
     assert!(
         task.is_spawned_subagent(),
         "the specialist runs in its own thread and must be able to call report_subagent_outcome"
@@ -2010,10 +2009,12 @@ async fn route_to_specialist_dispatches_a_spawned_subagent_that_can_report_back(
     assert!(task
         .completion_contract
         .as_ref()
-        .is_some_and(|contract| contract.required_deliverables.iter().any(|requirement| {
-            requirement.description
-                == crate::agent::types::SUBAGENT_REPORT_REQUIREMENT_DESCRIPTION
-        })));
+        .is_some_and(
+            |contract| contract.required_deliverables.iter().any(|requirement| {
+                requirement.description
+                    == crate::agent::types::SUBAGENT_REPORT_REQUIREMENT_DESCRIPTION
+            })
+        ));
 }
 
 #[tokio::test]
@@ -2287,11 +2288,15 @@ fn analyze_video_is_offered_with_image_analysis_and_hidden_for_text_only_setups(
     config.provider = zorai_shared::providers::PROVIDER_ID_OPENAI.to_string();
     config.model = "gpt-5.4".to_string();
     let tools = get_available_tools(&config, &temp_dir, false);
-    assert!(tools.iter().any(|tool| tool.function.name == "analyze_video"));
+    assert!(tools
+        .iter()
+        .any(|tool| tool.function.name == "analyze_video"));
 
     config.model = "gpt-5.3-codex-spark".to_string();
     config.tools.vision = false;
     let tools = get_available_tools(&config, &temp_dir, false);
-    assert!(tools.iter().all(|tool| tool.function.name != "analyze_video"));
+    assert!(tools
+        .iter()
+        .all(|tool| tool.function.name != "analyze_video"));
     assert_eq!(default_timeout_seconds_for_tool("analyze_video"), 600);
 }

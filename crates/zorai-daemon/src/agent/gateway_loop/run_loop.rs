@@ -383,6 +383,18 @@ impl AgentEngine {
         self: Arc<Self>,
         mut shutdown: tokio::sync::watch::Receiver<bool>,
     ) {
+        for restored in crate::agent::tool_executor::restore_detached_operations().await {
+            tracing::info!(operation_id = %restored.operation_id, tool = %restored.tool_name, "re-attached detached background operation");
+            if let Some(thread_id) = restored.thread_id.as_deref() {
+                self.register_operation_wakeup(
+                    thread_id,
+                    &restored.tool_name,
+                    &restored.operation_id,
+                    restored.notify_on_completion,
+                )
+                .await;
+            }
+        }
         let mut tick = tokio::time::interval(std::time::Duration::from_secs(SUPERVISOR_TICK_SECS));
 
         loop {

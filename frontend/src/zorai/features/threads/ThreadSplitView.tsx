@@ -29,7 +29,7 @@ function acceptsThreadDrag(event: DragEvent<HTMLElement>): boolean {
   return !(event.target as Element | null)?.closest?.(".zorai-session-tabs");
 }
 
-type ThreadSplitDrop = { targetId: string | null; zone: ThreadSplitDropZone; box: CSSProperties };
+type ThreadSplitDrop = { targetId: string | null; zone: ThreadSplitDropZone; box: CSSProperties; openOnly?: boolean };
 
 function dropBox(zone: ThreadSplitDropZone, target: DOMRect, container: DOMRect): CSSProperties {
   const left = target.left - container.left;
@@ -72,6 +72,7 @@ export function ThreadSplitView({ returnTarget, onReturnTarget }: { returnTarget
 
   const dropTarget = (event: DragEvent<HTMLDivElement>): ThreadSplitDrop | null => {
     const container = event.currentTarget.getBoundingClientRect();
+    if (!activeId) return { targetId: null, zone: "right", box: { left: 0, top: 0, width: container.width, height: container.height }, openOnly: true };
     const grid = split ? event.currentTarget.querySelector<HTMLElement>(".zorai-thread-split__grid")?.getBoundingClientRect() : null;
     const edge = grid ? splitEdgeDropZone(grid, event.clientX, event.clientY) : null;
     if (grid && edge) return { targetId: null, zone: edge, box: dropBox(edge, grid, container) };
@@ -84,14 +85,14 @@ export function ThreadSplitView({ returnTarget, onReturnTarget }: { returnTarget
   };
 
   const onDragOver = (event: DragEvent<HTMLDivElement>) => {
-    const next = activeId && acceptsThreadDrag(event) ? dropTarget(event) : null;
+    const next = acceptsThreadDrag(event) ? dropTarget(event) : null;
     if (!next) {
       if (drop) setDrop(null);
       return;
     }
     event.preventDefault();
     event.dataTransfer.dropEffect = "copy";
-    if (next.targetId !== drop?.targetId || next.zone !== drop?.zone) setDrop(next);
+    if (next.targetId !== drop?.targetId || next.zone !== drop?.zone || next.openOnly !== drop?.openOnly) setDrop(next);
   };
 
   const onDrop = async (event: DragEvent<HTMLDivElement>) => {
@@ -103,6 +104,7 @@ export function ThreadSplitView({ returnTarget, onReturnTarget }: { returnTarget
     dropPendingRef.current = true;
     try {
       if (!(await openThreadTarget(runtime, droppedId, { reuseLoaded: true }))) return;
+      if (target.openOnly) return;
       const localId = findThreadByAuthoritativeIdentity(useAgentStore.getState().threads, droppedId)?.id;
       if (!localId) return;
       if (target.targetId) useThreadSplitStore.getState().insert(target.targetId, localId, target.zone);

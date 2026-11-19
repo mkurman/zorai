@@ -597,13 +597,17 @@ impl HistoryStore {
                 if !query.hidden_message_substrings.is_empty() {
                     sql.push_str(
                         " AND NOT EXISTS (
-                                SELECT 1 FROM agent_messages m
-                                WHERE m.thread_id = t.id
-                                  AND m.deleted_at IS NULL
-                                  AND (",
+                                SELECT 1 FROM (
+                                    SELECT m.content FROM agent_messages m
+                                    WHERE m.thread_id = t.id
+                                      AND m.deleted_at IS NULL
+                                    ORDER BY m.created_at ASC
+                                    LIMIT 1
+                                ) first_message
+                                WHERE (",
                     );
                     let clauses = std::iter::repeat_n(
-                        "instr(lower(substr(m.content, 1, 240)), lower(?)) > 0",
+                        "instr(lower(substr(first_message.content, 1, 240)), lower(?)) > 0",
                         query.hidden_message_substrings.len(),
                     )
                     .collect::<Vec<_>>()

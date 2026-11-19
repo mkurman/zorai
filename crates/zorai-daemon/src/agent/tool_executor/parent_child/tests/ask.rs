@@ -526,7 +526,9 @@ async fn idle_wakeup_supervisor_keeps_a_real_operator_stop() {
     let _ = engine.supervise_idle_deferred_thread_continuations().await;
 
     assert!(
-        engine.operator_stream_stop_requested("thread-stopped-parent").await,
+        engine
+            .operator_stream_stop_requested("thread-stopped-parent")
+            .await,
         "an operator stop must keep suppressing automatic continuations"
     );
     assert!(engine

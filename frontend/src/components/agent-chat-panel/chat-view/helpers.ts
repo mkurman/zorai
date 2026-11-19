@@ -219,6 +219,7 @@ function buildDisplayItemsFrom(messages: AgentMessage[], from: number, built: Bu
         status: message.toolStatus || (message.content ? "done" : "requested"),
         resultContent: message.content || "",
         createdAt: message.createdAt,
+        completedAt: message.content ? message.createdAt : undefined,
         welesReview: message.welesReview,
       };
       groups.set(groupKey, initialGroup);
@@ -240,7 +241,10 @@ function buildDisplayItemsFrom(messages: AgentMessage[], from: number, built: Bu
     } else if (message.content) {
       existing.status = "done";
     }
-    if (message.content) existing.resultContent = message.content;
+    if (message.content) {
+      existing.resultContent = message.content;
+      existing.completedAt = Math.max(existing.completedAt ?? 0, message.createdAt);
+    }
     existing.welesReview = mergeToolReviewMeta(existing.welesReview, message.welesReview);
     existing.createdAt = Math.min(existing.createdAt, message.createdAt);
   }

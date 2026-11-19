@@ -1,8 +1,8 @@
 use super::*;
 use crate::agent::task_scheduler::make_task_log_entry;
 use crate::agent::types::{
-    AgentTask, ChildReportState, ChildResultContract,
-    ParentNotificationState, TaskLogLevel, TaskStatus,
+    AgentTask, ChildReportState, ChildResultContract, ParentNotificationState, TaskLogLevel,
+    TaskStatus,
 };
 use crate::history::AgentTaskListQuery;
 
@@ -434,7 +434,10 @@ async fn authorize_budget_extension(
     );
 }
 
-pub(crate) async fn find_spawned_task_by_thread(agent: &AgentEngine, thread_id: &str) -> Option<AgentTask> {
+pub(crate) async fn find_spawned_task_by_thread(
+    agent: &AgentEngine,
+    thread_id: &str,
+) -> Option<AgentTask> {
     let mut tasks = agent
         .list_tasks_filtered(&AgentTaskListQuery {
             id: None,

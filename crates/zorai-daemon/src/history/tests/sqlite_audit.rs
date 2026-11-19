@@ -725,6 +725,77 @@ async fn latest_thread_context_hint_selects_newest_non_empty_preview_in_sql() ->
 }
 
 #[tokio::test]
+async fn list_threads_filtered_hides_threads_that_start_with_a_hidden_persona_prompt() -> Result<()>
+{
+    let (store, root) = make_test_store().await?;
+    let marker = "Agent persona id: weles";
+    let threads = [
+        (
+            "internal-persona",
+            vec![format!("{marker}\nYou are WELES"), "review".to_string()],
+        ),
+        (
+            "operator-quotes-marker",
+            vec!["hello".to_string(), format!("I saw {marker} in a log")],
+        ),
+        ("plain", vec!["hello".to_string()]),
+    ];
+    for (index, (thread_id, messages)) in threads.iter().enumerate() {
+        store
+            .create_thread(&AgentDbThread {
+                id: thread_id.to_string(),
+                workspace_id: None,
+                surface_id: None,
+                pane_id: None,
+                agent_name: None,
+                title: thread_id.to_string(),
+                created_at: 1,
+                updated_at: 10 + index as i64,
+                message_count: messages.len() as i64,
+                total_tokens: 0,
+                last_preview: String::new(),
+                metadata_json: None,
+            })
+            .await?;
+        for (position, content) in messages.iter().enumerate() {
+            store
+                .add_message(&AgentDbMessage {
+                    id: format!("{thread_id}-{position}"),
+                    thread_id: thread_id.to_string(),
+                    created_at: 2 + position as i64,
+                    role: "user".to_string(),
+                    content: content.clone(),
+                    provider: None,
+                    model: None,
+                    input_tokens: None,
+                    output_tokens: None,
+                    total_tokens: None,
+                    cost_usd: None,
+                    reasoning: None,
+                    tool_calls_json: None,
+                    metadata_json: None,
+                })
+                .await?;
+        }
+    }
+
+    let rows = store
+        .list_threads_filtered(&AgentThreadListQuery {
+            hidden_message_substrings: vec![marker.to_string()],
+            ..AgentThreadListQuery::default()
+        })
+        .await?;
+
+    assert_eq!(
+        rows.iter().map(|row| row.id.as_str()).collect::<Vec<_>>(),
+        vec!["plain", "operator-quotes-marker"],
+        "only a persona prompt that opens the thread marks it internal; scanning every message made thread listing take tens of seconds"
+    );
+    fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[tokio::test]
 async fn thread_has_message_substring_checks_live_message_rows_in_sql() -> Result<()> {
     let (store, root) = make_test_store().await?;
     for thread_id in ["thread-hidden-marker", "thread-visible-marker"] {

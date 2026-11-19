@@ -2254,6 +2254,8 @@ pub fn execute_tool<'a>(
     cancel_token: Option<CancellationToken>,
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ToolResult> + Send + 'a>> {
     Box::pin(async move {
+        let stripped_tool_call = without_tool_intent_argument(tool_call);
+        let tool_call = stripped_tool_call.as_ref().unwrap_or(tool_call);
         let redacted_arguments = scrub_sensitive(&tool_call.function.arguments);
         tracing::info!(
             tool = %tool_call.function.name,

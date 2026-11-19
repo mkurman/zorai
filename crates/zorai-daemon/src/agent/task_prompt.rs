@@ -491,6 +491,9 @@ fn seed_skills_tree(
         if super::skill_library::is_skill_path_locked(skills_root, &target_path) {
             continue;
         }
+        if file_type.is_dir() && entry.file_name() == ".git" {
+            continue;
+        }
         if file_type.is_dir() {
             count += seed_skills_tree(&source_path, &target_path, skills_root)?;
         } else if file_type.is_file() {
@@ -993,6 +996,43 @@ mod tests {
             builtin_root.join("zorai-mcp").join("README.md").exists(),
             "expected built-in skills seed to copy nested markdown docs"
         );
+    }
+
+    #[test]
+    fn seed_skills_tree_skips_nested_git_checkouts_so_read_only_packs_cannot_abort_seeding() {
+        let temp = tempdir().expect("tempdir should succeed");
+        let source = temp.path().join("source");
+        let target = temp.path().join("target");
+        std::fs::create_dir_all(source.join("vendor").join(".git").join("objects"))
+            .expect("create source git dir");
+        std::fs::write(source.join("vendor").join("SKILL.md"), "# Vendor skill\n")
+            .expect("write skill");
+        std::fs::write(
+            source
+                .join("vendor")
+                .join(".git")
+                .join("objects")
+                .join("pack.idx"),
+            "new pack",
+        )
+        .expect("write pack");
+        let stale_pack = target
+            .join("vendor")
+            .join(".git")
+            .join("objects")
+            .join("pack.idx");
+        std::fs::create_dir_all(stale_pack.parent().unwrap()).expect("create target git dir");
+        std::fs::write(&stale_pack, "old pack").expect("write stale pack");
+        let mut permissions = std::fs::metadata(&stale_pack).unwrap().permissions();
+        permissions.set_readonly(true);
+        std::fs::set_permissions(&stale_pack, permissions).expect("make pack read-only");
+
+        let copied = seed_skills_tree(&source, &target, &target)
+            .expect("a read-only git pack in the target must not abort skill seeding");
+
+        assert_eq!(copied, 1);
+        assert!(target.join("vendor").join("SKILL.md").exists());
+        assert_eq!(std::fs::read_to_string(&stale_pack).unwrap(), "old pack");
     }
 
     #[test]

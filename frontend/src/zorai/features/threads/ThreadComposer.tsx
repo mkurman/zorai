@@ -23,6 +23,7 @@ import { useSettingsStore } from "@/lib/settingsStore";
 import { shortcutCombo, shortcutMatches } from "@/zorai/features/shortcuts/appShortcuts";
 import { useComposerInputHistory } from "./composerInputHistory";
 import { applyComposerTextareaSize } from "./composerTextareaSize";
+import { useDragScroll } from "./useDragScroll";
 import { ThreadComposerQueue } from "./ThreadComposerQueue";
 import { queuedComposerDraft } from "./composerQueue";
 import { OperatorQuestionDock } from "@/components/OperatorQuestionDock";
@@ -116,6 +117,8 @@ export function ThreadComposer({
   const stopStreaming = runtime.stopStreaming;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
+  const [toolsElement, setToolsElement] = useState<HTMLDivElement | null>(null);
+  useDragScroll(toolsElement);
   const sketch = useComposerSketch({ attachments, setAttachments, onClosed: () => inputRef.current?.focus() });
   const browserSessionKey = runtime.activeThread
     ? runtime.activeThread.daemonThreadId ?? `local:${runtime.activeThread.id}`
@@ -612,7 +615,7 @@ export function ThreadComposer({
         />
 
         <div className="zorai-composer-actions">
-          <div className="zorai-composer-actions__left">
+          <div ref={setToolsElement} className="zorai-composer-actions__left zorai-drag-scroll">
             <input
               ref={fileInputRef}
               type="file"

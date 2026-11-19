@@ -234,13 +234,37 @@ pub(crate) fn resolve_guideline_path_for_preview(
         .to_string()
 }
 
+pub(crate) const TOOL_FILE_LABEL_MAX_CHARS: usize = 32;
+const TOOL_FILE_LABEL_TAIL_CHARS: usize = 8;
+const TOOL_FILE_LABEL_MAX_EXTENSION_CHARS: usize = 8;
+
 pub(crate) fn file_name_label(path: &str) -> String {
-    Path::new(path)
+    let name = Path::new(path)
         .file_name()
         .and_then(|value| value.to_str())
         .filter(|value| !value.is_empty())
-        .unwrap_or(path)
-        .to_string()
+        .unwrap_or(path);
+    shorten_file_label(name)
+}
+
+fn shorten_file_label(name: &str) -> String {
+    let chars = name.chars().collect::<Vec<_>>();
+    if chars.len() <= TOOL_FILE_LABEL_MAX_CHARS {
+        return name.to_string();
+    }
+    let extension_start = name
+        .rfind('.')
+        .filter(|&index| index > 0)
+        .map(|index| name[..index].chars().count())
+        .filter(|&start| chars.len() - start <= TOOL_FILE_LABEL_MAX_EXTENSION_CHARS)
+        .unwrap_or(chars.len());
+    let tail_start = extension_start.saturating_sub(TOOL_FILE_LABEL_TAIL_CHARS);
+    let tail = chars[tail_start..].iter().collect::<String>();
+    let head_len = TOOL_FILE_LABEL_MAX_CHARS
+        .saturating_sub(tail.chars().count() + 1)
+        .min(tail_start);
+    let head = chars[..head_len].iter().collect::<String>();
+    format!("{head}…{tail}")
 }
 
 pub(crate) fn append_tool_file_chip(

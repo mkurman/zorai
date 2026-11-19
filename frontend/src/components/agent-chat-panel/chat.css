@@ -723,6 +723,17 @@
   font-size: var(--text-xs);
 }
 
+.acp-tool-row__tool {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
 .acp-tool-row__status {
   margin-left: auto;
   display: flex;
@@ -954,6 +965,16 @@
   }
 }
 
+.acp-tool-list__elapsed {
+  flex-shrink: 0;
+  height: 1.4em;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.4em;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .acp-tool-list__stats {
   margin-left: auto;
   flex-shrink: 0;
@@ -991,9 +1012,41 @@
 
 .acp-tool-row__body {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
-  padding: 8px 0 0 0;
+  margin-left: 5px;
+  padding: 6px 0 2px 12px;
+  border-left: 1px solid color-mix(in srgb, var(--text-muted) 25%, transparent);
+}
+
+.acp-tool-row__body .acp-field-label {
+  margin-bottom: 4px;
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.acp-tool-row__body .acp-struct {
+  gap: 4px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--text-muted) 7%, transparent);
+}
+
+.acp-tool-row__body .acp-struct__row {
+  grid-template-columns: minmax(72px, max-content) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.acp-tool-row__body .acp-tool-result,
+.acp-tool-row__body .acp-pre {
+  max-height: 320px;
+  overflow: auto;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--text-muted) 7%, transparent);
 }
 
 .acp-tool-row__footer {
@@ -1001,10 +1054,22 @@
   justify-content: flex-end;
 }
 
+.acp-tool-row__footer .acp-btn {
+  padding: 2px 8px;
+  font-size: var(--text-2xs);
+  font-weight: 500;
+}
+
 /* Review presentation block */
 .acp-tool-review {
-  display: grid;
-  gap: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  font-size: var(--text-2xs);
 }
 
 .acp-tool-review--blocked {
@@ -1015,26 +1080,24 @@
   color: var(--warning);
 }
 
-.acp-tool-review__header {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-  font-size: var(--text-xs);
-}
-
 .acp-tool-review__title {
   font-weight: 700;
-  font-size: var(--text-xs);
+}
+
+.acp-tool-review__tag {
+  padding: 0 6px;
+  border: 1px solid color-mix(in srgb, currentColor 45%, transparent);
+  border-radius: 999px;
+  line-height: 1.5;
 }
 
 .acp-tool-review__audit {
-  font-size: var(--text-xs);
   opacity: 0.85;
 }
 
 .acp-tool-review__reason {
-  font-size: var(--text-2xs);
+  flex-basis: 100%;
+  color: var(--text-muted);
   line-height: 1.45;
 }
 

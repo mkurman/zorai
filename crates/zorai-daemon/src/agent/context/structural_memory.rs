@@ -740,11 +740,34 @@ impl AgentEngine {
         &self,
         thread_id: &str,
     ) -> Option<ThreadStructuralMemory> {
-        self.thread_structural_memories
+        if let Some(state) = self
+            .thread_structural_memories
             .read()
             .await
             .get(thread_id)
             .cloned()
+        {
+            return Some(state);
+        }
+        let loaded = match self
+            .history
+            .get_thread_structural_memory_state::<ThreadStructuralMemory>(thread_id)
+            .await
+        {
+            Ok(state) => state?,
+            Err(error) => {
+                tracing::warn!(thread_id = %thread_id, %error, "failed to hydrate thread structural memory");
+                return None;
+            }
+        };
+        Some(
+            self.thread_structural_memories
+                .write()
+                .await
+                .entry(thread_id.to_string())
+                .or_insert(loaded)
+                .clone(),
+        )
     }
 
     pub(crate) async fn clear_thread_structural_memory(&self, thread_id: &str) {
@@ -829,12 +852,22 @@ impl AgentEngine {
         };
 
         let mut memories = self.thread_structural_memories.write().await;
-        if state.is_empty() {
+        let became_empty = state.is_empty();
+        if became_empty {
             memories.remove(thread_id);
         } else {
             memories.insert(thread_id.to_string(), state);
         }
         drop(memories);
+        if became_empty {
+            if let Err(error) = self
+                .history
+                .delete_thread_structural_memory(thread_id)
+                .await
+            {
+                tracing::warn!(thread_id = %thread_id, %error, "failed to delete thread structural memory");
+            }
+        }
         self.apply_memory_graph_updates(graph_updates).await;
         if let Err(error) = self
             .refresh_memory_palace_from_thread(thread_id, None)

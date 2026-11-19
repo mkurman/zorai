@@ -153,11 +153,7 @@ impl AgentEngine {
             Vec::new()
         };
         let structural_memory = if let Some(thread_id) = thread_id {
-            self.thread_structural_memories
-                .read()
-                .await
-                .get(thread_id)
-                .cloned()
+            self.get_thread_structural_memory(thread_id).await
         } else {
             None
         };

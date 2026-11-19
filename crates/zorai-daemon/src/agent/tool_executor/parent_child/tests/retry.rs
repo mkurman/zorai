@@ -58,7 +58,10 @@ async fn parent_retry_requeues_failed_child_and_reopens_parent_notification() {
     let retried = live_child(&engine, &failed.id).await;
     assert_eq!(retried.status, TaskStatus::Queued);
     assert_eq!(retried.thread_id.as_deref(), Some("thread-child"));
-    assert_eq!(retried.retry_count, 0, "a manual retry gets a fresh auto-retry budget");
+    assert_eq!(
+        retried.retry_count, 0,
+        "a manual retry gets a fresh auto-retry budget"
+    );
     assert!(retried.error.is_none() && retried.completed_at.is_none());
     assert!(
         retried
@@ -82,7 +85,10 @@ async fn retry_subagent_rejects_non_parents_and_children_that_have_not_failed() 
         None,
     )
     .await;
-    assert!(running.is_err(), "a child that has not failed must not be requeued twice");
+    assert!(
+        running.is_err(),
+        "a child that has not failed must not be requeued twice"
+    );
 
     let failed = fail_child(&engine, &child).await;
     let outsider = execute_retry_subagent(

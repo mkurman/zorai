@@ -127,6 +127,19 @@ pub(crate) async fn execute_bash_command(
     };
     let client_surface = resolve_shell_tool_client_surface(agent, thread_id, task_id).await;
     let foreground_detach_after = headless_foreground_detach_after_for_surface(client_surface);
+    if cfg!(unix) && bash_background_runs_detached(args) {
+        return execute_headless_shell_command(
+            args,
+            session_manager,
+            session_id,
+            tool_names::BASH_COMMAND,
+            cancel_token,
+            foreground_detach_after,
+            Some(agent),
+            Some(thread_id),
+        )
+        .await;
+    }
     if should_use_managed_execution_for_surface(client_surface, args) {
         if session_manager.list().await.is_empty()
             && can_run_headless_when_terminal_unavailable(args)
@@ -529,6 +542,22 @@ pub(crate) fn should_use_managed_execution(args: &serde_json::Value) -> bool {
     should_use_managed_execution_for_surface(None, args)
 }
 
+pub(crate) fn bash_background_runs_detached(args: &serde_json::Value) -> bool {
+    let auto_background = args
+        .get("timeout_seconds")
+        .and_then(|value| value.as_u64())
+        .is_some_and(|value| value > 600);
+    if !auto_background && tool_waits_for_completion(args) {
+        return false;
+    }
+    let mut remaining = args.clone();
+    if let Some(object) = remaining.as_object_mut() {
+        object.remove("wait_for_completion");
+        object.remove("timeout_seconds");
+    }
+    !should_use_managed_execution_for_surface(None, &remaining)
+}
+
 pub(crate) fn should_use_managed_execution_for_surface(
     client_surface: Option<zorai_protocol::ClientSurface>,
     args: &serde_json::Value,
@@ -729,7 +758,7 @@ pub(crate) fn command_looks_interactive(command: &str) -> bool {
     }
 }
 
-fn compact_background_output(raw: &[u8], max_chars: usize) -> String {
+pub(crate) fn compact_background_output(raw: &[u8], max_chars: usize) -> String {
     let text = String::from_utf8_lossy(raw).trim().to_string();
     if text.chars().count() <= max_chars {
         return text;
@@ -744,6 +773,15 @@ fn compact_background_output(raw: &[u8], max_chars: usize) -> String {
         .rev()
         .collect();
     format!("... truncated ...\n{tail}")
+}
+
+pub(crate) const HEADLESS_OUTPUT_KEEP_BYTES: usize = 1024 * 1024;
+
+pub(crate) fn trim_captured_output(buffer: &mut Vec<u8>) {
+    if buffer.len() > HEADLESS_OUTPUT_KEEP_BYTES * 2 {
+        let excess = buffer.len() - HEADLESS_OUTPUT_KEEP_BYTES;
+        buffer.drain(..excess);
+    }
 }
 
 pub(crate) struct HeadlessOutputCapture {
@@ -769,6 +807,7 @@ where
                 .lock()
                 .expect("headless command output buffer mutex poisoned");
             captured.extend_from_slice(&chunk[..read]);
+            trim_captured_output(&mut captured);
         }
     });
 
@@ -834,6 +873,9 @@ pub(crate) async fn execute_headless_shell_command(
             auto_background,
             agent,
             thread_id,
+            args.get("notify_on_completion")
+                .and_then(|value| value.as_bool())
+                .unwrap_or(true),
         )
         .await;
     }
@@ -974,6 +1016,7 @@ pub(crate) async fn execute_headless_shell_command(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn spawn_headless_shell_command_background(
     command: &str,
     cwd: Option<std::path::PathBuf>,
@@ -982,49 +1025,68 @@ async fn spawn_headless_shell_command_background(
     auto_background: bool,
     agent: Option<&AgentEngine>,
     thread_id: Option<&str>,
+    notify_on_completion: bool,
 ) -> Result<(String, Option<ToolPendingApproval>)> {
-    let operation = crate::server::operation_registry().accept_operation(tool_name, None);
-    let operation_id = operation.operation_id.clone();
+    #[cfg(unix)]
+    let operation_id = spawn_detached_operation(DetachedLaunch {
+        tool_name,
+        interpreter: vec!["bash".to_string(), "-l".to_string()],
+        script_name: "command.sh",
+        script: command,
+        display_command: command,
+        cwd: cwd.as_deref(),
+        thread_id,
+        notify_on_completion,
+    })
+    .await?;
+    #[cfg(not(unix))]
+    let operation_id = {
+        let _ = notify_on_completion;
+        let operation = crate::server::operation_registry().accept_operation(tool_name, None);
+        let operation_id = operation.operation_id.clone();
 
-    let mut process = tokio::process::Command::new("bash");
-    process
-        .arg("-lc")
-        .arg(command)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true);
-    if let Some(cwd) = cwd.as_deref() {
-        process.current_dir(cwd);
-    }
-
-    let mut child = match process.spawn() {
-        Ok(child) => child,
-        Err(error) => {
-            crate::server::operation_registry().mark_failed(&operation_id);
-            return Err(error).with_context(|| format!("failed to spawn {tool_name} subprocess"));
+        let mut process = tokio::process::Command::new("bash");
+        process
+            .arg("-lc")
+            .arg(command)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
+        if let Some(cwd) = cwd.as_deref() {
+            process.current_dir(cwd);
         }
-    };
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| anyhow::anyhow!("{tool_name} stdout capture was unavailable"))?;
-    let stderr = child
-        .stderr
-        .take()
-        .ok_or_else(|| anyhow::anyhow!("{tool_name} stderr capture was unavailable"))?;
-    let stdout_capture = spawn_headless_output_capture(stdout);
-    let stderr_capture = spawn_headless_output_capture(stderr);
 
-    crate::server::operation_registry().mark_started(&operation_id);
-    spawn_headless_shell_monitor(
-        operation_id.clone(),
-        command.to_string(),
-        cwd.clone(),
-        child,
-        stdout_capture,
-        stderr_capture,
-    );
+        let mut child = match process.spawn() {
+            Ok(child) => child,
+            Err(error) => {
+                crate::server::operation_registry().mark_failed(&operation_id);
+                return Err(error)
+                    .with_context(|| format!("failed to spawn {tool_name} subprocess"));
+            }
+        };
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("{tool_name} stdout capture was unavailable"))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("{tool_name} stderr capture was unavailable"))?;
+        let stdout_capture = spawn_headless_output_capture(stdout);
+        let stderr_capture = spawn_headless_output_capture(stderr);
+
+        crate::server::operation_registry().mark_started(&operation_id);
+        spawn_headless_shell_monitor(
+            operation_id.clone(),
+            command.to_string(),
+            cwd.clone(),
+            child,
+            stdout_capture,
+            stderr_capture,
+        );
+        operation_id
+    };
 
     let cwd_suffix = cwd
         .as_ref()
@@ -1104,6 +1166,9 @@ pub(crate) fn forget_headless_operation_output(operation_id: &str) {
 }
 
 pub(crate) fn headless_operation_output(operation_id: &str) -> Option<(String, Vec<u8>)> {
+    if let Some(output) = detached_operation_output(operation_id) {
+        return Some(output);
+    }
     let outputs = headless_operation_outputs()
         .lock()
         .expect("headless operation output mutex poisoned");
@@ -1125,6 +1190,9 @@ pub(crate) fn headless_operation_output(operation_id: &str) -> Option<(String, V
 }
 
 pub(crate) fn cancel_headless_operation(operation_id: &str) -> bool {
+    if cancel_detached_operation(operation_id) {
+        return true;
+    }
     let tokens = headless_operation_cancel_tokens()
         .lock()
         .expect("headless operation cancel mutex poisoned");

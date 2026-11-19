@@ -351,7 +351,7 @@ export function ThreadCompactSessionBar({ reviewActions = true }: { reviewAction
     <div className="zorai-compact-session">
       <div ref={summaryRef} className="zorai-compact-session__summary">
         {hasContent || goal ? (
-          <div ref={setItemsElement} className="zorai-compact-session__items">
+          <div ref={setItemsElement} className="zorai-compact-session__items zorai-drag-scroll">
             {goal ? (
               <button type="button" className={["zorai-compact-session__pill", openSection === "goal" ? "is-open" : ""].filter(Boolean).join(" ")} aria-expanded={openSection === "goal"} title={goal.title} onClick={() => toggle("goal")}>
                 {chevron("goal")}

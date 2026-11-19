@@ -15,6 +15,7 @@ import { splitMessageAttachments } from "./messageAttachments";
 import { useAgentDisplayName } from "@/lib/useAgentDisplayName";
 import { CodeContextMenu } from "@/zorai/features/code/CodeToolbarMenu";
 import { messageMenuItems, wantsNativeContextMenu } from "./threadContextMenus";
+import { activityPreview, formatActivityElapsed } from "@/components/agent-chat-panel/chat-view/activityPreview";
 
 export function isMessageFromCurrentViewSession(message: AgentMessage, mountedAt: number): boolean {
   const createdAt = message.createdAt < 10_000_000_000
@@ -351,16 +352,7 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
 ));
 
 function formatThoughtDuration(startedAt: number, now: number): string {
-  const seconds = Math.max(0, Math.round((now - startedAt) / 1000));
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) {
-    return `${minutes}m ${seconds % 60}s`;
-  }
-  const hours = Math.floor(minutes / 60);
-  return `${hours}h ${minutes % 60}m`;
+  return formatActivityElapsed(now - startedAt);
 }
 
 export function ThreadReasoningBlock({ content, streaming }: { content: string; streaming: boolean }) {
@@ -404,15 +396,19 @@ const ThreadReasoningChrome = memo(function ThreadReasoningChrome({
   const durationText = streaming
     ? formatThoughtDuration(startedAt, now)
     : formatStaticThoughtDuration(content);
+  const preview = activityPreview(content);
+  const label = preview
+    ? (durationText ? `${preview} · ${durationText}` : preview)
+    : `Thought for ${durationText || "a moment"}`;
 
   return (
     <>
       <span className="zorai-message__reasoning-mark"><ThoughtMark active={streaming} /></span>
       <span className={streaming ? "zorai-message__reasoning-label zorai-message__reasoning-label--streaming" : "zorai-message__reasoning-label"}>
-        Thought for {durationText || "a moment"}
+        {label}
         {streaming ? (
           <span className="zorai-message__reasoning-shine" aria-hidden="true">
-            <span className="zorai-message__reasoning-shine-text">Thought for {durationText || "a moment"}</span>
+            <span className="zorai-message__reasoning-shine-text">{label}</span>
           </span>
         ) : null}
       </span>
@@ -420,7 +416,7 @@ const ThreadReasoningChrome = memo(function ThreadReasoningChrome({
   );
 }, (prev, next) => {
   if (prev.streaming !== next.streaming) return false;
-  if (prev.streaming && next.streaming) return true;
+  if (prev.streaming && next.streaming) return activityPreview(prev.content) === activityPreview(next.content);
   return prev.content === next.content;
 });
 

@@ -252,7 +252,8 @@ pub(crate) fn send_completion_request_with_options(
         messages.to_vec(),
         native_video_supported(&provider, &config.model, video_target.api_type, transport),
     );
-    let tools = tools.to_vec();
+    let mut tools = tools.to_vec();
+    crate::agent::tool_executor::with_tool_intent_parameter(&mut tools);
     let previous_response_id = previous_response_id.clone();
     let upstream_thread_id = upstream_thread_id.clone();
     let options = options;

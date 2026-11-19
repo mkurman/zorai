@@ -43,7 +43,7 @@ pub(super) fn pty_reader_loop(
                 {
                     let mut sb = scrollback.lock().unwrap();
                     sb.extend_from_slice(&data);
-                    if sb.len() > SCROLLBACK_CAPACITY {
+                    if sb.len() > SCROLLBACK_CAPACITY + SCROLLBACK_CAPACITY / 2 {
                         let excess = sb.len() - SCROLLBACK_CAPACITY;
                         sb.drain(..excess);
                     }
@@ -129,25 +129,24 @@ pub(super) fn pty_reader_loop(
                                         .as_ref()
                                         .map(|snapshot| snapshot.path.clone()),
                                 };
-                                if let Err(error) =
-                                    rt_handle.block_on(history.record_managed_finish(&record))
-                                {
-                                    tracing::error!(%id, error = %error, cwd = ?cwd, "failed to persist managed history");
-                                }
-
-                                if record.exit_code == Some(0) {
-                                    if let Ok(candidates) =
-                                        rt_handle.block_on(history.detect_skill_candidates())
-                                    {
-                                        for (title, _hits) in candidates.iter().take(1) {
-                                            if let Ok((_title, path)) = rt_handle.block_on(
-                                                history.generate_skill(Some(title), Some(title)),
-                                            ) {
-                                                tracing::info!(skill_path = %path, "auto-generated skill from workflow pattern");
+                                let history = history.clone();
+                                let cwd_for_log = cwd.clone();
+                                rt_handle.spawn(async move {
+                                    if let Err(error) = history.record_managed_finish(&record).await {
+                                        tracing::error!(%id, error = %error, cwd = ?cwd_for_log, "failed to persist managed history");
+                                    }
+                                    if record.exit_code == Some(0) {
+                                        if let Ok(candidates) = history.detect_skill_candidates().await {
+                                            for (title, _hits) in candidates.iter().take(1) {
+                                                if let Ok((_title, path)) =
+                                                    history.generate_skill(Some(title), Some(title)).await
+                                                {
+                                                    tracing::info!(skill_path = %path, "auto-generated skill from workflow pattern");
+                                                }
                                             }
                                         }
                                     }
-                                }
+                                });
                             }
                         }
                         CommandLifecycleMarker::Cwd(dir) => {
