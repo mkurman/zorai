@@ -3351,6 +3351,14 @@
   padding: 0 4px;
 }
 
+.zorai-composer-actions__left {
+  flex: 1 1 auto;
+}
+
+.zorai-composer-actions__right {
+  flex: 0 0 auto;
+}
+
 .zorai-composer-mode {
   display: flex;
   align-items: center;
@@ -6095,16 +6103,55 @@ button.zorai-composer-context-chip { cursor: pointer; }
     grid-template-columns: 68px var(--zorai-rail-width, 284px) 5px minmax(0, 1fr) auto;
   }
 
-  .zorai-shell:not(.zorai-shell--code):not(.zorai-shell--rail-collapsed).zorai-shell--context-open {
-    grid-template-columns: 68px var(--zorai-rail-width, 284px) 5px minmax(0, 1fr) 5px var(--zorai-context-width, 318px);
-  }
-
-  .zorai-shell:not(.zorai-shell--code).zorai-shell--rail-collapsed.zorai-shell--context-open {
-    grid-template-columns: 68px 48px minmax(0, 1fr) 5px var(--zorai-context-width, 318px);
+  .zorai-shell:not(.zorai-shell--code).zorai-shell--context-open {
+    position: relative;
   }
 
   .zorai-shell:not(.zorai-shell--code).zorai-shell--context-open .zorai-context-panel {
-    width: 100%;
+    position: absolute;
+    inset-block: 0;
+    right: 0;
+    z-index: 40;
+    width: var(--zorai-context-width, 318px);
+    max-width: calc(100% - 120px);
+    box-shadow: -24px 0 56px color-mix(in srgb, var(--shade) 45%, transparent);
+    animation: zorai-context-drawer-in 200ms var(--ease-out) both;
+  }
+
+  .zorai-shell:not(.zorai-shell--code).zorai-shell--context-open > .zorai-code-resize-handle--agent {
+    position: absolute;
+    inset-block: 0;
+    right: calc(min(var(--zorai-context-width, 318px), 100% - 120px) - 3px);
+    z-index: 41;
+    height: auto;
+  }
+
+  .zorai-context-overlay-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 35;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    background: color-mix(in srgb, var(--bg-deep, var(--shade)) 38%, transparent);
+    backdrop-filter: blur(6px) saturate(0.9);
+    cursor: default;
+    animation: zorai-context-backdrop-in 200ms ease-out both;
+  }
+}
+
+@keyframes zorai-context-drawer-in {
+  from { translate: 24px 0; opacity: 0; }
+}
+
+@keyframes zorai-context-backdrop-in {
+  from { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zorai-shell--context-open .zorai-context-panel,
+  .zorai-context-overlay-backdrop {
+    animation: none;
   }
 }
 
@@ -7086,7 +7133,6 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-thread-composer--compact .zorai-composer-actions__left {
   flex: 1 1 auto;
   gap: 4px;
-  overflow: hidden;
   padding: 0;
 }
 
@@ -7300,33 +7346,38 @@ button.zorai-composer-context-chip { cursor: pointer; }
   align-items: center;
   gap: 6px;
   min-width: 0;
+}
+
+.zorai-drag-scroll {
+  flex-wrap: nowrap;
+  min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
   cursor: grab;
 }
 
-.zorai-compact-session__items::-webkit-scrollbar {
+.zorai-drag-scroll::-webkit-scrollbar {
   display: none;
 }
 
-.zorai-compact-session__items.is-overflow-end {
+.zorai-drag-scroll.is-overflow-end {
   mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
 }
 
-.zorai-compact-session__items.is-overflow-start {
+.zorai-drag-scroll.is-overflow-start {
   mask-image: linear-gradient(to right, transparent, #000 40px);
 }
 
-.zorai-compact-session__items.is-overflow-start.is-overflow-end {
+.zorai-drag-scroll.is-overflow-start.is-overflow-end {
   mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
 }
 
-.zorai-compact-session__items.is-drag-scrolling {
+.zorai-drag-scroll.is-drag-scrolling {
   cursor: grabbing;
   user-select: none;
 }
 
-.zorai-compact-session__items > * {
+.zorai-drag-scroll > * {
   flex: 0 0 auto;
   white-space: nowrap;
 }
@@ -9774,7 +9825,7 @@ button.zorai-composer-context-chip { cursor: pointer; }
   box-sizing: border-box;
 }
 .zorai-compact-session__file:not(:has(.zorai-compact-session__file-actions)) { grid-template-columns: minmax(0, 1fr) auto; }
-.zorai-thread-side-panel { position: fixed; top: 44px; right: 16px; max-height: calc(100vh - 60px); z-index: 1200; display: flex; flex-direction: column; width: min(440px, calc(100vw - 32px)); border: 1px solid var(--zorai-border-strong); border-radius: 12px; background: var(--bg-elevated); color: var(--zorai-text); box-shadow: 0 24px 80px color-mix(in srgb, var(--shade) 45%, transparent); overflow: hidden; }
+.zorai-thread-side-panel { position: fixed; top: 44px; right: 16px; max-height: calc(100vh - 60px); z-index: 1200; display: flex; flex-direction: column; width: min(440px, calc(100vw - 32px)); border: 1px solid var(--zorai-border-strong); border-radius: 12px; background: var(--bg-elevated); color: var(--zorai-text); box-shadow: 0 1px 0 color-mix(in srgb, var(--zorai-text) 6%, transparent) inset, 0 2px 6px color-mix(in srgb, var(--shade) 35%, transparent), 0 16px 40px color-mix(in srgb, var(--shade) 60%, transparent), 0 32px 80px color-mix(in srgb, var(--shade) 40%, transparent); overflow: hidden; }
 .zorai-thread-side-panel > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 18px 12px; border-bottom: 1px solid var(--zorai-border); }
 .zorai-thread-side-panel > header h2 { margin: 0; font-size: var(--text-lg); }
 .zorai-thread-side-panel > header p { margin: 4px 0 0; color: var(--zorai-muted); font-size: var(--text-sm); line-height: 1.5; }

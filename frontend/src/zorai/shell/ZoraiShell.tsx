@@ -138,6 +138,16 @@ export function ZoraiShell() {
   const contextLabels = contextPanelLabels(activeView);
 
   const runtime = useAgentChatPanelRuntime();
+  const contextOverlay = contextOpen && activeView !== "code" && !compactShell;
+  useEffect(() => {
+    if (!contextOverlay) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      setContextOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [contextOverlay, setContextOpen]);
   const threadsViewThreadRef = useRef<string | null>(null);
   const runtimeRef = useRef(runtime);
   runtimeRef.current = runtime;
@@ -476,6 +486,14 @@ export function ZoraiShell() {
           />
         ) : null}
 
+        {contextOverlay ? (
+          <button
+            type="button"
+            className="zorai-context-overlay-backdrop"
+            aria-label="Close context panel"
+            onClick={() => setContextOpen(false)}
+          />
+        ) : null}
         {contextOpen || activeView !== "threads" ? <ZoraiContextPanel
           title={contextLabels.title}
           subtitle={contextLabels.title === activeItem.railLabel ? undefined : activeItem.railLabel}

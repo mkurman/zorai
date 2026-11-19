@@ -20,8 +20,17 @@ export function useDragScroll(element: HTMLElement | null): void {
     };
     updateEdges();
     const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateEdges);
-    resizeObserver?.observe(element);
-    for (const child of Array.from(element.children)) resizeObserver?.observe(child);
+    const observeChildren = () => {
+      resizeObserver?.disconnect();
+      resizeObserver?.observe(element);
+      for (const child of Array.from(element.children)) resizeObserver?.observe(child);
+    };
+    observeChildren();
+    const mutationObserver = typeof MutationObserver === "undefined" ? null : new MutationObserver(() => {
+      observeChildren();
+      updateEdges();
+    });
+    mutationObserver?.observe(element, { childList: true, subtree: true, characterData: true });
     element.addEventListener("scroll", updateEdges, { passive: true });
     let start: { x: number; scrollLeft: number; pointerId: number } | null = null;
     let dragged = false;
@@ -57,6 +66,7 @@ export function useDragScroll(element: HTMLElement | null): void {
     element.addEventListener("click", onClickCapture, true);
     return () => {
       resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
       element.removeEventListener("scroll", updateEdges);
       element.removeEventListener("pointerdown", onPointerDown);
       element.removeEventListener("pointermove", onPointerMove);

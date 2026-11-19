@@ -20,6 +20,12 @@ export const useThreadPanelStore = create<ThreadPanelState>((set) => ({
 
 export const ThreadPanelHostContext = createContext<{ active: boolean; element: () => HTMLElement | null } | null>(null);
 
+export const THREAD_PANEL_KEEP_OPEN_SELECTOR = ".zorai-thread-header button, .zorai-thread-participants, [role=\"menu\"], [role=\"listbox\"], [role=\"dialog\"], .zorai-code-context-menu";
+
+export function keepsThreadPanelOpen(target: Pick<Element, "closest">): boolean {
+  return Boolean(target.closest(THREAD_PANEL_KEEP_OPEN_SELECTOR));
+}
+
 export function ThreadSidePanel({ title, subtitle, onClose, closing, children }: { title: string; subtitle?: string; onClose: () => void; closing?: boolean; children: ReactNode }) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const onCloseRef = useRef(onClose);
@@ -41,18 +47,29 @@ export function ThreadSidePanel({ title, subtitle, onClose, closing, children }:
     return () => window.removeEventListener("resize", place);
   }, [host]);
 
+  const panelRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     closeRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onCloseRef.current();
     };
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target || panelRef.current?.contains(target) || keepsThreadPanelOpen(target)) return;
+      onCloseRef.current();
+    };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown, true);
+    };
   }, []);
 
   if (typeof document === "undefined" || host?.active === false) return null;
   return createPortal(
-    <aside data-closing={closing || undefined} className="zorai-thread-side-panel" role="dialog" aria-label={title} style={top === null ? undefined : { top, maxHeight: `calc(100vh - ${top + 16}px)`, ...(right === null ? {} : { right }) }}>
+    <aside ref={panelRef} data-closing={closing || undefined} className="zorai-thread-side-panel" role="dialog" aria-label={title} style={top === null ? undefined : { top, maxHeight: `calc(100vh - ${top + 16}px)`, ...(right === null ? {} : { right }) }}>
       <header>
         <div>
           <h2>{title}</h2>
