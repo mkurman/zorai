@@ -4098,17 +4098,45 @@
   min-height: 0;
 }
 
-.zorai-context-tab {
-  align-self: center;
-  writing-mode: vertical-rl;
-  border: 1px solid var(--zorai-border);
+.zorai-shell > .zorai-context-tab {
+  --zorai-motion-press: 1;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  width: 40px;
+  padding: 12px 0;
+  border: 0;
+  border-left: 1px solid var(--zorai-border);
+  border-radius: 0;
   background: var(--zorai-bg-panel);
   color: var(--zorai-muted);
+  font: 500 12px var(--font-ui);
+  letter-spacing: 0.02em;
   cursor: pointer;
-  min-height: 120px;
-  text-align: center;
-  justify-content: center;
-  align-items: center;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.zorai-shell > .zorai-context-tab:hover,
+.zorai-shell > .zorai-context-tab:focus-visible {
+  background: var(--zorai-bg-elevated);
+  color: var(--zorai-text);
+  outline: none;
+}
+
+.zorai-context-tab__icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+}
+
+.zorai-context-tab__label {
+  writing-mode: vertical-rl;
 }
 
 .zorai-context-tabs button[class*="zorai-context-tab"] {
@@ -6061,6 +6089,25 @@ button.zorai-composer-context-chip { cursor: pointer; }
 
 .zorai-shell--code .zorai-context-panel {
   width: 100%;
+  animation: none;
+}
+
+.zorai-shell--code .zorai-context-panel > .zorai-context-body {
+  animation: zorai-code-agent-in 140ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes zorai-code-agent-in {
+  from { opacity: 0; translate: 10px 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zorai-shell--code .zorai-context-panel > .zorai-context-body {
+    animation: none;
+  }
+}
+
+.zorai-shell > .zorai-context-tab {
+  animation: none;
 }
 
 .zorai-shell--code .zorai-contextual-rail,
@@ -6690,8 +6737,8 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-code-runtime-switcher--composer .zorai-code-runtime-switcher__trigger {
   height: 26px;
   padding: 0 8px 0 10px;
-  border-color: var(--zorai-border);
-  background: var(--zorai-bg-panel);
+  border-color: transparent;
+  background: transparent;
   font: 600 12px var(--font-ui);
   max-width: 260px;
   transition: background 120ms ease, border-color 120ms ease;
