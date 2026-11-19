@@ -259,6 +259,15 @@ fn web_search_setup_offers_duckduckgo_without_api_key() {
 }
 
 #[test]
+fn web_search_setup_offers_parallel_without_api_key() {
+    assert!(web_search_choice_items()
+        .iter()
+        .any(|(_, choice)| *choice == "parallel"));
+    assert_eq!(web_search_provider_for_choice("parallel"), Some("parallel"));
+    assert_eq!(web_search_api_key_prompt_for_choice("parallel"), None);
+}
+
+#[test]
 fn web_search_setup_offers_keenable_with_optional_api_key() {
     let items = web_search_choice_items();
     assert!(items.contains(&("Keenable", "keenable_api_key")));

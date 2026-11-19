@@ -1,13 +1,14 @@
 use super::flow::set_config_item;
 use super::*;
 
-const WEB_SEARCH_CHOICES: [(&str, &str); 7] = [
+const WEB_SEARCH_CHOICES: [(&str, &str); 8] = [
     ("Firecrawl", "firecrawl_api_key"),
     ("DuckDuckGo", "duckduckgo"),
     ("Keenable", "keenable_api_key"),
     ("You.com", "youcom_api_key"),
     ("Exa", "exa_api_key"),
     ("Tavily", "tavily_api_key"),
+    ("Parallel (no API key)", "parallel"),
     ("Skip", ""),
 ];
 
@@ -29,6 +30,7 @@ pub(super) fn web_search_choice_items() -> &'static [(&'static str, &'static str
 pub(super) fn web_search_provider_for_choice(choice: &str) -> Option<&'static str> {
     match choice {
         "duckduckgo" => Some("duckduckgo"),
+        "parallel" => Some("parallel"),
         key_name => web_search_provider_for_key(key_name),
     }
 }
@@ -53,7 +55,10 @@ pub(super) async fn configure_web_search(
     summary: &mut SetupSummary,
 ) -> Result<()> {
     println!();
-    let existing_ws = if read_config_key("firecrawl_api_key").await.is_some() {
+    let selected_provider = read_config_key("search_provider").await;
+    let existing_ws = if selected_provider.as_deref() == Some("parallel") {
+        Some("Parallel")
+    } else if read_config_key("firecrawl_api_key").await.is_some() {
         Some("Firecrawl")
     } else if read_config_key("exa_api_key").await.is_some() {
         Some("Exa")
@@ -63,7 +68,7 @@ pub(super) async fn configure_web_search(
         Some("Keenable")
     } else if read_config_key("youcom_api_key").await.is_some() {
         Some("You.com")
-    } else if let Some(provider) = read_config_key("search_provider").await {
+    } else if let Some(provider) = selected_provider {
         match provider.as_str() {
             "duckduckgo" => Some("DuckDuckGo"),
             "keenable" => Some("Keenable"),
@@ -111,6 +116,7 @@ pub(super) async fn configure_web_search(
                         || choice == "duckduckgo"
                         || choice == "keenable_api_key"
                         || choice == "youcom_api_key"
+                        || choice == "parallel"
                     {
                         set_config_item(framed, "/tools/web_search", "true")
                             .await

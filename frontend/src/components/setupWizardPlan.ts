@@ -31,6 +31,7 @@ export const WEB_SEARCH_CHOICES = [
   { id: "youcom", label: "You.com", keyName: "youcom_api_key", keyRequired: false },
   { id: "exa", label: "Exa", keyName: "exa_api_key", keyRequired: true },
   { id: "tavily", label: "Tavily", keyName: "tavily_api_key", keyRequired: true },
+  { id: "parallel", label: "Parallel", keyName: null, keyRequired: false },
 ] as const;
 
 export const GATEWAY_CHOICES = [

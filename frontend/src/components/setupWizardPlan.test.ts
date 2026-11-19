@@ -42,6 +42,13 @@ describe("GUI setup writes the same daemon config as `zorai setup`", () => {
     expect(webSearchWrites("youcom", "ydc-1")).toContainEqual({ keyPath: "/youcom_api_key", value: "ydc-1" });
   });
 
+  it("enables Parallel without an API key", () => {
+    expect(webSearchWrites("parallel", "")).toEqual([
+      { keyPath: "/tools/web_search", value: true },
+      { keyPath: "/search_provider", value: "parallel" },
+    ]);
+  });
+
   it("key-based search providers refuse to enable search without a key", () => {
     expect(webSearchWrites("tavily", " ")).toBeNull();
     expect(webSearchWrites("duckduckgo", "")).toHaveLength(2);

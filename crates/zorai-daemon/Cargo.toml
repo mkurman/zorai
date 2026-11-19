@@ -47,6 +47,8 @@ walkdir = "2"
 base64 = "0.22"
 tokio-tungstenite = { version = "0.26", default-features = false, features = ["connect"] }
 reqwest = { workspace = true }
+reqwest-mcp = { package = "reqwest", version = "0.13.2", default-features = false, features = ["rustls"] }
+rmcp = { version = "3.11.0", default-features = false, features = ["client", "transport-streamable-http-client-reqwest"] }
 tokio-stream = { workspace = true }
 humantime = { workspace = true }
 tar = { workspace = true }
