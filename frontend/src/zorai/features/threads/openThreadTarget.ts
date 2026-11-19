@@ -6,10 +6,30 @@ import { PRIMARY_AGENT_NAME } from "@/lib/agentNames";
 import { buildHydratedRemoteThread, useAgentStore, type AgentThread, type RemoteAgentThreadRecord } from "@/lib/agentStore";
 import { beginThreadLoading } from "./threadLoadingStore";
 import { resolveReactChatHistoryMessageLimit } from "@/lib/chatHistoryPageSize";
+import { nextSplitCandidate, splitPaneIds, useThreadSplitStore, type ThreadSplitDropZone } from "./threadSplitModel";
+import { useOpenSessionTabs } from "./openSessionTabs";
 
 export function openListedThread(runtime: AgentChatPanelRuntimeValue, listed: AgentThread): Promise<boolean> {
   const localId = ensureListedThread(listed);
   return openThreadTarget(runtime, localId);
+}
+
+export function splitCandidateFor(runtime: AgentChatPanelRuntimeValue): string | null {
+  const threads = useAgentStore.getState().threads;
+  const localId = (id: string) => findThreadByAuthoritativeIdentity(threads, id)?.id ?? null;
+  return nextSplitCandidate({
+    activeId: runtime.activeThread?.id ?? null,
+    shownIds: splitPaneIds(useThreadSplitStore.getState().root),
+    openTabIds: useOpenSessionTabs.getState().ids.map(localId).filter((id): id is string => Boolean(id)),
+    recentIds: [...runtime.filteredThreads].sort((left, right) => right.updatedAt - left.updatedAt).map((thread) => thread.id),
+  });
+}
+
+export function openListedThreadInSplit(runtime: AgentChatPanelRuntimeValue, listed: AgentThread, zone: ThreadSplitDropZone): void {
+  const anchorId = runtime.activeThread?.id ?? null;
+  const localId = ensureListedThread(listed);
+  if (anchorId && anchorId !== localId) useThreadSplitStore.getState().insert(anchorId, localId, zone);
+  runtime.openThread(localId, { reuseLoaded: true });
 }
 
 function ensureListedThread(listed: AgentThread): string {

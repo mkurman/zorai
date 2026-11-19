@@ -4,6 +4,7 @@ pub const ADVANCE_DEBATE_ROUND: &str = "advance_debate_round";
 pub const AGENT_QUERY_MEMORY: &str = "agent_query_memory";
 pub const ALLOCATE_TERMINAL: &str = "allocate_terminal";
 pub const ANALYZE_IMAGE: &str = "analyze_image";
+pub const ANALYZE_VIDEO: &str = "analyze_video";
 pub const APPEND_DEBATE_ARGUMENT: &str = "append_debate_argument";
 pub const APPEND_TO_FILE: &str = "append_to_file";
 pub const APPLY_FILE_PATCH: &str = "apply_file_patch";

@@ -7,7 +7,7 @@ export type ThreadSplitLayout = "columns" | "rows" | "grid" | "main-left" | "mai
 export type ThreadSplitDropZone = "left" | "right" | "top" | "bottom";
 export type ThreadSplitNode =
   | { kind: "pane"; id: string }
-  | { kind: "split"; direction: "row" | "column"; children: ThreadSplitNode[] };
+  | { kind: "split"; direction: "row" | "column"; children: ThreadSplitNode[]; sizes?: number[] };
 
 const LAYOUT_LABELS: Record<number, Array<{ layout: ThreadSplitLayout; label: string }>> = {
   2: [
@@ -65,7 +65,35 @@ function normalize(node: ThreadSplitNode | null): ThreadSplitNode | null {
     .flatMap((child) => (child.kind === "split" && child.direction === node.direction ? child.children : [child]));
   if (children.length === 0) return null;
   if (children.length === 1) return children[0];
-  return { ...node, children };
+  const { sizes, ...rest } = node;
+  return sizes && sizes.length === children.length ? { ...rest, children, sizes } : { ...rest, children };
+}
+
+export function splitChildSizes(node: Extract<ThreadSplitNode, { kind: "split" }>): number[] {
+  const sizes = node.sizes;
+  const valid = Array.isArray(sizes)
+    && sizes.length === node.children.length
+    && sizes.every((size) => typeof size === "number" && Number.isFinite(size) && size > 0);
+  return valid ? sizes : node.children.map(() => 1);
+}
+
+export function resizeSplitChildren(sizes: readonly number[], index: number, fraction: number, minFraction = 0.12): number[] {
+  const total = sizes.reduce((sum, size) => sum + size, 0);
+  const pair = sizes[index] + sizes[index + 1];
+  const before = sizes.slice(0, index).reduce((sum, size) => sum + size, 0);
+  const min = Math.min(minFraction * total, pair / 2);
+  const first = Math.min(pair - min, Math.max(min, fraction * total - before));
+  const next = [...sizes];
+  next[index] = first;
+  next[index + 1] = pair - first;
+  return next;
+}
+
+export function setSplitSizesAt(root: ThreadSplitNode | null, path: readonly number[], sizes: number[]): ThreadSplitNode | null {
+  if (!root || root.kind === "pane") return root;
+  if (path.length === 0) return sizes.length === root.children.length ? { ...root, sizes } : root;
+  const [head, ...rest] = path;
+  return { ...root, children: root.children.map((child, index) => (index === head ? setSplitSizesAt(child, rest, sizes) ?? child : child)) };
 }
 
 export function mapSplitPaneIds(node: ThreadSplitNode | null, map: (id: string) => string | null): ThreadSplitNode | null {
@@ -110,6 +138,35 @@ export function insertSplitPane(root: ThreadSplitNode | null, targetId: string, 
   return normalize(place(base));
 }
 
+export function insertSplitPaneAtEdge(root: ThreadSplitNode | null, newId: string, zone: ThreadSplitDropZone): ThreadSplitNode | null {
+  const base = removeSplitPaneNode(root, newId);
+  if (!base || splitPaneIds(base).length >= MAX_SPLIT_PANES) return root;
+  const direction = zone === "left" || zone === "right" ? "row" : "column";
+  const before = zone === "left" || zone === "top";
+  return normalize({ kind: "split", direction, children: before ? [pane(newId), base] : [base, pane(newId)] });
+}
+
+export function splitEdgeDropZone(rect: { left: number; top: number; width: number; height: number }, x: number, y: number, band = 36): ThreadSplitDropZone | null {
+  const distances: Array<[ThreadSplitDropZone, number]> = [
+    ["left", x - rect.left],
+    ["right", rect.left + rect.width - x],
+    ["top", y - rect.top],
+    ["bottom", rect.top + rect.height - y],
+  ];
+  const [zone, distance] = distances.reduce((best, entry) => (entry[1] < best[1] ? entry : best));
+  return distance >= 0 && distance <= band ? zone : null;
+}
+
+export function nextSplitCandidate({ activeId, shownIds, openTabIds, recentIds }: {
+  activeId: string | null;
+  shownIds: readonly string[];
+  openTabIds: readonly string[];
+  recentIds: readonly string[];
+}): string | null {
+  if (!activeId || shownIds.length >= MAX_SPLIT_PANES) return null;
+  return [...openTabIds, ...recentIds].find((id) => id !== activeId && !shownIds.includes(id)) ?? null;
+}
+
 export function splitDropZone(rect: { left: number; top: number; width: number; height: number }, x: number, y: number): ThreadSplitDropZone {
   const dx = (x - rect.left) / Math.max(rect.width, 1) - 0.5;
   const dy = (y - rect.top) / Math.max(rect.height, 1) - 0.5;
@@ -123,6 +180,8 @@ type ThreadSplitState = {
   drafts: Record<string, string>;
   setLayout: (ids: string[], layout: ThreadSplitLayout) => void;
   insert: (targetId: string, newId: string, zone: ThreadSplitDropZone) => void;
+  insertAtEdge: (newId: string, zone: ThreadSplitDropZone) => void;
+  setSizes: (path: number[], sizes: number[]) => void;
   setFocused: (id: string) => void;
   replaceFocused: (id: string) => void;
   removePane: (id: string) => void;
@@ -137,6 +196,8 @@ export const useThreadSplitStore = create<ThreadSplitState>((set) => ({
   drafts: {},
   setLayout: (ids, layout) => set({ root: splitLayoutTree(layout, ids) }),
   insert: (targetId, newId, zone) => set((state) => ({ root: splitOrNull(insertSplitPane(state.root, targetId, newId, zone)) })),
+  setSizes: (path, sizes) => set((state) => ({ root: setSplitSizesAt(state.root, path, sizes) })),
+  insertAtEdge: (newId, zone) => set((state) => ({ root: splitOrNull(insertSplitPaneAtEdge(state.root, newId, zone)) })),
   setFocused: (id) => set((state) => (splitPaneIds(state.root).includes(id) && state.focusedId !== id ? { focusedId: id } : state)),
   replaceFocused: (id) => set((state) => {
     const ids = splitPaneIds(state.root);

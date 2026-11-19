@@ -160,5 +160,8 @@ async fn provider_auth_states_are_listed_by_name_with_custom_last() {
         .collect::<Vec<_>>();
     let mut sorted = names.clone();
     sorted.sort();
-    assert_eq!(names, sorted, "operators scan the auth list by provider name");
+    assert_eq!(
+        names, sorted,
+        "operators scan the auth list by provider name"
+    );
 }

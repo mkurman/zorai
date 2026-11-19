@@ -3,6 +3,9 @@ import { getBridge } from "@/lib/bridge";
 import { useAgentStore } from "@/lib/agentStore";
 import { useWorkspaceStore } from "@/lib/workspaceStore";
 import { useUpdateStore } from "@/components/UpdatePrompt";
+import { useThreadPanelStore, type ThreadPanelId } from "@/zorai/features/threads/threadSidePanel";
+import { zoraiNavItems } from "./navigation";
+import { useShellLayoutStore } from "./shellLayoutStore";
 import type { ZoraiNavigateDetail } from "./zoraiNavigationEvents";
 import { navigateZorai } from "./zoraiNavigationEvents";
 
@@ -12,9 +15,43 @@ export type ZoraiAppCommandResolution =
   | { kind: "time-travel" }
   | { kind: "new-thread" }
   | { kind: "check-updates" }
+  | { kind: "toggle-rail" }
+  | { kind: "thread-panel"; panel: ThreadPanelId }
+  | { kind: "thread-command"; command: ZoraiThreadCommand }
   | { kind: "navigate"; detail: ZoraiNavigateDetail };
 
+export const ZORAI_THREAD_COMMAND_EVENT = "zorai-thread-command";
+
+export const ZORAI_THREAD_COMMANDS = [
+  "close-thread-tab",
+  "reopen-closed-thread",
+  "previous-thread",
+  "next-thread",
+  "thread-back",
+  "split-right",
+  "split-down",
+  "split-close-pane",
+  "split-close",
+] as const;
+
+export type ZoraiThreadCommand = (typeof ZORAI_THREAD_COMMANDS)[number];
+
+let pendingThreadCommand: ZoraiThreadCommand | null = null;
+
+export function consumePendingThreadCommand(): ZoraiThreadCommand | null {
+  const command = pendingThreadCommand;
+  pendingThreadCommand = null;
+  return command;
+}
+
+const THREAD_PANELS: ThreadPanelId[] = ["participants", "handoff", "gateway", "operations"];
+
 const MENU_COMMANDS: Record<string, ZoraiAppCommandResolution> = {
+  ...Object.fromEntries(zoraiNavItems.map((item) => [`go-${item.id}`, { kind: "navigate", detail: { view: item.id } }])),
+  ...Object.fromEntries(THREAD_PANELS.map((panel) => [`thread-panel-${panel}`, { kind: "thread-panel", panel }])),
+  ...Object.fromEntries(ZORAI_THREAD_COMMANDS.map((command) => [command, { kind: "thread-command", command }])),
+  "toggle-rail": { kind: "toggle-rail" },
+  "keyboard-shortcuts": { kind: "navigate", detail: { view: "settings", settingsTab: "shortcuts" } },
   "toggle-command-palette": { kind: "palette" },
   "toggle-search": { kind: "navigate", detail: { view: "threads", focusSearch: true } },
   "toggle-settings": { kind: "navigate", detail: { view: "settings" } },
@@ -54,6 +91,21 @@ export function handleZoraiAppCommand(command: string): boolean {
   if (resolution.kind === "check-updates") {
     navigateZorai({ view: "settings", settingsTab: "about" });
     void useUpdateStore.getState().check(true);
+    return true;
+  }
+  if (resolution.kind === "toggle-rail") {
+    useShellLayoutStore.getState().setRailOpen((open) => !open);
+    return true;
+  }
+  if (resolution.kind === "thread-panel") {
+    navigateZorai({ view: "threads" });
+    useThreadPanelStore.getState().toggle(resolution.panel);
+    return true;
+  }
+  if (resolution.kind === "thread-command") {
+    pendingThreadCommand = resolution.command;
+    navigateZorai({ view: "threads" });
+    window.dispatchEvent(new CustomEvent(ZORAI_THREAD_COMMAND_EVENT));
     return true;
   }
   if (resolution.kind === "new-thread") {

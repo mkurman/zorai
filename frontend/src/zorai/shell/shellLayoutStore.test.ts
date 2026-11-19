@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { SHELL_CONTEXT_MIN_WIDTH, SHELL_RAIL_MIN_WIDTH, useShellLayoutStore } from "./shellLayoutStore";
+import { SHELL_CONTEXT_MIN_WIDTH, SHELL_RAIL_MIN_WIDTH, persistedShellLayout, useShellLayoutStore } from "./shellLayoutStore";
 
 describe("shell layout store", () => {
   beforeEach(() => {
@@ -57,5 +57,14 @@ describe("context panel across Code and other views", () => {
     expect(useShellLayoutStore.getState().contextOpen).toBe(true);
     store.crossCodeBoundary(true);
     expect(useShellLayoutStore.getState().contextOpen).toBe(false);
+  });
+});
+
+describe("layout remembered across restarts", () => {
+  it("saves whether the sidebar and context panel are open, not just their widths", () => {
+    useShellLayoutStore.getState().setRailOpen(false);
+    useShellLayoutStore.getState().setContextOpen(true);
+    const saved = persistedShellLayout(useShellLayoutStore.getState());
+    expect(saved).toMatchObject({ railOpen: false, contextOpen: true });
   });
 });

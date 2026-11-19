@@ -216,6 +216,7 @@ impl Default for AgentConfig {
             claude_permission_mode: None,
             system_prompt: default_system_prompt(),
             agent_aliases: std::collections::BTreeMap::new(),
+            model_modalities: std::collections::BTreeMap::new(),
             max_tool_loops: default_max_tool_loops(),
             max_subagent_budget_extensions: default_max_subagent_budget_extensions(),
             max_retries: default_max_retries(),

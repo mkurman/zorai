@@ -247,7 +247,11 @@ pub(crate) fn send_completion_request_with_options(
     let provider = provider.to_string();
     let config = config.clone();
     let system_prompt = system_prompt.to_string();
-    let messages = messages.to_vec();
+    let video_target = effective_attempt_target(&provider, &config, transport);
+    let messages = prepare_video_blocks(
+        messages.to_vec(),
+        native_video_supported(&provider, &config.model, video_target.api_type, transport),
+    );
     let tools = tools.to_vec();
     let previous_response_id = previous_response_id.clone();
     let upstream_thread_id = upstream_thread_id.clone();
@@ -686,7 +690,13 @@ fn normalize_tool_call_arguments_for_api(arguments: &str) -> String {
 }
 
 fn agent_message_content_to_api_content(message: &crate::agent::types::AgentMessage) -> ApiContent {
-    let blocks = agent_content_blocks_to_api_blocks(&message.content_blocks);
+    let blocks = agent_content_blocks_to_api_blocks(&message.content_blocks)
+        .into_iter()
+        .filter(|block| {
+            message.role == crate::agent::types::MessageRole::User
+                || block.get("type").and_then(|value| value.as_str()) != Some("input_video")
+        })
+        .collect::<Vec<_>>();
     if blocks.is_empty() {
         ApiContent::Text(message.content.clone())
     } else {
@@ -768,7 +778,11 @@ fn agent_content_blocks_to_api_blocks(
                     "input_audio": input_audio,
                 }))
             }
-            crate::agent::types::AgentContentBlock::Video { .. } => None,
+            crate::agent::types::AgentContentBlock::Video {
+                url,
+                data_url,
+                mime_type,
+            } => video_api_block(url.as_deref(), data_url.as_deref(), mime_type.as_deref()),
         })
         .collect()
 }
@@ -794,7 +808,7 @@ fn api_content_to_json(content: &ApiContent) -> serde_json::Value {
     }
 }
 
-fn map_api_blocks_to_chat_completions_blocks(
+pub(crate) fn map_api_blocks_to_chat_completions_blocks(
     blocks: &[serde_json::Value],
 ) -> Vec<serde_json::Value> {
     blocks
@@ -831,6 +845,16 @@ fn map_api_block_to_chat_completions_block(block: &serde_json::Value) -> Option<
             }))
         }
         "input_audio" => Some(block.clone()),
+        "input_video" => block
+            .get("video_url")
+            .and_then(|value| value.as_str())
+            .filter(|url| !url.trim().is_empty())
+            .map(|url| {
+                serde_json::json!({
+                    "type": "video_url",
+                    "video_url": { "url": url },
+                })
+            }),
         _ => None,
     }
 }

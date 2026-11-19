@@ -2191,3 +2191,113 @@ fn claude_code_cli_request_transport_is_forced_to_native_subprocess() {
         "other providers keep whatever transport was resolved"
     );
 }
+
+fn user_video_message(path: &str) -> AgentMessage {
+    let mut message = AgentMessage::user("what happens here?", 50);
+    message.content_blocks = vec![
+        AgentContentBlock::Text {
+            text: "what happens here?".to_string(),
+        },
+        AgentContentBlock::Video {
+            url: Some(format!("file://{path}")),
+            data_url: None,
+            mime_type: Some("video/mp4".to_string()),
+        },
+    ];
+    message
+}
+
+fn video_blocks_of(messages: &[ApiMessage]) -> Vec<serde_json::Value> {
+    match &messages[0].content {
+        ApiContent::Blocks(blocks) => blocks.clone(),
+        other => panic!("expected blocks, got {other:?}"),
+    }
+}
+
+#[test]
+fn generated_videos_in_history_keep_their_text_instead_of_becoming_video_parts() {
+    let mut clip = AgentMessage::user("Generated a 6s clip of a lighthouse.", 51);
+    clip.role = MessageRole::Assistant;
+    clip.content_blocks = vec![AgentContentBlock::Video {
+        url: Some("file:///home/user/.zorai/threads/t1/media/video-1.mp4".to_string()),
+        data_url: None,
+        mime_type: Some("video/mp4".to_string()),
+    }];
+    let api_messages = messages_to_api_format(&[clip]);
+    assert!(
+        matches!(&api_messages[0].content, ApiContent::Text(text) if text.contains("lighthouse"))
+    );
+}
+
+#[test]
+fn a_model_without_video_gets_a_pointer_to_analyze_video_instead_of_a_silent_drop() {
+    let messages = prepare_video_blocks(
+        messages_to_api_format(&[user_video_message("/tmp/demo clip.mp4")]),
+        false,
+    );
+    let blocks = video_blocks_of(&messages);
+    let hint = blocks[1]["text"].as_str().unwrap();
+    assert!(hint.contains("analyze_video"), "{hint}");
+    assert!(hint.contains("path=\"/tmp/demo clip.mp4\""), "{hint}");
+    assert_eq!(blocks[0]["text"], "what happens here?");
+}
+
+#[test]
+fn a_video_capable_chat_model_receives_the_clip_inline_as_a_video_url_part() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("clip.mp4");
+    std::fs::write(&path, b"fake-mp4").unwrap();
+    let messages = prepare_video_blocks(
+        messages_to_api_format(&[user_video_message(path.to_str().unwrap())]),
+        true,
+    );
+    let blocks = video_blocks_of(&messages);
+    let chat = map_api_blocks_to_chat_completions_blocks(&blocks);
+    assert_eq!(chat[1]["type"], "video_url");
+    assert_eq!(
+        chat[1]["video_url"]["url"],
+        "data:video/mp4;base64,ZmFrZS1tcDQ="
+    );
+}
+
+#[test]
+fn videos_over_the_inline_limit_fall_back_to_the_tool_instead_of_failing_the_request() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("long.mp4");
+    let file = std::fs::File::create(&path).unwrap();
+    file.set_len(MAX_INLINE_VIDEO_BYTES + 1).unwrap();
+    let messages = prepare_video_blocks(
+        messages_to_api_format(&[user_video_message(path.to_str().unwrap())]),
+        true,
+    );
+    let hint = video_blocks_of(&messages)[1]["text"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert!(
+        hint.contains("inline limit") && hint.contains("analyze_video"),
+        "{hint}"
+    );
+}
+
+#[test]
+fn only_gemini_and_openai_chat_completions_get_native_video_and_only_for_video_models() {
+    assert!(native_video_supported(
+        "openai",
+        "gpt-5.5",
+        ApiType::OpenAI,
+        ApiTransport::ChatCompletions
+    ));
+    assert!(!native_video_supported(
+        "openai",
+        "gpt-5.5",
+        ApiType::OpenAI,
+        ApiTransport::Responses
+    ));
+    assert!(!native_video_supported(
+        "openai",
+        "gpt-5.3-codex-spark",
+        ApiType::OpenAI,
+        ApiTransport::ChatCompletions
+    ));
+}

@@ -26,6 +26,6 @@ describe("terminal context menu", () => {
     const embedded = labels(buildTerminalContextMenuItems({ ...base, layoutActions: false }));
     expect(embedded).not.toContain("Split Right");
     expect(embedded).not.toContain("Close Pane");
-    expect(embedded).toEqual(["Copy", "Paste", "Select All", "---", "Clear Terminal", "Search"]);
+    expect(embedded).toEqual(["Copy", "Paste", "Select All", "---", "Clear Terminal", "Search", "---", "Take Screenshot"]);
   });
 });

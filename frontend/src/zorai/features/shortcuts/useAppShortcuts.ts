@@ -23,14 +23,14 @@ export function useAppShortcuts({ onToggleNightMode }: { onToggleNightMode: () =
       if (event.target instanceof Element && event.target.closest(`[${SHORTCUT_CAPTURE_ATTRIBUTE}]`)) return;
       const current = useSettingsStore.getState().settings.shortcuts;
       const shortcut = APP_SHORTCUTS.find((candidate) =>
-        (candidate.view || candidate.id === "app.nightMode" || candidate.id === "app.screenshot" || (candidate.menuCommand && !menuHandledByDesktop))
+        (candidate.menuCommand ? !menuHandledByDesktop : candidate.view || candidate.id === "app.nightMode" || candidate.id === "app.screenshot")
         && eventMatchesShortcut(current, candidate.id, event));
       if (!shortcut) return;
       event.preventDefault();
-      if (shortcut.view) navigateZorai({ view: shortcut.view });
+      if (shortcut.menuCommand) handleZoraiAppCommand(shortcut.menuCommand);
+      else if (shortcut.view) navigateZorai({ view: shortcut.view });
       else if (shortcut.id === "app.nightMode") toggleNightModeRef.current();
       else if (shortcut.id === "app.screenshot") void getBridge()?.contextMenuAction?.("screenshot");
-      else if (shortcut.menuCommand) handleZoraiAppCommand(shortcut.menuCommand);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

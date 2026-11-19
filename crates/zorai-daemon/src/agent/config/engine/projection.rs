@@ -35,6 +35,7 @@ impl AgentEngine {
             tracing::warn!("failed to persist agent config to sqlite: {error}");
         }
         crate::agent::agent_identity::set_agent_aliases(&config.agent_aliases);
+        crate::agent::types::set_model_modality_overrides(&config.model_modalities);
         crate::agent::memory::set_memory_limits(&config.memory_limits);
         crate::agent::skill_library::set_skill_library(&config.skill_library);
         *self.config.write().await = config.clone();

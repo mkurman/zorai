@@ -4,8 +4,10 @@ const MAX_OPEN_SESSIONS = 12;
 
 type OpenSessionTabsState = {
   ids: string[];
+  closedIds: string[];
   remember: (id: string) => void;
   close: (id: string) => string | null;
+  takeLastClosed: () => string | null;
   move: (id: string, targetId: string, placeAfter: boolean) => void;
 };
 
@@ -53,19 +55,26 @@ export function moveOpenSessionId(ids: readonly string[], id: string, targetId: 
 
 export const useOpenSessionTabs = create<OpenSessionTabsState>((set, get) => ({
   ids: [],
+  closedIds: [],
   remember: (id) => {
     set((state) => {
       const ids = rememberOpenSessionId(state.ids, id);
-      return ids === state.ids ? state : { ids: [...ids] };
+      return ids === state.ids ? state : { ids: [...ids], closedIds: state.closedIds.filter((closed) => closed !== id) };
     });
   },
   close: (id) => {
     const current = get().ids;
     const index = current.indexOf(id);
     const ids = current.filter((item) => item !== id);
-    set({ ids });
+    set((state) => ({ ids, closedIds: index < 0 ? state.closedIds : [...state.closedIds.filter((closed) => closed !== id), id].slice(-MAX_OPEN_SESSIONS) }));
     if (index < 0 || ids.length === 0) return null;
     return ids[Math.min(index, ids.length - 1)] ?? null;
+  },
+  takeLastClosed: () => {
+    const closedIds = get().closedIds;
+    const last = closedIds[closedIds.length - 1] ?? null;
+    if (last) set({ closedIds: closedIds.slice(0, -1) });
+    return last;
   },
   move: (id, targetId, placeAfter) => {
     set((state) => {

@@ -174,6 +174,7 @@ export function buildDaemonAgentConfig(
     reasoning_effort: agentSettings.reasoning_effort || "high",
     system_prompt: agentSettings.system_prompt,
     agent_aliases: agentSettings.agent_aliases,
+    model_modalities: agentSettings.model_modalities,
     managed_sandbox_enabled: agentSettings.managed_sandbox_enabled,
     managed_security_level: agentSettings.managed_security_level,
     managed_execution: {

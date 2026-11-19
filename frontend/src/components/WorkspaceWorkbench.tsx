@@ -203,10 +203,22 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         setGitConflicts(cached.conflicts);
       } else {
         setRootLoading(true);
+        setGitStatus([]);
+        setGitOverview(null);
+        setGitWorktrees([]);
+        setGitHistory([]);
+        setGitConflicts([]);
       }
     }
     try {
-      const { gitError, ...state } = await loadWorkspaceRootState({ ...bridge, workspaceListDirectory: bridge.workspaceListDirectory }, root);
+      const { gitError, ...state } = await loadWorkspaceRootState({ ...bridge, workspaceListDirectory: bridge.workspaceListDirectory }, root, (entries) => {
+        const activeRoot = activeThreadIdRef.current
+          ? useWorkspaceContextStore.getState().byThreadId[activeThreadIdRef.current]?.root
+          : undefined;
+        if (generation !== refreshGenRef.current || loadedRootRef.current === root || (activeRoot && activeRoot !== root)) return;
+        setRootEntries(entries);
+        setRootLoading(false);
+      });
       const currentRoot = activeThreadIdRef.current
         ? useWorkspaceContextStore.getState().byThreadId[activeThreadIdRef.current]?.root
         : undefined;

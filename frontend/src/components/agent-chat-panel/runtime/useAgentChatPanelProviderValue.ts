@@ -162,6 +162,18 @@ function findLocalThreadByDaemonThreadId(
   return threads.find((thread) => thread.daemonThreadId === daemonThreadId);
 }
 
+export function scrollToEndWithinScroller(marker: HTMLElement | null): void {
+  let node = marker?.parentElement ?? null;
+  while (node) {
+    const overflowY = getComputedStyle(node).overflowY;
+    if ((overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight) {
+      node.scrollTop = node.scrollHeight;
+      return;
+    }
+    node = node.parentElement;
+  }
+}
+
 export function deriveSpawnedAgentNavigationState({
   activeThread,
   threads,
@@ -716,7 +728,7 @@ export function useAgentChatPanelProviderValue(): {
   useEffect(() => {
     if (!shouldFollowThreadHistoryBottom()) return;
     beginProgrammaticThreadHistoryScroll();
-    messagesEndRef.current?.scrollIntoView({ block: "end" });
+    scrollToEndWithinScroller(messagesEndRef.current);
     endProgrammaticThreadHistoryScroll();
   }, [messages.length]);
 

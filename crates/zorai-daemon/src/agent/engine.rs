@@ -394,6 +394,7 @@ impl AgentEngine {
 
         let initial_mlflow_config = config.mlflow_tracing.clone();
         super::agent_identity::set_agent_aliases(&config.agent_aliases);
+        super::types::set_model_modality_overrides(&config.model_modalities);
         super::memory::set_memory_limits(&config.memory_limits);
         super::skill_library::set_skill_library(&config.skill_library);
         let config = Arc::new(RwLock::new(config));

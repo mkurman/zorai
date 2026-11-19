@@ -5,6 +5,7 @@ export const TOOL_NAMES = {
   advanceDebateRound: "advance_debate_round",
   allocateTerminal: "allocate_terminal",
   analyzeImage: "analyze_image",
+  analyzeVideo: "analyze_video",
   appendDebateArgument: "append_debate_argument",
   appendToFile: "append_to_file",
   applyFilePatch: "apply_file_patch",

@@ -1881,6 +1881,7 @@ async fn dispatch_tool_execution(
             }
         }
         tool_names::ANALYZE_IMAGE => execute_analyze_image(args, agent, http_client).await,
+        tool_names::ANALYZE_VIDEO => execute_analyze_video(args, agent, http_client).await,
         tool_names::GENERATE_IMAGE => {
             execute_generate_image(args, agent, http_client, Some(thread_id)).await
         }

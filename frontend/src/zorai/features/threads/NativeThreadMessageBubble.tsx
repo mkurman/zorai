@@ -13,6 +13,8 @@ import { visibleGeminiReasoning } from "@/lib/geminiThought";
 import { AttachmentTiles } from "./attachmentTiles";
 import { splitMessageAttachments } from "./messageAttachments";
 import { useAgentDisplayName } from "@/lib/useAgentDisplayName";
+import { CodeContextMenu } from "@/zorai/features/code/CodeToolbarMenu";
+import { messageMenuItems, wantsNativeContextMenu } from "./threadContextMenus";
 
 export function isMessageFromCurrentViewSession(message: AgentMessage, mountedAt: number): boolean {
   const createdAt = message.createdAt < 10_000_000_000
@@ -35,6 +37,7 @@ export type ThreadMessageActions = {
   retry: () => void;
   pin: (threadId: string, messageId: string) => void | Promise<void>;
   unpin: (threadId: string, messageId: string) => void | Promise<void>;
+  quote: (text: string) => void;
 };
 
 const ThreadMessageActionsContext = createContext<RefObject<ThreadMessageActions | null> | null>(null);
@@ -97,6 +100,7 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
   const sharedActions = Boolean(actionsRef);
   const [retryDismissed, setRetryDismissed] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [menu, setMenu] = useState<{ x: number; y: number; plainText: string } | null>(null);
   const agentDisplayName = useAgentDisplayName();
   if (isCompactionArtifactMessage(message)) {
     return (
@@ -127,7 +131,16 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
   const shouldRenderContent = hasVisibleContent || (!fromUser && !reasoning && tiles.length === 0);
 
   return (
-    <article id={`zorai-message-${message.id}`} className={["zorai-message", fromUser ? "zorai-message--user" : "", message.pinnedForCompaction ? "zorai-message--pinned" : ""].filter(Boolean).join(" ")}>
+    <article
+      id={`zorai-message-${message.id}`}
+      className={["zorai-message", fromUser ? "zorai-message--user" : "", message.pinnedForCompaction ? "zorai-message--pinned" : ""].filter(Boolean).join(" ")}
+      onContextMenu={sharedActions ? (event) => {
+        if (wantsNativeContextMenu(event.target as Element, window.getSelection()?.toString() ?? "")) return;
+        event.preventDefault();
+        const rendered = event.currentTarget.querySelector<HTMLElement>(".zorai-message__content")?.innerText ?? "";
+        setMenu({ x: event.clientX, y: event.clientY, plainText: rendered.trim() || displayText || message.content });
+      } : undefined}
+    >
       {reasoning ? (
         <ThreadReasoningBlock content={reasoning} streaming={Boolean(message.isStreaming)} />
       ) : null}
@@ -297,6 +310,34 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
           </button>
         ) : null}
       </div>
+      {menu ? (
+        <CodeContextMenu
+          x={menu.x}
+          y={menu.y}
+          label="Message actions"
+          onClose={() => setMenu(null)}
+          items={messageMenuItems({
+            isAssistant,
+            streaming: Boolean(message.isStreaming),
+            pinned: Boolean(message.pinnedForCompaction),
+            canSpeak: ttsEnabled && isAssistant,
+            hasText: hasVisibleContent || Boolean(message.content.trim()),
+            onCopy: () => { void navigator.clipboard?.writeText(menu.plainText); },
+            onCopyMarkdown: () => { void navigator.clipboard?.writeText(displayText || message.content); },
+            onQuote: () => actionsRef?.current?.quote(menu.plainText),
+            onFork: () => { void actionsRef?.current?.fork(message.id); },
+            onRegenerate: () => actionsRef?.current?.regenerate(message.id),
+            onSpeak: () => actionsRef?.current?.speak(message),
+            onTogglePin: () => {
+              const actions = actionsRef?.current;
+              if (!actions) return;
+              if (message.pinnedForCompaction) void actions.unpin(message.threadId, message.id);
+              else void actions.pin(message.threadId, message.id);
+            },
+            onDelete: () => actionsRef?.current?.deleteMessage(message.threadId, message.id),
+          })}
+        />
+      ) : null}
     </article>
   );
 }, (previous, next) => (

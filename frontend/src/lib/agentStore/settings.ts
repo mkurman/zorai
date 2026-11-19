@@ -14,6 +14,7 @@ import type {
   AgentProviderId,
   ApiTransportMode,
   AuthSource,
+  Modality,
 } from "./types.ts";
 import { EMPTY_AGENT_ALIASES, normalizeAgentAliases, PRIMARY_AGENT_NAME, type AgentAliases } from "../agentNames.ts";
 import {
@@ -21,6 +22,19 @@ import {
   normalizeReactChatHistoryPageSize,
   normalizeTuiChatHistoryPageSize,
 } from "../chatHistoryPageSize.ts";
+
+const MODEL_MODALITIES: readonly Modality[] = ["text", "image", "video", "audio"];
+
+export function normalizeModelModalities(value: unknown): Record<string, Modality[]> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const result: Record<string, Modality[]> = {};
+  for (const [key, list] of Object.entries(value as Record<string, unknown>)) {
+    if (!key.includes("::") || !Array.isArray(list)) continue;
+    const modalities = MODEL_MODALITIES.filter((modality) => modality === "text" || list.includes(modality));
+    result[key] = modalities;
+  }
+  return result;
+}
 
 export type CompactionStrategy = "heuristic" | "weles" | "custom_model";
 export type AutoThreadTitleMode = "off" | "rarog" | "weles";
@@ -111,6 +125,7 @@ export interface AgentSettings {
   additionalHandlers: string[];
   system_prompt: string;
   agent_aliases: AgentAliases;
+  model_modalities: Record<string, Modality[]>;
   active_provider: AgentProviderId;
   featherless: AgentProviderConfig;
   anthropic: AgentProviderConfig;
@@ -285,6 +300,7 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   additionalHandlers: [],
   system_prompt: `You are ${PRIMARY_AGENT_NAME} - The Smith (He is a blacksmith god, the creator and craftsman of the heavens in ancient Slavic belief. As an AI agent:\n- Creation: Ideal for tasks intended for use from scratch (coding, writing, design).\n- Rhythm: Associated with the sun and fire, he naturally determines the daily cycles (sunrise-sunset).\n- Personality: Strict but fair; an accessible "doer" who ensures this through perfect tools.) operating in zorai, an agentic runtime assistant. You can execute terminal commands, check system resources, and send messages to connected chat platforms (Slack, Discord, Telegram, WhatsApp) via the gateway. Use your tools proactively when the user asks you to perform actions. Be concise and direct.`,
   agent_aliases: { ...EMPTY_AGENT_ALIASES },
+  model_modalities: {},
   active_provider: "openai",
   featherless: { base_url: "https://api.featherless.ai/v1", model: "meta-llama/Llama-3.3-70B-Instruct", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "chat_completions", auth_source: "api_key", context_window_tokens: null },
   anthropic: { base_url: "https://api.anthropic.com", model: "claude-opus-5-5", custom_model_name: "", api_key: "", assistant_id: "", api_transport: "chat_completions", auth_source: "api_key", context_window_tokens: null },
@@ -668,6 +684,7 @@ export type DiskAgentSettings = Partial<AgentSettings> & {
   music_generation_model?: string;
   system_prompt?: string;
   agent_aliases?: Record<string, unknown>;
+  model_modalities?: Record<string, unknown>;
   managed_sandbox_enabled?: boolean;
   managed_security_level?: string;
   managed_execution?: {
@@ -936,6 +953,7 @@ export function normalizeAgentSettingsFromSource(source: DiskAgentSettings): Age
     custom: providerConfigFromRaw("custom", source),
     system_prompt: source.system_prompt ?? DEFAULT_AGENT_SETTINGS.system_prompt,
     agent_aliases: normalizeAgentAliases(source.agent_aliases),
+    model_modalities: normalizeModelModalities(source.model_modalities),
     audio_stt_enabled: source.audio?.stt?.enabled ?? source.audio_stt_enabled ?? DEFAULT_AGENT_SETTINGS.audio_stt_enabled,
     audio_stt_provider,
     audio_stt_model:

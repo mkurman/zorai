@@ -2003,12 +2003,74 @@ select.zorai-input:disabled option {
   color: var(--zorai-danger);
 }
 
-.zorai-code-runtime-switcher__context {
+.zorai-code-runtime-switcher__footer {
   display: grid;
   gap: 4px;
-  margin-top: 8px;
+  margin-top: 4px;
+  padding: 8px 6px 4px;
+  border-top: 1px solid var(--zorai-border);
+}
+
+.zorai-code-runtime-switcher__field-label {
+  padding: 4px 4px 0;
   color: var(--zorai-muted);
-  font-size: 11px;
+  font: 600 10px var(--font-ui);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.zorai-code-runtime-switcher__apply-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.zorai-code-runtime-switcher__context {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  color: var(--zorai-muted);
+  font: 12px var(--font-ui);
+}
+
+.zorai-code-runtime-switcher__context input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--zorai-text);
+  font: 13px var(--font-mono);
+}
+
+.zorai-code-runtime-switcher__apply {
+  flex: 0 0 auto;
+  height: 32px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--zorai-accent);
+  color: var(--zorai-bg-panel);
+  font: 600 13px var(--font-ui);
+  cursor: pointer;
+  transition: filter 120ms ease, scale 120ms var(--ease-out);
+}
+
+.zorai-code-runtime-switcher__apply:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.zorai-code-runtime-switcher__apply:active:not(:disabled) {
+  scale: 0.97;
+}
+
+.zorai-code-runtime-switcher__apply:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .zorai-usage-page-size {

@@ -1,5 +1,5 @@
 import { LoadingState } from "@/components/LoadingState";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode, type UIEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type ReactNode, type UIEvent } from "react";
 import { threadTint, tintStyle, useTintStore } from "@/zorai/features/tints/tintStore";
 import { shortcutMatches } from "@/zorai/features/shortcuts/appShortcuts";
 import { MemoizedToolEventRow } from "@/components/agent-chat-panel/chat-view/ToolEventRow";
@@ -20,6 +20,7 @@ import { useAgentStore, type AgentMessage, type AgentThread } from "@/lib/agentS
 import { fetchAgentTasksFiltered, type AgentQueueTask } from "@/lib/agentTaskQueue";
 import { ThreadFilePreviewOverlay } from "./ThreadFilePreviewOverlay";
 import { ThreadComposer } from "./ThreadComposer";
+import { CodeThreadRuntimeSwitcher } from "../code/CodeThreadRuntimeSwitcher";
 import { ThreadCompactSessionBar } from "./ThreadCompactSessionBar";
 import { ThreadActivityRow } from "./ThreadActivityRow";
 import { ThreadTurnActivityList } from "./ThreadTurnActivityList";
@@ -44,7 +45,7 @@ import {
 import { ThreadRetryStatusBanner } from "./ThreadRetryStatusBanner";
 import { useThreadRetryStatus } from "./threadRetryStatus";
 import { resolveThreadOwnerRuntimeProfile } from "./threadOwnerRuntime";
-import { navigateZorai, type ZoraiReturnTarget } from "../../shell/zoraiNavigationEvents";
+import { navigateZorai, requestThreadRename, type ZoraiReturnTarget } from "../../shell/zoraiNavigationEvents";
 import { isThreadLoading, shouldShowConversationSkeleton, useThreadLoadingStore } from "./threadLoadingStore";
 import { threadReadKey, useThreadReadStateStore } from "./threadReadStateStore";
 import { useThreadRailTabStore } from "./threadRailTabStore";
@@ -56,6 +57,14 @@ import { threadMessageItemKey } from "./threadMessageWindow";
 import { ThreadMessageMeasure, useThreadMessageWindow } from "./useThreadMessageWindow";
 import { useThreadPanelStore } from "./threadSidePanel";
 import { Presence } from "@/components/Presence";
+import { getBridge } from "@/lib/bridge";
+import { CodeContextMenu } from "@/zorai/features/code/CodeToolbarMenu";
+import { handleZoraiAppCommand } from "../../shell/zoraiAppCommands";
+import { useShellLayoutStore } from "../../shell/shellLayoutStore";
+import { threadDeletionTarget } from "./threadFilterModel";
+import { quoteForComposer, threadHeaderMenuItems, wantsNativeContextMenu } from "./threadContextMenus";
+import { writeComposerDraftInput } from "./composerDraftStore";
+import { splitCandidateFor } from "./openThreadTarget";
 
 export { ThreadsRail } from "./ThreadsRail";
 
@@ -95,6 +104,9 @@ export function ThreadsView({
   const threadLoadingByThreadId = useThreadLoadingStore((state) => state.byThreadId);
   const runtime = useAgentChatPanelRuntime();
   const [pinLimitResult, setPinLimitResult] = useState<ZoraiThreadMessagePinResult | null>(null);
+  const [headerMenu, setHeaderMenu] = useState<{ x: number; y: number } | null>(null);
+  const [attachmentSlot, setAttachmentSlot] = useState<HTMLDivElement | null>(null);
+  const closeHeaderMenu = useCallback(() => setHeaderMenu(null), []);
   const participantsOpen = useThreadPanelStore((state) => state.open === "participants");
   const closeThreadPanel = useThreadPanelStore((state) => state.close);
   const activeThreadKey = runtime.activeThread?.id ?? null;
@@ -265,6 +277,26 @@ export function ThreadsView({
     displayItems,
   ]);
 
+  const paneAtBottomRef = useRef(true);
+  const paneFocused = splitPane?.focused;
+  useLayoutEffect(() => {
+    if (paneFocused === undefined || !paneAtBottomRef.current) return;
+    const pin = () => {
+      const scroller = scrollerRef.current;
+      if (!scroller || !paneAtBottomRef.current) return;
+      beginProgrammaticThreadHistoryScroll();
+      scroller.scrollTop = scroller.scrollHeight;
+      endProgrammaticThreadHistoryScroll();
+    };
+    pin();
+    const frame = requestAnimationFrame(pin);
+    const timer = window.setTimeout(pin, 400);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [paneFocused]);
+
   const messageWindow = useThreadMessageWindow({
     scrollerRef,
     items: displayItems,
@@ -315,6 +347,8 @@ export function ThreadsView({
   );
 
   const handleThreadScroll = (event: UIEvent<HTMLDivElement>) => {
+    const target = event.currentTarget;
+    paneAtBottomRef.current = target.scrollHeight - target.scrollTop - target.clientHeight <= 2;
     consumeThreadHistoryScroll({
       scroller: event.currentTarget,
       loadOlder: runtime.loadOlderThreadMessages,
@@ -344,7 +378,34 @@ export function ThreadsView({
       if (result && result.ok === false && result.error === "pinned_budget_exceeded") setPinLimitResult(result);
     },
     unpin: (threadId, messageId) => { void runtime.unpinMessageForCompaction(activeThreadIdForActions ?? threadId, messageId); },
+    quote: (text) => {
+      writeComposerDraftInput((current) => quoteForComposer(current, text));
+      runtime.inputRef.current?.focus();
+    },
   };
+  const latestMessageId = runtime.messages[runtime.messages.length - 1]?.id ?? null;
+  const headerMenuItems = () => threadHeaderMenuItems({
+    daemonThreadId: activeThread.daemonThreadId ?? null,
+    hasMessages: Boolean(latestMessageId),
+    inSplit: Boolean(splitPane),
+    canSplit: Boolean(splitCandidateFor(runtime)),
+    onRename: () => {
+      useShellLayoutStore.getState().setRailOpen(true);
+      requestThreadRename([activeThread.id, activeThread.daemonThreadId]);
+    },
+    onFork: () => { if (latestMessageId) void runtime.forkThread(latestMessageId); },
+    onExport: () => { if (latestMessageId) void runtime.exportThread(latestMessageId); },
+    onPanel: (panel) => useThreadPanelStore.getState().toggle(panel),
+    onToggleContext: () => navigateZorai({ toggleContext: true }),
+    onSplit: (direction) => handleZoraiAppCommand(direction === "right" ? "split-right" : "split-down"),
+    onClosePane: () => handleZoraiAppCommand("split-close-pane"),
+    onDelete: () => {
+      if (!window.confirm(`Delete “${activeThread.title}”?`)) return;
+      const target = threadDeletionTarget(activeThread, useAgentStore.getState().threads);
+      if (target.storeThreadId) runtime.deleteThread(target.storeThreadId);
+      if (activeThread.daemonThreadId) void getBridge()?.agentDeleteThread?.(activeThread.daemonThreadId);
+    },
+  });
   return (
     <section
       className={["zorai-thread-surface", "zorai-native-thread-surface", variant === "compact" ? "zorai-thread-surface--compact" : "", activeTint ? "zorai-tinted-surface" : ""].filter(Boolean).join(" ")}
@@ -365,7 +426,13 @@ export function ThreadsView({
         messages={runtime.messages}
         extraActions={variant === "compact" ? compactHeaderActions : splitPane?.actions ?? null}
         onDragStart={splitPane?.onHeaderDragStart}
+        onContextMenu={(event) => {
+          if (wantsNativeContextMenu(event.target as Element, window.getSelection()?.toString() ?? "")) return;
+          event.preventDefault();
+          setHeaderMenu({ x: event.clientX, y: event.clientY });
+        }}
       />
+      {headerMenu ? <CodeContextMenu x={headerMenu.x} y={headerMenu.y} label={`Actions for ${activeThread.title}`} onClose={closeHeaderMenu} items={headerMenuItems()} /> : null}
       {variant === "full" ? <ParticipantStrip thread={runtime.activeThread} onOpen={() => useThreadPanelStore.getState().toggle("participants")} /> : null}
 
       <div className="zorai-thread-chat">
@@ -459,8 +526,14 @@ export function ThreadsView({
       </div>
 
       <div className="zorai-thread-composer-stack">
+        <div ref={setAttachmentSlot} className="zorai-composer-attachment-slot" />
+        {variant === "compact" ? (
+          <div className="zorai-composer-runtime-row">
+            <CodeThreadRuntimeSwitcher thread={runtime.activeThread ?? null} variant="composer" />
+          </div>
+        ) : null}
         <ThreadCompactSessionBar reviewActions={variant === "compact"} />
-        <ThreadComposer showTargetSelector={variant === "compact"} compact={variant === "compact"} />
+        <ThreadComposer showTargetSelector={variant === "compact"} compact={variant === "compact"} attachmentSlot={attachmentSlot} />
       </div>
 
       <Presence value={variant === "full" && pinLimitResult}>
@@ -513,6 +586,7 @@ function ThreadHeader({
   messages,
   extraActions = null,
   onDragStart,
+  onContextMenu,
 }: {
   thread: AgentThread;
   messageCount: number;
@@ -525,6 +599,7 @@ function ThreadHeader({
   messages: AgentMessage[];
   extraActions?: ReactNode;
   onDragStart?: (event: DragEvent<HTMLElement>) => void;
+  onContextMenu?: (event: MouseEvent<HTMLElement>) => void;
 }) {
   const participants = thread.threadParticipants ?? [];
   const activeParticipants = participants.filter((participant) => participant.status === "active");
@@ -550,7 +625,7 @@ function ThreadHeader({
     ["Context", `${context} tokens`],
   ];
   return (
-    <header className="zorai-thread-header zorai-thread-header--slim" draggable={Boolean(onDragStart)} onDragStart={onDragStart}>
+    <header className="zorai-thread-header zorai-thread-header--slim" draggable={Boolean(onDragStart)} onDragStart={onDragStart} onContextMenu={onContextMenu}>
       <h3 title={thread.title}>{thread.title}</h3>
       <div className="zorai-thread-header__actions">
         {extraActions}

@@ -108,6 +108,13 @@ pub(super) enum AgentBridgeCommand {
     ListThreadOperations {
         thread_id: String,
     },
+    ListUiColors,
+    SetUiColor {
+        kind: String,
+        key: String,
+        #[serde(default)]
+        color: Option<String>,
+    },
     GenerateCommitMessage {
         diff: String,
         #[serde(default)]

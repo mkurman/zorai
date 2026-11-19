@@ -32,6 +32,7 @@ export type ThreadReadActions = {
    * not silently marked read.
    */
   markRead: (key: string, timestamp: number) => void;
+  markUnread: (key: string) => void;
   /** Read timestamp for a key, or null when unknown/invalid. */
   lastReadAt: (key: string) => number | null;
   /**
@@ -122,6 +123,12 @@ function createThreadReadActions(
           [trimmedKey]: timestamp,
         },
       });
+    },
+
+    markUnread(key) {
+      const trimmedKey = trimToKey(key);
+      if (!trimmedKey) return;
+      set({ lastReadAtByThread: { ...get().lastReadAtByThread, [trimmedKey]: 0 } });
     },
 
     lastReadAt(key) {

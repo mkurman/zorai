@@ -2279,3 +2279,19 @@ async fn send_discord_message_emits_gateway_ipc_request() {
         .expect("send should succeed");
     assert_eq!(result, "Discord message sent to user:123456789");
 }
+
+#[test]
+fn analyze_video_is_offered_with_image_analysis_and_hidden_for_text_only_setups() {
+    let temp_dir = std::env::temp_dir();
+    let mut config = AgentConfig::default();
+    config.provider = zorai_shared::providers::PROVIDER_ID_OPENAI.to_string();
+    config.model = "gpt-5.4".to_string();
+    let tools = get_available_tools(&config, &temp_dir, false);
+    assert!(tools.iter().any(|tool| tool.function.name == "analyze_video"));
+
+    config.model = "gpt-5.3-codex-spark".to_string();
+    config.tools.vision = false;
+    let tools = get_available_tools(&config, &temp_dir, false);
+    assert!(tools.iter().all(|tool| tool.function.name != "analyze_video"));
+    assert_eq!(default_timeout_seconds_for_tool("analyze_video"), 600);
+}

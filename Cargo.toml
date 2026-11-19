@@ -11,7 +11,7 @@ members = [
 ]
 
 [workspace.package]
-version = "1.1.5"
+version = "1.1.6"
 edition = "2021"
 license = "MIT"
 authors = ["zorai contributors"]
@@ -46,3 +46,9 @@ arrow-schema = "57.3.0"
 # Protocol
 zorai-shared = { package = "zorai-shared", path = "crates/zorai-shared" }
 zorai-protocol = { package = "zorai-protocol", path = "crates/zorai-protocol" }
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

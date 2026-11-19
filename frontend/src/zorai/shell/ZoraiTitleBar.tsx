@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePresence } from "@/hooks/usePresence";
 import { getBridge } from "@/lib/bridge";
 
-type TitleMenuItem = { index: number; type: "normal" | "separator"; label: string; accelerator: string; enabled: boolean };
+type TitleMenuItem = ZoraiWindowMenuItem;
 
 export function formatMenuAccelerator(accelerator: string, mac: boolean): string {
   return accelerator
@@ -30,6 +30,8 @@ export function menuForMnemonic(labels: string[], key: string): string | null {
   return labels.find((label) => label.toLowerCase().startsWith(letter)) ?? null;
 }
 
+const TITLE_MENU_ITEMS_SELECTOR = ":scope > [role^=menuitem]:not(:disabled), :scope > .zorai-titlebar__item-anchor > [role^=menuitem]:not(:disabled)";
+
 const MNEMONIC_EXCLUDED_TARGETS = ".xterm, .monaco-editor, .cm-editor";
 
 export function ZoraiTitleBar() {
@@ -54,7 +56,7 @@ export function ZoraiTitleBar() {
   useEffect(() => {
     if (!focusFirstItemRef.current || menuItems.length === 0) return;
     focusFirstItemRef.current = false;
-    menusRef.current?.querySelector<HTMLButtonElement>(".zorai-titlebar__dropdown [role=menuitem]:not(:disabled)")?.focus();
+    menusRef.current?.querySelector<HTMLButtonElement>(".zorai-titlebar__dropdown [role^=menuitem]:not(:disabled)")?.focus();
   }, [menuItems]);
 
   useEffect(() => {
@@ -91,9 +93,8 @@ export function ZoraiTitleBar() {
       }
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
-        const items = Array.from(
-          menusRef.current?.querySelectorAll<HTMLButtonElement>(".zorai-titlebar__dropdown [role=menuitem]:not(:disabled)") ?? [],
-        );
+        const list = (document.activeElement as Element | null)?.closest(".zorai-titlebar__dropdown") ?? menusRef.current?.querySelector(".zorai-titlebar__dropdown");
+        const items = Array.from(list?.querySelectorAll<HTMLButtonElement>(TITLE_MENU_ITEMS_SELECTOR) ?? []);
         const current = items.indexOf(document.activeElement as HTMLButtonElement);
         items[stepMenuIndex(current, items.length, event.key === "ArrowDown" ? 1 : -1)]?.focus();
         return;
@@ -167,28 +168,16 @@ export function ZoraiTitleBar() {
                 {label}
               </button>
               {shownMenu === label && menuItems.length > 0 ? (
-                <div data-closing={menuPresence.closing || undefined} className="zorai-titlebar__dropdown" role="menu" aria-label={label}>
-                  {menuItems.map((item) =>
-                    item.type === "separator" ? (
-                      <div key={item.index} className="zorai-titlebar__separator" role="separator" />
-                    ) : (
-                      <button
-                        type="button"
-                        key={item.index}
-                        role="menuitem"
-                        className="zorai-titlebar__item"
-                        disabled={!item.enabled}
-                        onClick={() => {
-                          setOpenMenu(null);
-                          void bridge.windowMenuInvoke?.(label, item.index);
-                        }}
-                      >
-                        <span>{item.label}</span>
-                        {item.accelerator ? <kbd>{formatMenuAccelerator(item.accelerator, mac)}</kbd> : null}
-                      </button>
-                    ),
-                  )}
-                </div>
+                <TitleMenuList
+                  items={menuItems}
+                  label={label}
+                  closing={menuPresence.closing}
+                  mac={mac}
+                  onInvoke={(path) => {
+                    setOpenMenu(null);
+                    void bridge.windowMenuInvoke?.(label, path);
+                  }}
+                />
               ) : null}
             </div>
           ))}
@@ -225,5 +214,96 @@ export function ZoraiTitleBar() {
         </div>
       )}
     </header>
+  );
+}
+
+function TitleMenuList({ items, label, path = [], closing, mac, submenu = false, onInvoke, onCloseSubmenu }: {
+  items: TitleMenuItem[];
+  label: string;
+  path?: number[];
+  closing?: boolean;
+  mac: boolean;
+  submenu?: boolean;
+  onInvoke: (path: number[]) => void;
+  onCloseSubmenu?: () => void;
+}) {
+  const [openChild, setOpenChild] = useState<number | null>(null);
+  const focusChildRef = useRef(false);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const checkColumn = items.some((item) => item.checked !== undefined);
+
+  useEffect(() => {
+    if (openChild === null || !focusChildRef.current) return;
+    focusChildRef.current = false;
+    listRef.current?.querySelector<HTMLButtonElement>(".zorai-titlebar__submenu [role^=menuitem]:not(:disabled)")?.focus();
+  }, [openChild]);
+
+  return (
+    <div
+      ref={listRef}
+      data-closing={closing || undefined}
+      className={["zorai-titlebar__dropdown", submenu ? "zorai-titlebar__submenu" : ""].filter(Boolean).join(" ")}
+      role="menu"
+      aria-label={label}
+    >
+      {items.map((item) => {
+        if (item.type === "separator") return <div key={item.index} className="zorai-titlebar__separator" role="separator" />;
+        const children = item.children?.length ? item.children : null;
+        const itemPath = [...path, item.index];
+        const button = (
+          <button
+            type="button"
+            key={item.index}
+            role={item.checked === undefined ? "menuitem" : "menuitemcheckbox"}
+            aria-checked={item.checked}
+            aria-haspopup={children ? "menu" : undefined}
+            aria-expanded={children ? openChild === item.index : undefined}
+            className={["zorai-titlebar__item", openChild === item.index ? "is-open" : ""].filter(Boolean).join(" ")}
+            disabled={!item.enabled}
+            onPointerEnter={children ? undefined : () => setOpenChild(null)}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowRight" && children) {
+                event.preventDefault();
+                event.stopPropagation();
+                focusChildRef.current = true;
+                setOpenChild(item.index);
+              } else if (event.key === "ArrowLeft" && submenu) {
+                event.preventDefault();
+                event.stopPropagation();
+                onCloseSubmenu?.();
+              }
+            }}
+            onClick={() => {
+              if (children) setOpenChild((current) => (current === item.index ? null : item.index));
+              else onInvoke(itemPath);
+            }}
+          >
+            {checkColumn ? <span className="zorai-titlebar__check" aria-hidden="true">{item.checked ? "✓" : ""}</span> : null}
+            <span className="zorai-titlebar__label">{item.label}</span>
+            {children ? <span className="zorai-titlebar__chevron" aria-hidden="true">›</span> : item.accelerator ? <kbd>{formatMenuAccelerator(item.accelerator, mac)}</kbd> : null}
+          </button>
+        );
+        if (!children) return button;
+        return (
+          <div key={item.index} className="zorai-titlebar__item-anchor" onPointerEnter={() => setOpenChild(item.index)}>
+            {button}
+            {openChild === item.index ? (
+              <TitleMenuList
+                items={children}
+                label={item.label}
+                path={itemPath}
+                mac={mac}
+                submenu
+                onInvoke={onInvoke}
+                onCloseSubmenu={() => {
+                  setOpenChild(null);
+                  listRef.current?.querySelector<HTMLButtonElement>(":scope > .zorai-titlebar__item-anchor > .zorai-titlebar__item.is-open")?.focus();
+                }}
+              />
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
   );
 }

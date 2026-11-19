@@ -16,24 +16,37 @@ export function ThreadComposerQueue({
   onSendNow: (id: string) => void;
   onCancel: (id: string) => void;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const presence = usePresence(!collapsed);
   if (items.length === 0) return null;
   return (
     <div className="zorai-composer-queue">
-      <button
-        type="button"
-        className="zorai-composer-queue__header"
-        aria-expanded={!collapsed}
-        onClick={() => setCollapsed((value) => !value)}
-      >
-        <span className={collapsed ? "zorai-composer-queue__chevron zorai-motion-caret" : "zorai-composer-queue__chevron zorai-motion-caret is-open"} aria-hidden="true">▸</span>
-        <span className="zorai-composer-queue__label">Queued</span>
-        <span className="zorai-composer-queue__count">{items.length}</span>
+      <div className="zorai-composer-queue__head">
+        <button
+          type="button"
+          className="zorai-composer-queue__header"
+          aria-expanded={!collapsed}
+          onClick={() => setCollapsed((value) => !value)}
+        >
+          <span className={collapsed ? "zorai-composer-queue__chevron zorai-motion-caret" : "zorai-composer-queue__chevron zorai-motion-caret is-open"} aria-hidden="true">▸</span>
+          <span className="zorai-composer-queue__label">Queued</span>
+          <span className="zorai-composer-queue__count">{items.length}</span>
+          {collapsed ? (
+            <span className="zorai-composer-queue__peek">{queuedComposerPreview(items[0]).text}</span>
+          ) : null}
+        </button>
         {collapsed ? (
-          <span className="zorai-composer-queue__peek">{queuedComposerPreview(items[0]).text}</span>
+          <button
+            type="button"
+            className="zorai-composer-queue__send-now"
+            aria-label="Send next queued message now"
+            title="Interrupt the current response and send the next queued message now"
+            onClick={() => onSendNow(items[0].id)}
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5" /></svg>
+          </button>
         ) : null}
-      </button>
+      </div>
       {!presence.mounted ? null : (
         <ol data-closing={presence.closing || undefined} className="zorai-composer-queue__list zorai-reveal">
           {items.map((queued, index) => {

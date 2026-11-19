@@ -85,6 +85,8 @@ pub(crate) async fn dispatch_part4(
             | ClientMessage::AgentDeclareAsyncCommandCapability { .. }
             | ClientMessage::AgentGetOperationStatus { .. }
             | ClientMessage::AgentListThreadOperations { .. }
+            | ClientMessage::AgentListUiColors
+            | ClientMessage::AgentSetUiColor { .. }
             | ClientMessage::AgentGenerateCommitMessage { .. }
             | ClientMessage::AgentHandoffThread { .. }
             | ClientMessage::AgentGetSubagentMetrics { .. }
@@ -1912,6 +1914,26 @@ pub(crate) async fn dispatch_part4(
             framed.send(reply).await?;
         }
 
+        ClientMessage::AgentListUiColors => {
+            send_ui_colors(agent, framed).await?;
+        }
+
+        ClientMessage::AgentSetUiColor { kind, key, color } => {
+            if let Err(error) = agent
+                .history
+                .set_ui_color(&kind, &key, color.as_deref())
+                .await
+            {
+                framed
+                    .send(DaemonMessage::Error {
+                        message: format!("Could not save color: {error}"),
+                    })
+                    .await?;
+                return Ok(true);
+            }
+            send_ui_colors(agent, framed).await?;
+        }
+
         ClientMessage::AgentListThreadOperations { thread_id } => {
             let operations = agent.list_thread_operations(&thread_id).await;
             framed
@@ -2344,4 +2366,21 @@ pub(crate) async fn dispatch_part4(
         _ => unreachable!("message chunk should be exhaustive"),
     }
     Ok(true)
+}
+
+async fn send_ui_colors(agent: &Arc<AgentEngine>, framed: &mut ConnectionWriter) -> Result<()> {
+    let colors = agent
+        .history
+        .list_ui_colors()
+        .await
+        .unwrap_or_else(|error| {
+            tracing::warn!(%error, "failed to list ui colors");
+            serde_json::json!({ "thread": {}, "root": {} })
+        });
+    framed
+        .send(DaemonMessage::AgentUiColors {
+            colors_json: colors.to_string(),
+        })
+        .await?;
+    Ok(())
 }

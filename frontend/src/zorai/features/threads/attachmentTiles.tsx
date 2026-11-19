@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import type { ComposerAttachment } from "@/components/agent-chat-panel/chat-view/types";
 import { getBridge } from "@/lib/bridge";
 import { ImageLightbox } from "./ImageLightbox";
+import { MediaLightbox } from "./MediaLightbox";
+import { mediaKindForPath, mediaUrlForPath } from "./ThreadFilePreviewOverlay";
 import { Presence } from "@/components/Presence";
 
 export type AttachmentTileModel = {
@@ -14,7 +15,13 @@ export type AttachmentTileModel = {
   badge?: string;
 };
 
+export function pathAttachmentTile(id: string, name: string, path: string): AttachmentTileModel {
+  const media = mediaKindForPath(path);
+  return media === "video" || media === "audio" ? { id, kind: media, name, previewUrl: mediaUrlForPath(path) } : { id, kind: "file", name };
+}
+
 export function composerAttachmentToTile(attachment: ComposerAttachment): AttachmentTileModel {
+  if (attachment.kind === "file" && attachment.path) return pathAttachmentTile(attachment.id, attachment.name, attachment.path);
   return {
     id: attachment.id,
     kind: attachment.kind,
@@ -54,27 +61,9 @@ function AttachmentTile({
   onAnnotate?: (id: string) => void;
 }) {
   const imageUrl = useAttachmentImageUrl(item);
-  const videoUrl = item.kind === "video" ? item.previewUrl : undefined;
+  const mediaKind = item.kind === "video" || item.kind === "audio" ? item.kind : null;
+  const mediaUrl = mediaKind ? item.previewUrl : undefined;
   const [previewOpen, setPreviewOpen] = useState(false);
-  if (item.kind === "audio" && item.previewUrl) {
-    return (
-      <div className="zorai-attachment-audio">
-        <span className="zorai-attachment-audio__name" title={item.name}>{item.name}</span>
-        <audio controls preload="metadata" src={item.previewUrl} aria-label={`Play ${item.name}`} />
-        {onRemove ? (
-          <button
-            type="button"
-            className="zorai-attachment-tile__remove"
-            title={`Remove ${item.name}`}
-            aria-label={`Remove ${item.name}`}
-            onClick={() => onRemove(item.id)}
-          >
-            ×
-          </button>
-        ) : null}
-      </div>
-    );
-  }
   return (
     <div className="zorai-attachment-tile">
       {imageUrl ? (
@@ -87,7 +76,7 @@ function AttachmentTile({
         >
           <img src={imageUrl} alt="" />
         </button>
-      ) : videoUrl ? (
+      ) : mediaUrl ? (
         <button
           type="button"
           className="zorai-attachment-tile__preview zorai-attachment-tile__preview--button"
@@ -118,8 +107,8 @@ function AttachmentTile({
       <Presence value={previewOpen && imageUrl}>
         {(url, closing) => <ImageLightbox src={url} name={item.name} closing={closing} onClose={() => setPreviewOpen(false)} />}
       </Presence>
-      <Presence value={previewOpen && videoUrl}>
-        {(url, closing) => <AttachmentImagePreview src={url} name={item.name} video closing={closing} onClose={() => setPreviewOpen(false)} />}
+      <Presence value={previewOpen && mediaKind && mediaUrl}>
+        {(url, closing) => <MediaLightbox src={url} name={item.name} kind={mediaKind ?? "video"} closing={closing} onClose={() => setPreviewOpen(false)} />}
       </Presence>
     </div>
   );
@@ -146,28 +135,6 @@ function useAttachmentImageUrl(item: AttachmentTileModel): string | undefined {
     return undefined;
   }
   return item.previewUrl ?? inventoryUrl;
-}
-
-function AttachmentImagePreview({ src, name, video, closing, onClose }: { src: string; name: string; video?: boolean; closing?: boolean; onClose: () => void }) {
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
-  return createPortal(
-    <div data-closing={closing || undefined} className="zorai-image-preview" role="dialog" aria-modal="true" aria-label={name} onClick={onClose}>
-      {video ? (
-        <video src={src} controls autoPlay preload="metadata" onClick={(event) => event.stopPropagation()} />
-      ) : (
-        <img src={src} alt={name} />
-      )}
-    </div>,
-    document.body,
-  );
 }
 
 function AttachmentKindIcon({ kind }: { kind: AttachmentTileModel["kind"] }) {

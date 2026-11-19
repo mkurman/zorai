@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { insertSplitPane, removeSplitPaneNode, splitDropZone, splitLayoutTree, splitLayoutsFor, splitPaneIds, useThreadSplitStore, type ThreadSplitNode } from "./threadSplitModel";
+import { insertSplitPane, insertSplitPaneAtEdge, nextSplitCandidate, resizeSplitChildren, setSplitSizesAt, splitChildSizes, removeSplitPaneNode, splitDropZone, splitEdgeDropZone, splitLayoutTree, splitLayoutsFor, splitPaneIds, useThreadSplitStore, type ThreadSplitNode } from "./threadSplitModel";
 
 const pane = (id: string): ThreadSplitNode => ({ kind: "pane", id });
 
@@ -26,6 +26,30 @@ describe("thread split layouts", () => {
     });
     expect(splitPaneIds(splitLayoutTree("grid", ["a", "b", "c", "d"]))).toEqual(["a", "b", "c", "d"]);
     expect(splitLayoutTree("columns", ["a"])).toBeNull();
+  });
+});
+
+describe("dropping on the outer edge of a split", () => {
+  it("targets the whole split only within the edge band, so pane drops still work inside", () => {
+    const rect = { left: 0, top: 0, width: 1000, height: 600 };
+    expect(splitEdgeDropZone(rect, 500, 590)).toBe("bottom");
+    expect(splitEdgeDropZone(rect, 10, 300)).toBe("left");
+    expect(splitEdgeDropZone(rect, 500, 500)).toBeNull();
+    expect(splitEdgeDropZone(rect, 500, 620)).toBeNull();
+  });
+
+  it("puts the dropped thread full width below two side-by-side panes", () => {
+    const sideBySide = insertSplitPane(null, "a", "b", "right");
+    expect(insertSplitPaneAtEdge(sideBySide, "c", "bottom")).toEqual({
+      kind: "split", direction: "column", children: [{ kind: "split", direction: "row", children: [pane("a"), pane("b")] }, pane("c")],
+    });
+  });
+
+  it("joins an existing row instead of nesting, and respects the pane limit", () => {
+    const sideBySide = insertSplitPane(null, "a", "b", "right");
+    expect(insertSplitPaneAtEdge(sideBySide, "c", "left")).toEqual({ kind: "split", direction: "row", children: [pane("c"), pane("a"), pane("b")] });
+    const full = splitLayoutTree("grid", ["a", "b", "c", "d"]);
+    expect(insertSplitPaneAtEdge(full, "e", "bottom")).toBe(full);
   });
 });
 
@@ -78,5 +102,44 @@ describe("thread split store", () => {
     useThreadSplitStore.getState().setFocused("b");
     useThreadSplitStore.getState().replaceFocused("x");
     expect(splitPaneIds(useThreadSplitStore.getState().root)).toEqual(["a", "x", "c"]);
+  });
+});
+
+describe("choosing a thread for Split Right / Split Down", () => {
+  it("prefers an open tab, then falls back to the most recent thread when every tab is already on screen", () => {
+    expect(nextSplitCandidate({ activeId: "a", shownIds: [], openTabIds: ["a", "b"], recentIds: ["c"] })).toBe("b");
+    expect(nextSplitCandidate({ activeId: "a", shownIds: ["a", "b"], openTabIds: ["a", "b"], recentIds: ["b", "c"] })).toBe("c");
+  });
+
+  it("finds nothing when no other thread exists or four panes are already shown", () => {
+    expect(nextSplitCandidate({ activeId: "a", shownIds: [], openTabIds: ["a"], recentIds: ["a"] })).toBeNull();
+    expect(nextSplitCandidate({ activeId: "a", shownIds: ["a", "b", "c", "d"], openTabIds: [], recentIds: ["e"] })).toBeNull();
+  });
+});
+
+describe("resizing split panes", () => {
+  it("moves only the divider being dragged and keeps the pair's total", () => {
+    expect(resizeSplitChildren([1, 1, 1], 0, 0.5)).toEqual([1.5, 0.5, 1]);
+  });
+
+  it("never squeezes a pane below the minimum, so it cannot vanish under the divider", () => {
+    const [left, right] = resizeSplitChildren([1, 1], 0, 0.99);
+    expect(right / (left + right)).toBeCloseTo(0.12);
+    expect(resizeSplitChildren([1, 1], 0, -1)[0] / 2).toBeCloseTo(0.12);
+  });
+
+  it("stores sizes on the split at the dragged path and survives saving", () => {
+    const tree = splitLayoutTree("main-left", ["a", "b", "c"]);
+    const resized = setSplitSizesAt(tree, [1], [2, 1]);
+    expect(resized).toMatchObject({ kind: "split", children: [pane("a"), { kind: "split", sizes: [2, 1] }] });
+    expect(JSON.parse(JSON.stringify(resized))).toEqual(resized);
+  });
+
+  it("falls back to equal sizes when saved sizes no longer match the panes", () => {
+    const resized = setSplitSizesAt(insertSplitPane(null, "a", "b", "right"), [], [3, 1]);
+    const withThird = insertSplitPane(resized, "b", "c", "right");
+    if (!withThird || withThird.kind !== "split") throw new Error("expected split");
+    expect(splitChildSizes(withThird)).toEqual([1, 1, 1]);
+    expect(splitChildSizes({ kind: "split", direction: "row", children: [pane("a"), pane("b")], sizes: [1, Number.NaN] })).toEqual([1, 1]);
   });
 });

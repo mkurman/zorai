@@ -212,8 +212,23 @@ fn empty_tool_result_is_sent_as_placeholder_because_gemini_rejects_empty_text_pa
         name: Some("read_file".into()),
         tool_calls: None,
     };
-    let body = build_gemini_interaction_body("gemini-3.8-flash", "", &[tool], &[], true, Some("v1_prev"));
+    let body =
+        build_gemini_interaction_body("gemini-3.8-flash", "", &[tool], &[], true, Some("v1_prev"));
 
     assert_eq!(body["input"][0]["type"], "function_result");
     assert_eq!(body["input"][0]["result"][0]["text"], "(empty result)");
+}
+
+#[test]
+fn gemini_receives_inline_video_as_a_video_part() {
+    let part = block_to_part(&serde_json::json!({
+        "type": "input_video",
+        "video_url": "data:video/webm;base64,AAAA",
+        "mime_type": "video/mp4",
+    }))
+    .expect("video part");
+    assert_eq!(
+        part,
+        serde_json::json!({ "type": "video", "data": "AAAA", "mime_type": "video/webm" })
+    );
 }

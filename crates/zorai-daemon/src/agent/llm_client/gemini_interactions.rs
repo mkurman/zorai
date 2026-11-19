@@ -273,6 +273,30 @@ fn block_to_part(block: &serde_json::Value) -> Option<serde_json::Value> {
                 "mime_type": mime_from_url(url, "audio/mp3"),
             }))
         }
+        "input_video" => {
+            let url = block
+                .get("video_url")
+                .and_then(|value| value.as_str())?
+                .trim();
+            let fallback_mime = block
+                .get("mime_type")
+                .and_then(|value| value.as_str())
+                .unwrap_or("video/mp4");
+            if let Some(rest) = url.strip_prefix("data:") {
+                let (meta, data) = rest.split_once(',')?;
+                let mime = meta
+                    .split(';')
+                    .next()
+                    .filter(|value| !value.is_empty())
+                    .unwrap_or(fallback_mime);
+                return Some(
+                    serde_json::json!({ "type": "video", "data": data, "mime_type": mime }),
+                );
+            }
+            (url.starts_with("http://") || url.starts_with("https://")).then(
+                || serde_json::json!({ "type": "video", "uri": url, "mime_type": fallback_mime }),
+            )
+        }
         _ => None,
     }
 }

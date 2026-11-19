@@ -1315,3 +1315,24 @@ fn provider_allows_unlisted_models_for_runtime_catalog_providers() {
     assert!(!provider_allows_unlisted_models(PROVIDER_ID_OPENROUTER));
     assert!(!provider_allows_unlisted_models(PROVIDER_ID_ANTHROPIC));
 }
+
+#[test]
+fn user_modalities_make_a_pasted_custom_model_multimodal_without_touching_others() {
+    let custom = "my-org/pasted-video-model-for-test";
+    assert_eq!(model_modalities("openrouter", custom), TEXT_ONLY);
+    let mut overrides = std::collections::BTreeMap::new();
+    overrides.insert(
+        model_modality_key("openrouter", custom),
+        vec![Modality::Video, Modality::Image],
+    );
+    set_model_modality_overrides(&overrides);
+    assert_eq!(
+        model_modalities("openrouter", custom),
+        &[Modality::Text, Modality::Image, Modality::Video]
+    );
+    assert!(model_supports("openrouter", custom, Modality::Video));
+    assert!(!model_supports("openrouter", custom, Modality::Audio));
+    assert_eq!(model_modalities("groq", custom), TEXT_ONLY);
+    set_model_modality_overrides(&std::collections::BTreeMap::new());
+    assert_eq!(model_modalities("openrouter", custom), TEXT_ONLY);
+}

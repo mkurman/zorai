@@ -106,7 +106,8 @@ pub(super) fn begin_custom_model_edit(model: &mut TuiModel) {
         .reduce(SettingsAction::SwitchTab(SettingsTab::Agent));
     model.settings_navigate_to(3);
     model.settings.start_editing("custom_model_entry", &current);
-    model.status_line = "Enter custom model as `Name | ID` or just `ID`".to_string();
+    model.status_line =
+        "Enter custom model as `Name | ID`, `ID`, or `Name | ID | image,video,audio`".to_string();
 }
 
 fn json_array_contains_modality(value: Option<&serde_json::Value>, modality: &str) -> bool {

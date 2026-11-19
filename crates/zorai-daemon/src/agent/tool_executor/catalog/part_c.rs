@@ -240,6 +240,31 @@ pub(crate) fn add_available_tools_part_c(
         ));
     }
 
+    if image_analysis_enabled
+        || crate::agent::types::model_supports(
+            &config.provider,
+            &config.model,
+            crate::agent::types::Modality::Video,
+        )
+    {
+        tools.push(tool_def(
+            tool_names::ANALYZE_VIDEO,
+            "Analyze a video (exactly one of `path` or `url`). Uses the model directly if it can watch video, else sampled frames plus an audio transcript.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string" },
+                    "url": { "type": "string", "description": "http(s) URL" },
+                    "prompt": { "type": "string" },
+                    "frames": { "type": "integer", "minimum": 1, "maximum": 32, "description": "Frames to sample (default 8)" },
+                    "include_transcript": { "type": "boolean", "description": "Default true" },
+                    "provider": { "type": "string", "description": "Only if the operator specifies it" },
+                    "model": { "type": "string", "description": "Only if the operator specifies it" }
+                }
+            }),
+        ));
+    }
+
     if image_generation_enabled {
         tools.push(tool_def(
             tool_names::GENERATE_IMAGE,

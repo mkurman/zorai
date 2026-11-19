@@ -477,6 +477,7 @@ pub(crate) fn api_message_to_text(message: &ApiMessage) -> Option<String> {
                                 |block_type| match block_type {
                                     "input_image" => Some("[image attachment]"),
                                     "input_audio" => Some("[audio attachment]"),
+                                    "input_video" => Some("[video attachment]"),
                                     _ => None,
                                 },
                             )
