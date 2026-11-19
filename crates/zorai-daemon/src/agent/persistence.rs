@@ -193,6 +193,16 @@ impl AgentEngine {
         self: &Arc<Self>,
         schedule_participant_observer_restore: bool,
     ) -> Result<()> {
+        let work_context_path = self.data_dir.join("work-context.json");
+        let work_context_load =
+            tokio::task::spawn_blocking(move || {
+                if !work_context_path.exists() {
+                    return None;
+                }
+                Some(std::fs::read_to_string(&work_context_path).map(|raw| {
+                    serde_json::from_str::<HashMap<String, ThreadWorkContext>>(&raw).ok()
+                }))
+            });
         match self.history.list_agent_config_items().await {
             Ok(items) if !items.is_empty() => {
                 match super::config::load_config_from_items_with_weles_cleanup(items) {
@@ -223,42 +233,6 @@ impl AgentEngine {
         match self.history.list_threads().await {
             Ok(thread_rows) if !thread_rows.is_empty() => {
                 let mut threads = HashMap::new();
-                let thread_ids = thread_rows
-                    .iter()
-                    .map(|thread_row| thread_row.id.clone())
-                    .collect::<Vec<_>>();
-                let thread_structural_memories = match self
-                    .history
-                    .list_thread_structural_memory_for_threads(&thread_ids)
-                    .await
-                {
-                    Ok(rows) => rows
-                        .into_iter()
-                        .filter_map(|row| {
-                            match serde_json::from_value::<
-                                crate::agent::context::structural_memory::ThreadStructuralMemory,
-                            >(row.state_json)
-                            {
-                                Ok(state) => Some((row.thread_id, state)),
-                                Err(error) => {
-                                    tracing::warn!(
-                                        thread_id = %row.thread_id,
-                                        %error,
-                                        "failed to hydrate thread structural memory"
-                                    );
-                                    None
-                                }
-                            }
-                        })
-                        .collect::<HashMap<_, _>>(),
-                    Err(error) => {
-                        tracing::warn!(
-                            %error,
-                            "failed to bulk hydrate thread structural memory"
-                        );
-                        HashMap::new()
-                    }
-                };
                 let mut thread_message_hydration_pending = HashSet::new();
                 let mut handoff_states = HashMap::new();
                 let mut thread_participants = HashMap::new();
@@ -380,7 +354,7 @@ impl AgentEngine {
                 *self.thread_skill_discovery_states.write().await = thread_skill_discovery_states;
                 *self.thread_memory_injection_state_map().write().await =
                     thread_memory_injection_states;
-                *self.thread_structural_memories.write().await = thread_structural_memories;
+                self.thread_structural_memories.write().await.clear();
                 let trimmed_playground_threads = self
                     .trim_persisted_participant_playground_threads_on_hydrate()
                     .await;
@@ -672,18 +646,10 @@ impl AgentEngine {
             }
         }
 
-        let work_context_path = self.data_dir.join("work-context.json");
-        if work_context_path.exists() {
-            match tokio::fs::read_to_string(&work_context_path).await {
-                Ok(raw) => {
-                    if let Ok(items) =
-                        serde_json::from_str::<HashMap<String, ThreadWorkContext>>(&raw)
-                    {
-                        *self.thread_work_contexts.write().await = items;
-                    }
-                }
-                Err(e) => tracing::warn!("failed to load thread work context: {e}"),
-            }
+        match work_context_load.await {
+            Ok(Some(Ok(Some(items)))) => *self.thread_work_contexts.write().await = items,
+            Ok(Some(Err(e))) => tracing::warn!("failed to load thread work context: {e}"),
+            _ => {}
         }
 
         match self.history.list_gateway_thread_bindings().await {

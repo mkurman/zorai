@@ -85,6 +85,9 @@ pub(crate) async fn execute_python_execute(
             auto_background,
             agent,
             thread_id,
+            args.get("notify_on_completion")
+                .and_then(|value| value.as_bool())
+                .unwrap_or(true),
         )
         .await;
     }
@@ -225,6 +228,7 @@ pub(crate) async fn execute_python_execute(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn spawn_python_execute_background(
     python_bin: &str,
     code: &str,
@@ -233,51 +237,74 @@ async fn spawn_python_execute_background(
     auto_background: bool,
     agent: &AgentEngine,
     thread_id: &str,
+    notify_on_completion: bool,
 ) -> Result<(String, Option<ToolPendingApproval>)> {
-    let operation =
-        crate::server::operation_registry().accept_operation(tool_names::PYTHON_EXECUTE, None);
-    let operation_id = operation.operation_id.clone();
+    #[cfg(unix)]
+    let operation_id = spawn_detached_operation(DetachedLaunch {
+        tool_name: tool_names::PYTHON_EXECUTE,
+        interpreter: vec![python_bin.to_string()],
+        script_name: "script.py",
+        script: code,
+        display_command: code
+            .lines()
+            .find(|line| !line.trim().is_empty())
+            .unwrap_or("python")
+            .trim(),
+        cwd: cwd.as_deref(),
+        thread_id: Some(thread_id),
+        notify_on_completion,
+    })
+    .await?;
+    #[cfg(not(unix))]
+    let operation_id = {
+        let _ = notify_on_completion;
+        let operation =
+            crate::server::operation_registry().accept_operation(tool_names::PYTHON_EXECUTE, None);
+        let operation_id = operation.operation_id.clone();
 
-    let mut process = tokio::process::Command::new(python_bin);
-    process
-        .arg("-c")
-        .arg(code)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true);
-    if let Some(cwd) = cwd.as_deref() {
-        process.current_dir(cwd);
-    }
-
-    let mut child = match process.spawn() {
-        Ok(child) => child,
-        Err(error) => {
-            crate::server::operation_registry().mark_failed(&operation_id);
-            return Err(error).with_context(|| format!("failed to spawn {python_bin} subprocess"));
+        let mut process = tokio::process::Command::new(python_bin);
+        process
+            .arg("-c")
+            .arg(code)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
+        if let Some(cwd) = cwd.as_deref() {
+            process.current_dir(cwd);
         }
-    };
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| anyhow::anyhow!("python_execute stdout capture was unavailable"))?;
-    let stderr = child
-        .stderr
-        .take()
-        .ok_or_else(|| anyhow::anyhow!("python_execute stderr capture was unavailable"))?;
-    let stdout_capture = spawn_headless_output_capture(stdout);
-    let stderr_capture = spawn_headless_output_capture(stderr);
 
-    crate::server::operation_registry().mark_started(&operation_id);
-    spawn_python_execute_monitor(
-        operation_id.clone(),
-        python_bin.to_string(),
-        code,
-        cwd.clone(),
-        child,
-        stdout_capture,
-        stderr_capture,
-    );
+        let mut child = match process.spawn() {
+            Ok(child) => child,
+            Err(error) => {
+                crate::server::operation_registry().mark_failed(&operation_id);
+                return Err(error)
+                    .with_context(|| format!("failed to spawn {python_bin} subprocess"));
+            }
+        };
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("python_execute stdout capture was unavailable"))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("python_execute stderr capture was unavailable"))?;
+        let stdout_capture = spawn_headless_output_capture(stdout);
+        let stderr_capture = spawn_headless_output_capture(stderr);
+
+        crate::server::operation_registry().mark_started(&operation_id);
+        spawn_python_execute_monitor(
+            operation_id.clone(),
+            python_bin.to_string(),
+            code,
+            cwd.clone(),
+            child,
+            stdout_capture,
+            stderr_capture,
+        );
+        operation_id
+    };
 
     let cwd_suffix = cwd
         .as_ref()

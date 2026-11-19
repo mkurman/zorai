@@ -247,6 +247,7 @@ export interface ZoraiSettings {
   uiFontScale: UiFontScale;
   nightMode: NightModePreference;
   chatWidth: ChatWidthPreference;
+  scrollToLatestToolOnExpand: boolean;
   startupView: StartupViewPreference;
   railLayout: ItemLayout;
   composerLayout: ItemLayout;
@@ -311,6 +312,7 @@ export const DEFAULT_SETTINGS: ZoraiSettings = {
   uiFontScale: 1,
   nightMode: "on",
   chatWidth: "full",
+  scrollToLatestToolOnExpand: true,
   startupView: "threads",
   railLayout: EMPTY_ITEM_LAYOUT,
   composerLayout: EMPTY_ITEM_LAYOUT,

@@ -2525,7 +2525,9 @@ pub(crate) async fn execute_message_agent(
                     .thread_is_idle_for_subagent_wakeup(&sibling_thread_id)
                     .await
                 {
-                    agent.release_idle_stream_for_wakeup(&sibling_thread_id).await;
+                    agent
+                        .release_idle_stream_for_wakeup(&sibling_thread_id)
+                        .await;
                 }
                 if let Err(error) = agent
                     .flush_deferred_visible_thread_continuations(&sibling_thread_id)

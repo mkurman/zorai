@@ -5561,6 +5561,27 @@
   cursor: pointer;
 }
 
+.zorai-tool-artifact__source {
+  color: var(--zorai-muted);
+  font-size: var(--text-2xs);
+}
+
+.zorai-tool-artifact__action {
+  padding: 2px 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--zorai-muted);
+  font: inherit;
+  font-size: var(--text-2xs);
+  cursor: pointer;
+}
+
+.zorai-tool-artifact__action:hover {
+  color: var(--zorai-text, var(--text-primary));
+  background: color-mix(in srgb, var(--zorai-muted) 14%, transparent);
+}
+
 .zorai-raw-tool-payload {
   display: grid;
   gap: 8px;

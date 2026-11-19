@@ -71,6 +71,7 @@ export type ToolEventGroup = {
   status: "requested" | "executing" | "done" | "error";
   resultContent: string;
   createdAt: number;
+  completedAt?: number;
   welesReview?: WelesReviewMeta;
 };
 

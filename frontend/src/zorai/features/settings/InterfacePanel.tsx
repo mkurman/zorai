@@ -148,6 +148,16 @@ export function InterfacePanel() {
             ))}
           </select>
         </SettingRow>
+        <SettingRow label="Expand to Latest Tool Call" description="When you expand a turn's tool calls, scroll the view so the most recent call is visible.">
+          <button
+            type="button"
+            className={["zorai-switch", settings.scrollToLatestToolOnExpand ? "zorai-switch--on" : ""].filter(Boolean).join(" ")}
+            aria-pressed={settings.scrollToLatestToolOnExpand}
+            onClick={() => updateSetting("scrollToLatestToolOnExpand", !settings.scrollToLatestToolOnExpand)}
+          >
+            <span />
+          </button>
+        </SettingRow>
         <SettingRow label="Night Mode" description="Default stays on. Auto follows the system appearance preference.">
           <select
             className="zorai-input"

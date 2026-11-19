@@ -1466,6 +1466,78 @@ async fn ask_operator_question_rejects_non_compact_button_tokens() {
 }
 
 #[tokio::test]
+async fn structural_memory_is_not_parsed_at_hydrate_but_survives_rehydrate_and_thread_persist() {
+    let (engine, temp_dir) = make_test_engine(AgentConfig::default()).await;
+    let thread_id = "thread-lazy-structural-memory";
+    engine.threads.write().await.insert(
+        thread_id.to_string(),
+        AgentThread {
+            id: thread_id.to_string(),
+            agent_name: Some(crate::agent::agent_identity::MAIN_AGENT_NAME.to_string()),
+            title: "Lazy Structural Memory".to_string(),
+            messages: vec![AgentMessage::user("hello", 1_000)],
+            pinned: false,
+            upstream_thread_id: None,
+            upstream_transport: None,
+            upstream_provider: None,
+            upstream_model: None,
+            upstream_assistant_id: None,
+            created_at: 1_000,
+            updated_at: 1_000,
+            total_input_tokens: 0,
+            total_output_tokens: 0,
+        },
+    );
+    let state = crate::agent::context::structural_memory::ThreadStructuralMemory {
+        language_hints: vec!["rust".to_string()],
+        ..Default::default()
+    };
+    engine
+        .thread_structural_memories
+        .write()
+        .await
+        .insert(thread_id.to_string(), state.clone());
+    engine.persist_thread_by_id(thread_id).await;
+
+    let rehydrated = AgentEngine::new_test(
+        SessionManager::new_test(temp_dir.path()).await,
+        AgentConfig::default(),
+        temp_dir.path(),
+    )
+    .await;
+    rehydrated.hydrate().await.expect("hydrate should succeed");
+
+    assert!(
+        rehydrated
+            .thread_structural_memories
+            .read()
+            .await
+            .is_empty(),
+        "hydrate must not bulk-parse structural memory; it blocks client readiness at startup"
+    );
+
+    rehydrated.persist_thread_by_id(thread_id).await;
+    assert_eq!(
+        rehydrated.get_thread_structural_memory(thread_id).await,
+        Some(state.clone()),
+        "persisting a thread before its structural memory is touched must not delete the stored state"
+    );
+
+    let fresh = AgentEngine::new_test(
+        SessionManager::new_test(temp_dir.path()).await,
+        AgentConfig::default(),
+        temp_dir.path(),
+    )
+    .await;
+    fresh.hydrate().await.expect("hydrate should succeed");
+    assert_eq!(
+        fresh.get_thread_structural_memory(thread_id).await,
+        Some(state),
+        "structural memory must still load on demand after another restart"
+    );
+}
+
+#[tokio::test]
 async fn task_and_file_tool_paths_populate_cross_thread_memory_graph() {
     let (engine, temp_dir) = make_test_engine(AgentConfig::default()).await;
 

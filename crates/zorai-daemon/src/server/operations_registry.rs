@@ -72,6 +72,23 @@ impl OperationRegistry {
         (record, true)
     }
 
+    pub(crate) fn restore_operation(&self, operation_id: &str, kind: &str) {
+        let mut records = self
+            .records
+            .lock()
+            .expect("operation records mutex poisoned");
+        records
+            .entry(operation_id.to_string())
+            .or_insert_with(|| OperationRecord {
+                operation_id: operation_id.to_string(),
+                kind: kind.to_string(),
+                dedup: None,
+                state: zorai_protocol::OperationLifecycleState::Accepted,
+                revision: 0,
+                terminal_result: None,
+            });
+    }
+
     pub(crate) fn mark_started(&self, operation_id: &str) {
         self.update_state(
             operation_id,

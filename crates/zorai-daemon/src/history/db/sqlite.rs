@@ -393,7 +393,7 @@ fn txn_worker(
             return;
         }
     };
-    let txn = match conn.transaction() {
+    let txn = match conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate) {
         Ok(txn) => txn,
         Err(e) => {
             let _ = ready.send(Err(anyhow!("failed to begin transaction: {e}")));
@@ -531,6 +531,48 @@ mod tests {
         assert_eq!(mid[0].get::<i64>(0).unwrap(), 2);
         txn.commit().await.unwrap();
 
+        let rows = db
+            .query("SELECT COUNT(*) FROM t", Params::None)
+            .await
+            .unwrap();
+        assert_eq!(rows[0].get::<i64>(0).unwrap(), 2);
+    }
+
+    #[tokio::test]
+    async fn read_then_write_transaction_waits_for_a_concurrent_writer_instead_of_failing_busy() {
+        let (db, _dir) = open_writer().await;
+        db.execute_batch("PRAGMA journal_mode=WAL").await.unwrap();
+
+        let mut first = db.transaction().await.unwrap();
+        first
+            .query("SELECT COUNT(*) FROM t", Params::None)
+            .await
+            .unwrap();
+
+        let first_write = async {
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            first
+                .execute(
+                    "INSERT INTO t (id, name) VALUES (?1, ?2)",
+                    db_params![1_i64, "first"],
+                )
+                .await?;
+            first.commit().await
+        };
+        let second_write = async {
+            let mut second = db.transaction().await?;
+            second
+                .execute(
+                    "INSERT INTO t (id, name) VALUES (?1, ?2)",
+                    db_params![2_i64, "second"],
+                )
+                .await?;
+            second.commit().await
+        };
+        let (first_result, second_result) = tokio::join!(first_write, second_write);
+
+        first_result.expect("startup writers raced the skill sync into 'database is locked'");
+        second_result.expect("second writer should wait for the first and then commit");
         let rows = db
             .query("SELECT COUNT(*) FROM t", Params::None)
             .await

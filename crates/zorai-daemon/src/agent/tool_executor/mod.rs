@@ -7,6 +7,7 @@
 //! tools that can execute headlessly are included here.
 
 mod deferred_tools;
+mod detached_operations;
 #[path = "catalog/part_a.rs"]
 mod part_a;
 #[path = "catalog/part_b.rs"]
@@ -19,6 +20,8 @@ mod prelude;
 mod result_metadata;
 mod search_runtime;
 mod thread_tools;
+mod tool_intent;
+pub(crate) use tool_intent::*;
 
 fn tool_required_fields(parameters: &serde_json::Value) -> Vec<String> {
     parameters
@@ -354,6 +357,7 @@ pub(crate) async fn execute_media_tool_for_ipc(
 }
 
 pub(crate) use deferred_tools::*;
+pub(crate) use detached_operations::*;
 pub use execute_tool_impl::*;
 pub(crate) use file_tools::*;
 pub(crate) use gateway_workspace::*;

@@ -319,10 +319,20 @@ pub(crate) fn render_compact(
                 Span::raw(" "),
                 Span::styled(tool_icon.marker, theme.accent_assistant),
                 Span::raw("  "),
-                Span::styled(compact_tool_display_name(name), theme.fg_active),
-                Span::raw(" "),
-                Span::styled(status_text, status_style),
             ];
+            match tool_intent_label(msg.tool_arguments.as_deref()) {
+                Some(intent) => {
+                    header_spans.push(Span::styled(intent, theme.fg_active));
+                    header_spans.push(Span::raw(" "));
+                    header_spans.push(Span::styled(name.clone(), theme.fg_dim));
+                }
+                None => header_spans.push(Span::styled(
+                    compact_tool_display_name(name),
+                    theme.fg_active,
+                )),
+            }
+            header_spans.push(Span::raw(" "));
+            header_spans.push(Span::styled(status_text, status_style));
 
             if let Some(review) = msg
                 .weles_review
@@ -338,18 +348,20 @@ pub(crate) fn render_compact(
             if is_expanded {
                 let detail_indent = 4;
                 let detail_width = width.saturating_sub(detail_indent + 1);
+                let mut body: Vec<Line<'static>> = Vec::new();
 
                 if let Some(review) = msg.weles_review.as_ref() {
-                    render_weles_review_details(review, theme, detail_width, lines);
+                    render_weles_review_details(review, theme, detail_width, &mut body);
                 }
 
-                if let Some(args) = &msg.tool_arguments {
-                    if !args.is_empty() {
+                if let Some(args) = msg.tool_arguments.as_deref().map(args_without_intent) {
+                    let args = &args;
+                    if !args.is_empty() && args != "{}" {
                         if let Some(diff_lines) =
                             render_tool_edit_diff(name, args, theme, detail_width.max(1))
                         {
-                            lines.push(Line::from(vec![Span::styled("changes:", theme.fg_dim)]));
-                            lines.extend(diff_lines);
+                            body.push(Line::from(vec![Span::styled("changes:", theme.fg_dim)]));
+                            body.extend(diff_lines);
                         } else if let Some(structured_args) = render_tool_structured_json(
                             name,
                             ToolStructuredValueSource::Arguments,
@@ -357,18 +369,18 @@ pub(crate) fn render_compact(
                             theme,
                             detail_width.max(1),
                         ) {
-                            lines.push(Line::from(vec![Span::styled("args:", theme.fg_dim)]));
-                            lines.extend(structured_args);
+                            body.push(Line::from(vec![Span::styled("args:", theme.fg_dim)]));
+                            body.extend(structured_args);
                         } else {
                             let mut rendered_arg_lines =
                                 wrap_text(args, detail_width.max(1)).into_iter();
                             if let Some(first_line) = rendered_arg_lines.next() {
-                                lines.push(Line::from(vec![
+                                body.push(Line::from(vec![
                                     Span::styled("args: ", theme.fg_dim),
                                     Span::styled(first_line, theme.fg_active),
                                 ]));
                                 for line in rendered_arg_lines {
-                                    lines.push(Line::from(vec![
+                                    body.push(Line::from(vec![
                                         Span::styled("      ", theme.fg_dim),
                                         Span::styled(line, theme.fg_active),
                                     ]));
@@ -387,8 +399,8 @@ pub(crate) fn render_compact(
                         theme,
                         detail_width.max(1),
                     ) {
-                        lines.push(Line::from(vec![Span::styled("result:", theme.fg_dim)]));
-                        lines.extend(structured_result);
+                        body.push(Line::from(vec![Span::styled("result:", theme.fg_dim)]));
+                        body.extend(structured_result);
                     } else {
                         let mut result_line_index = 0usize;
                         for result_line in result_text.lines() {
@@ -399,7 +411,7 @@ pub(crate) fn render_compact(
                                 } else {
                                     "        "
                                 };
-                                lines.push(Line::from(vec![
+                                body.push(Line::from(vec![
                                     Span::styled(prefix.to_string(), theme.fg_dim),
                                     Span::styled(wrapped_line, theme.fg_active),
                                 ]));
@@ -407,6 +419,12 @@ pub(crate) fn render_compact(
                             }
                         }
                     }
+                }
+
+                for mut line in body {
+                    line.spans
+                        .insert(0, Span::styled("  \u{2502} ", theme.fg_dim));
+                    lines.push(line);
                 }
             }
         }
@@ -610,6 +628,53 @@ pub(crate) fn format_compact_tool_status(
     }
 }
 
+const TOOL_INTENT_MAX_WORDS: usize = 7;
+
+pub(crate) fn args_without_intent(arguments: &str) -> String {
+    let Ok(serde_json::Value::Object(mut map)) = serde_json::from_str(arguments) else {
+        return arguments.to_string();
+    };
+    if map.remove("intent").is_none() {
+        return arguments.to_string();
+    }
+    serde_json::Value::Object(map).to_string()
+}
+
+pub(crate) fn tool_intent_label(arguments: Option<&str>) -> Option<String> {
+    const KEY: &str = "\"intent\"";
+    arguments?
+        .match_indices(KEY)
+        .find_map(|(index, _)| intent_value_after_key(&arguments?[index + KEY.len()..]))
+}
+
+fn intent_value_after_key(after_key: &str) -> Option<String> {
+    let after_colon = after_key.trim_start().strip_prefix(':')?.trim_start();
+    if !after_colon.starts_with('"') {
+        return None;
+    }
+    let mut escaped = false;
+    let mut end = None;
+    for (index, ch) in after_colon.char_indices().skip(1) {
+        match ch {
+            '\\' if !escaped => escaped = true,
+            '"' if !escaped => {
+                end = Some(index);
+                break;
+            }
+            _ => escaped = false,
+        }
+    }
+    let intent: String = serde_json::from_str(&after_colon[..=end?]).ok()?;
+    let words = intent.split_whitespace().collect::<Vec<_>>();
+    if words.is_empty() {
+        return None;
+    }
+    if words.len() <= TOOL_INTENT_MAX_WORDS {
+        return Some(words.join(" "));
+    }
+    Some(format!("{}…", words[..TOOL_INTENT_MAX_WORDS - 1].join(" ")))
+}
+
 pub(crate) fn compact_tool_display_name(name: &str) -> String {
     name.split('_')
         .filter(|word| !word.is_empty())
@@ -629,6 +694,57 @@ pub(crate) fn format_tool_status(status: &str, theme: &ThemeTokens) -> (&'static
         "completed" | "done" | "success" => ("\u{2713} done", theme.accent_success),
         "error" | "failed" => ("\u{2717} error", theme.accent_danger),
         _ => ("\u{25cf} running", theme.accent_secondary),
+    }
+}
+
+#[cfg(test)]
+mod tool_intent_tests {
+    use super::tool_intent_label;
+
+    #[test]
+    fn model_intent_replaces_the_tool_name_when_present() {
+        assert_eq!(
+            tool_intent_label(Some(r#"{"path":"a.rs","intent":"Reading the parser"}"#)).as_deref(),
+            Some("Reading the parser")
+        );
+    }
+
+    #[test]
+    fn long_intents_are_cut_to_six_words_and_an_ellipsis() {
+        assert_eq!(
+            tool_intent_label(Some(
+                r#"{"intent":"one two three four five six seven eight"}"#
+            ))
+            .as_deref(),
+            Some("one two three four five six…")
+        );
+    }
+
+    #[test]
+    fn escaped_quotes_are_decoded_and_nested_lookalikes_ignored() {
+        assert_eq!(
+            tool_intent_label(Some(r#"{"intent":"Checking \"main\" branch"}"#)).as_deref(),
+            Some("Checking \"main\" branch")
+        );
+        assert_eq!(
+            tool_intent_label(Some(r#"{"content":"{\"intent\":\"fake\"}"}"#)),
+            None
+        );
+    }
+
+    #[test]
+    fn an_intent_value_does_not_hide_a_later_intent_key() {
+        assert_eq!(
+            tool_intent_label(Some(r#"{"mode":"intent","intent":"Saving notes"}"#)).as_deref(),
+            Some("Saving notes")
+        );
+    }
+
+    #[test]
+    fn missing_or_empty_intent_falls_back_to_the_tool_name() {
+        assert_eq!(tool_intent_label(Some(r#"{"path":"a.rs"}"#)), None);
+        assert_eq!(tool_intent_label(Some(r#"{"intent":"  "}"#)), None);
+        assert_eq!(tool_intent_label(None), None);
     }
 }
 

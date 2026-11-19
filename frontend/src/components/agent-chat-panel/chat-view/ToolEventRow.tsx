@@ -13,6 +13,7 @@ import {
 } from "./toolValuePresentation";
 import { usePresence } from "@/hooks/usePresence";
 import { useToolRevealStore } from "./toolRevealStore";
+import { humanizeToolName, toolIntentLabel } from "./activityPreview";
 
 export function ToolEventRow({ group }: { group: ToolEventGroup }) {
   const [collapsed, setCollapsed] = useState(true);
@@ -51,7 +52,8 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
     ? "acp-tool-review--blocked"
     : "acp-tool-review--flagged";
 
-  const toolName = useMemo(() => group.toolName.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" "), [group.toolName]);
+  const toolName = useMemo(() => humanizeToolName(group.toolName), [group.toolName]);
+  const intent = useMemo(() => toolIntentLabel(group.toolArguments), [group.toolArguments]);
 
   return (
     <div ref={rowRef} className={revealed ? "acp-tool-row acp-tool-row--revealed" : "acp-tool-row"}>
@@ -63,7 +65,8 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
           onClick={() => setCollapsed((prev) => !prev)}
         >
           <span className={collapsed ? "acp-tool-row__caret zorai-motion-caret" : "acp-tool-row__caret zorai-motion-caret is-open"}>▶</span>
-          <span className="acp-tool-row__name">{toolName}</span>
+          <span className="acp-tool-row__name" title={intent ? toolName : undefined}>{intent || toolName}</span>
+          {intent ? <span className="acp-tool-row__tool">{group.toolName}</span> : null}
         </button>
         <ToolArtifactChips artifacts={artifacts} createdAt={group.createdAt} compact />
         <div className="acp-tool-row__status">
@@ -86,20 +89,18 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
         <div data-closing={presence.closing || undefined} className="acp-tool-row__body zorai-reveal">
           {reviewPresentation && (
             <div className={`acp-tool-review ${reviewToneClass}`}>
-              <div className="acp-tool-review__header">
-                <span className="acp-tool-review__title">{reviewPresentation.badgeLabel}</span>
-                {reviewPresentation.overrideLabel && (
-                  <span className="acp-pill--outline acp-pill">{reviewPresentation.overrideLabel}</span>
-                )}
-                {reviewPresentation.degradedLabel && (
-                  <span className="acp-pill--outline acp-pill">{reviewPresentation.degradedLabel}</span>
-                )}
-                {reviewPresentation.auditLabel && (
-                  <span className="acp-tool-review__audit">{reviewPresentation.auditLabel}</span>
-                )}
-              </div>
+              <span className="acp-tool-review__title">{reviewPresentation.badgeLabel}</span>
+              {reviewPresentation.overrideLabel && (
+                <span className="acp-tool-review__tag">{reviewPresentation.overrideLabel}</span>
+              )}
+              {reviewPresentation.degradedLabel && (
+                <span className="acp-tool-review__tag">{reviewPresentation.degradedLabel}</span>
+              )}
+              {reviewPresentation.auditLabel && (
+                <span className="acp-tool-review__audit">{reviewPresentation.auditLabel}</span>
+              )}
               {reviewPresentation.reasonText && (
-                <div className="acp-tool-review__reason">{reviewPresentation.reasonText}</div>
+                <span className="acp-tool-review__reason">{reviewPresentation.reasonText}</span>
               )}
             </div>
           )}
@@ -152,6 +153,7 @@ export function sameToolEventGroup(prev: ToolEventGroup, next: ToolEventGroup): 
     && prev.resultContent === next.resultContent
     && prev.status === next.status
     && prev.createdAt === next.createdAt
+    && prev.completedAt === next.completedAt
     && prev.welesReview === next.welesReview
     && prev.key === next.key;
 }
@@ -166,13 +168,12 @@ function expandedToolDetails(toolName: string, toolArguments: string, resultCont
   const structuredArgs = toolArguments
     ? getToolStructuredFields(toolName, toolArguments, "arguments")
     : null;
-  const structuredArgDetails = fileTarget && structuredArgs
-    ? structuredArgs.filter((field) => field.key !== "path")
-    : structuredArgs;
+  const visibleArgs = structuredArgs?.filter((field) => field.key !== "intent" && !(fileTarget && field.key === "path"));
+  const structuredArgDetails = visibleArgs && visibleArgs.length > 0 ? visibleArgs : null;
   const structuredResult = resultContent
     ? getToolStructuredFields(toolName, resultContent, "result")
     : null;
-  const formattedArguments = !fileTarget && !toolDiff && !structuredArgDetails && toolArguments
+  const formattedArguments = !fileTarget && !toolDiff && !structuredArgs && toolArguments
     ? formatToolJson(toolArguments)
     : null;
   return { toolDiff, fileTarget, structuredArgDetails, structuredResult, formattedArguments };

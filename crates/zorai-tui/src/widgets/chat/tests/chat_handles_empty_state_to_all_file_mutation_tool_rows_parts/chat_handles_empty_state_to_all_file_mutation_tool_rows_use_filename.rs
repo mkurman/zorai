@@ -387,12 +387,15 @@ fn tool_file_path_chip_prefers_tool_output_preview_path_metadata() {
 
     let chip = tool_file_chip(&message).expect("preview-backed tool result should expose a chip");
     assert_eq!(chip.path, preview_path.display().to_string());
-    assert_eq!(
-        chip.label,
-        preview_path
-            .file_name()
-            .and_then(|value| value.to_str())
-            .expect("preview file should have a basename")
+    assert!(
+        chip.label.starts_with("bash_command-") && chip.label.ends_with(".txt"),
+        "long preview names keep their start and extension: {}",
+        chip.label
+    );
+    assert!(
+        chip.label.chars().count() <= crate::widgets::chat::TOOL_FILE_LABEL_MAX_CHARS,
+        "long preview names are trimmed so tool rows stay on one line: {}",
+        chip.label
     );
 
     let chat = chat_with_messages(vec![message]);
@@ -493,4 +496,80 @@ fn all_file_mutation_tool_rows_use_filename_chip() {
             "unexpected full path chip for {tool_name}, got: {text}"
         );
     }
+}
+
+#[test]
+fn long_tool_file_labels_keep_start_and_distinguishing_end_within_budget() {
+    let label = crate::widgets::chat::file_name_label(
+        "/tmp/fetch-raw-githubusercontent-com-sarulab-speech-jsut-label-master-t-1795069342.txt",
+    );
+    assert_eq!(label, "fetch-raw-githubuse…95069342.txt");
+    assert!(label.chars().count() <= crate::widgets::chat::TOOL_FILE_LABEL_MAX_CHARS);
+}
+
+#[test]
+fn short_tool_file_labels_are_unchanged() {
+    assert_eq!(
+        crate::widgets::chat::file_name_label("/repo/SUMMARY.json"),
+        "SUMMARY.json"
+    );
+}
+
+#[test]
+fn long_names_without_a_short_extension_still_fit() {
+    let label = crate::widgets::chat::file_name_label(
+        "/tmp/python-goal_b3110440-0d64-4059-a012-0910b4d33d73-1795115644",
+    );
+    assert!(label.starts_with("python-goal_b3110440"));
+    assert!(label.ends_with("95115644"));
+    assert_eq!(
+        label.chars().count(),
+        crate::widgets::chat::TOOL_FILE_LABEL_MAX_CHARS
+    );
+}
+
+#[test]
+fn expanded_tool_with_intent_names_the_tool_and_groups_details_without_repeating_intent() {
+    let mut chat = chat_with_messages(vec![AgentMessage {
+        role: MessageRole::Tool,
+        tool_name: Some("get_operation_status".into()),
+        tool_status: Some("done".into()),
+        tool_arguments: Some(
+            serde_json::json!({ "operation_id": "op124", "intent": "Read live QC result" })
+                .to_string(),
+        ),
+        content: serde_json::json!({ "state": "completed" }).to_string(),
+        ..Default::default()
+    }]);
+    chat.toggle_tool_expansion(0);
+
+    let (lines, _) = build_rendered_lines(&chat, &ThemeTokens::default(), 100, 0, false);
+    let texts = lines
+        .iter()
+        .filter(|line| line.message_index == Some(0))
+        .map(rendered_line_plain_text)
+        .collect::<Vec<_>>();
+    let header_index = texts
+        .iter()
+        .position(|text| text.contains("Read live QC result"))
+        .expect("header should show the intent");
+    assert!(
+        texts[header_index].contains("get_operation_status"),
+        "the real tool name stays visible next to the intent: {}",
+        texts[header_index]
+    );
+    let details = &texts[header_index + 1..];
+    assert!(details.iter().any(|text| text.contains("op124")));
+    assert!(details.iter().any(|text| text.contains("completed")));
+    assert!(
+        details
+            .iter()
+            .filter(|text| !text.trim().is_empty())
+            .all(|text| text.contains('\u{2502}')),
+        "expanded details sit under one gutter so they read as part of the tool row: {details:?}"
+    );
+    assert!(
+        !details.iter().any(|text| text.contains("intent")),
+        "intent is already the title and must not repeat in args: {details:?}"
+    );
 }
