@@ -342,6 +342,7 @@ pub(super) fn known_models_for_provider_auth(
         PROVIDER_ID_CHUTES => &[("deepseek-ai/DeepSeek-R1", "DeepSeek R1", 128_000)],
         PROVIDER_ID_GEMINI => &[
             ("gemini-4-carbon", "Gemini 4 Carbon", 1_048_576),
+            ("gemini-4-neon", "Gemini 4 Neon", 1_048_576),
             ("gemini-4-argon", "Gemini 4 Argon", 1_048_576),
             ("gemini-4-hydrogen", "Gemini 4 Hydrogen", 1_048_576),
             ("gemini-3.8-flash", "Gemini 3.8 Flash", 1_048_576),

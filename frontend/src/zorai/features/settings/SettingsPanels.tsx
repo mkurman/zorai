@@ -49,6 +49,7 @@ import {
   getDefaultAuthSource,
   getDefaultModelForProvider,
   getProviderDefinition,
+  getProviderModels,
   getSupportedApiTransports,
   normalizeApiTransport,
 } from "@/lib/agentStore/providers";
@@ -94,7 +95,7 @@ export const conciergeReasoningEffortOptions: Array<{ value: AgentSettings["reas
   { value: "xhigh", label: "xhigh" },
   { value: "max", label: "max" },
 ];
-const APP_VERSION = "1.1.8";
+const APP_VERSION = "1.1.9";
 const APP_AUTHOR = "Mariusz Kurman";
 const APP_GITHUB = "mkurman/zorai";
 const APP_HOMEPAGE = "zorai.app";
@@ -836,6 +837,10 @@ function MediaPanel() {
   const imageGenerationProviderConfig = getProviderConfig(agentSettings, agentSettings.image_generation_provider);
   const videoGenerationProviderConfig = getProviderConfig(agentSettings, agentSettings.video_generation_provider);
   const musicGenerationProviderConfig = getProviderConfig(agentSettings, agentSettings.music_generation_provider);
+  const imageUnderstandingProviderConfig = getProviderConfig(agentSettings, agentSettings.image_understanding_provider);
+  const videoUnderstandingProviderConfig = getProviderConfig(agentSettings, agentSettings.video_understanding_provider);
+  const understandingModelOptions = (providerId: AgentProviderId, auth_source: AuthSource, modality: "image" | "video") =>
+    getProviderModels(providerId, auth_source).filter((model) => model.modalities?.includes(modality));
   const providerHasDaemonAuth = (providerId: AgentProviderId) => providerAuthStates.some((state) => state.provider_id === providerId && state.authenticated);
 
   return (
@@ -931,6 +936,34 @@ function MediaPanel() {
           />
         </SettingRow>
       </Panel>
+      <Panel section="Images" title="Image understanding">
+        <SettingRow label="Vision Provider" description="Provider for the analyze_image tool. Main agent uses the main provider and model.">
+          <ProviderSelect
+            value={agentSettings.image_understanding_provider}
+            options={[{ id: "", label: "Main agent" }, ...providerOptions]}
+            fallbackOptions={providerIds}
+            onChange={(providerId) => {
+              updateAgentSetting("image_understanding_provider", providerId);
+              updateAgentSetting("image_understanding_model", "");
+            }}
+          />
+        </SettingRow>
+        {agentSettings.image_understanding_provider && (
+          <SettingRow label="Vision Model" description="Image-capable model. Empty uses the provider's configured model.">
+            <ModelSelector
+              providerId={agentSettings.image_understanding_provider}
+              value={agentSettings.image_understanding_model}
+              customName={imageUnderstandingProviderConfig.custom_model_name}
+              onChange={(value) => updateAgentSetting("image_understanding_model", value)}
+              base_url={imageUnderstandingProviderConfig.base_url}
+              api_key={imageUnderstandingProviderConfig.api_key}
+              auth_source={imageUnderstandingProviderConfig.auth_source}
+              allowProviderAuthFetch={providerHasDaemonAuth(agentSettings.image_understanding_provider)}
+              modelOptions={understandingModelOptions(agentSettings.image_understanding_provider, imageUnderstandingProviderConfig.auth_source, "image")}
+            />
+          </SettingRow>
+        )}
+      </Panel>
       <Panel section="Video" title="Video generation">
         <SettingRow label="Video Provider" description="Video generation provider. None keeps the video tool disabled.">
           <ProviderSelect
@@ -957,6 +990,34 @@ function MediaPanel() {
               modelOptions={videoGenerationModelOptions(agentSettings.video_generation_provider)}
               remoteModelFilter={(model) => filterFetchedModelsForVideoGeneration([model]).length > 0}
               fetchOutputModalities={videoRemoteModelFetchOutputModalities(agentSettings.video_generation_provider)}
+            />
+          </SettingRow>
+        )}
+      </Panel>
+      <Panel section="Video" title="Video understanding">
+        <SettingRow label="Video Analysis Provider" description="Provider for the analyze_video tool. Main agent uses the main provider and model.">
+          <ProviderSelect
+            value={agentSettings.video_understanding_provider}
+            options={[{ id: "", label: "Main agent" }, ...providerOptions]}
+            fallbackOptions={providerIds}
+            onChange={(providerId) => {
+              updateAgentSetting("video_understanding_provider", providerId);
+              updateAgentSetting("video_understanding_model", "");
+            }}
+          />
+        </SettingRow>
+        {agentSettings.video_understanding_provider && (
+          <SettingRow label="Video Analysis Model" description="Video-capable model; non-video models get extracted frames. Empty uses the provider's configured model.">
+            <ModelSelector
+              providerId={agentSettings.video_understanding_provider}
+              value={agentSettings.video_understanding_model}
+              customName={videoUnderstandingProviderConfig.custom_model_name}
+              onChange={(value) => updateAgentSetting("video_understanding_model", value)}
+              base_url={videoUnderstandingProviderConfig.base_url}
+              api_key={videoUnderstandingProviderConfig.api_key}
+              auth_source={videoUnderstandingProviderConfig.auth_source}
+              allowProviderAuthFetch={providerHasDaemonAuth(agentSettings.video_understanding_provider)}
+              modelOptions={understandingModelOptions(agentSettings.video_understanding_provider, videoUnderstandingProviderConfig.auth_source, "video")}
             />
           </SettingRow>
         )}

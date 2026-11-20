@@ -270,7 +270,8 @@ pub(crate) async fn execute_analyze_video(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .unwrap_or(DEFAULT_VIDEO_ANALYSIS_PROMPT);
-    let (provider_id, provider_config) = resolve_media_provider_config(agent, args, None).await?;
+    let (provider_id, provider_config) =
+        resolve_media_provider_config(agent, args, Some(MediaEndpoint::VideoUnderstanding)).await?;
     let transport = effective_multimodal_transport(&provider_id, &provider_config);
     let api_type = crate::agent::types::get_provider_api_type(
         &provider_id,

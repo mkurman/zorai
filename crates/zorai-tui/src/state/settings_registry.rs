@@ -310,10 +310,24 @@ const MEDIA_PAGE: SettingsPageSpec = SettingsPageSpec {
             ]
         ),
         section!(
+            "Image understanding",
+            [
+                field!(Text, "feat_image_understanding_provider", "Provider", c => raw_str(c, &["image", "understanding", "provider"], "main agent").to_string()),
+                field!(Text, "feat_image_understanding_model", "Model", c => raw_str(c, &["image", "understanding", "model"], "provider default").to_string()),
+            ]
+        ),
+        section!(
             "Video generation",
             [
                 field!(Picker, "feat_video_generation_provider", "Provider", c => or_default(c.video_generation_provider(), "minimax")),
                 field!(Picker, "feat_video_generation_model", "Model", c => or_default(c.video_generation_model(), "MiniMax-Hailuo-2.3")),
+            ]
+        ),
+        section!(
+            "Video understanding",
+            [
+                field!(Text, "feat_video_understanding_provider", "Provider", c => raw_str(c, &["video", "understanding", "provider"], "main agent").to_string()),
+                field!(Text, "feat_video_understanding_model", "Model", c => raw_str(c, &["video", "understanding", "model"], "provider default").to_string()),
             ]
         ),
         section!(

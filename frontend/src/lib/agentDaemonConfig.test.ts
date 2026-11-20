@@ -130,6 +130,7 @@ describe("daemon agent config audio wiring", () => {
         provider: "xai",
         model: "grok-imagine-image",
       },
+      understanding: { provider: "", model: "" },
     });
 
     expect(daemonConfig.providers?.xai).toMatchObject({
@@ -155,6 +156,7 @@ describe("daemon agent config audio wiring", () => {
         provider: "minimax",
         model: "MiniMax-Hailuo-2.3",
       },
+      understanding: { provider: "", model: "" },
     });
     expect(daemonConfig.providers?.minimax).toBeDefined();
   });
@@ -162,7 +164,20 @@ describe("daemon agent config audio wiring", () => {
   it("leaves video generation unset by default so the daemon keeps the video tool hidden", () => {
     const daemonConfig = buildDaemonAgentConfig(DEFAULT_AGENT_SETTINGS);
 
-    expect(daemonConfig.video).toEqual({ generation: { provider: "", model: "" } });
+    expect(daemonConfig.video).toEqual({ generation: { provider: "", model: "" }, understanding: { provider: "", model: "" } });
+  });
+
+  it("sends the understanding provider's credentials so analysis can run on a different provider than the main agent", () => {
+    const daemonConfig = buildDaemonAgentConfig({
+      ...DEFAULT_AGENT_SETTINGS,
+      active_provider: "openai",
+      video_understanding_provider: "gemini",
+      video_understanding_model: "gemini-4-neon",
+      gemini: { ...DEFAULT_AGENT_SETTINGS.gemini, api_key: "sk-gemini" },
+    } as any);
+
+    expect(daemonConfig.video?.understanding).toEqual({ provider: "gemini", model: "gemini-4-neon" });
+    expect(daemonConfig.providers?.gemini).toBeDefined();
   });
 
   it("serializes music generation settings and sends the music provider's credentials", () => {

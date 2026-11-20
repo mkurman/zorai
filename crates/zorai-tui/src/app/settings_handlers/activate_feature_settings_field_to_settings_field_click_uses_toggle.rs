@@ -229,6 +229,21 @@ impl TuiModel {
                 self.open_provider_picker(SettingsPickerTarget::ImageGenerationProvider);
                 true
             }
+            "feat_image_understanding_provider"
+            | "feat_image_understanding_model"
+            | "feat_video_understanding_provider"
+            | "feat_video_understanding_model" => {
+                let (root, key) = media_understanding_path(field);
+                let current = self
+                    .config
+                    .agent_config_raw
+                    .as_ref()
+                    .and_then(|raw| raw.get(root)?.get("understanding")?.get(key)?.as_str())
+                    .unwrap_or_default()
+                    .to_string();
+                self.settings.start_editing(field, &current);
+                true
+            }
             "feat_image_generation_model" => {
                 self.open_image_generation_model_picker();
                 true

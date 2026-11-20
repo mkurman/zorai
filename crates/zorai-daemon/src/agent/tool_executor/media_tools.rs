@@ -89,22 +89,25 @@ enum MediaEndpoint {
     MusicGeneration,
     SpeechToText,
     TextToSpeech,
+    ImageUnderstanding,
+    VideoUnderstanding,
 }
 
 impl MediaEndpoint {
-    fn default_model(self) -> &'static str {
+    fn default_model(self) -> Option<&'static str> {
         match self {
-            Self::ImageGeneration => DEFAULT_IMAGE_GENERATION_MODEL,
-            Self::VideoGeneration | Self::MusicGeneration => "",
-            Self::SpeechToText => DEFAULT_STT_MODEL,
-            Self::TextToSpeech => DEFAULT_TTS_MODEL,
+            Self::ImageGeneration => Some(DEFAULT_IMAGE_GENERATION_MODEL),
+            Self::VideoGeneration | Self::MusicGeneration => Some(""),
+            Self::SpeechToText => Some(DEFAULT_STT_MODEL),
+            Self::TextToSpeech => Some(DEFAULT_TTS_MODEL),
+            Self::ImageUnderstanding | Self::VideoUnderstanding => None,
         }
     }
 
     fn nested_root(self) -> &'static str {
         match self {
-            Self::ImageGeneration => "image",
-            Self::VideoGeneration => "video",
+            Self::ImageGeneration | Self::ImageUnderstanding => "image",
+            Self::VideoGeneration | Self::VideoUnderstanding => "video",
             Self::MusicGeneration => "music",
             Self::SpeechToText | Self::TextToSpeech => "audio",
         }
@@ -117,6 +120,7 @@ impl MediaEndpoint {
             }
             Self::SpeechToText => &["stt"],
             Self::TextToSpeech => &["tts"],
+            Self::ImageUnderstanding | Self::VideoUnderstanding => &["understanding"],
         }
     }
 
@@ -127,6 +131,8 @@ impl MediaEndpoint {
             Self::MusicGeneration => "music_generation",
             Self::SpeechToText => "audio_stt",
             Self::TextToSpeech => "audio_tts",
+            Self::ImageUnderstanding => "image_understanding",
+            Self::VideoUnderstanding => "video_understanding",
         }
     }
 }
@@ -499,7 +505,9 @@ fn provider_specific_default_media_model(
             MediaEndpoint::SpeechToText => Some("openai/whisper-1"),
             MediaEndpoint::ImageGeneration
             | MediaEndpoint::VideoGeneration
-            | MediaEndpoint::MusicGeneration => None,
+            | MediaEndpoint::MusicGeneration
+            | MediaEndpoint::ImageUnderstanding
+            | MediaEndpoint::VideoUnderstanding => None,
         };
     }
     if endpoint == MediaEndpoint::VideoGeneration {
@@ -614,7 +622,7 @@ async fn resolve_media_provider_config(
         .unwrap_or((None, None));
     let selected_provider = explicit_provider.or(persisted_provider.as_deref());
     let selected_model = explicit_model.or(persisted_model.as_deref());
-    let default_model = endpoint.map(MediaEndpoint::default_model);
+    let default_model = endpoint.and_then(MediaEndpoint::default_model);
 
     if let Some(provider_id) = selected_provider {
         let provider_config = agent.resolve_sub_agent_provider_config(&config, provider_id)?;
@@ -2181,7 +2189,8 @@ pub(crate) async fn execute_analyze_image(
     _http_client: &reqwest::Client,
 ) -> Result<String> {
     let media_http_client = fresh_media_http_client(tool_names::ANALYZE_IMAGE, args);
-    let (provider_id, provider_config) = resolve_media_provider_config(agent, args, None).await?;
+    let (provider_id, provider_config) =
+        resolve_media_provider_config(agent, args, Some(MediaEndpoint::ImageUnderstanding)).await?;
     if !crate::agent::types::model_supports(
         &provider_id,
         &provider_config.model,
@@ -3628,6 +3637,77 @@ mod media_tools_tests {
         assert_eq!(provider_id, "custom");
         assert_eq!(provider_config.model, "flux-pro");
         assert_eq!(provider_config.base_url, "https://images.example/v1");
+    }
+
+    #[tokio::test]
+    async fn understanding_tools_use_their_own_settings_and_otherwise_follow_the_main_model() {
+        let root = tempfile::tempdir().expect("tempdir should succeed");
+        let manager = crate::session_manager::SessionManager::new_test(root.path()).await;
+        let mut config = AgentConfig::default();
+        config.provider = "openai".to_string();
+        config.model = "gpt-5.4".to_string();
+        config.api_key = "sk-active".to_string();
+        config.extra.insert(
+            "image".to_string(),
+            serde_json::json!({ "generation": { "provider": "custom", "model": "flux-pro" } }),
+        );
+        config.extra.insert(
+            "video".to_string(),
+            serde_json::json!({ "understanding": { "provider": "custom", "model": "vision-pro" } }),
+        );
+        config.providers.insert(
+            "custom".to_string(),
+            crate::agent::types::ProviderConfig {
+                base_url: "https://vision.example/v1".to_string(),
+                model: "fallback-model".to_string(),
+                api_key: "sk-vision".to_string(),
+                assistant_id: String::new(),
+                auth_source: crate::agent::types::AuthSource::ApiKey,
+                api_transport: crate::agent::types::ApiTransport::Responses,
+                reasoning_effort: "medium".to_string(),
+                context_window_tokens: 128_000,
+                response_schema: None,
+                stop_sequences: None,
+                temperature: None,
+                top_p: None,
+                top_k: None,
+                metadata: None,
+                service_tier: None,
+                container: None,
+                inference_geo: None,
+                cache_control: None,
+                max_tokens: None,
+                anthropic_tool_choice: None,
+                output_effort: None,
+                openrouter_provider_order: Vec::new(),
+                openrouter_provider_ignore: Vec::new(),
+                openrouter_allow_fallbacks: None,
+                openrouter_response_cache_enabled: false,
+                huggingface_provider: None,
+            },
+        );
+
+        let engine = AgentEngine::new_test(manager, config, root.path()).await;
+        let (image_provider, image_config) = resolve_media_provider_config(
+            &engine,
+            &serde_json::json!({}),
+            Some(MediaEndpoint::ImageUnderstanding),
+        )
+        .await
+        .expect("image understanding should resolve");
+        assert_eq!(image_provider, "openai");
+        assert_eq!(image_config.model, "gpt-5.4");
+
+        let (video_provider, video_config) = resolve_media_provider_config(
+            &engine,
+            &serde_json::json!({}),
+            Some(MediaEndpoint::VideoUnderstanding),
+        )
+        .await
+        .expect("video understanding should resolve");
+        assert_eq!(video_provider, "custom");
+        assert_eq!(video_config.model, "vision-pro");
+        assert_eq!(video_config.base_url, "https://vision.example/v1");
     }
 
     #[tokio::test]
