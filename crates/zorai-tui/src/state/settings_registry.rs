@@ -291,6 +291,8 @@ const MEDIA_PAGE: SettingsPageSpec = SettingsPageSpec {
             field!(Picker, "feat_audio_stt_provider", "Provider", c => or_default(c.audio_stt_provider(), "openai")),
             field!(Picker, "feat_audio_stt_model", "Model", c => or_default(c.audio_stt_model(), "whisper-1")),
             field!(Text, "feat_audio_stt_language", "Language", c => raw_str(c, &["audio", "stt", "language"], "auto")),
+            field!(Choice, "feat_audio_stt_mode", "Transcription", c => if raw_str(c, &["audio", "stt", "mode"], "one_pass") == "live" { "live chunks" } else { "one pass" }),
+            field!(Text, "feat_audio_stt_chunk_seconds", "Chunk size (s)", c => raw(c, &["audio", "stt", "chunk_seconds"]).and_then(|value| value.as_u64()).unwrap_or(3).to_string(), if c => raw_str(c, &["audio", "stt", "mode"], "one_pass") == "live"),
         ]),
         section!(
             "Text-to-speech",
@@ -426,6 +428,15 @@ const WORKFLOWS_PAGE: SettingsPageSpec = SettingsPageSpec {
                 field!(Choice, "feat_auto_thread_title", "Auto title", c => raw_str(c, &["auto_thread_title"], "off")),
             ]
         ),
+        section!("Next reply suggestion", note _c => Some("Suggests your next message in the empty input after each turn; Tab accepts it. One extra model call per turn.".to_string()), [
+            field!(Toggle, "feat_next_reply_enabled", "Suggest next reply", c => raw_bool(c, &["next_reply", "enabled"], false)),
+            field!(Choice, "feat_next_reply_source", "Responder", c => raw_str(c, &["next_reply", "source"], "custom").to_string()),
+            field!(Text, "feat_next_reply_agent_id", "Agent", c => raw_str(c, &["next_reply", "agent_id"], "swarog").to_string(), if c => raw_str(c, &["next_reply", "source"], "custom") == "agent"),
+            field!(Text, "feat_next_reply_provider", "Provider", c => raw_str(c, &["next_reply", "provider"], "main agent").to_string(), if c => raw_str(c, &["next_reply", "source"], "custom") != "agent"),
+            field!(Text, "feat_next_reply_model", "Model", c => raw_str(c, &["next_reply", "model"], "provider default").to_string(), if c => raw_str(c, &["next_reply", "source"], "custom") != "agent"),
+            field!(Text, "feat_next_reply_reasoning_effort", "Reasoning", c => raw_str(c, &["next_reply", "reasoning_effort"], "default").to_string(), if c => raw_str(c, &["next_reply", "source"], "custom") != "agent"),
+            field!(Text, "feat_next_reply_context_messages", "Context messages", c => raw(c, &["next_reply", "context_messages"]).and_then(|value| value.as_u64()).unwrap_or(1).to_string()),
+        ]),
         section!("Code review", note _c => Some("Used by Find Issues in the GUI Code tab.".to_string()), [
             field!(Choice, "code_review_agent", "Review agent", c => match raw_str(c, &["code_review_agent"], "thread") {
                 "thread" => "this thread's agent".to_string(),

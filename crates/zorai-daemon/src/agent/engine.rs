@@ -237,6 +237,7 @@ pub struct AgentEngine {
         mpsc::UnboundedSender<super::skill_preflight::AsyncSkillDiscoveryCompletion>,
     pub(super) auto_thread_title_jobs:
         mpsc::UnboundedSender<super::thread_title::AutoThreadTitleJob>,
+    pub(super) next_reply_jobs: mpsc::UnboundedSender<super::next_reply::NextReplyJob>,
     pub(super) prompt_queue_wake_tx: mpsc::UnboundedSender<String>,
     pub(super) held_prompt_queues: std::sync::Mutex<HashSet<String>>,
     pub(super) continuation_flush_tx: mpsc::UnboundedSender<String>,
@@ -369,6 +370,7 @@ impl AgentEngine {
         let (watcher_refresh_tx, watcher_refresh_rx) = mpsc::unbounded_channel();
         let (skill_discovery_result_tx, skill_discovery_result_rx) = mpsc::unbounded_channel();
         let (auto_thread_title_jobs, auto_thread_title_rx) = mpsc::unbounded_channel();
+        let (next_reply_jobs, next_reply_rx) = mpsc::unbounded_channel();
         let (prompt_queue_wake_tx, prompt_queue_wake_rx) = mpsc::unbounded_channel();
         let (continuation_flush_tx, continuation_flush_rx) = mpsc::unbounded_channel();
         let (internal_dm_jobs_tx, internal_dm_jobs_rx) = mpsc::unbounded_channel();
@@ -509,6 +511,7 @@ impl AgentEngine {
             watcher_refresh_rx: Mutex::new(Some(watcher_refresh_rx)),
             skill_discovery_result_tx,
             auto_thread_title_jobs,
+            next_reply_jobs,
             prompt_queue_wake_tx,
             held_prompt_queues: std::sync::Mutex::new(HashSet::new()),
             continuation_flush_tx,
@@ -555,6 +558,7 @@ impl AgentEngine {
             skill_discovery_result_rx,
         );
         super::thread_title::spawn_auto_thread_title_worker(engine.clone(), auto_thread_title_rx);
+        super::next_reply::spawn_next_reply_worker(engine.clone(), next_reply_rx);
         super::prompt_queue::spawn_prompt_queue_worker(engine.clone(), prompt_queue_wake_rx);
         super::thread_participants::spawn_continuation_flush_worker(
             engine.clone(),

@@ -359,6 +359,9 @@ function createWindowRuntime(options) {
         } else {
             mainWindow.loadFile(rendererLoadTarget.value);
         }
+        mainWindow.webContents.on('console-message', (_event, _level, message) => {
+            if (typeof message === 'string' && message.startsWith('[code-timing]')) logToFile('info', message);
+        });
         mainWindow.webContents.setWindowOpenHandler(({ url }) => /^https?:\/\//i.test(url) ? (void shell.openExternal(url), { action: 'deny' }) : { action: 'allow' });
         mainWindow.webContents.on('will-navigate', (event, url) => {
             const currentUrl = mainWindow.webContents.getURL();

@@ -3476,6 +3476,24 @@
   animation: zorai-rec-pulse 1.2s ease-in-out infinite;
 }
 
+.zorai-composer-waveform {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  padding: 0 14px;
+}
+
+.zorai-composer-waveform span {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--zorai-accent);
+  opacity: 0.75;
+  transform: scaleY(0.12);
+  transition: transform 80ms linear;
+}
+
 @keyframes zorai-rec-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.4; transform: scale(0.8); }
@@ -6311,6 +6329,24 @@ button.zorai-composer-context-chip { cursor: pointer; }
   min-width: 0;
   min-height: 0;
   overflow: auto;
+}
+
+.zorai-code-explorer-scroll[data-pending]:empty::before {
+  content: "";
+  display: block;
+  height: min(100%, 420px);
+  margin: 14px 16px;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--zorai-muted) 22%, var(--zorai-bg-panel)) 20%, color-mix(in srgb, var(--zorai-muted) 42%, var(--zorai-bg-panel)) 42%, color-mix(in srgb, var(--zorai-muted) 22%, var(--zorai-bg-panel)) 64%);
+  background-size: 220% 100%;
+  animation: zorai-loader-shimmer 1.45s ease-in-out infinite;
+  -webkit-mask-image: repeating-linear-gradient(180deg, #000 0 10px, transparent 10px 26px), linear-gradient(90deg, #000 0 72%, transparent 72%);
+  -webkit-mask-composite: source-in;
+  mask-image: repeating-linear-gradient(180deg, #000 0 10px, transparent 10px 26px), linear-gradient(90deg, #000 0 72%, transparent 72%);
+  mask-composite: intersect;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zorai-code-explorer-scroll[data-pending]:empty::before { animation: none; }
 }
 
 .zorai-code-explorer-scroll > .zorai-workspace-explorer {

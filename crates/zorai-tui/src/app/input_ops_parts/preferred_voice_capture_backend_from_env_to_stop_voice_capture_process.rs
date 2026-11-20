@@ -41,8 +41,6 @@ pub(crate) fn ffmpeg_voice_capture_args(
         input_format.to_string(),
         "-i".to_string(),
         "default".to_string(),
-        "-t".to_string(),
-        "10".to_string(),
         "-ac".to_string(),
         "1".to_string(),
         capture_path.to_string(),
@@ -86,7 +84,7 @@ pub(super) fn spawn_arecord_voice_capture(
 ) -> std::io::Result<std::process::Child> {
     let stderr = File::create(stderr_path)?;
     Command::new("arecord")
-        .args(["-f", "cd", "-t", "wav", "-d", "10", capture_path])
+        .args(["-f", "cd", "-t", "wav", capture_path])
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::from(stderr))

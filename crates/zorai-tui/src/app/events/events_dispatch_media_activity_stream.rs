@@ -7,6 +7,21 @@ impl TuiModel {
     ) -> Option<ClientEvent> {
         match event {
             ClientEvent::SpeechToTextResult { content } => {
+                if self.voice_live_active
+                    && (self.voice_recording || self.voice_final_path.is_some())
+                {
+                    let transcript = serde_json::from_str::<serde_json::Value>(&content)
+                        .ok()
+                        .filter(|value| value.get("error").is_none())
+                        .and_then(|value| {
+                            value
+                                .get("text")
+                                .and_then(|value| value.as_str())
+                                .map(str::to_string)
+                        });
+                    self.handle_live_voice_transcript(transcript);
+                    return None;
+                }
                 if let Ok(value) = serde_json::from_str::<serde_json::Value>(&content) {
                     if let Some(error) = value.get("error").and_then(|v| v.as_str()) {
                         self.status_line = format!("STT failed: {error}");
@@ -32,6 +47,9 @@ impl TuiModel {
                             .map(str::to_string)
                     })
                     .unwrap_or_else(|| content.trim().to_string());
+                if self.handle_live_voice_transcript(Some(transcript.clone())) {
+                    return None;
+                }
                 if !transcript.is_empty() {
                     if !self.input.buffer().trim().is_empty() {
                         self.input.reduce(input::InputAction::InsertChar(' '));
@@ -341,6 +359,13 @@ impl TuiModel {
                 None
             }
             ClientEvent::Delta { thread_id, content } => {
+                if self
+                    .next_reply_suggestion
+                    .as_ref()
+                    .is_some_and(|(suggested_for, _)| *suggested_for == thread_id)
+                {
+                    self.next_reply_suggestion = None;
+                }
                 self.handle_delta_event(thread_id, content);
                 None
             }

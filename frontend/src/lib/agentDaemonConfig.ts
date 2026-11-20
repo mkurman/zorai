@@ -120,6 +120,7 @@ export function buildDaemonAgentConfig(
     agentSettings.video_generation_provider,
     agentSettings.music_generation_provider,
     agentSettings.image_understanding_provider,
+    agentSettings.next_reply_provider,
     agentSettings.video_understanding_provider,
     agentSettings.semantic_embedding_provider,
   ]));
@@ -199,6 +200,15 @@ export function buildDaemonAgentConfig(
     llm_stream_chunk_timeout_secs: agentSettings.llm_stream_chunk_timeout_secs,
     auto_retry: agentSettings.auto_retry,
     auto_thread_title: agentSettings.auto_thread_title,
+    next_reply: {
+      enabled: agentSettings.next_reply_enabled,
+      source: agentSettings.next_reply_source,
+      agent_id: agentSettings.next_reply_agent_id,
+      provider: agentSettings.next_reply_provider,
+      model: agentSettings.next_reply_model,
+      reasoning_effort: agentSettings.next_reply_reasoning_effort,
+      context_messages: Math.max(1, Math.floor(agentSettings.next_reply_context_messages)),
+    },
     code_review_agent: agentSettings.code_review_agent,
     code_review_commit_window: agentSettings.code_review_commit_window,
     context_window_tokens: providerConfig
@@ -286,6 +296,8 @@ export function buildDaemonAgentConfig(
         provider: agentSettings.audio_stt_provider,
         model: agentSettings.audio_stt_model,
         language: agentSettings.audio_stt_language,
+        mode: agentSettings.audio_stt_mode,
+        chunk_seconds: Math.min(30, Math.max(1, Math.floor(agentSettings.audio_stt_chunk_seconds))),
       },
       tts: {
         enabled: agentSettings.audio_tts_enabled,

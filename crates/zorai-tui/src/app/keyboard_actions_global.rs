@@ -209,6 +209,10 @@ impl TuiModel {
             KeyCode::Tab => {
                 {
                     if self.focus == FocusArea::Input {
+                        if let Some(suggestion) = self.next_reply_offer().map(str::to_string) {
+                            self.input.set_text(&suggestion);
+                            return Some(false);
+                        }
                         let completion = self.input.complete_active_at_token_with_agents(
                             &self.known_agent_directive_aliases(),
                         );

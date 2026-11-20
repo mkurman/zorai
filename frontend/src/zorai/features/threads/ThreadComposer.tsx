@@ -53,6 +53,9 @@ import {
 import { BUILTIN_WORKSPACE_PERSONAS } from "../workspaces/workspaceActorPicker";
 import { isLeadOnlyPersona } from "./leadPersonas";
 import { useAgentDisplayName } from "@/lib/useAgentDisplayName";
+import { useNextReplyStore } from "@/lib/nextReplyStore";
+import { ComposerVoiceWaveform } from "./ComposerVoiceWaveform";
+import { joinVoiceTranscript } from "./voiceTranscript";
 
 export function ThreadComposer({
   showTargetSelector = false,
@@ -114,6 +117,7 @@ export function ThreadComposer({
   const sendMessage = runtime.sendMessage;
   const isStreamingResponse = onSendNewThread ? false : runtime.isStreamingResponse;
   const activeRuntimeThreadId = runtime.activeThreadId;
+  const nextReply = useNextReplyStore((state) => (activeRuntimeThreadId ? state.byThreadId[activeRuntimeThreadId] : undefined));
   const stopStreaming = runtime.stopStreaming;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
@@ -139,6 +143,11 @@ export function ThreadComposer({
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const discardCaptureRef = useRef(false);
+  const [recordingStream, setRecordingStream] = useState<MediaStream | null>(null);
+  const liveBaseRef = useRef("");
+  const liveSessionRef = useRef(0);
+  const liveInFlightRef = useRef(false);
+  const liveTimerRef = useRef<number | null>(null);
   const history = useComposerInputHistory(input, setInput, runtime.inputRef);
   const budgetNotice = useMemo(() => onSendNewThread ? null : activeThreadBudgetExceededNotice(
     runtime.activeThread?.daemonThreadId,
@@ -146,6 +155,7 @@ export function ThreadComposer({
     runtime.spawnedAgentTree,
   ), [onSendNewThread, runtime.activeThread?.daemonThreadId, runtime.messages, runtime.spawnedAgentTree]);
   const queue = useDaemonPromptQueue(onSendNewThread ? undefined : runtime.activeThread?.daemonThreadId);
+  const nextReplyOffer = !onSendNewThread && !isStreamingResponse && !queue.editingId && input === "" ? nextReply : undefined;
   const canSend = Boolean(input.trim() || attachments.length > 0);
   const assignOwnerDirectly = canAssignComposerOwnerDirectly(runtime.activeThread, runtime.messages.length);
   const ttsAvailable = agentSettings.audio_tts_enabled && Boolean(getBridge()?.agentTextToSpeech);
@@ -165,9 +175,40 @@ export function ThreadComposer({
     setTargetPending(false);
   }, [activeThreadId, composerTargets, showTargetSelector]);
 
+  const stopLiveTranscription = () => {
+    liveSessionRef.current += 1;
+    if (liveTimerRef.current !== null) window.clearInterval(liveTimerRef.current);
+    liveTimerRef.current = null;
+    setRecordingStream(null);
+  };
+
+  const transcribeLiveChunk = async (session: number) => {
+    const chunks = recordedChunksRef.current;
+    const bridge = getBridge();
+    if (liveInFlightRef.current || session !== liveSessionRef.current || chunks.length === 0 || !bridge?.agentSpeechToText) return;
+    liveInFlightRef.current = true;
+    try {
+      const blob = new Blob(chunks, { type: chunks[0].type || "audio/webm" });
+      const result = await bridge.agentSpeechToText(await blobToBase64(blob), blob.type, {
+        provider: agentSettings.audio_stt_provider,
+        model: agentSettings.audio_stt_model,
+        language: agentSettings.audio_stt_language || undefined,
+      });
+      const transcript = readSpeechToTextError(result) ? "" : readSpeechToTextContent(result);
+      if (transcript && session === liveSessionRef.current && !discardCaptureRef.current) {
+        setInput(joinVoiceTranscript(liveBaseRef.current, transcript));
+      }
+    } catch (error) {
+      console.warn("live speech-to-text chunk failed", error);
+    } finally {
+      liveInFlightRef.current = false;
+    }
+  };
+
   useEffect(() => {
     return () => {
       discardCaptureRef.current = true;
+      if (liveTimerRef.current !== null) window.clearInterval(liveTimerRef.current);
       const recorder = mediaRecorderRef.current;
       if (recorder && recorder.state !== "inactive") {
         recorder.stop();
@@ -196,6 +237,7 @@ export function ThreadComposer({
     const payload = buildAttachmentSendPayload(input, attachments);
     if (!payload.text && !payload.contentBlocksJson) return;
     setTargetError(null);
+    if (activeRuntimeThreadId) useNextReplyStore.getState().clearSuggestion(activeRuntimeThreadId);
 
     if (onSendNewThread) {
       history.remember(payload.text);
@@ -291,7 +333,9 @@ export function ThreadComposer({
   // The voice shortcut (Ctrl+M by default) toggles recording from anywhere in the thread surface
   // (including while typing in the textarea — that's where you want it most).
   const toggleRecordingRef = useRef<() => Promise<void>>(async () => {});
+  const inactiveSplitPane = draftOverride !== null;
   useEffect(() => {
+    if (inactiveSplitPane) return;
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (!shortcutMatches("thread.recordVoice", event)) return;
       if (!voiceCaptureAvailable) return;
@@ -300,10 +344,15 @@ export function ThreadComposer({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [voiceCaptureAvailable]);
+  }, [inactiveSplitPane, voiceCaptureAvailable]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (history.handleKeyDown(event)) return;
+    if (event.key === "Tab" && !event.shiftKey && nextReplyOffer) {
+      event.preventDefault();
+      setInput(nextReplyOffer);
+      return;
+    }
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       if (queue.editingId) {
@@ -320,6 +369,7 @@ export function ThreadComposer({
     if (isTranscribing) return;
     if (isRecording) {
       const recorder = mediaRecorderRef.current;
+      stopLiveTranscription();
       setIsRecording(false);
       setIsTranscribing(true);
       try {
@@ -358,7 +408,7 @@ export function ThreadComposer({
           pushToast("Transcription was empty.");
           return;
         }
-        setInput((current) => (current.trim() ? `${current.trimEnd()} ${transcript}` : transcript));
+        setInput(joinVoiceTranscript(liveBaseRef.current, transcript));
       } catch (error) {
         console.error("speech-to-text failed", error);
         if (!discardCaptureRef.current) {
@@ -388,9 +438,17 @@ export function ThreadComposer({
         }
       };
       recorder.start(200);
+      liveBaseRef.current = input;
+      setRecordingStream(stream);
       setIsRecording(true);
+      if (agentSettings.audio_stt_mode === "live") {
+        const session = liveSessionRef.current;
+        const intervalMs = Math.min(30, Math.max(1, agentSettings.audio_stt_chunk_seconds)) * 1000;
+        liveTimerRef.current = window.setInterval(() => void transcribeLiveChunk(session), intervalMs);
+      }
     } catch (error) {
       console.error("microphone capture failed", error);
+      stopLiveTranscription();
       stopMediaTracks(mediaStreamRef.current);
       mediaStreamRef.current = null;
       mediaRecorderRef.current = null;
@@ -610,9 +668,11 @@ export function ThreadComposer({
           }}
           onClick={() => history.commit()}
           onKeyDown={handleKeyDown}
-          placeholder={isTranscribing ? "Transcribing..." : isRecording ? "Recording..." : queue.editingId ? "Edit queued message…" : isStreamingResponse ? "Queue a follow-up…" : placeholder ?? "Message Zorai..."}
+          readOnly={isRecording}
+          placeholder={isTranscribing ? "Transcribing..." : isRecording ? "Listening…" : queue.editingId ? "Edit queued message…" : isStreamingResponse ? "Queue a follow-up…" : nextReplyOffer ? `${nextReplyOffer}  ⇥ Tab` : placeholder ?? "Message Zorai..."}
           rows={3}
         />
+        {isRecording && recordingStream ? <ComposerVoiceWaveform stream={recordingStream} /> : null}
 
         <div className="zorai-composer-actions">
           <div ref={setToolsElement} className="zorai-composer-actions__left zorai-drag-scroll">

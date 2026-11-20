@@ -1,4 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { codeTiming } from "@/zorai/features/code/codeTiming";
 import { LoadingState } from "@/components/LoadingState";
 import { createPortal } from "react-dom";
 import { getBridge } from "@/lib/bridge";
@@ -191,6 +192,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const refreshRoot = useCallback(async (root = contextRootRef.current) => {
     if (!root || !bridge?.workspaceListDirectory) return;
     const generation = ++refreshGenRef.current;
+    codeTiming("workbench:refresh-start");
     if (loadedRootRef.current !== root) {
       const cached = cachedWorkspaceRootState(root);
       if (cached) {
@@ -218,7 +220,9 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         if (generation !== refreshGenRef.current || loadedRootRef.current === root || (activeRoot && activeRoot !== root)) return;
         setRootEntries(entries);
         setRootLoading(false);
+        codeTiming("workbench:entries-shown");
       });
+      codeTiming("workbench:git-loaded");
       const currentRoot = activeThreadIdRef.current
         ? useWorkspaceContextStore.getState().byThreadId[activeThreadIdRef.current]?.root
         : undefined;

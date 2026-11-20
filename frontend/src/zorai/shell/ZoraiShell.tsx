@@ -12,6 +12,7 @@ import { ThreadFilePreviewProvider } from "../features/threads/ThreadFilePreview
 import { ThreadSplitView } from "../features/threads/ThreadSplitView";
 import { ThreadsRail } from "../features/threads/ThreadsRail";
 import { CodeAgentPane, CodeRail, CodeView } from "../features/code/CodeView";
+import { codeTiming } from "../features/code/codeTiming";
 import { CodeResizeHandle } from "../features/code/CodeResizeHandle";
 import {
   CODE_AGENT_DEFAULT_WIDTH,
@@ -244,6 +245,7 @@ export function ZoraiShell() {
     const previous = contextBoundaryViewRef.current;
     contextBoundaryViewRef.current = activeView;
     if ((previous === "code") !== (activeView === "code")) useShellLayoutStore.getState().crossCodeBoundary(activeView === "code");
+    if (activeView === "code" && previous !== "code") codeTiming("shell:code-view-selected");
   }, [activeView]);
 
   useEffect(() => {

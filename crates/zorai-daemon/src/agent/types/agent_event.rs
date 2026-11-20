@@ -93,6 +93,10 @@ pub enum AgentEvent {
         thread_id: String,
         title: String,
     },
+    NextReplySuggestion {
+        thread_id: String,
+        content: String,
+    },
     ThreadReloadRequired {
         thread_id: String,
     },

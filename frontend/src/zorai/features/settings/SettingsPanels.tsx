@@ -95,7 +95,7 @@ export const conciergeReasoningEffortOptions: Array<{ value: AgentSettings["reas
   { value: "xhigh", label: "xhigh" },
   { value: "max", label: "max" },
 ];
-const APP_VERSION = "1.1.9";
+const APP_VERSION = "1.1.10";
 const APP_AUTHOR = "Mariusz Kurman";
 const APP_GITHUB = "mkurman/zorai";
 const APP_HOMEPAGE = "zorai.app";
@@ -875,6 +875,15 @@ function MediaPanel() {
           />
         </SettingRow>
         <SettingRow label="STT Language" description="Speech-to-text language override."><input className="zorai-input" value={agentSettings.audio_stt_language} placeholder="auto" disabled={!agentSettings.audio_stt_enabled} onChange={(event) => updateAgentSetting("audio_stt_language", event.target.value)} /></SettingRow>
+        <SettingRow label="Transcription Mode" description="One pass transcribes once when you stop. Live shows text while you speak by re-transcribing the recording so far, which costs one STT call per chunk.">
+          <select className="zorai-input" value={agentSettings.audio_stt_mode} disabled={!agentSettings.audio_stt_enabled} onChange={(event) => updateAgentSetting("audio_stt_mode", event.target.value === "live" ? "live" : "one_pass")}>
+            <option value="one_pass">One pass</option>
+            <option value="live">Live chunks</option>
+          </select>
+        </SettingRow>
+        {agentSettings.audio_stt_mode === "live" ? (
+          <NumberRow label="Chunk Size (s)" description="Seconds between live transcription updates." value={agentSettings.audio_stt_chunk_seconds} onChange={(value) => updateAgentSetting("audio_stt_chunk_seconds", Math.min(30, Math.max(1, Math.floor(value) || 1)))} min={1} max={30} />
+        ) : null}
       </Panel>
       <Panel section="Audio" title="Text-to-speech">
         <SettingRow label="TTS Enabled" description="Text-to-speech feature toggle."><Switch checked={agentSettings.audio_tts_enabled} onChange={(checked) => updateAgentSetting("audio_tts_enabled", checked)} /></SettingRow>
@@ -1167,6 +1176,12 @@ function WorkflowsPanel() {
   const agentSettings = useAgentStore((state) => state.agentSettings);
   const updateAgentSetting = useAgentStore((state) => state.updateAgentSetting);
   const subAgents = useAgentStore((state) => state.subAgents);
+  const providerAuthStates = useAgentStore((state) => state.providerAuthStates);
+  const providerIds = useProviderIds(agentSettings);
+  const providerOptions = useProviderOptions(agentSettings);
+  const agentDisplayName = useAgentDisplayName();
+  const nextReplyProvider = agentSettings.next_reply_provider || agentSettings.active_provider;
+  const nextReplyProviderConfig = getProviderConfig(agentSettings, nextReplyProvider);
 
   return (
     <SettingsGrid>
@@ -1181,6 +1196,58 @@ function WorkflowsPanel() {
             <option value="weles">Weles</option>
           </select>
         </SettingRow>
+      </Panel>
+      <Panel section="Workflows" title="Next reply suggestion">
+        <SettingRow label="Suggest Next Reply" description="After each finished turn, propose your likely next message in the empty composer. Press Tab to use it. Each suggestion is one extra model call."><Switch checked={agentSettings.next_reply_enabled} onChange={(checked) => updateAgentSetting("next_reply_enabled", checked)} /></SettingRow>
+        <SettingRow label="Responder" description="A custom provider and model, or an existing agent's provider, model and persona.">
+          <select className="zorai-input" value={agentSettings.next_reply_source} disabled={!agentSettings.next_reply_enabled} onChange={(event) => updateAgentSetting("next_reply_source", event.target.value === "agent" ? "agent" : "custom")}>
+            <option value="custom">Custom model</option>
+            <option value="agent">Agent</option>
+          </select>
+        </SettingRow>
+        {agentSettings.next_reply_source === "agent" ? (
+          <SettingRow label="Agent" description="Agent or subagent that writes the suggestion in one quick call, without tools.">
+            <select className="zorai-input" value={agentSettings.next_reply_agent_id} disabled={!agentSettings.next_reply_enabled} onChange={(event) => updateAgentSetting("next_reply_agent_id", event.target.value)}>
+              <option value="swarog">{agentDisplayName("Svarog")}</option>
+              <option value="rarog">{agentDisplayName("Rarog")}</option>
+              <option value="weles">Weles</option>
+              {subAgents.filter((subAgent) => subAgent.enabled).map((subAgent) => <option key={subAgent.id} value={subAgent.id}>{subAgent.name} · {subAgent.provider}/{subAgent.model}</option>)}
+            </select>
+          </SettingRow>
+        ) : (
+          <>
+            <SettingRow label="Provider" description="Provider for suggestions. Main agent uses the main provider.">
+              <ProviderSelect
+                value={agentSettings.next_reply_provider}
+                options={[{ id: "", label: "Main agent" }, ...providerOptions]}
+                fallbackOptions={providerIds}
+                onChange={(providerId) => {
+                  updateAgentSetting("next_reply_provider", providerId);
+                  updateAgentSetting("next_reply_model", "");
+                }}
+              />
+            </SettingRow>
+            <SettingRow label="Model" description="A small, fast model works best. Empty uses the provider's configured model.">
+              <ModelSelector
+                providerId={nextReplyProvider}
+                value={agentSettings.next_reply_model}
+                customName={nextReplyProviderConfig.custom_model_name}
+                onChange={(value) => updateAgentSetting("next_reply_model", value)}
+                base_url={nextReplyProviderConfig.base_url}
+                api_key={nextReplyProviderConfig.api_key}
+                auth_source={nextReplyProviderConfig.auth_source}
+                allowProviderAuthFetch={providerAuthStates.some((state) => state.provider_id === nextReplyProvider && state.authenticated)}
+              />
+            </SettingRow>
+            <SettingRow label="Reasoning" description="Reasoning effort for the suggestion call. Default keeps the provider's setting.">
+              <select className="zorai-input" value={agentSettings.next_reply_reasoning_effort} disabled={!agentSettings.next_reply_enabled} onChange={(event) => updateAgentSetting("next_reply_reasoning_effort", event.target.value)}>
+                <option value="">Default</option>
+                {conciergeReasoningEffortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </SettingRow>
+          </>
+        )}
+        <NumberRow label="Context Messages" description="How many latest messages the responder reads. It never reaches past the last compaction." value={agentSettings.next_reply_context_messages} onChange={(value) => updateAgentSetting("next_reply_context_messages", Math.max(1, Math.floor(value) || 1))} min={1} max={200} />
       </Panel>
       <Panel section="Workflows" title="Code review">
         <SettingRow label="Review Agent" description="Runs Find Issues in the Code tab's Source Control view. Pick a subagent to review with its own provider and model; Svarog, Rarog and Weles lead threads and cannot be spawned as reviewers.">

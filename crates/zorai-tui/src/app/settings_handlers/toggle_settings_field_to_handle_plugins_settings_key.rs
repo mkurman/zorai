@@ -355,8 +355,20 @@ impl TuiModel {
                     raw["semantic"]["embedding"]["enabled"] = serde_json::Value::Bool(next);
                 }
             }
-            "feat_auto_thread_title" => {
+            "feat_auto_thread_title" | "feat_next_reply_source" | "feat_audio_stt_mode" => {
                 self.activate_settings_field();
+            }
+            "feat_next_reply_enabled" => {
+                let enabled = self
+                    .config
+                    .agent_config_raw
+                    .as_ref()
+                    .and_then(|raw| raw.get("next_reply")?.get("enabled")?.as_bool())
+                    .unwrap_or(false);
+                self.set_raw_config_item(
+                    &["next_reply", "enabled"],
+                    serde_json::Value::Bool(!enabled),
+                );
             }
             "whatsapp_link_device" => {
                 self.activate_settings_field();

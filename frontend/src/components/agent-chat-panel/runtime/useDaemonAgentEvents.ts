@@ -35,6 +35,7 @@ import {
   handleWorkspaceCommand,
 } from "./daemonEventHandlers";
 import { finalizeStreamingAssistantMessages } from "./threadTurnState";
+import { useNextReplyStore } from "@/lib/nextReplyStore";
 import { completeThreadStopBarrier, hasThreadStopBarrier } from "./threadStopBarrier";
 import {
   consumeDeferredThreadReload,
@@ -332,6 +333,7 @@ export function useDaemonAgentEvents({
       switch (event.type) {
         case "delta": {
           if (!tid) break;
+          useNextReplyStore.getState().clearSuggestion(tid);
           queueStreamDelta(tid, event.content || "", "");
           break;
         }
@@ -557,6 +559,11 @@ export function useDaemonAgentEvents({
         }
         case "thread_title_updated": {
           handleThreadTitleUpdatedEvent({ event });
+          break;
+        }
+        case "next_reply_suggestion": {
+          if (!tid || typeof event.content !== "string" || !event.content.trim()) break;
+          useNextReplyStore.getState().setSuggestion(tid, event.content.trim());
           break;
         }
         case "thread_reload_required": {

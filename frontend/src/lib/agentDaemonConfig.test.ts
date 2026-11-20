@@ -88,6 +88,8 @@ describe("daemon agent config audio wiring", () => {
         provider: "openai",
         model: "gpt-4o-transcribe",
         language: "pl",
+        mode: "one_pass",
+        chunk_seconds: 3,
       },
       tts: {
         enabled: true,
@@ -165,6 +167,19 @@ describe("daemon agent config audio wiring", () => {
     const daemonConfig = buildDaemonAgentConfig(DEFAULT_AGENT_SETTINGS);
 
     expect(daemonConfig.video).toEqual({ generation: { provider: "", model: "" }, understanding: { provider: "", model: "" } });
+  });
+
+  it("keeps next reply suggestions off by default and reading only the last message, so nothing extra is billed until enabled", () => {
+    expect(buildDaemonAgentConfig(DEFAULT_AGENT_SETTINGS).next_reply).toMatchObject({ enabled: false, context_messages: 1 });
+    const daemonConfig = buildDaemonAgentConfig({
+      ...DEFAULT_AGENT_SETTINGS,
+      next_reply_enabled: true,
+      next_reply_provider: "gemini",
+      next_reply_context_messages: 0,
+      gemini: { ...DEFAULT_AGENT_SETTINGS.gemini, api_key: "sk-gemini" },
+    } as any);
+    expect(daemonConfig.next_reply).toMatchObject({ enabled: true, provider: "gemini", context_messages: 1 });
+    expect(daemonConfig.providers?.gemini).toBeDefined();
   });
 
   it("sends the understanding provider's credentials so analysis can run on a different provider than the main agent", () => {

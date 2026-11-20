@@ -120,6 +120,15 @@ impl TuiModel {
         }
     }
 
+    pub(crate) fn next_reply_offer(&self) -> Option<&str> {
+        let (thread_id, suggestion) = self.next_reply_suggestion.as_ref()?;
+        (self.input.buffer().is_empty()
+            && self.attachments.is_empty()
+            && self.chat.active_thread_id() == Some(thread_id.as_str())
+            && !self.assistant_busy())
+        .then_some(suggestion.as_str())
+    }
+
     pub(crate) fn input_notice_style(&self) -> Option<(&str, Style)> {
         self.input_notice.as_ref().map(|notice| {
             let style = match notice.kind {

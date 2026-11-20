@@ -726,6 +726,7 @@ pub(crate) fn agent_event_thread_id(event: &crate::agent::types::AgentEvent) -> 
         | AgentEvent::TurnInterrupted { thread_id, .. }
         | AgentEvent::ThreadCreated { thread_id, .. }
         | AgentEvent::ThreadTitleUpdated { thread_id, .. }
+        | AgentEvent::NextReplySuggestion { thread_id, .. }
         | AgentEvent::ThreadReloadRequired { thread_id, .. }
         | AgentEvent::ContextWindowUpdate { thread_id, .. }
         | AgentEvent::ParticipantSuggestion { thread_id, .. }

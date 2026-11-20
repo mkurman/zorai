@@ -114,6 +114,10 @@ pub enum ClientEvent {
         thread_id: String,
         title: String,
     },
+    NextReplySuggestion {
+        thread_id: String,
+        content: String,
+    },
     ThreadDeleted {
         thread_id: String,
         deleted: bool,
