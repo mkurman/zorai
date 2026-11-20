@@ -534,12 +534,14 @@ impl<'a> SendMessageRunner<'a> {
         reuse_existing_user_message: bool,
         initial_scheduled_retry_cycles: u32,
     ) -> Result<Self> {
+        let send_setup_started = std::time::Instant::now();
         let mut config = engine.config.read().await.clone();
         let (tid, is_new_thread) = engine
             .get_or_create_thread(thread_id, stored_user_content)
             .await;
         ensure_thread_artifact_dirs(engine.history.data_root(), &tid).await?;
         engine.ensure_thread_messages_loaded(&tid).await;
+        tracing::info!(thread_id = %tid, phase = "thread_loaded", elapsed_ms = send_setup_started.elapsed().as_millis() as u64, "send setup phase");
         if let Some(client_surface) = client_surface {
             engine.set_thread_client_surface(&tid, client_surface).await;
         }
@@ -1000,6 +1002,7 @@ impl<'a> SendMessageRunner<'a> {
                 ),
             }
         }
+        tracing::info!(thread_id = %tid, phase = "thread_setup_task_session_workspace", elapsed_ms = send_setup_started.elapsed().as_millis() as u64, "send setup phase");
         let skill_preflight = if super::skill_preflight::should_run_skill_preflight_for_turn(
             record_operator,
             task_id.is_some(),
@@ -1060,6 +1063,7 @@ impl<'a> SendMessageRunner<'a> {
                 .set_thread_skill_discovery_state(&tid, next_state)
                 .await;
         }
+        tracing::info!(thread_id = %tid, phase = "skill_preflight", elapsed_ms = send_setup_started.elapsed().as_millis() as u64, "send setup phase");
         let memory = engine.current_memory_snapshot().await;
         let memory_paths = memory_paths_for_scope(&engine.data_dir, &agent_scope_id);
         let base_prompt = if let Some((_, _, Some(ref override_prompt), _, _, _, _, _)) =
@@ -1227,6 +1231,7 @@ impl<'a> SendMessageRunner<'a> {
             runtime_context_query.as_deref(),
         )
         .await;
+        tracing::info!(thread_id = %tid, phase = "prompt_assembly_to_runtime_continuity", elapsed_ms = send_setup_started.elapsed().as_millis() as u64, "send setup phase");
         let structured_memory_summary =
             crate::agent::memory_context::build_structured_memory_summary(
                 &memory,
@@ -1352,6 +1357,7 @@ impl<'a> SendMessageRunner<'a> {
                 .set_thread_memory_injection_state(&tid, injection_state)
                 .await;
         }
+        tracing::info!(thread_id = %tid, phase = "runtime_continuity_memory_injection", elapsed_ms = send_setup_started.elapsed().as_millis() as u64, "send setup phase");
         if let Some(memory_palace_context) = engine
             .build_memory_palace_prompt_context(&tid, task_id)
             .await
@@ -1368,6 +1374,7 @@ impl<'a> SendMessageRunner<'a> {
             system_prompt.push_str("\n\n");
             system_prompt.push_str(&anticipatory_context);
         }
+        tracing::info!(thread_id = %tid, phase = "memory_palace_anticipatory", elapsed_ms = send_setup_started.elapsed().as_millis() as u64, "send setup phase");
         match engine
             .build_protocol_prompt_context(&tid, stored_user_content)
             .await
@@ -1396,6 +1403,7 @@ impl<'a> SendMessageRunner<'a> {
             system_prompt.push_str("\n\n## Preloaded Skills\n");
             system_prompt.push_str(&skill_preflight.prompt_context);
         }
+        tracing::info!(thread_id = %tid, phase = "protocol_context", elapsed_ms = send_setup_started.elapsed().as_millis() as u64, "send setup phase");
         match engine
             .maybe_build_honcho_context(&tid, stored_user_content)
             .await
@@ -1536,6 +1544,7 @@ impl<'a> SendMessageRunner<'a> {
         } else {
             None
         };
+        tracing::info!(thread_id = %tid, phase = "done", elapsed_ms = send_setup_started.elapsed().as_millis() as u64, "send setup phase");
         Ok(Self {
             engine,
             task_id,

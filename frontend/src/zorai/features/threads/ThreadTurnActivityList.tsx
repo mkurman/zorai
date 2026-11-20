@@ -8,6 +8,7 @@ import {
   humanizeToolName,
   toolIntentLabel,
 } from "@/components/agent-chat-panel/chat-view/activityPreview";
+import type { ToolEventGroup } from "@/components/agent-chat-panel/chat-view/types";
 import type {
   OperationStatusView,
   ThreadMutationResult,
@@ -32,17 +33,25 @@ export function summarizeTurnActivity(entries: TurnActivityEntry[]): {
   let toolCount = 0;
   let doneCount = 0;
   let working = false;
+  let runningGroup: ToolEventGroup | null = null;
   for (const entry of entries) {
     if (entry.kind !== "tools") continue;
     for (const group of entry.groups) {
       toolCount += 1;
       if (group.status === "done") doneCount += 1;
-      else if (group.status === "requested" || group.status === "executing") working = true;
+      else if (group.status === "requested" || group.status === "executing") {
+        working = true;
+        runningGroup = group;
+      }
     }
   }
   const last = entries[entries.length - 1];
-  if (last && last.kind !== "tools" && last.message.isStreaming) working = true;
-  return { title: last ? turnActivityEntryTitle(last) : "Activity", working, toolCount, doneCount };
+  if (last && last.kind !== "tools" && last.message.isStreaming) {
+    working = true;
+    runningGroup = null;
+  }
+  const title = runningGroup ? toolGroupTitle(runningGroup) : last ? turnActivityEntryTitle(last) : "Activity";
+  return { title, working, toolCount, doneCount };
 }
 
 export function turnActivitySpan(entries: TurnActivityEntry[]): { startedAt: number; endedAt: number } {
@@ -62,10 +71,14 @@ export function turnActivitySpan(entries: TurnActivityEntry[]): { startedAt: num
   return Number.isFinite(startedAt) ? { startedAt, endedAt } : { startedAt: 0, endedAt: 0 };
 }
 
+function toolGroupTitle(group: ToolEventGroup): string {
+  return toolIntentLabel(group.toolArguments) || humanizeToolName(group.toolName || "Tools");
+}
+
 function turnActivityEntryTitle(entry: TurnActivityEntry): string {
   if (entry.kind === "tools") {
     const group = entry.groups[entry.groups.length - 1];
-    return (group && toolIntentLabel(group.toolArguments)) || humanizeToolName(group?.toolName || "Tools");
+    return group ? toolGroupTitle(group) : "Tools";
   }
   if (entry.kind === "reasoning") {
     return activityPreview(visibleGeminiReasoning(entry.message.reasoning)) || "Thinking";

@@ -1270,7 +1270,8 @@
 }
 
 .acp-md code {
-  font-family: var(--font-ui);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
 }
 
 .acp-md pre code {
@@ -1280,7 +1281,7 @@
 }
 
 .acp-md :not(pre) > code {
-  background: var(--zorai-bg-surface);
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
   padding: 1px 5px;
   border-radius: 2px;
   overflow-wrap: anywhere;
