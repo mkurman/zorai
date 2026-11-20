@@ -162,6 +162,67 @@ async fn parallel_search_mcp_sends_project_user_agent_on_every_request() {
 }
 
 #[tokio::test]
+async fn parallel_search_drops_stalled_initialization_with_search() {
+    for response in [
+        &b""[..],
+        &b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n"[..],
+    ] {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint = format!("http://{}/mcp", listener.local_addr().unwrap());
+        let (initialize_seen, seen) = tokio::sync::oneshot::channel();
+        let server = tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.unwrap();
+            let mut socket = BufReader::new(socket);
+            let mut line = String::new();
+            socket.read_line(&mut line).await.unwrap();
+            assert!(line.starts_with("POST /mcp "));
+            let mut length = 0;
+            loop {
+                line.clear();
+                assert_ne!(socket.read_line(&mut line).await.unwrap(), 0);
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some((name, value)) = line.split_once(':') {
+                    if name.eq_ignore_ascii_case("content-length") {
+                        length = value.trim().parse().unwrap();
+                    }
+                }
+            }
+            let mut body = vec![0; length];
+            socket.read_exact(&mut body).await.unwrap();
+            assert_eq!(
+                serde_json::from_slice::<Value>(&body).unwrap()["method"],
+                "initialize"
+            );
+            socket.get_mut().write_all(response).await.unwrap();
+            initialize_seen.send(()).unwrap();
+            let mut extra_bytes = Vec::new();
+            assert_eq!(
+                socket.read_to_end(&mut extra_bytes).await.unwrap(),
+                0,
+                "unexpected extra HTTP data"
+            );
+        });
+
+        let mut search = Box::pin(search_at(&endpoint, "Rust docs", 1));
+        timeout(Duration::from_secs(5), async {
+            tokio::select! {
+                result = &mut search => panic!("search finished before cancellation: {result:?}"),
+                result = seen => result.unwrap(),
+            }
+        })
+        .await
+        .expect("fixture did not receive the initialize request");
+        drop(search);
+        timeout(Duration::from_secs(2), server)
+            .await
+            .expect("cancelled MCP initialization kept its HTTP connection open")
+            .unwrap();
+    }
+}
+
+#[tokio::test]
 async fn parallel_search_setting_persists_without_enabling_web_search() {
     let root = tempfile::tempdir().unwrap();
     let manager = SessionManager::new_test(root.path()).await;
