@@ -372,38 +372,47 @@ impl TuiModel {
             .unwrap_or(fallback)
     }
 
+    pub(crate) fn speech_to_text_args_json(&self, path: &str) -> String {
+        let raw = self.config.agent_config_raw.as_ref();
+        let provider = Self::voice_audio_string(
+            raw,
+            "audio_stt_provider",
+            &["audio", "stt", "provider"],
+            zorai_shared::providers::PROVIDER_ID_OPENAI,
+        );
+        let model = Self::voice_audio_string(
+            raw,
+            "audio_stt_model",
+            &["audio", "stt", "model"],
+            "whisper-1",
+        );
+        let language = Self::voice_lookup_string(raw, &["audio", "stt", "language"])
+            .or_else(|| Self::voice_lookup_string(raw, &["audio_stt_language"]))
+            .or_else(|| {
+                Self::voice_lookup_string(
+                    raw.and_then(|value| value.get("extra")),
+                    &["audio_stt_language"],
+                )
+            });
+        serde_json::json!({
+            "path": path,
+            "mime_type": "audio/wav",
+            "provider": provider,
+            "model": model,
+            "language": language,
+        })
+        .to_string()
+    }
+
     pub(crate) fn toggle_voice_capture(&mut self) {
         if self.voice_recording {
             if let Some(path) = self.stop_voice_capture() {
-                let raw = self.config.agent_config_raw.as_ref();
-                let provider = Self::voice_audio_string(
-                    raw,
-                    "audio_stt_provider",
-                    &["audio", "stt", "provider"],
-                    zorai_shared::providers::PROVIDER_ID_OPENAI,
-                );
-                let model = Self::voice_audio_string(
-                    raw,
-                    "audio_stt_model",
-                    &["audio", "stt", "model"],
-                    "whisper-1",
-                );
-                let language = Self::voice_lookup_string(raw, &["audio", "stt", "language"])
-                    .or_else(|| Self::voice_lookup_string(raw, &["audio_stt_language"]))
-                    .or_else(|| {
-                        Self::voice_lookup_string(
-                            raw.and_then(|value| value.get("extra")),
-                            &["audio_stt_language"],
-                        )
-                    });
-                let args_json = serde_json::json!({
-                    "path": path,
-                    "mime_type": "audio/wav",
-                    "provider": provider,
-                    "model": model,
-                    "language": language,
-                })
-                .to_string();
+                if self.voice_live_active && self.voice_live_in_flight {
+                    self.voice_final_path = Some(path);
+                    self.status_line = "Transcribing voice capture...".to_string();
+                    return;
+                }
+                let args_json = self.speech_to_text_args_json(&path);
                 self.send_daemon_command(DaemonCommand::SpeechToText { args_json });
                 self.status_line = "Transcribing voice capture...".to_string();
             }

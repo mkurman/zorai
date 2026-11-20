@@ -1894,10 +1894,24 @@ impl TuiModel {
         }
 
         let thread_budget_notice = self.active_thread_budget_exceeded_notice();
+        let listening_hint = self.voice_listening_hint();
+        let next_reply_hint = self
+            .next_reply_offer()
+            .map(|suggestion| format!("{suggestion}  ⇥ Tab"));
         let footer_notice = thread_budget_notice
             .as_deref()
             .map(|notice| (notice, Style::default().fg(Color::Indexed(203))))
-            .or_else(|| self.input_notice_style());
+            .or_else(|| {
+                listening_hint
+                    .as_deref()
+                    .map(|hint| (hint, Style::default().fg(Color::Indexed(178))))
+            })
+            .or_else(|| self.input_notice_style())
+            .or_else(|| {
+                next_reply_hint
+                    .as_deref()
+                    .map(|hint| (hint, Style::default().fg(Color::Indexed(244))))
+            });
         widgets::footer::render_input(
             frame,
             chunks[4],

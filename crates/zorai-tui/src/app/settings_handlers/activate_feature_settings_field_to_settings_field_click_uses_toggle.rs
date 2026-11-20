@@ -27,6 +27,32 @@ impl TuiModel {
                 self.tier.on_tier_changed(next);
                 true
             }
+            "feat_audio_stt_mode" => {
+                let live = self
+                    .config
+                    .agent_config_raw
+                    .as_ref()
+                    .and_then(|raw| raw.get("audio")?.get("stt")?.get("mode")?.as_str())
+                    == Some("live");
+                let next = if live { "one_pass" } else { "live" };
+                self.set_raw_config_item(
+                    &["audio", "stt", "mode"],
+                    serde_json::Value::String(next.to_string()),
+                );
+                true
+            }
+            "feat_audio_stt_chunk_seconds" => {
+                let current = self
+                    .config
+                    .agent_config_raw
+                    .as_ref()
+                    .and_then(|raw| raw.get("audio")?.get("stt")?.get("chunk_seconds")?.as_u64())
+                    .unwrap_or(3)
+                    .to_string();
+                self.settings
+                    .start_editing("feat_audio_stt_chunk_seconds", &current);
+                true
+            }
             "feat_audio_stt_language" => {
                 let current = self
                     .config
@@ -279,6 +305,43 @@ impl TuiModel {
                 );
                 true
             }
+            "feat_next_reply_source" => {
+                let current = self
+                    .config
+                    .agent_config_raw
+                    .as_ref()
+                    .and_then(|raw| raw.get("next_reply")?.get("source")?.as_str())
+                    .unwrap_or("custom");
+                let next = if current == "agent" {
+                    "custom"
+                } else {
+                    "agent"
+                };
+                self.set_raw_config_item(
+                    &["next_reply", "source"],
+                    serde_json::Value::String(next.to_string()),
+                );
+                true
+            }
+            "feat_next_reply_agent_id"
+            | "feat_next_reply_provider"
+            | "feat_next_reply_model"
+            | "feat_next_reply_reasoning_effort"
+            | "feat_next_reply_context_messages" => {
+                let key = field.trim_start_matches("feat_next_reply_");
+                let current = self
+                    .config
+                    .agent_config_raw
+                    .as_ref()
+                    .and_then(|raw| raw.get("next_reply")?.get(key))
+                    .map(|value| match value {
+                        serde_json::Value::String(text) => text.clone(),
+                        other => other.to_string(),
+                    })
+                    .unwrap_or_default();
+                self.settings.start_editing(field, &current);
+                true
+            }
             "feat_auto_thread_title" => {
                 let modes = ["off", "rarog", "weles"];
                 let current = self
@@ -353,6 +416,9 @@ impl TuiModel {
                 | "feat_audio_tts_enabled"
                 | "feat_embedding_enabled"
                 | "feat_auto_thread_title"
+                | "feat_next_reply_enabled"
+                | "feat_next_reply_source"
+                | "feat_audio_stt_mode"
                 | "whatsapp_link_device"
                 | "whatsapp_relink_device"
                 | "mlflow_enabled"

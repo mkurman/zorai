@@ -241,6 +241,10 @@ impl AgentEngine {
                 }
             }
 
+            if task_id.is_none() && !outcome.interrupted_for_approval {
+                self.queue_next_reply_suggestion(&outcome.thread_id).await;
+            }
+
             return Ok(outcome);
         }
     }

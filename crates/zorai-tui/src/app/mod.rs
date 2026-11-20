@@ -35,6 +35,7 @@ mod rendering;
 mod settings_handlers;
 mod thread_handoff;
 mod thread_search;
+mod voice_live;
 mod workspace_actor_picker;
 mod workspace_create_modal;
 #[cfg(test)]
@@ -161,6 +162,7 @@ pub struct TuiModel {
     pending_stop: bool,
     pending_stop_tick: u64,
     input_notice: Option<InputNotice>,
+    next_reply_suggestion: Option<(String, String)>,
     pending_chat_action_confirm: Option<PendingConfirmAction>,
     pending_pinned_budget_exceeded: Option<PendingPinnedBudgetExceeded>,
     pending_pinned_jump: Option<PendingPinnedJump>,
@@ -177,6 +179,12 @@ pub struct TuiModel {
     voice_capture_stderr_path: Option<String>,
     voice_capture_backend_label: Option<String>,
     voice_recorder: Option<Child>,
+    voice_levels: std::collections::VecDeque<f32>,
+    voice_live_base: String,
+    voice_live_active: bool,
+    voice_live_in_flight: bool,
+    voice_live_last_tick: u64,
+    voice_final_path: Option<String>,
     voice_player: Option<Child>,
     voice_player_ipc: Option<std::path::PathBuf>,
     voice_paused: bool,

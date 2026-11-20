@@ -110,6 +110,7 @@ async fn make_test_engine(
     let _ = std::fs::create_dir_all(&data_dir);
     let (skill_discovery_result_tx, _skill_discovery_result_rx) = mpsc::unbounded_channel();
     let (auto_thread_title_jobs, _auto_thread_title_rx) = mpsc::unbounded_channel();
+    let (next_reply_jobs, _next_reply_rx) = mpsc::unbounded_channel();
     let (prompt_queue_wake_tx, _prompt_queue_wake_rx) = mpsc::unbounded_channel();
     let (continuation_flush_tx, _continuation_flush_rx) = mpsc::unbounded_channel();
     let (internal_dm_jobs_tx, _internal_dm_jobs_rx) = mpsc::unbounded_channel();
@@ -225,6 +226,7 @@ async fn make_test_engine(
         watcher_refresh_rx: Mutex::new(Some(watcher_refresh_rx)),
         skill_discovery_result_tx,
         auto_thread_title_jobs,
+        next_reply_jobs,
         prompt_queue_wake_tx,
         held_prompt_queues: std::sync::Mutex::new(std::collections::HashSet::new()),
         continuation_flush_tx,

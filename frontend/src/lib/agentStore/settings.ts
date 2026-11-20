@@ -248,6 +248,8 @@ export interface AgentSettings {
   audio_stt_provider: AgentProviderId;
   audio_stt_model: string;
   audio_stt_language: string;
+  audio_stt_mode: "one_pass" | "live";
+  audio_stt_chunk_seconds: number;
   audio_tts_enabled: boolean;
   audio_tts_provider: AgentProviderId;
   audio_tts_model: string;
@@ -270,6 +272,13 @@ export interface AgentSettings {
   semantic_embedding_batch_size: number;
   semantic_embedding_max_concurrency: number;
   auto_thread_title: AutoThreadTitleMode;
+  next_reply_enabled: boolean;
+  next_reply_source: "custom" | "agent";
+  next_reply_agent_id: string;
+  next_reply_provider: AgentProviderId;
+  next_reply_model: string;
+  next_reply_reasoning_effort: string;
+  next_reply_context_messages: number;
   reasoning_effort: "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
   auto_compact_context: boolean;
   max_context_messages: number;
@@ -433,6 +442,8 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   audio_stt_provider: "openai",
   audio_stt_model: "whisper-1",
   audio_stt_language: "",
+  audio_stt_mode: "one_pass",
+  audio_stt_chunk_seconds: 3,
   audio_tts_enabled: true,
   audio_tts_provider: "openai",
   audio_tts_model: "gpt-4o-mini-tts",
@@ -455,6 +466,13 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   semantic_embedding_batch_size: 64,
   semantic_embedding_max_concurrency: 2,
   auto_thread_title: "off",
+  next_reply_enabled: false,
+  next_reply_source: "custom",
+  next_reply_agent_id: "swarog",
+  next_reply_provider: "",
+  next_reply_model: "",
+  next_reply_reasoning_effort: "",
+  next_reply_context_messages: 1,
   reasoning_effort: "high",
   auto_compact_context: true,
   max_context_messages: 100,
@@ -647,6 +665,8 @@ export type DiskAgentSettings = Partial<AgentSettings> & {
       provider?: AgentProviderId | string;
       model?: string;
       language?: string;
+      mode?: string;
+      chunk_seconds?: number;
     };
     tts?: {
       enabled?: boolean;
@@ -655,6 +675,15 @@ export type DiskAgentSettings = Partial<AgentSettings> & {
       voice?: string;
       auto_speak?: boolean;
     };
+  };
+  next_reply?: {
+    enabled?: boolean;
+    source?: string;
+    agent_id?: string;
+    provider?: AgentProviderId | string;
+    model?: string;
+    reasoning_effort?: string;
+    context_messages?: number;
   };
   image?: {
     generation?: {
@@ -977,6 +1006,8 @@ export function normalizeAgentSettingsFromSource(source: DiskAgentSettings): Age
       ?? source.audio_stt_model
       ?? defaultAuxiliaryModel(audio_stt_provider, DEFAULT_AGENT_SETTINGS.audio_stt_model, ""),
     audio_stt_language: source.audio?.stt?.language ?? source.audio_stt_language ?? DEFAULT_AGENT_SETTINGS.audio_stt_language,
+    audio_stt_mode: source.audio?.stt?.mode === "live" ? "live" : "one_pass",
+    audio_stt_chunk_seconds: Math.min(30, Math.max(1, Math.floor(source.audio?.stt?.chunk_seconds ?? DEFAULT_AGENT_SETTINGS.audio_stt_chunk_seconds))),
     audio_tts_enabled: source.audio?.tts?.enabled ?? source.audio_tts_enabled ?? DEFAULT_AGENT_SETTINGS.audio_tts_enabled,
     audio_tts_provider,
     audio_tts_model:
@@ -1041,6 +1072,13 @@ export function normalizeAgentSettingsFromSource(source: DiskAgentSettings): Age
     auto_thread_title: normalizeAutoThreadTitleMode(
       source.auto_thread_title ?? DEFAULT_AGENT_SETTINGS.auto_thread_title,
     ),
+    next_reply_enabled: source.next_reply?.enabled ?? DEFAULT_AGENT_SETTINGS.next_reply_enabled,
+    next_reply_source: source.next_reply?.source === "agent" ? "agent" : "custom",
+    next_reply_agent_id: source.next_reply?.agent_id ?? DEFAULT_AGENT_SETTINGS.next_reply_agent_id,
+    next_reply_provider: source.next_reply?.provider ?? DEFAULT_AGENT_SETTINGS.next_reply_provider,
+    next_reply_model: source.next_reply?.model ?? DEFAULT_AGENT_SETTINGS.next_reply_model,
+    next_reply_reasoning_effort: source.next_reply?.reasoning_effort ?? DEFAULT_AGENT_SETTINGS.next_reply_reasoning_effort,
+    next_reply_context_messages: Math.max(1, Math.floor(source.next_reply?.context_messages ?? DEFAULT_AGENT_SETTINGS.next_reply_context_messages)),
     reasoning_effort: (source.reasoning_effort ?? DEFAULT_AGENT_SETTINGS.reasoning_effort) as AgentSettings["reasoning_effort"],
     auto_compact_context: source.auto_compact_context ?? DEFAULT_AGENT_SETTINGS.auto_compact_context,
     max_context_messages: source.max_context_messages ?? DEFAULT_AGENT_SETTINGS.max_context_messages,

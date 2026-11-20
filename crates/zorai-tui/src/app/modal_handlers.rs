@@ -795,6 +795,19 @@ impl TuiModel {
                                 };
                                 self.send_concierge_config();
                             }
+                            "feat_audio_stt_chunk_seconds" => match value.trim().parse::<u64>() {
+                                Ok(seconds) if (1..=30).contains(&seconds) => {
+                                    self.set_raw_config_item(
+                                        &["audio", "stt", "chunk_seconds"],
+                                        serde_json::json!(seconds),
+                                    );
+                                }
+                                _ => {
+                                    self.status_line = format!(
+                                        "Chunk size must be a whole number from 1 to 30 seconds, got {value:?}"
+                                    );
+                                }
+                            },
                             "feat_audio_stt_language" => {
                                 self.set_raw_config_item(
                                     &["audio", "stt", "language"],
@@ -1049,6 +1062,23 @@ impl TuiModel {
                             }
                             "feat_video_generation_provider" => {
                                 self.set_video_generation_config_string("provider", value);
+                            }
+                            "feat_next_reply_agent_id"
+                            | "feat_next_reply_provider"
+                            | "feat_next_reply_model"
+                            | "feat_next_reply_reasoning_effort" => {
+                                let key = field.trim_start_matches("feat_next_reply_").to_string();
+                                self.set_raw_config_item(
+                                    &["next_reply", &key],
+                                    serde_json::Value::String(value.trim().to_string()),
+                                );
+                            }
+                            "feat_next_reply_context_messages" => {
+                                let count = value.trim().parse::<u64>().unwrap_or(1).max(1);
+                                self.set_raw_config_item(
+                                    &["next_reply", "context_messages"],
+                                    serde_json::Value::from(count),
+                                );
                             }
                             "feat_image_understanding_provider"
                             | "feat_image_understanding_model"

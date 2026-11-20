@@ -442,10 +442,10 @@ fn trim_participant_playground_thread_messages(
 }
 
 #[derive(Clone)]
-struct ParticipantObserverResponderConfig {
-    provider_id: String,
-    provider_config: ProviderConfig,
-    base_prompt: String,
+pub(super) struct ParticipantObserverResponderConfig {
+    pub(super) provider_id: String,
+    pub(super) provider_config: ProviderConfig,
+    pub(super) base_prompt: String,
 }
 
 impl AgentEngine {
@@ -689,7 +689,7 @@ impl AgentEngine {
         Ok(compacted)
     }
 
-    async fn participant_observer_responder_config(
+    pub(super) async fn participant_observer_responder_config(
         &self,
         target_agent_id: &str,
     ) -> Result<ParticipantObserverResponderConfig> {

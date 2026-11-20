@@ -122,6 +122,7 @@ mod thread_participant_runner;
 pub(crate) mod thread_participants;
 mod thread_pins;
 mod thread_title;
+mod next_reply;
 mod tool_synthesis;
 mod webhook_listener;
 pub(crate) mod weles_governance;

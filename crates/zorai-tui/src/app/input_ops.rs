@@ -28,7 +28,7 @@ mod tests {
     }
 
     #[test]
-    fn ffmpeg_voice_capture_args_use_pulse_input_when_pulse_backend_selected() {
+    fn ffmpeg_voice_capture_args_use_pulse_input_and_no_duration_limit_so_recording_runs_until_stopped() {
         let args = ffmpeg_voice_capture_args("/tmp/test.wav", VoiceCaptureBackend::Pulse);
         assert_eq!(
             args,
@@ -41,8 +41,6 @@ mod tests {
                 "pulse",
                 "-i",
                 "default",
-                "-t",
-                "10",
                 "-ac",
                 "1",
                 "/tmp/test.wav",

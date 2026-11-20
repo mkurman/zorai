@@ -290,6 +290,7 @@ impl TuiModel {
                 self.voice_capture_path = Some(capture_path_string);
                 self.voice_capture_stderr_path = Some(stderr_path_string);
                 self.voice_capture_backend_label = Some(backend_label);
+                self.begin_voice_live_session();
                 self.status_line = "Voice capture started".to_string();
                 self.show_input_notice(
                     "Recording voice capture... toggle again to stop",

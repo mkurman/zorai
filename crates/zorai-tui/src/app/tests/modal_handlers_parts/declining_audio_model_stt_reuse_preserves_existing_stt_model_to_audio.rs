@@ -222,7 +222,7 @@ fn audio_tts_custom_model_entry_keeps_audio_field_selected() {
 
     assert!(!quit);
     assert_eq!(model.settings.active_tab(), SettingsTab::Media);
-    assert_eq!(model.settings.field_cursor(), 6);
+    assert_eq!(model.settings.field_cursor(), 7);
     assert_eq!(model.settings.editing_field(), Some("feat_audio_tts_model"));
 }
 

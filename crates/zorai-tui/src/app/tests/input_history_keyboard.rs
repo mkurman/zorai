@@ -58,3 +58,34 @@ fn conversation_typing_d_goes_to_composer_even_when_chat_focused() {
         "typing d must not trigger single-letter shortcut notices"
     );
 }
+
+#[test]
+fn tab_accepts_the_next_reply_suggestion_only_for_the_open_thread_and_an_empty_input() {
+    let mut model = build_model();
+    model.chat.reduce(chat::ChatAction::ThreadCreated {
+        thread_id: "thread-open".to_string(),
+        title: "Open".to_string(),
+    });
+    model
+        .chat
+        .reduce(chat::ChatAction::SelectThread("thread-open".to_string()));
+    model.focus = FocusArea::Input;
+
+    model.handle_client_event(ClientEvent::NextReplySuggestion {
+        thread_id: "thread-other".to_string(),
+        content: "Wrong thread".to_string(),
+    });
+    assert_eq!(model.next_reply_offer(), None);
+
+    model.handle_client_event(ClientEvent::NextReplySuggestion {
+        thread_id: "thread-open".to_string(),
+        content: "Run the tests".to_string(),
+    });
+    model.input.reduce(input::InputAction::InsertChar('x'));
+    assert_eq!(model.next_reply_offer(), None);
+    model.input.reduce(input::InputAction::Backspace);
+
+    model.handle_key(KeyCode::Tab, KeyModifiers::NONE);
+    assert_eq!(model.input.buffer(), "Run the tests");
+    assert_eq!(model.focus, FocusArea::Input);
+}

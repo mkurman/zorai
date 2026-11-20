@@ -150,7 +150,7 @@ fn settings_modal_keyboard_navigation_scrolls_lower_audio_fields_into_view() {
         "expected lower Multimedia rows to be clipped before keyboard navigation"
     );
 
-    for _ in 0..7 {
+    for _ in 0..8 {
         let quit = model.handle_key_modal(
             KeyCode::Down,
             KeyModifiers::NONE,
@@ -159,7 +159,7 @@ fn settings_modal_keyboard_navigation_scrolls_lower_audio_fields_into_view() {
         assert!(!quit);
     }
 
-    assert_eq!(model.settings.field_cursor(), 7);
+    assert_eq!(model.settings.field_cursor(), 8);
     assert!(
         model.settings_modal_scroll > 0,
         "expected keyboard navigation to advance the settings scroll offset"

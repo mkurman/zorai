@@ -17,6 +17,7 @@ import {
   type ZoraiWorkspaceValidatedRoot,
 } from "./codeEmptyStateModel";
 import { usePresence } from "@/hooks/usePresence";
+import { codeTiming } from "./codeTiming";
 
 /**
  * Typed callback boundary for the GLM lifecycle task. The GLM task owns
@@ -175,7 +176,7 @@ export function CodeRail() {
           </div>
         </div>
       </div>
-      <div id="zorai-code-explorer-host" className="zorai-code-explorer-scroll" aria-label="Code Explorer" />
+      <div id="zorai-code-explorer-host" className="zorai-code-explorer-scroll" aria-label="Code Explorer" data-pending={lastRoot ? "" : undefined} />
     </div>
   );
 }
@@ -226,9 +227,11 @@ export function CodeView({
     const generation = ++activationGenRef.current;
     const rootAtCall = root.root;
     setActivatingRoot(true);
+    codeTiming("activate:start");
     try {
       const activeRuntime = runtimeRef.current;
       await useWorkspaceContextStore.getState().hydrate();
+      codeTiming("activate:context-hydrated");
       if (generation !== activationGenRef.current) return;
       const bindings = useCodeWorkspaceBindingStore.getState();
       const mappedDaemonThreadId = bindings.threadForRoot(rootAtCall);
@@ -238,6 +241,7 @@ export function CodeView({
         : undefined;
       const mappedStillLinked = !loadedMapped || useWorkspaceContextStore.getState().byThreadId[loadedMapped.id]?.root === rootAtCall;
       if (mappedDaemonThreadId && mappedStillLinked && await openThreadTarget(activeRuntime, mappedDaemonThreadId)) {
+        codeTiming("activate:thread-opened");
         if (generation !== activationGenRef.current) return;
         const local = useAgentStore.getState().threads.find((thread) => thread.daemonThreadId === mappedDaemonThreadId);
         if (local && useWorkspaceContextStore.getState().byThreadId[local.id]?.root === rootAtCall) {
@@ -259,12 +263,14 @@ export function CodeView({
     } catch {
       // Root activation is best-effort; a later selection advances the generation.
     } finally {
+      codeTiming("activate:end");
       if (generation === activationGenRef.current) setActivatingRoot(false);
     }
   }, [bindRoot]);
 
   useEffect(() => {
-    void preloadCodeEditor().catch(() => {});
+    codeTiming("codeview:mount");
+    void preloadCodeEditor().then(() => codeTiming("monaco:preloaded")).catch(() => {});
   }, []);
 
   useEffect(() => {

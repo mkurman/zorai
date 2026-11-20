@@ -421,6 +421,7 @@ impl TuiModel {
                 && self.goal_mission_control.prompt_text() == self.input.buffer();
         self.input.reduce(input::InputAction::Submit);
         if let Some(prompt) = self.input.take_submitted() {
+            self.next_reply_suggestion = None;
             if self.should_show_operator_profile_onboarding() {
                 if !prompt.starts_with('/') {
                     self.input.set_text(&prompt);

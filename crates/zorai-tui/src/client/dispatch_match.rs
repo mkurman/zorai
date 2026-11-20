@@ -40,6 +40,18 @@ impl DaemonClient {
                     .send(ClientEvent::ThreadTitleUpdated { thread_id, title })
                     .await;
             }
+            "next_reply_suggestion" => {
+                let thread_id = get_string(&event, "thread_id").unwrap_or_default();
+                let content = get_string(&event, "content").unwrap_or_default();
+                if content.trim().is_empty()
+                    || Self::is_hidden_agent_thread(Some(thread_id.as_str()), None)
+                {
+                    return;
+                }
+                let _ = event_tx
+                    .send(ClientEvent::NextReplySuggestion { thread_id, content })
+                    .await;
+            }
             "thread_reload_required" => {
                 let thread_id = get_string(&event, "thread_id").unwrap_or_default();
                 if Self::is_hidden_agent_thread(Some(thread_id.as_str()), None) {

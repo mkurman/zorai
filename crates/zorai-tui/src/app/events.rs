@@ -129,6 +129,8 @@ impl TuiModel {
             }
         }
 
+        self.tick_voice_capture();
+
         let _ = self.maybe_auto_send_always_auto_response();
         if self
             .active_auto_response_countdown_secs()
@@ -228,7 +230,11 @@ impl TuiModel {
         // condition below repainted the entire TUI once per second forever as
         // soon as any selected thread had a nonzero creation timestamp.
 
-        if self.voice_recording || self.voice_player.is_some() {
+        if self.voice_recording {
+            include(tick / 2);
+        }
+
+        if self.voice_player.is_some() {
             include(tick / 8);
         }
 

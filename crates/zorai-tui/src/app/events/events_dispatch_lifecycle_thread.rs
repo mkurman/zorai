@@ -83,6 +83,10 @@ impl TuiModel {
                 self.handle_thread_created_event(thread_id, title, agent_name);
                 None
             }
+            ClientEvent::NextReplySuggestion { thread_id, content } => {
+                self.next_reply_suggestion = Some((thread_id, content.trim().to_string()));
+                None
+            }
             ClientEvent::ThreadTitleUpdated { thread_id, title } => {
                 if !title.trim().is_empty() {
                     self.chat
