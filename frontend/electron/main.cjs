@@ -633,13 +633,19 @@ function registerIpcHandlers() {
     ipcMain.handle('app-update-install', () => updateRuntime.install());
     ipcMain.handle('app-update-restart', () => updateRuntime.restart());
     ipcMain.handle('app-restart-daemon', () => updateRuntime.restartDaemon());
+    const themePresetDirs = [path.join(__dirname, '..', 'public', 'theme-backgrounds'), path.join(__dirname, '..', 'dist', 'theme-backgrounds')];
+    try {
+        themeStore.seedBundled(themePresetDirs);
+    } catch (error) {
+        logToFile('warn', 'bundled theme seeding failed', { error: error?.message ?? String(error) });
+    }
     registerThemeIpcHandlers(ipcMain, {
         store: themeStore,
         dialog,
         shell,
         BrowserWindow,
         seeThroughAtLaunch,
-        presetDirs: [path.join(__dirname, '..', 'public', 'theme-backgrounds'), path.join(__dirname, '..', 'dist', 'theme-backgrounds')],
+        presetDirs: themePresetDirs,
     });
     ipcMain.handle('app-set-menu-accelerators', (_event, overrides) => windowRuntime.setMenuAccelerators(overrides));
     ipcMain.handle('app-set-menu-state', (_event, state) => windowRuntime.setMenuState(state));

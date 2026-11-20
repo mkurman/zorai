@@ -220,3 +220,24 @@ test('bundled background presets are listed from the first existing folder and c
     assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'themes', id, 'theme.json'), 'utf8')).background.image, 'background.svg');
     assert.equal(fs.existsSync(path.join(presets, 'deep-sea.svg')), true);
 });
+
+test('bundled themes are seeded once from the shipped presets, so a user who deletes one does not get it back', () => {
+    const { root, store } = tempStore();
+    const presets = path.join(root, 'presets');
+    fs.mkdirSync(presets);
+    fs.writeFileSync(path.join(presets, 'zorai-opening-dark.webp'), 'dark');
+    fs.writeFileSync(path.join(presets, 'zorai-opening-light.webp'), 'light');
+    fs.writeFileSync(path.join(presets, 'zorai-dawn-light.webp'), 'dawn');
+
+    assert.deepEqual(store.seedBundled([path.join(root, 'missing'), presets]).sort(), ['default-dark-w-background', 'default-light-w-background', 'zorai-paper-dark-w-background', 'zorai-paper-w-background']);
+    const records = Object.fromEntries(store.list().map((record) => [record.id, record]));
+    assert.equal(records['default-dark-w-background'].theme.name, 'Default Dark w/ Background');
+    assert.equal(records['default-dark-w-background'].theme.pair, 'Default Light w/ Background');
+    assert.equal(records['default-light-w-background'].error, null);
+    assert.equal(fs.readFileSync(records['default-light-w-background'].backgroundPath, 'utf8'), 'light');
+
+    fs.rmSync(path.join(root, 'themes', 'default-dark-w-background'), { recursive: true });
+    assert.deepEqual(store.seedBundled([presets]), []);
+    assert.deepEqual(store.list().map((record) => record.id), ['default-light-w-background', 'zorai-paper-dark-w-background', 'zorai-paper-w-background']);
+    assert.ok(store.list().every((record) => record.error === null));
+});

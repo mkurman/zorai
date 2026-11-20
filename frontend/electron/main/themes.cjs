@@ -8,6 +8,29 @@ const CUSTOM_CSS_FILE = 'custom.css';
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'];
 const VIDEO_EXTENSIONS = ['.mp4', '.webm'];
 const BACKGROUND_EXTENSIONS = [...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS];
+const BUNDLED_MARKER_FILE = '.bundled-themes';
+const BUNDLED_THEMES = [
+    {
+        id: 'default-dark-w-background',
+        preset: 'zorai-opening-dark.webp',
+        theme: { name: 'Default Dark w/ Background', appearance: 'dark', base: 'Default Dark', background: { image: 'background.webp', blur: 12, dim: 0.3 }, surfaceOpacity: 0.85, seeThrough: false, pair: 'Default Light w/ Background' },
+    },
+    {
+        id: 'default-light-w-background',
+        preset: 'zorai-opening-light.webp',
+        theme: { name: 'Default Light w/ Background', appearance: 'light', base: 'Default Light', background: { image: 'background.webp', blur: 12, dim: 0.3 }, surfaceOpacity: 0.8, seeThrough: false, pair: 'Default Dark w/ Background' },
+    },
+    {
+        id: 'zorai-paper-w-background',
+        preset: 'zorai-dawn-light.webp',
+        theme: { name: 'Zorai Paper w/ Background', appearance: 'light', base: 'Zorai Paper', background: { image: 'background.webp', blur: 2, dim: 0.85 }, surfaceOpacity: 0.8, seeThrough: false, pair: 'Zorai Paper Dark w/ Background' },
+    },
+    {
+        id: 'zorai-paper-dark-w-background',
+        preset: 'zorai-opening-light.webp',
+        theme: { name: 'Zorai Paper Dark w/ Background', appearance: 'dark', base: 'Zorai Paper Dark', background: { image: 'background.webp', blur: 2, dim: 0.85 }, surfaceOpacity: 0.8, seeThrough: false, pair: 'Zorai Paper w/ Background' },
+    },
+];
 
 function themeSlug(name) {
     const slug = String(name ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -170,6 +193,30 @@ function createThemeStore({ rootDir }) {
         return dir;
     };
 
+    function seedBundled(presetDirs, bundled = BUNDLED_THEMES) {
+        const presetDir = presetDirs.find((candidate) => fs.existsSync(candidate));
+        if (!presetDir) return [];
+        const markerPath = path.join(themesDir(), BUNDLED_MARKER_FILE);
+        const seeded = new Set(fs.existsSync(markerPath) ? fs.readFileSync(markerPath, 'utf8').split('\n').filter(Boolean) : []);
+        const before = seeded.size;
+        const added = [];
+        for (const entry of bundled) {
+            if (seeded.has(entry.id)) continue;
+            const source = path.join(presetDir, entry.preset);
+            if (!fs.existsSync(source)) continue;
+            const dir = path.join(themesDir(), entry.id);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+                fs.copyFileSync(source, path.join(dir, entry.theme.background.image));
+                fs.writeFileSync(path.join(dir, THEME_FILE), `${JSON.stringify(entry.theme, null, 2)}\n`);
+                added.push(entry.id);
+            }
+            seeded.add(entry.id);
+        }
+        if (seeded.size !== before) fs.writeFileSync(markerPath, `${[...seeded].join('\n')}\n`);
+        return added;
+    }
+
     function list() {
         const dir = themesDir();
         const records = [];
@@ -268,7 +315,7 @@ function createThemeStore({ rootDir }) {
         fs.writeFileSync(path.join(rootDir(), WINDOW_APPEARANCE_FILE), `${JSON.stringify({ seeThrough: appearance?.seeThrough === true }, null, 2)}\n`);
     }
 
-    return { themesDir, themeDirFor, list, save, importFrom, installStaged, exportTo, customCssPath, readCustomCss, ensureCustomCss, readWindowAppearance, writeWindowAppearance };
+    return { themesDir, themeDirFor, seedBundled, list, save, importFrom, installStaged, exportTo, customCssPath, readCustomCss, ensureCustomCss, readWindowAppearance, writeWindowAppearance };
 }
 
 function seeThroughWindowOptions(platform) {
