@@ -335,17 +335,17 @@ impl AgentEngine {
             }
         }
 
-        let context_tags = resolve_skill_discovery_context_tags(
-            self.workspace_root.as_ref(),
-            &self.session_manager,
-            session_id,
-            self.plugin_manager.get().map(|manager| manager.as_ref()),
-        )
-        .await;
         let cfg = self.config.read().await.skill_recommendation.clone();
 
         #[cfg(test)]
         if self.skill_discovery_test_runner.get().is_none() {
+            let context_tags = resolve_skill_discovery_context_tags(
+                self.workspace_root.as_ref(),
+                &self.session_manager,
+                session_id,
+                self.plugin_manager.get().map(|manager| manager.as_ref()),
+            )
+            .await;
             let mut state = build_latest_skill_discovery_state(
                 &skill_query,
                 &execute_skill_discovery_backend(
@@ -376,14 +376,17 @@ impl AgentEngine {
 
         self.set_thread_skill_discovery_state(thread_id, pending_state.clone())
             .await;
-        self.spawn_background_skill_discovery(AsyncSkillDiscoveryRequest {
-            thread_id: thread_id.to_string(),
-            query: skill_query,
-            context_tags,
-            limit: MAX_SKILL_PREFLIGHT_MATCHES,
-            history_root: self.history.data_root().to_path_buf(),
-            cfg,
-        });
+        self.spawn_background_skill_discovery(
+            AsyncSkillDiscoveryRequest {
+                thread_id: thread_id.to_string(),
+                query: skill_query,
+                context_tags: Vec::new(),
+                limit: MAX_SKILL_PREFLIGHT_MATCHES,
+                history_root: self.history.data_root().to_path_buf(),
+                cfg,
+            },
+            session_id,
+        );
 
         Ok(Some(build_skill_preflight_context_from_state(
             pending_state,
@@ -399,7 +402,11 @@ impl AgentEngine {
         self.run_skill_discovery(query, session_id, limit).await
     }
 
-    fn spawn_background_skill_discovery(&self, request: AsyncSkillDiscoveryRequest) {
+    fn spawn_background_skill_discovery(
+        &self,
+        mut request: AsyncSkillDiscoveryRequest,
+        session_id: Option<SessionId>,
+    ) {
         #[cfg(test)]
         if let Some(runner) = self.skill_discovery_test_runner.get() {
             runner.spawn(request, self.skill_discovery_result_tx.clone());
@@ -407,7 +414,17 @@ impl AgentEngine {
         }
 
         let result_tx = self.skill_discovery_result_tx.clone();
+        let workspace_root = self.workspace_root.clone();
+        let session_manager = self.session_manager.clone();
+        let plugin_manager = self.plugin_manager.get().cloned();
         tokio::spawn(async move {
+            request.context_tags = resolve_skill_discovery_context_tags(
+                workspace_root.as_ref(),
+                &session_manager,
+                session_id,
+                plugin_manager.as_deref(),
+            )
+            .await;
             let completion = compute_async_skill_discovery_completion(request).await;
             let _ = result_tx.send(completion);
         });

@@ -37,6 +37,17 @@ describe("summarizeTurnActivity title", () => {
     expect(summarizeTurnActivity([reasoning("Checking the pinned Japanese reference audio against metadata")]).title)
       .toBe("Checking the pinned Japanese reference audio…");
   });
+
+  it("keeps naming the running tool when a notice lands after it, since the notice is not what is working", () => {
+    const notice = { id: "n", threadId: "t", role: "system", content: "Metacognitive intervention", createdAt: 2_000 } as AgentMessage;
+    const entries: TurnActivityEntry[] = [
+      { kind: "tools", key: "t", groups: [group('{"intent":"Await bounded recovery"}', { status: "executing", resultContent: undefined })] },
+      { kind: "notice", key: "n", message: notice },
+    ];
+    const summary = summarizeTurnActivity(entries);
+    expect(summary.title).toBe("Await bounded recovery");
+    expect(summary.working).toBe(true);
+  });
 });
 
 describe("turnActivitySpan", () => {
