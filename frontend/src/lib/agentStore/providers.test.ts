@@ -714,6 +714,7 @@ describe("frontend GitHub Copilot provider routing", () => {
     expect(getProviderApiType("gemini", "gemini-4-carbon")).toBe("gemini");
     expect(getProviderModels("gemini").map((model) => model.id)).toEqual([
       "gemini-4-carbon",
+      "gemini-4-neon",
       "gemini-4-argon",
       "gemini-4-hydrogen",
       "gemini-3.8-flash",

@@ -353,6 +353,24 @@ impl TuiModel {
         }
     }
 
+    pub(crate) fn set_media_understanding_config_string(&mut self, field: &str, value: String) {
+        let (root, key) = media_understanding_path(field);
+        let value = value.trim().to_string();
+        self.send_daemon_command(DaemonCommand::SetConfigItem {
+            key_path: format!("/{root}/understanding/{key}"),
+            value_json: serde_json::Value::String(value.clone()).to_string(),
+        });
+        if let Some(ref mut raw) = self.config.agent_config_raw {
+            if raw.get(root).is_none() {
+                raw[root] = serde_json::json!({});
+            }
+            if raw[root].get("understanding").is_none() {
+                raw[root]["understanding"] = serde_json::json!({});
+            }
+            raw[root]["understanding"][key] = serde_json::Value::String(value);
+        }
+    }
+
     pub(crate) fn set_music_generation_config_string(&mut self, field: &str, value: String) {
         self.send_daemon_command(DaemonCommand::SetConfigItem {
             key_path: format!("/music/generation/{field}"),

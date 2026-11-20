@@ -1050,6 +1050,12 @@ impl TuiModel {
                             "feat_video_generation_provider" => {
                                 self.set_video_generation_config_string("provider", value);
                             }
+                            "feat_image_understanding_provider"
+                            | "feat_image_understanding_model"
+                            | "feat_video_understanding_provider"
+                            | "feat_video_understanding_model" => {
+                                self.set_media_understanding_config_string(&field, value);
+                            }
                             "feat_video_generation_model" => {
                                 self.set_video_generation_config_string("model", value);
                             }

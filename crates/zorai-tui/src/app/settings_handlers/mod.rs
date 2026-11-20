@@ -16,6 +16,20 @@ mod openrouter_endpoint_url_for_to_activate_settings_field;
 #[path = "toggle_settings_field_to_handle_plugins_settings_key.rs"]
 mod toggle_settings_field_to_handle_plugins_settings_key;
 
+fn media_understanding_path(field: &str) -> (&'static str, &'static str) {
+    let root = if field.starts_with("feat_video_") {
+        "video"
+    } else {
+        "image"
+    };
+    let key = if field.ends_with("_model") {
+        "model"
+    } else {
+        "provider"
+    };
+    (root, key)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

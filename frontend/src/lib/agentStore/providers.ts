@@ -106,6 +106,7 @@ const ELEVENLABS_MODELS: ModelDefinition[] = [
 
 const GEMINI_MODELS: ModelDefinition[] = [
   { id: "gemini-4-carbon", name: "Gemini 4 Carbon", contextWindow: 1_048_576, modalities: M_MULTI },
+  { id: "gemini-4-neon", name: "Gemini 4 Neon", contextWindow: 1_048_576, modalities: M_MULTI },
   { id: "gemini-4-argon", name: "Gemini 4 Argon", contextWindow: 1_048_576, modalities: M_MULTI },
   { id: "gemini-4-hydrogen", name: "Gemini 4 Hydrogen", contextWindow: 1_048_576, modalities: M_MULTI },
   { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash", contextWindow: 1_048_576, modalities: M_MULTI },

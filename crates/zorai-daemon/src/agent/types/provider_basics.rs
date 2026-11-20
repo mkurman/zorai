@@ -331,6 +331,12 @@ pub const GEMINI_MODELS: &[ModelDefinition] = &[
         modalities: MULTIMODAL,
     },
     ModelDefinition {
+        id: "gemini-4-neon",
+        name: "Gemini 4 Neon",
+        context_window: 1_048_576,
+        modalities: MULTIMODAL,
+    },
+    ModelDefinition {
         id: "gemini-4-argon",
         name: "Gemini 4 Argon",
         context_window: 1_048_576,

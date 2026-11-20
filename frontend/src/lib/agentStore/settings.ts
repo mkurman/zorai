@@ -257,6 +257,10 @@ export interface AgentSettings {
   image_generation_model: string;
   video_generation_provider: AgentProviderId;
   video_generation_model: string;
+  image_understanding_provider: AgentProviderId;
+  image_understanding_model: string;
+  video_understanding_provider: AgentProviderId;
+  video_understanding_model: string;
   music_generation_provider: AgentProviderId;
   music_generation_model: string;
   semantic_embedding_enabled: boolean;
@@ -438,6 +442,10 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   image_generation_model: "gpt-image-1",
   video_generation_provider: "",
   video_generation_model: "",
+  image_understanding_provider: "",
+  image_understanding_model: "",
+  video_understanding_provider: "",
+  video_understanding_model: "",
   music_generation_provider: "",
   music_generation_model: "",
   semantic_embedding_enabled: false,
@@ -653,9 +661,17 @@ export type DiskAgentSettings = Partial<AgentSettings> & {
       provider?: AgentProviderId | string;
       model?: string;
     };
+    understanding?: {
+      provider?: AgentProviderId | string;
+      model?: string;
+    };
   };
   video?: {
     generation?: {
+      provider?: AgentProviderId | string;
+      model?: string;
+    };
+    understanding?: {
       provider?: AgentProviderId | string;
       model?: string;
     };
@@ -986,6 +1002,18 @@ export function normalizeAgentSettingsFromSource(source: DiskAgentSettings): Age
       source.video?.generation?.model
       ?? source.video_generation_model
       ?? DEFAULT_AGENT_SETTINGS.video_generation_model,
+    image_understanding_provider:
+      source.image?.understanding?.provider
+      ?? DEFAULT_AGENT_SETTINGS.image_understanding_provider,
+    image_understanding_model:
+      source.image?.understanding?.model
+      ?? DEFAULT_AGENT_SETTINGS.image_understanding_model,
+    video_understanding_provider:
+      source.video?.understanding?.provider
+      ?? DEFAULT_AGENT_SETTINGS.video_understanding_provider,
+    video_understanding_model:
+      source.video?.understanding?.model
+      ?? DEFAULT_AGENT_SETTINGS.video_understanding_model,
     music_generation_provider:
       source.music?.generation?.provider
       ?? source.music_generation_provider
