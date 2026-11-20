@@ -2161,7 +2161,7 @@ async fn dispatch_tool_execution(
                 .unwrap_or("moderate")
                 .to_string();
             drop(config);
-            execute_web_search(
+            let search = execute_web_search(
                 args,
                 http_client,
                 &search_provider,
@@ -2172,8 +2172,17 @@ async fn dispatch_tool_execution(
                 &youcom_api_key,
                 &duckduckgo_region,
                 &duckduckgo_safe_search,
-            )
-            .await
+            );
+            match (search_provider.as_str(), cancel_token) {
+                ("parallel", Some(cancel)) => {
+                    tokio::select! {
+                        biased;
+                        _ = cancel.cancelled() => Err(anyhow::anyhow!("Parallel search cancelled")),
+                        result = search => result,
+                    }
+                }
+                _ => search.await,
+            }
         }
         tool_names::FETCH_URL => {
             let config = agent.config.read().await;

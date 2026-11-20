@@ -269,6 +269,41 @@ async fn parallel_search_setting_persists_without_enabling_web_search() {
 }
 
 #[tokio::test]
+async fn parallel_search_respects_agent_stop() {
+    let root = tempfile::tempdir().unwrap();
+    let manager = SessionManager::new_test(root.path()).await;
+    let config = load_config_from_items(vec![
+        ("/search_provider".to_string(), json!("parallel")),
+        ("/tools/web_search".to_string(), json!(true)),
+    ])
+    .unwrap();
+    let engine = AgentEngine::new_test(manager.clone(), config, root.path()).await;
+    let cancel = CancellationToken::new();
+    cancel.cancel();
+    let result = execute_tool(
+        &ToolCall::with_default_weles_review(
+            "parallel-cancelled-search".to_string(),
+            ToolFunction {
+                name: "web_search".to_string(),
+                arguments: json!({ "query": "Rust docs", "timeout_seconds": 1 }).to_string(),
+            },
+        ),
+        &engine,
+        "parallel-cancelled-search",
+        None,
+        &manager,
+        None,
+        &engine.event_sender(),
+        root.path(),
+        &engine.http_client,
+        Some(cancel),
+    )
+    .await;
+    assert!(result.is_error, "{}", result.content);
+    assert_eq!(result.content, "Error: Parallel search cancelled");
+}
+
+#[tokio::test]
 #[ignore = "calls the public anonymous Parallel Search MCP"]
 async fn parallel_search_live_anonymous_via_daemon_tool() {
     let root = tempfile::tempdir().unwrap();
@@ -303,7 +338,7 @@ async fn parallel_search_live_anonymous_via_daemon_tool() {
         &engine.event_sender(),
         root.path(),
         &engine.http_client,
-        None,
+        Some(CancellationToken::new()),
     )
     .await;
     assert!(!result.is_error, "{}", result.content);
