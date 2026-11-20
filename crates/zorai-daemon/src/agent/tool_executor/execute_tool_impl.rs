@@ -2110,8 +2110,14 @@ async fn dispatch_tool_execution(
                 .extra
                 .get("search_provider")
                 .and_then(|v| v.as_str())
-                .unwrap_or("none")
-                .to_string();
+                .unwrap_or("none");
+            if search_provider == "parallel" && !config.tools.web_search {
+                return (
+                    Err(anyhow::anyhow!("Parallel search requires Web Search to be enabled")),
+                    pending_approval,
+                );
+            }
+            let search_provider = search_provider.to_string();
             let exa_api_key = config
                 .extra
                 .get("exa_api_key")

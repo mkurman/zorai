@@ -198,11 +198,12 @@ async fn parallel_search_drops_stalled_initialization_with_search() {
             socket.get_mut().write_all(response).await.unwrap();
             initialize_seen.send(()).unwrap();
             let mut extra_bytes = Vec::new();
-            assert_eq!(
-                socket.read_to_end(&mut extra_bytes).await.unwrap(),
-                0,
-                "unexpected extra HTTP data"
-            );
+            match socket.read_to_end(&mut extra_bytes).await {
+                Ok(_) => {}
+                Err(err) if err.kind() == std::io::ErrorKind::ConnectionReset => {}
+                Err(err) => panic!("could not observe the HTTP connection closing: {err}"),
+            }
+            assert!(extra_bytes.is_empty(), "unexpected extra HTTP data");
         });
 
         let mut search = Box::pin(search_at(&endpoint, "Rust docs", 1));
@@ -226,7 +227,7 @@ async fn parallel_search_drops_stalled_initialization_with_search() {
 async fn parallel_search_setting_persists_without_enabling_web_search() {
     let root = tempfile::tempdir().unwrap();
     let manager = SessionManager::new_test(root.path()).await;
-    let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+    let engine = AgentEngine::new_test(manager.clone(), AgentConfig::default(), root.path()).await;
     let config = engine
         .set_config_item_json("/search_provider", r#""parallel""#)
         .await
@@ -240,6 +241,31 @@ async fn parallel_search_setting_persists_without_enabling_web_search() {
         load_config_from_items(engine.history.list_agent_config_items().await.unwrap()).unwrap();
     assert_eq!(persisted.extra["search_provider"], "parallel");
     assert!(!persisted.tools.web_search);
+
+    let result = execute_tool(
+        &ToolCall::with_default_weles_review(
+            "parallel-disabled-search".to_string(),
+            ToolFunction {
+                name: "web_search".to_string(),
+                arguments: json!({ "query": "Rust docs", "timeout_seconds": 1 }).to_string(),
+            },
+        ),
+        &engine,
+        "parallel-disabled-search",
+        None,
+        &manager,
+        None,
+        &engine.event_sender(),
+        root.path(),
+        &engine.http_client,
+        None,
+    )
+    .await;
+    assert!(result.is_error, "{}", result.content);
+    assert_eq!(
+        result.content,
+        "Error: Parallel search requires Web Search to be enabled"
+    );
 }
 
 #[tokio::test]
