@@ -473,13 +473,18 @@ export function ThreadsView({
         {messageWindow.topSpacer > 0 ? (
           <div aria-hidden="true" className="zorai-thread-message-spacer" style={{ height: messageWindow.topSpacer }} />
         ) : null}
-        {displayItems.slice(messageWindow.start, messageWindow.end).map((item) => {
+        {displayItems.slice(messageWindow.start, messageWindow.end).map((item, offset) => {
           const itemKey = threadMessageItemKey(item);
           let row: ReactNode;
           if (item.type === "turnActivity") {
+            const position = messageWindow.start + offset;
+            const before = displayItems[position - 1];
+            const after = displayItems[position + 1];
             row = (
               <ThreadTurnActivityList
                 entries={item.entries}
+                startedAfter={before?.type === "message" ? before.message.createdAt : undefined}
+                endedBefore={after?.type === "message" ? after.message.createdAt : undefined}
                 live={runtime.isStreamingResponse && item === displayItems[displayItems.length - 1]}
                 onRefreshOperation={runtime.getOperationStatus}
                 onCancelOperation={runtime.cancelOperation}

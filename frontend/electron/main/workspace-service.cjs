@@ -377,8 +377,33 @@ async function searchWorkspace(rootPath, query, options = {}) {
     return results;
 }
 
+const gitStatusInFlight = new Map();
+const UNMERGED_STATUS_CODES = new Set(['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU']);
+
+function forgetGitStatus(rootPath) {
+    try {
+        gitStatusInFlight.delete(canonicalWorkspaceRoot(rootPath));
+    } catch {
+        gitStatusInFlight.clear();
+    }
+}
+
+function isUnmergedStatus(entry) {
+    return UNMERGED_STATUS_CODES.has(`${entry.indexStatus}${entry.worktreeStatus}`);
+}
+
 async function workspaceGitStatus(rootPath) {
     const root = canonicalWorkspaceRoot(rootPath);
+    const pending = gitStatusInFlight.get(root);
+    if (pending) return pending;
+    const run = readWorkspaceGitStatus(root).finally(() => {
+        if (gitStatusInFlight.get(root) === run) gitStatusInFlight.delete(root);
+    });
+    gitStatusInFlight.set(root, run);
+    return run;
+}
+
+async function readWorkspaceGitStatus(root) {
     const gitRoot = await resolveGitRoot(root);
     if (!gitRoot || !isWithinRoot(gitRoot, root)) return [];
     const { stdout } = await execGit(['status', '--porcelain=v1', '-z', '--untracked-files=all'], {
@@ -583,8 +608,8 @@ async function workspaceGitConflicts(rootPath) {
     const root = canonicalWorkspaceRoot(rootPath);
     const gitRoot = await resolveGitRoot(root);
     if (!gitRoot) return [];
-    const { stdout } = await execGit(['diff', '--name-only', '--diff-filter=U'], { cwd: gitRoot, encoding: 'utf8', timeout: GIT_STATUS_TIMEOUT_MS, maxBuffer: GIT_MAX_BUFFER });
-    return stdout.split(/\r?\n/).filter(Boolean).map((filePath) => ({ path: filePath }));
+    const status = await workspaceGitStatus(root);
+    return status.filter(isUnmergedStatus).map((entry) => ({ path: entry.path }));
 }
 
 const GIT_BRANCH_NAME_PATTERN = /^(?!-)[\w./^~-]+$/;
@@ -1094,6 +1119,8 @@ async function workspaceGitDiff(rootPath, relativePath = null, options = {}) {
 }
 
 module.exports = {
+    forgetGitStatus,
+    isUnmergedStatus,
     listAllWorkspaceFiles,
     rankFileNameMatches,
     runGitWithInput,

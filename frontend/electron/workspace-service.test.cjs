@@ -654,3 +654,39 @@ test('the full file listing walks every folder, not just the opened one', async 
     assert.deepEqual(files.sort(), ['a/b/c/deep.rs', 'top.txt']);
     fs.rmSync(root, { recursive: true, force: true });
 });
+
+test('concurrent git status requests share one scan of the working tree', async () => {
+    const { workspaceGitStatus } = require('./main/workspace-service.cjs');
+    const { execFileSync } = require('node:child_process');
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zorai-status-'));
+    execFileSync('git', ['init', '-q'], { cwd: root });
+    fs.writeFileSync(path.join(root, 'a.txt'), 'a');
+    const [first, second] = await Promise.all([workspaceGitStatus(root), workspaceGitStatus(root)]);
+    assert.equal(first, second);
+    assert.deepEqual(first.map((entry) => entry.path), ['a.txt']);
+    fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('merge conflicts come from the same status scan instead of a second full diff', async () => {
+    const { workspaceGitConflicts, isUnmergedStatus } = require('./main/workspace-service.cjs');
+    const { execFileSync } = require('node:child_process');
+    assert.equal(isUnmergedStatus({ indexStatus: 'U', worktreeStatus: 'U' }), true);
+    assert.equal(isUnmergedStatus({ indexStatus: 'A', worktreeStatus: 'A' }), true);
+    assert.equal(isUnmergedStatus({ indexStatus: 'M', worktreeStatus: ' ' }), false);
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zorai-conflict-'));
+    const git = (...args) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd: root, stdio: 'pipe' });
+    git('init', '-q', '-b', 'main');
+    fs.writeFileSync(path.join(root, 'f.txt'), 'base\n');
+    git('add', '.');
+    git('commit', '-qm', 'base');
+    git('checkout', '-qb', 'other');
+    fs.writeFileSync(path.join(root, 'f.txt'), 'other\n');
+    git('commit', '-qam', 'other');
+    git('checkout', '-q', 'main');
+    fs.writeFileSync(path.join(root, 'f.txt'), 'main\n');
+    git('commit', '-qam', 'main');
+    try { git('merge', 'other'); } catch {}
+    const conflicts = await workspaceGitConflicts(root);
+    assert.deepEqual(conflicts, [{ path: 'f.txt' }]);
+    fs.rmSync(root, { recursive: true, force: true });
+});

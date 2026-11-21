@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ToolEventGroup } from "@/components/agent-chat-panel/chat-view/types";
-import { finishedTurnStats } from "./ThreadTurnActivityList";
+import { finishedTurnStats, turnActivityBounds } from "./ThreadTurnActivityList";
 import { finishedTurnSummaries, finishedTurnSummary } from "./turnActivitySummary";
 
 describe("finished turn summary", () => {
@@ -40,5 +40,17 @@ describe("finished turn summary", () => {
     expect(finishedTurnStats(1, 0, 1)).toBe("1 step");
     expect(finishedTurnStats(5, 2, 2)).toBe("5 steps · 2 failed");
     expect(finishedTurnStats(0, 0, 2)).toBe("2 steps");
+  });
+});
+
+describe("turn duration", () => {
+  it("spans from the prompt to the reply, so reloaded threads still show how long the work took", () => {
+    const reloadedSingleTool = { startedAt: 10_000, endedAt: 10_000 };
+    expect(turnActivityBounds(reloadedSingleTool, 4_000, 95_000)).toEqual({ startedAt: 4_000, endedAt: 95_000 });
+  });
+
+  it("ignores neighbours that would shrink the span and leaves empty activity alone", () => {
+    expect(turnActivityBounds({ startedAt: 10_000, endedAt: 20_000 }, 12_000, 15_000)).toEqual({ startedAt: 10_000, endedAt: 20_000 });
+    expect(turnActivityBounds({ startedAt: 0, endedAt: 0 }, 1, 2)).toEqual({ startedAt: 0, endedAt: 0 });
   });
 });

@@ -78,6 +78,17 @@ function finishedSummary(entries: TurnActivityEntry[], elapsedMs: number): strin
   return finishedTurnSummary(entries[0]?.key ?? "", groups, elapsedMs, lastGroup ? toolGroupTitle(lastGroup) : null);
 }
 
+export function turnActivityBounds(
+  span: { startedAt: number; endedAt: number },
+  startedAfter: number | undefined,
+  endedBefore: number | undefined,
+): { startedAt: number; endedAt: number } {
+  if (!span.startedAt) return span;
+  const startedAt = startedAfter !== undefined && startedAfter < span.startedAt ? startedAfter : span.startedAt;
+  const endedAt = endedBefore !== undefined && endedBefore > span.endedAt ? endedBefore : span.endedAt;
+  return { startedAt, endedAt };
+}
+
 function toolGroupTitle(group: ToolEventGroup): string {
   return toolIntentLabel(group.toolArguments) || humanizeToolName(group.toolName || "Tools");
 }
@@ -105,11 +116,15 @@ export function finishedTurnStats(toolCount: number, failedCount: number, entryC
 export const ThreadTurnActivityList = memo(function ThreadTurnActivityList({
   entries,
   live,
+  startedAfter,
+  endedBefore,
   onRefreshOperation,
   onCancelOperation,
 }: {
   entries: TurnActivityEntry[];
   live: boolean;
+  startedAfter?: number;
+  endedBefore?: number;
   onRefreshOperation: (operationId: string) => Promise<OperationStatusView | null>;
   onCancelOperation: (operationId: string) => Promise<ThreadMutationResult>;
 }) {
@@ -135,11 +150,12 @@ export const ThreadTurnActivityList = memo(function ThreadTurnActivityList({
     return () => window.clearTimeout(timer);
   }, [expanded]);
   if (entries.length === 0) return null;
-  const { title, working, toolCount, doneCount } = summarizeTurnActivity(entries);
-  const { startedAt, endedAt } = turnActivitySpan(entries);
+  const { title, working, toolCount } = summarizeTurnActivity(entries);
+  const { startedAt, endedAt } = turnActivityBounds(turnActivitySpan(entries), startedAfter, live ? undefined : endedBefore);
   const failedCount = entries.reduce((sum, entry) => sum + (entry.kind === "tools" ? entry.groups.filter((group) => group.status === "error").length : 0), 0);
   const active = live || working;
   const finished = !active;
+  const headerTitle = finished ? finishedSummary(entries, endedAt - startedAt) : title;
 
   return (
     <div className="acp-tool-list zorai-turn-activity">
@@ -156,12 +172,12 @@ export const ThreadTurnActivityList = memo(function ThreadTurnActivityList({
         <div className="acp-tool-list__title-container">
           <ZoraiToolMark active={active} />
           <span className="acp-tool-list__title-slot" title={title}>
-            <span className={`acp-tool-list__title${active ? " acp-tool-list__title--working" : ""}`}>{finished ? finishedSummary(entries, endedAt - startedAt) : title}</span>
+            <span className={`acp-tool-list__title${active ? " acp-tool-list__title--working" : ""}`}>{headerTitle}</span>
           </span>
-          {finished ? null : <TurnActivityElapsed startedAt={startedAt} endedAt={endedAt} live={active} />}
+          {finished && headerTitle.startsWith("Worked") ? null : <TurnActivityElapsed startedAt={startedAt} endedAt={endedAt} live={active} />}
         </div>
         <span className="acp-tool-list__stats">
-          {finished ? finishedTurnStats(toolCount, failedCount, entries.length) : toolCount > 0 ? `[${doneCount} / ${toolCount}]` : `[${entries.length}]`}
+          {finishedTurnStats(toolCount, failedCount, entries.length)}
         </span>
         <span className={expanded ? "acp-tool-row__caret zorai-motion-caret is-open" : "acp-tool-row__caret zorai-motion-caret"} aria-hidden="true">▶</span>
       </button>
@@ -199,6 +215,8 @@ export const ThreadTurnActivityList = memo(function ThreadTurnActivityList({
   );
 }, (prev, next) => (
   prev.live === next.live
+  && prev.startedAfter === next.startedAfter
+  && prev.endedBefore === next.endedBefore
   && prev.onRefreshOperation === next.onRefreshOperation
   && prev.onCancelOperation === next.onCancelOperation
   && sameTurnActivityEntries(prev.entries, next.entries)

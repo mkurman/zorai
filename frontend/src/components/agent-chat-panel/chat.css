@@ -834,8 +834,8 @@
   min-width: 0;
   height: var(--acp-tool-title-line);
   overflow: hidden;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
   line-height: var(--acp-tool-title-line);
 }
 
@@ -921,8 +921,8 @@
 .acp-tool-list__elapsed {
   flex-shrink: 0;
   height: 1.4em;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
   line-height: 1.4em;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
@@ -931,7 +931,8 @@
 .acp-tool-list__stats {
   margin-left: auto;
   flex-shrink: 0;
-  font-size: var(--text-xs);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }

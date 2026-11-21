@@ -82,8 +82,10 @@ process.parentPort.on('message', async ({ data }) => {
     try {
         if (typeof handler !== 'function') throw new Error(`Unknown workspace worker method: ${method}`);
         const callArgs = Array.isArray(args) ? args : [];
+        if (MUTATING_METHODS.has(method)) workspaceService.forgetGitStatus(callArgs[0]);
         const result = await handler(...callArgs);
         if (MUTATING_METHODS.has(method)) {
+            workspaceService.forgetGitStatus(callArgs[0]);
             listCache.invalidateRoot(callArgs[0]);
             try { fileIndexByRoot.delete(workspaceService.canonicalWorkspaceRoot(callArgs[0])); } catch {}
         }
