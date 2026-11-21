@@ -67,4 +67,25 @@ if (!globalScope.MonacoEnvironment) {
 // Supplying the bundled module keeps the desktop editor fully offline.
 loader.config({ monaco });
 
+const WARM_LANGUAGES = ["python", "rust", "go", "shell", "yaml", "markdown", "ini", "sql", "java", "cpp", "xml", "html", "css", "scss", "typescript", "javascript", "json", "dockerfile", "ruby", "php", "kotlin", "swift", "lua"];
+let languagesWarmed = false;
+
+export function warmMonacoLanguages(): void {
+  if (languagesWarmed) return;
+  languagesWarmed = true;
+  const known = new Set(monaco.languages.getLanguages().map((language) => language.id));
+  const queue = WARM_LANGUAGES.filter((id) => known.has(id));
+  const step = () => {
+    const id = queue.shift();
+    if (!id) return;
+    monaco.editor.createModel("", id).dispose();
+    schedule();
+  };
+  const schedule = () => {
+    if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(step, { timeout: 500 });
+    else window.setTimeout(step, 30);
+  };
+  schedule();
+}
+
 export { monaco };

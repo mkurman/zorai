@@ -113,7 +113,7 @@ export function ImageLightbox({
   };
 
   return createPortal(
-    <div data-closing={closing || undefined} className="zorai-image-lightbox" role="dialog" aria-modal="true" aria-label={name}>
+    <div data-closing={closing || undefined} className="zorai-image-lightbox" role="dialog" aria-modal="true" aria-label={name} onContextMenu={(event) => event.stopPropagation()}>
       <div className="zorai-image-lightbox__toolbar">
         <span className="zorai-image-lightbox__name" title={name}>{name}</span>
         {natural ? <span className="zorai-image-lightbox__meta">{natural.width}×{natural.height}</span> : null}

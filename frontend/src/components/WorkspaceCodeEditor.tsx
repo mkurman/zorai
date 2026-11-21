@@ -316,8 +316,9 @@ export function MonacoReadOnlyView({ value, path, language }: { value: string; p
   return (
     <div className="zorai-monaco-viewer" aria-readonly="true">
       <MonacoBoundary fallback={fallback}>
-        <Suspense fallback={<div className="zorai-monaco-viewer__loading">Loading preview…</div>}>
+        <Suspense fallback={fallback}>
           <MonacoEditor
+            loading={fallback}
             path={monacoModelPath("zorai-preview", path)}
             value={value}
             language={language || "plaintext"}

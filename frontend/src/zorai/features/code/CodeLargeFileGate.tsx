@@ -13,6 +13,12 @@ export function CodeLargeFileGate({ path, sizeBytes, maxFileSizeMb, onOpenReduce
   </div>;
 }
 
+export function fileTooLargeBytes(reason: unknown): number | null {
+  const message = reason instanceof Error ? reason.message : String(reason ?? "");
+  const match = /File is (\d+) bytes; limit is \d+/.exec(message);
+  return match ? Number(match[1]) : null;
+}
+
 export function isBinaryFileError(reason: unknown): boolean {
   const message = reason instanceof Error ? reason.message : String(reason ?? "");
   return /binary files cannot be opened/i.test(message);

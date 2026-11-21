@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fitColumnWidths, layoutTable, opaqueColor, timestampedFileName, wrapText } from "./tablePng";
+import { fitColumnWidths, isNumericCell, layoutTable, opaqueColor, timestampedFileName, wrapText } from "./tablePng";
 
 const charWidth = (text: string) => text.length * 10;
 
@@ -36,5 +36,12 @@ describe("export file names", () => {
     expect(timestampedFileName("table", time)).toBe("table-2026-11-21-090507");
     expect(timestampedFileName("diagram", time)).toBe("diagram-2026-11-21-090507");
     expect(timestampedFileName("table", null)).toMatch(/^table-\d{4}-\d{2}-\d{2}-\d{6}$/);
+  });
+});
+
+describe("table png styling", () => {
+  it("right-aligns numbers so values line up in the exported image, while text stays left-aligned", () => {
+    for (const value of ["85.37", "1,197.584", "100.0%", "5.13M", "−0.115", "19.68 h", "$12", "4×"]) expect(isNumericCell(value), value).toBe(true);
+    for (const value of ["BrainCell v2", "English", "v1.2 beta", "HRM (fixed)", ""]) expect(isNumericCell(value), value).toBe(false);
   });
 });

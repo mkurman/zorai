@@ -27,6 +27,7 @@ import type { ReactNode } from "react";
 import { Presence } from "@/components/Presence";
 
 const WorkspaceCodeEditor = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.WorkspaceCodeEditor })));
+import { preloadCodeEditor } from "@/zorai/features/code/codeEditorPreload";
 const MonacoReadOnlyView = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.MonacoReadOnlyView })));
 
 function errorMessage(error: unknown): string {
@@ -562,6 +563,7 @@ function SkillMarkdownPreview({ content }: { content: string }) {
 }
 
 function DocumentPane({ root, open }: { root: string; open: OpenSkillDocument }) {
+  useEffect(() => { void preloadCodeEditor().catch(() => {}); }, []);
   const { library } = useSkillLibrary();
   const documents = useSkillDocuments();
   const settings = useCodeEditorSettingsStore((state) => state.settings);

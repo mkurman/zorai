@@ -22,11 +22,13 @@ export function createCodeEditorPreloader(load: () => Promise<void>) {
 }
 
 const editorPreloader = createCodeEditorPreloader(async () => {
-  await Promise.all([
+  const [, , , environment] = await Promise.all([
     import("@/components/WorkspaceCodeEditor"),
     import("@monaco-editor/react"),
     import("monaco-editor/esm/vs/editor/editor.api"),
+    import("@/lib/monacoEnvironment"),
   ]);
+  environment.warmMonacoLanguages();
 });
 
 export function preloadCodeEditor(): Promise<void> {

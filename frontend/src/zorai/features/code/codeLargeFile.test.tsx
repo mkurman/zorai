@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { CodeUnsupportedFileNotice, exceedsCodeFileLimit, isBinaryFileError } from "./CodeLargeFileGate";
+import { CodeUnsupportedFileNotice, exceedsCodeFileLimit, fileTooLargeBytes, isBinaryFileError } from "./CodeLargeFileGate";
 
 describe("large file gate", () => {
   it("uses a 5 MB boundary without rejecting exactly-at-limit files", () => {
@@ -24,5 +24,12 @@ describe("unsupported binary files", () => {
     expect(html).toContain("icon.ico can&#x27;t be opened here");
     expect(html).toContain("Open externally");
     expect(html).toContain("Dismiss");
+  });
+});
+
+describe("too-large read errors", () => {
+  it("recovers the file size from the read error so opening needs one round trip instead of a stat plus a read", () => {
+    expect(fileTooLargeBytes(new Error("Error invoking remote method 'workspace-read-file': Error: File is 9437184 bytes; limit is 5242880."))).toBe(9437184);
+    expect(fileTooLargeBytes(new Error("Binary files cannot be opened in the text editor."))).toBeNull();
   });
 });

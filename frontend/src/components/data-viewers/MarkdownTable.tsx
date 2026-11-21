@@ -1,7 +1,9 @@
-import { Children, cloneElement, isValidElement, useContext, useMemo, useState, type ReactElement, type ReactNode } from "react";
+import { Children, cloneElement, isValidElement, useContext, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { getBridge } from "@/lib/bridge";
 import { Presence } from "@/components/Presence";
 import { TableFullscreen } from "./TableFullscreen";
+import { TableIconButton } from "./TableIconButton";
+import { MathSegmentsContext, restoreMathText } from "@/components/agent-chat-panel/chat-view/mathText";
 import { exportTablePng, MessageExportTimeContext, timestampedFileName } from "./tablePng";
 import { sortRowIndexes, tableToCsv } from "./tabularData";
 
@@ -32,7 +34,14 @@ export function markdownTableModel(node: HastNode | undefined): { columns: strin
 }
 
 export function MarkdownTable({ node, children }: { node?: unknown; children?: ReactNode }) {
-  const model = useMemo(() => markdownTableModel(node as HastNode | undefined), [node]);
+  const math = useContext(MathSegmentsContext);
+  const model = useMemo(() => {
+    const raw = markdownTableModel(node as HastNode | undefined);
+    return {
+      columns: raw.columns.map((cell) => restoreMathText(cell, math.segments)),
+      rows: raw.rows.map((row) => row.map((cell) => restoreMathText(cell, math.segments))),
+    };
+  }, [math.segments, node]);
   const [sort, setSort] = useState<{ column: number; direction: "asc" | "desc" } | null>(null);
   const exportTime = useContext(MessageExportTimeContext);
   const [expanded, setExpanded] = useState(false);
@@ -88,9 +97,9 @@ export function MarkdownTable({ node, children }: { node?: unknown; children?: R
               ) : null}
             </>
           ) : null}
-          <button type="button" className="zorai-data-table__action" onClick={copyCsv}>Copy CSV</button>
-          <button type="button" className="zorai-data-table__action" onClick={savePng}>PNG</button>
-          <button type="button" className="zorai-data-table__action" title="Open the table full screen" onClick={() => setExpanded(true)}>Full screen</button>
+          <TableIconButton icon="copy" label="Copy as CSV" onClick={copyCsv} />
+          <TableIconButton icon="image" label="Save as PNG" onClick={savePng} />
+          <TableIconButton icon="expand" label="Open full screen" onClick={() => setExpanded(true)} />
         </div>
       ) : null}
       <div style={{ overflowX: "auto", margin: "6px 0", maxWidth: "100%", minWidth: 0 }}>
@@ -99,10 +108,18 @@ export function MarkdownTable({ node, children }: { node?: unknown; children?: R
       <Presence value={expanded}>
         {(_, closing) => (
           <TableFullscreen title={`Table · ${model.rows.length} rows`} bodyClassName="acp-md" closing={closing} onCopyCsv={copyCsv} onPng={savePng} onClose={() => setExpanded(false)}>
-            <table>{renderedParts}</table>
+            <MathRenderedTable render={math.render}>{renderedParts}</MathRenderedTable>
           </TableFullscreen>
         )}
       </Presence>
     </div>
   );
+}
+
+function MathRenderedTable({ render, children }: { render: (root: HTMLElement) => void; children: ReactNode }) {
+  const tableRef = useRef<HTMLTableElement | null>(null);
+  useEffect(() => {
+    if (tableRef.current) render(tableRef.current);
+  }, [render]);
+  return <table ref={tableRef}>{children}</table>;
 }

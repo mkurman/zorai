@@ -56,7 +56,7 @@ describe("workspace refresh transaction", () => {
     expect(state.entries).toHaveLength(1);
     expect(state.statuses).toHaveLength(1);
     expect(state.overview).toBe(overview);
-    expect(bridge.workspaceListDirectory).toHaveBeenCalledWith("/workspace", "");
+    expect(bridge.workspaceListDirectory).toHaveBeenCalledWith("/workspace", "", { fresh: true });
     expect(bridge.workspaceGitStatus).toHaveBeenCalledWith("/workspace");
     expect(bridge.workspaceGitOverview).toHaveBeenCalledWith("/workspace");
   });

@@ -73,7 +73,19 @@ function languageServerSpec(language) {
     return null;
 }
 
+const LANGUAGE_SERVER_CACHE_TTL_MS = 60000;
+const languageServerCache = new Map();
+
 function resolveLanguageServer(language) {
+    const cacheKey = String(language || '').toLowerCase();
+    const cached = languageServerCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < LANGUAGE_SERVER_CACHE_TTL_MS) return cached.server;
+    const server = resolveLanguageServerUncached(language);
+    languageServerCache.set(cacheKey, { server, at: Date.now() });
+    return server;
+}
+
+function resolveLanguageServerUncached(language) {
     const spec = languageServerSpec(language);
     if (!spec) return null;
     const candidate = spec.candidates
