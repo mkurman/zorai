@@ -3,6 +3,7 @@ import type { AgentMessage } from "../../../lib/agentStore";
 import { visibleGeminiReasoning } from "../../../lib/geminiThought";
 import { parseHandoffSystemEvent } from "./helpers";
 import { MarkdownContent } from "./markdown";
+import { MessageExportTimeContext } from "@/components/data-viewers/tablePng";
 import { getToolDiffPresentation, ToolDiffView } from "./toolDiffPresentation";
 import {
   getToolFileTarget,
@@ -303,7 +304,9 @@ export function MessageBubble({
           </div>
         ) : (
           <>
-            <MarkdownContent content={displayContent} streaming={Boolean(message.isStreaming)} />
+            <MessageExportTimeContext.Provider value={message.createdAt}>
+              <MarkdownContent content={displayContent} streaming={Boolean(message.isStreaming)} />
+            </MessageExportTimeContext.Provider>
             {mediaBlocks.length > 0 && (
               <div className="acp-media">
                 {mediaBlocks.map((block, index) => {

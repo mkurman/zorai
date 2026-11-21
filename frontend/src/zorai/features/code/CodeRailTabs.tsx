@@ -47,7 +47,7 @@ export function CodeRailTabs({ value, onChange, badges }: {
           >
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d={tab.icon} /></svg>
             {badge && badge.count > 0 ? (
-              <span className={`zorai-code-rail-tabs__badge${badge.tone === "danger" ? " is-danger" : ""}`}>{badge.count > 999 ? "999+" : badge.count}</span>
+              <span className={`zorai-code-rail-tabs__badge${badge.tone === "danger" ? " is-danger" : ""}`}>{badge.count > 99 ? "99+" : badge.count}</span>
             ) : null}
           </button>
         );

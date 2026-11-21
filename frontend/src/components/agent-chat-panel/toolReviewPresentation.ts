@@ -18,6 +18,13 @@ export function mergeToolReviewMeta(
   return secondary ?? primary;
 }
 
+export function isRoutineToolReview(review?: WelesReviewMeta): boolean {
+  if (!review || review.verdict === "block") return false;
+  if (review.verdict === "allow") return true;
+  const reasons = review.reasons.map((reason) => reason.trim()).filter(Boolean);
+  return reasons.length > 0 && reasons.every((reason) => reason.startsWith("allow_"));
+}
+
 export function buildToolReviewPresentation(
   review?: WelesReviewMeta,
 ): ToolReviewPresentation | null {

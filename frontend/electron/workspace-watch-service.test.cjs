@@ -13,7 +13,7 @@ function waitForBatch(root, mutate) {
             watcher.close();
             resolve(batch);
         }, { debounceMs: 30 });
-        mutate();
+        watcher.ready.then(mutate, reject);
     });
 }
 
@@ -37,6 +37,7 @@ test('workspace watcher ignores heavy directories', async () => {
     fs.mkdirSync(path.join(root, 'node_modules'));
     const batches = [];
     const watcher = createWorkspaceWatcher(root, (batch) => batches.push(batch), { debounceMs: 25 });
+    await watcher.ready;
     fs.writeFileSync(path.join(root, 'node_modules', 'ignored.js'), 'ignored');
     await new Promise((resolve) => setTimeout(resolve, 150));
     watcher.close();
@@ -44,12 +45,22 @@ test('workspace watcher ignores heavy directories', async () => {
     fs.rmSync(root, { recursive: true, force: true });
 });
 
-test('closing a workspace watcher releases directory watchers', () => {
+test('closing a workspace watcher releases directory watchers', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zorai-watch-'));
     fs.mkdirSync(path.join(root, 'src'));
     const watcher = createWorkspaceWatcher(root, () => {});
+    await watcher.ready;
     assert.ok(watcher.watchedDirectoryCount >= 2);
     watcher.close();
     assert.equal(watcher.watchedDirectoryCount, 0);
+    fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('creating a workspace watcher returns before the directory walk finishes, so the main process never blocks on it', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zorai-watch-'));
+    fs.mkdirSync(path.join(root, 'src'));
+    const watcher = createWorkspaceWatcher(root, () => {});
+    assert.equal(watcher.watchedDirectoryCount, 0);
+    watcher.close();
     fs.rmSync(root, { recursive: true, force: true });
 });

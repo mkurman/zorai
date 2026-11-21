@@ -1,4 +1,4 @@
-import { FormEvent, MouseEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshButton } from "@/zorai/shell/RefreshButton";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import { useAgentStore } from "@/lib/agentStore";
@@ -34,9 +34,20 @@ import {
 } from "@/lib/workspaceBoard";
 import { navigateZorai } from "../../shell/zoraiNavigationEvents";
 import { openThreadTarget } from "../threads/openThreadTarget";
-import { CollapsibleSummary } from "../collapsibleSummary";
 import { WorkspaceActorPickerControl } from "./WorkspaceActorPickerControl";
 import { WorkspaceCreatePanel } from "./WorkspaceCreatePanel";
+import { WorkspaceTaskCard } from "./WorkspaceTaskCard";
+import {
+  filterWorkspaceTasks,
+  formatWorkspacePath,
+  priorityTone,
+  shortActorName,
+  statusTone,
+  useWorkspaceSelectionStore,
+  workspaceAssigneeOptions,
+  workspaceColumnTemplate,
+  type WorkspaceBoardViewMode,
+} from "./workspaceBoardModel";
 import { Presence } from "@/components/Presence";
 
 const WORKSPACE_SELECT_EVENT = "zorai-workspace-select";
@@ -112,24 +123,29 @@ export function WorkspacesRail() {
       {createOpen ? (
         <WorkspaceCreatePanel onCreated={handleCreated} onCancel={() => setCreateOpen(false)} />
       ) : (
-        <button type="button" className="zorai-primary-button" onClick={() => setCreateOpen(true)}>
+        <button type="button" className="zorai-primary-button zorai-rail-cta" onClick={() => setCreateOpen(true)}>
           + New workspace
         </button>
       )}
       <div className="zorai-section-label">Workspaces</div>
-      {ensureMainWorkspace(settings).map((workspace) => (
-        <button
-          type="button"
-          key={workspace.workspace_id}
-          className={["zorai-thread-item", selected === workspace.workspace_id ? "zorai-thread-item--active" : ""].filter(Boolean).join(" ")}
-          onClick={() => selectWorkspace(workspace.workspace_id)}
-        >
-          <span className="zorai-thread-title">{workspace.workspace_id}</span>
-          <span className="zorai-thread-meta">
-            operator: {workspace.operator} {workspace.workspace_root ? `/ ${workspace.workspace_root}` : ""}
-          </span>
-        </button>
-      ))}
+      {ensureMainWorkspace(settings).map((workspace) => {
+        const displayPath = formatWorkspacePath(workspace.workspace_root);
+        return (
+          <button
+            type="button"
+            key={workspace.workspace_id}
+            className={["zorai-rail-card", "zorai-rail-card--button", "zorai-workspace-rail-item", selected === workspace.workspace_id ? "zorai-rail-card--active" : ""].filter(Boolean).join(" ")}
+            title={workspace.workspace_root ?? workspace.workspace_id}
+            onClick={() => selectWorkspace(workspace.workspace_id)}
+          >
+            <div className="zorai-workspace-rail-item__head">
+              <strong className="zorai-rail-card__title">{workspace.workspace_id}</strong>
+              <span className="zorai-workspace-operator-badge">{workspace.operator}</span>
+            </div>
+            {displayPath ? <span className="zorai-workspace-rail-item__path">{displayPath}</span> : null}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -141,6 +157,13 @@ export function WorkspacesView() {
   const [tasks, setTasks] = useState<WorkspaceTask[]>([]);
   const [notices, setNotices] = useState<WorkspaceNotice[]>([]);
   const [includeDeleted, setIncludeDeleted] = useState(false);
+  const [viewMode, setViewMode] = useState<WorkspaceBoardViewMode>("board");
+  const [query, setQuery] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<WorkspacePriority | "all">("all");
+  const [typeFilter, setTypeFilter] = useState<WorkspaceTaskType | "all">("all");
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const [collapsedEmpty, setCollapsedEmpty] = useState<Set<WorkspaceTaskStatus>>(() => new Set());
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [taskOverlay, setTaskOverlay] = useState<TaskOverlay | null>(null);
@@ -150,10 +173,23 @@ export function WorkspacesView() {
   const [statusLine, setStatusLine] = useState("Workspace board ready.");
   const autoRefreshIntervalSecs = useAgentStore((state) => state.agentSettings.auto_refresh_interval_secs);
 
-  const columns = useMemo(() => projectWorkspaceColumns(tasks, includeDeleted), [tasks, includeDeleted]);
+  const assigneeOptions = useMemo(() => workspaceAssigneeOptions(tasks), [tasks]);
+  const filteredTasks = useMemo(
+    () => filterWorkspaceTasks(tasks, {
+      query,
+      priority: priorityFilter,
+      taskType: typeFilter,
+      assignee: assigneeFilter,
+    }),
+    [assigneeFilter, priorityFilter, query, tasks, typeFilter],
+  );
+  const hasActiveFilters = query.trim().length > 0 || priorityFilter !== "all" || typeFilter !== "all" || assigneeFilter !== "all";
+  const columns = useMemo(() => projectWorkspaceColumns(filteredTasks, includeDeleted), [filteredTasks, includeDeleted]);
+  const allVisibleTasks = useMemo(() => columns.flatMap((column) => column.tasks), [columns]);
   const noticeSummaries = useMemo(() => latestNoticeSummaries(notices), [notices]);
   const selectedTask = useMemo(() => tasks.find((task) => task.id === selectedTaskId) ?? null, [tasks, selectedTaskId]);
   const overlayTask = useMemo(() => tasks.find((task) => task.id === taskOverlay?.taskId) ?? null, [taskOverlay?.taskId, tasks]);
+  const boardGridTemplate = useMemo(() => workspaceColumnTemplate(columns, collapsedEmpty), [collapsedEmpty, columns]);
 
   const refresh = useCallback(async (nextWorkspaceId = workspaceId) => {
     const settingsList = ensureMainWorkspace(await listWorkspaceSettings());
@@ -329,59 +365,255 @@ export function WorkspacesView() {
     setStatusLine("Workspace task has no linked thread or goal runtime yet.");
   };
 
+  const setWorkspaceSelection = useWorkspaceSelectionStore((state) => state.setSelection);
+  useEffect(() => {
+    setWorkspaceSelection({
+      workspaceId,
+      task: selectedTask,
+      notices: selectedTask ? notices.filter((notice) => notice.task_id === selectedTask.id) : [],
+      onOpenRuntime: (task) => void openTaskRuntime(task),
+      onEdit: (task) => openTaskOverlay(task, "edit"),
+      onAction: (task, action) => void actOnTask(task, action),
+    });
+  // Sync selected task into the right-hand Context inspector.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notices, selectedTask, setWorkspaceSelection, workspaceId]);
+
+  const toggleEmptyColumn = (status: WorkspaceTaskStatus) => {
+    setCollapsedEmpty((current) => {
+      const next = new Set(current);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next;
+    });
+  };
+
   return (
     <section className="zorai-feature-surface zorai-workspace-board-surface">
-      <div className="zorai-view-header">
+      <div className="zorai-view-header zorai-view-header--compact">
         <div>
-          <div className="zorai-kicker">Workspace</div>
           <h1>Workspace Board</h1>
-          <p>Task orchestration from the TUI workspace board: columns, operators, notices, assignment, review, and runtime actions.</p>
+          <p>Coordinate tasks, operators, and linked agent runtimes.</p>
         </div>
         <div className="zorai-card-actions">
-          <button type="button" className="zorai-primary-button" onClick={() => setFormOpen((value) => !value)}>New task</button>
+          <button type="button" className="zorai-primary-button" onClick={() => setFormOpen((value) => !value)}>
+            {formOpen ? "Close form" : "+ New task"}
+          </button>
           <RefreshButton onClick={() => void refresh()} />
-          <button type="button" className="zorai-ghost-button" onClick={toggleOperator}>Toggle operator: {operator}</button>
         </div>
       </div>
 
       <div className="zorai-workspace-toolbar">
-        <span>Workspace {workspaceId}</span>
-        <label>
+        <span className="zorai-workspace-badge">{workspaceId}</span>
+        <button
+          type="button"
+          className="zorai-workspace-operator-toggle"
+          title="Toggle operator"
+          aria-label={`Toggle operator (${operator})`}
+          onClick={toggleOperator}
+        >
+          <span>Operator</span>
+          <strong className={operator === "user" ? "is-active" : undefined}>User</strong>
+          <strong className={operator === "svarog" ? "is-active" : undefined}>Svarog</strong>
+        </button>
+        <div className="zorai-workspace-view-switch" role="group" aria-label="Workspace view mode">
+          <button
+            type="button"
+            className={viewMode === "board" ? "is-active" : undefined}
+            aria-pressed={viewMode === "board"}
+            onClick={() => setViewMode("board")}
+          >
+            Board
+          </button>
+          <button
+            type="button"
+            className={viewMode === "list" ? "is-active" : undefined}
+            aria-pressed={viewMode === "list"}
+            onClick={() => setViewMode("list")}
+          >
+            List
+          </button>
+        </div>
+        <label className="zorai-workspace-toolbar__check">
           <input type="checkbox" checked={includeDeleted} onChange={(event) => setIncludeDeleted(event.target.checked)} />
           Show deleted
         </label>
-        <span role="status" aria-live="polite">{statusLine}</span>
+        <span className="zorai-workspace-toolbar__status" role="status" aria-live="polite">{statusLine}</span>
+      </div>
+
+      <div className="zorai-surface-filterbar">
+        <div className="zorai-search-field zorai-surface-search">
+          <input
+            ref={searchInputRef}
+            className="zorai-search-input"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && query) setQuery("");
+            }}
+            placeholder="Search tasks, descriptions, or IDs…"
+            aria-label="Search workspace tasks"
+          />
+          {query ? (
+            <button
+              type="button"
+              className="zorai-search-field__clear"
+              title="Clear search"
+              aria-label="Clear task search"
+              onClick={() => {
+                setQuery("");
+                searchInputRef.current?.focus();
+              }}
+            >
+              ×
+            </button>
+          ) : null}
+        </div>
+        <select
+          className="zorai-surface-select"
+          aria-label="Filter by priority"
+          value={priorityFilter}
+          onChange={(event) => setPriorityFilter(event.target.value as WorkspacePriority | "all")}
+        >
+          <option value="all">All priorities</option>
+          <option value="urgent">Urgent</option>
+          <option value="high">High</option>
+          <option value="normal">Normal</option>
+          <option value="low">Low</option>
+        </select>
+        <select
+          className="zorai-surface-select"
+          aria-label="Filter by task type"
+          value={typeFilter}
+          onChange={(event) => setTypeFilter(event.target.value as WorkspaceTaskType | "all")}
+        >
+          <option value="all">All types</option>
+          <option value="thread">Thread</option>
+          <option value="goal">Goal</option>
+        </select>
+        <select
+          className="zorai-surface-select"
+          aria-label="Filter by assignee"
+          value={assigneeFilter}
+          onChange={(event) => setAssigneeFilter(event.target.value)}
+        >
+          <option value="all">All assignees</option>
+          <option value="__unassigned__">Unassigned</option>
+          {assigneeOptions.map((name) => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
+        {hasActiveFilters ? (
+          <button
+            type="button"
+            className="zorai-surface-clear"
+            onClick={() => {
+              setQuery("");
+              setPriorityFilter("all");
+              setTypeFilter("all");
+              setAssigneeFilter("all");
+            }}
+          >
+            Reset ({allVisibleTasks.length}/{tasks.length})
+          </button>
+        ) : null}
       </div>
 
       {formOpen ? <TaskCreateForm form={form} setForm={setForm} onSubmit={submitTask} /> : null}
 
-      <div className="zorai-workspace-board">
-        {columns.map((column) => (
-          <section key={column.status} className="zorai-workspace-column">
-            <div className="zorai-workspace-column__title">
-              <span>{column.title}</span>
-              <strong>{column.tasks.length}</strong>
-            </div>
-            {column.tasks.length === 0 ? <div className="zorai-empty-state">No tasks.</div> : null}
-            {column.tasks.map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                status={column.status}
-                notice={noticeSummaries[task.id]}
-                expanded={expanded.has(task.id)}
-                selected={selectedTaskId === task.id}
-                onSelect={() => setSelectedTaskId(task.id)}
-                onToggle={() => setExpanded((items) => toggleSet(items, task.id))}
-                onAction={(action) => void actOnTask(task, action)}
-                onDetails={() => openTaskOverlay(task, "details")}
-                onEdit={() => openTaskOverlay(task, "edit")}
-                onOpenRuntime={() => void openTaskRuntime(task)}
-              />
-            ))}
-          </section>
-        ))}
-      </div>
+      {viewMode === "list" ? (
+        <div className="zorai-workspace-list" role="region" aria-label="Workspace task list">
+          {allVisibleTasks.length === 0 ? (
+            <div className="zorai-empty-state">No tasks in this workspace.</div>
+          ) : (
+            allVisibleTasks.map((task) => {
+              const assignee = shortActorName(task.assignee);
+              const reviewer = shortActorName(task.reviewer);
+              return (
+                <div
+                  key={task.id}
+                  className={["zorai-workspace-list-row", selectedTaskId === task.id ? "is-selected" : ""].filter(Boolean).join(" ")}
+                  onClick={() => setSelectedTaskId(task.id)}
+                  onDoubleClick={() => openTaskOverlay(task, "details")}
+                >
+                  <span className={`zorai-status-pill zorai-status-pill--${statusTone(task.status)}`}>
+                    {task.status.replace("_", " ")}
+                  </span>
+                  <div className="zorai-workspace-list-row__main">
+                    <strong>{task.title}</strong>
+                    {task.description.trim() ? <span>{task.description.trim()}</span> : null}
+                  </div>
+                  <span className={`zorai-status-pill zorai-status-pill--${priorityTone(task.priority)}`}>
+                    {task.priority}
+                  </span>
+                  <span className="zorai-workspace-list-row__people">
+                    {assignee || "unassigned"}{reviewer ? ` → ${reviewer}` : ""}
+                  </span>
+                  <div className="zorai-workspace-list-row__actions" onClick={(event) => event.stopPropagation()}>
+                    <button type="button" className="zorai-task-chip-btn zorai-task-chip-btn--accent" onClick={() => void openTaskRuntime(task)}>Runtime</button>
+                    <button type="button" className="zorai-task-chip-btn" onClick={() => openTaskOverlay(task, "details")}>Details</button>
+                    <button type="button" className="zorai-task-chip-btn" onClick={() => openTaskOverlay(task, "edit")}>Edit</button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      ) : (
+        <div className="zorai-workspace-board" style={{ gridTemplateColumns: boardGridTemplate }}>
+          {columns.map((column) => {
+            const isEmpty = column.tasks.length === 0;
+            const isCollapsed = isEmpty && collapsedEmpty.has(column.status);
+            return (
+              <section
+                key={column.status}
+                className={[
+                  "zorai-workspace-column",
+                  isEmpty ? "zorai-workspace-column--empty" : "",
+                  isCollapsed ? "zorai-workspace-column--collapsed" : "",
+                ].filter(Boolean).join(" ")}
+              >
+                <div className="zorai-workspace-column__title">
+                  <span className="zorai-workspace-column__heading">
+                    <i className={`zorai-status-dot zorai-status-dot--${statusTone(column.status)}`} aria-hidden="true" />
+                    <span>{column.title}</span>
+                  </span>
+                  <div className="zorai-workspace-column__right">
+                    <strong>{column.tasks.length}</strong>
+                    {isEmpty ? (
+                      <button
+                        type="button"
+                        className="zorai-workspace-column__collapse"
+                        title={isCollapsed ? `Expand ${column.title}` : `Collapse ${column.title}`}
+                        aria-label={isCollapsed ? `Expand ${column.title}` : `Collapse ${column.title}`}
+                        onClick={() => toggleEmptyColumn(column.status)}
+                      >
+                        {isCollapsed ? "+" : "−"}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+                {!isCollapsed && isEmpty ? <div className="zorai-empty-state">No tasks.</div> : null}
+                {!isCollapsed ? column.tasks.map((task) => (
+                  <WorkspaceTaskCard
+                    key={task.id}
+                    task={task}
+                    notice={noticeSummaries[task.id]}
+                    expanded={expanded.has(task.id)}
+                    selected={selectedTaskId === task.id}
+                    onSelect={() => setSelectedTaskId(task.id)}
+                    onToggle={() => setExpanded((items) => toggleSet(items, task.id))}
+                    onAction={(action) => void actOnTask(task, action)}
+                    onDetails={() => openTaskOverlay(task, "details")}
+                    onEdit={() => openTaskOverlay(task, "edit")}
+                    onOpenRuntime={() => void openTaskRuntime(task)}
+                  />
+                )) : null}
+              </section>
+            );
+          })}
+        </div>
+      )}
 
       {selectedTask ? <span className="zorai-workspace-selection">Selected: {selectedTask.title}</span> : null}
       <Presence value={taskOverlay && overlayTask ? { mode: taskOverlay.mode, task: overlayTask } : null}>{(shown) => (
@@ -424,52 +656,6 @@ function TaskCreateForm({ form, setForm, onSubmit }: { form: TaskForm; setForm: 
       <textarea value={form.definitionOfDone} onChange={(event) => setForm({ ...form, definitionOfDone: event.target.value })} placeholder="Definition of done" />
       <button type="submit" className="zorai-primary-button">Create task</button>
     </form>
-  );
-}
-
-function TaskCard({ task, status, notice, expanded, selected, onSelect, onToggle, onAction, onDetails, onEdit, onOpenRuntime }: {
-  task: WorkspaceTask;
-  status: WorkspaceTaskStatus;
-  notice?: string;
-  expanded: boolean;
-  selected: boolean;
-  onSelect: () => void;
-  onToggle: () => void;
-  onAction: (action: string) => void;
-  onDetails: () => void;
-  onEdit: () => void;
-  onOpenRuntime: () => void;
-}) {
-  return (
-    <article className={["zorai-workspace-task", selected ? "zorai-workspace-task--active" : ""].filter(Boolean).join(" ")} onClick={onSelect}>
-      <div className="zorai-run-card__header">
-        <div>
-          <strong>{task.title}</strong>
-          <span>{task.task_type} / {task.priority} / {shortId(task.id)}</span>
-        </div>
-        <span className="zorai-status-pill">{status.replace("_", " ")}</span>
-      </div>
-      {task.description.trim() ? <CollapsibleSummary text={task.description} /> : null}
-      {notice ? <CollapsibleSummary className="zorai-workspace-notice" text={notice} /> : null}
-      <div className="zorai-workspace-task__meta">
-        <span>assignee: {actorLabel(task.assignee)}</span>
-        <span>reviewer: {actorLabel(task.reviewer)}</span>
-      </div>
-      <div className="zorai-card-actions">
-        <button type="button" className="zorai-ghost-button" onClick={stopClick(onOpenRuntime)}>Open runtime</button>
-        <button type="button" className="zorai-ghost-button" onClick={stopClick(onDetails)}>Details</button>
-        <button type="button" className="zorai-ghost-button" onClick={stopClick(onEdit)}>Edit</button>
-        <button type="button" className="zorai-ghost-button" onClick={stopClick(onToggle)}>{expanded ? "Hide actions" : "Actions"}</button>
-      </div>
-      {expanded ? (
-        <div className="zorai-workspace-actions">
-          <button type="button" className="zorai-ghost-button" disabled={taskRunBlocked(task)} onClick={stopClick(() => onAction("run"))}>{taskRunBlocked(task) ? "Blocked" : "Run"}</button>
-          {["pause", "stop", "move", "review", "assign", "reviewer", "delete"].map((action) => (
-            <button type="button" className="zorai-ghost-button" key={action} onClick={stopClick(() => onAction(action))}>{actionLabel(action)}</button>
-          ))}
-        </div>
-      ) : null}
-    </article>
   );
 }
 
@@ -638,10 +824,6 @@ function defaultReviewer(current: WorkspaceActor): WorkspaceActor {
   return current ?? "user";
 }
 
-function shortId(id: string): string {
-  return id.length > 12 ? id.slice(0, 12) : id;
-}
-
 function actionLabel(action: string): string {
   return action === "move" ? "Move" : action === "reviewer" ? "Reviewer" : `${action.charAt(0).toUpperCase()}${action.slice(1)}`;
 }
@@ -649,11 +831,4 @@ function actionLabel(action: string): string {
 function workspaceActionStatus(action: string): string {
   if (action === "review") return "Sending workspace task to review.";
   return `${actionLabel(action)} workspace task.`;
-}
-
-function stopClick(callback: () => void) {
-  return (event: MouseEvent) => {
-    event.stopPropagation();
-    callback();
-  };
 }

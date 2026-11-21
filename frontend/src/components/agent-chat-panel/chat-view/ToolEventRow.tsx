@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { buildToolReviewPresentation } from "../toolReviewPresentation";
+import { buildToolReviewPresentation, isRoutineToolReview } from "../toolReviewPresentation";
 import type { ToolEventGroup } from "./types";
 import { getToolDiffPresentation, ToolDiffView } from "./toolDiffPresentation";
 import { ToolStatusIcon } from "./ToolStatusIcon";
@@ -41,7 +41,7 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
   );
   const statusLabel = group.status.toUpperCase();
   const reviewPresentation = useMemo(
-    () => buildToolReviewPresentation(group.welesReview),
+    () => (isRoutineToolReview(group.welesReview) ? null : buildToolReviewPresentation(group.welesReview)),
     [group.welesReview],
   );
   const details = useMemo(
@@ -66,22 +66,22 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
         >
           <span className={collapsed ? "acp-tool-row__caret zorai-motion-caret" : "acp-tool-row__caret zorai-motion-caret is-open"}>▶</span>
           <span className="acp-tool-row__name" title={intent ? toolName : undefined}>{intent || toolName}</span>
-          {intent ? <span className="acp-tool-row__tool">{group.toolName}</span> : null}
         </button>
-        <ToolArtifactChips artifacts={artifacts} createdAt={group.createdAt} compact />
         <div className="acp-tool-row__status">
           {reviewPresentation && (
             <span className="acp-tool-row__badge">
               {reviewPresentation.badgeLabel === "Blocked" ? "blocked" : null}
             </span>
           )}
-          <span
-            className="acp-tool-row__badge acp-tool-row__badge--status"
-            data-status={group.status}
-            title={statusLabel.toLowerCase()}
-          >
-            <ToolStatusIcon status={group.status} />
-          </span>
+          {group.status === "done" ? null : (
+            <span
+              className="acp-tool-row__badge acp-tool-row__badge--status"
+              data-status={group.status}
+              title={statusLabel.toLowerCase()}
+            >
+              <ToolStatusIcon status={group.status} />
+            </span>
+          )}
         </div>
       </div>
 

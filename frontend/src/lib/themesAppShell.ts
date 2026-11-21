@@ -91,6 +91,10 @@ export function getAppShellTheme(
   return { ...buildDarkAppShellTheme(colors), ...appShell };
 }
 
+export function deriveAppShellTheme(colors: TerminalThemeColors, appearance: "dark" | "light"): AppShellTheme {
+  return appearance === "light" ? buildLightAppShellTheme(colors) : buildDarkAppShellTheme(colors);
+}
+
 function buildDarkAppShellTheme(colors: TerminalThemeColors): AppShellTheme {
   // New design system color mapping - consistent structure across all themes
   const bgVoid = mix(colors.background, "#000000", 0.5);

@@ -14,6 +14,9 @@ import { useAgentStore } from "@/lib/agentStore";
 import { useWorkspaceContextStore } from "@/lib/workspaceContextStore";
 import { pushToast } from "@/lib/toastStore";
 import { Presence } from "@/components/Presence";
+import { CodeFileIcon } from "@/zorai/features/code/CodeFileIcon";
+import { looksLikeFileReference } from "@/zorai/features/code/codeFileTypes";
+import { fileLinkCandidatesFromTools } from "./fileLinkCandidates";
 
 export const KATEX_DELIMITERS = [
   { left: "$$", right: "$$", display: true },
@@ -102,6 +105,16 @@ async function activeThreadLinkRoots(): Promise<string[]> {
   return roots;
 }
 
+async function resolveThreadFileLink(href: string): Promise<string | null> {
+  const { activeThreadId, messages } = useAgentStore.getState();
+  const dataDir = activeThreadId ? await getBridge()?.getDataDir?.() : null;
+  const homeDir = dataDir && /[\\/]\.zorai[\\/]*$/.test(dataDir) ? dataDir.replace(/[\\/]\.zorai[\\/]*$/, "") : null;
+  for (const candidate of fileLinkCandidatesFromTools(href, activeThreadId ? messages[activeThreadId] ?? [] : [], homeDir)) {
+    if (await localPathExists(candidate)) return candidate;
+  }
+  return resolveRelativeFileLink(href, await activeThreadLinkRoots(), localPathExists);
+}
+
 async function localPathExists(path: string): Promise<boolean> {
   const slash = path.lastIndexOf("/");
   if (slash <= 0) return false;
@@ -139,7 +152,7 @@ function MarkdownLink({ href, children }: { href?: string; children?: ReactNode 
         if (!href) return;
         event.preventDefault();
         if (filePreview && isRelativeFileHref(href)) {
-          void activeThreadLinkRoots().then((roots) => resolveRelativeFileLink(href, roots, localPathExists)).then((resolved) => {
+          void resolveThreadFileLink(href).then((resolved) => {
             if (resolved) {
               openPreview(resolved);
             } else {
@@ -179,7 +192,12 @@ function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
 }
 
 const markdownComponents: Components = {
-  a: ({ href, children }) => <MarkdownLink href={href}>{children}</MarkdownLink>,
+  a: ({ href, children }) => (
+    <MarkdownLink href={href}>
+      {href && looksLikeFileReference(href.replace(/^file:\/\//i, "").split(/[?#]/)[0]) ? <CodeFileIcon path={href.split(/[?#]/)[0]} /> : null}
+      {children}
+    </MarkdownLink>
+  ),
   img: ({ src, alt }) => <MarkdownImage src={typeof src === "string" ? src : undefined} alt={alt} />,
   pre: ({ node, children }) => {
     const code = node?.children.find((child) => child.type === "element" && child.tagName === "code");
@@ -196,6 +214,15 @@ const markdownComponents: Components = {
     const isBlock = className?.startsWith("language-");
     if (isBlock) {
       return <code>{children}</code>;
+    }
+    const text = typeof children === "string" ? children : null;
+    if (text && looksLikeFileReference(text)) {
+      const path = text.replace(/:\d+(?::\d+)?$/, "");
+      return (
+        <MarkdownLink href={path}>
+          <code className="acp-md-file-ref"><CodeFileIcon path={path} />{text}</code>
+        </MarkdownLink>
+      );
     }
     return <code>{children}</code>;
   },

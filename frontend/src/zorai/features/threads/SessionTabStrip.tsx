@@ -18,6 +18,7 @@ export type SessionTabModel = {
   id: string;
   title: string;
   active: boolean;
+  inSplit?: boolean;
   working: boolean;
   unread: boolean;
   needsAction?: boolean;
@@ -82,6 +83,7 @@ export function SessionTabStrip({
       {tabs.map((tab) => {
         const classes = ["zorai-session-tab"];
         if (tab.active) classes.push("zorai-session-tab--active");
+        if (tab.inSplit && !tab.active) classes.push("zorai-session-tab--split");
         if (tab.pinned) classes.push("is-pinned");
         if (selectedIds?.has(tab.id)) classes.push("is-selected");
         if (tab.tint) classes.push("zorai-session-tab--tinted");
@@ -208,9 +210,13 @@ export function ThreadSessionTabs({ includeSession, onLastSessionClosed, onNewSe
   const visibleIds = includeSession
     ? openSessionIds.filter((id) => includeSession(id, threads.find((item) => item.id === id || item.daemonThreadId === id)))
     : openSessionIds;
+  const splitPaneIdList = splitPaneIds(splitRoot);
+  const splitPaneIdSet = new Set(splitPaneIdList);
+  const hasSplit = splitPaneIdList.length >= 2;
   const tabs = visibleIds.map((id) => {
     const thread = threads.find((item) => item.id === id || item.daemonThreadId === id);
     const active = thread?.id === activeId || id === activeId;
+    const inSplit = hasSplit && (splitPaneIdSet.has(id) || Boolean(thread && splitPaneIdSet.has(thread.id)));
     const readKey = thread ? threadReadKey(thread) : null;
     return {
       ...sessionTabModel(
@@ -220,6 +226,7 @@ export function ThreadSessionTabs({ includeSession, onLastSessionClosed, onNewSe
         Boolean(active && runtime.isStreamingResponse),
         thread ? threadIsUnread(thread, readKey ? lastReadAtByThread[readKey] ?? null : null, Boolean(active)) : false,
       ),
+      inSplit,
       needsAction: threadIdsNeedingAction.has(thread?.daemonThreadId ?? id),
       tint: tintColor(thread ? threadTint(threadTints, thread) : threadTints[id]),
     };

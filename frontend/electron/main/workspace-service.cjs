@@ -60,7 +60,18 @@ function isWithinRoot(root, target) {
     return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
 }
 
+const CANONICAL_ROOT_TTL_MS = 5000;
+const canonicalRootCache = new Map();
+
 function canonicalWorkspaceRoot(rootPath) {
+    const cached = typeof rootPath === 'string' ? canonicalRootCache.get(rootPath) : null;
+    if (cached && Date.now() - cached.at < CANONICAL_ROOT_TTL_MS) return cached.canonical;
+    const canonical = resolveCanonicalWorkspaceRoot(rootPath);
+    canonicalRootCache.set(rootPath, { canonical, at: Date.now() });
+    return canonical;
+}
+
+function resolveCanonicalWorkspaceRoot(rootPath) {
     if (typeof rootPath !== 'string' || !rootPath.trim()) {
         throw workspaceError('WORKSPACE_ROOT_REQUIRED', 'A workspace root is required.');
     }
@@ -154,17 +165,19 @@ async function openWorkspace(rootPath) {
 
 async function listWorkspaceDirectory(rootPath, relativePath = '', options = {}) {
     const resolved = resolveWorkspacePath(rootPath, relativePath);
-    const stats = fs.statSync(resolved.absolutePath);
+    const stats = await fs.promises.stat(resolved.absolutePath);
     if (!stats.isDirectory()) throw workspaceError('WORKSPACE_NOT_DIRECTORY', `${relativePath} is not a directory.`);
     const includeIgnored = options.includeIgnored === true;
     const entries = (await fs.promises.readdir(resolved.absolutePath, { withFileTypes: true }))
         .filter((entry) => includeIgnored || !IGNORED_DIRECTORY_NAMES.has(entry.name));
-    const gitIgnored = await gitIgnoredNames(resolved.absolutePath, entries.map((entry) => entry.name));
+    const [gitIgnored, entryStats] = await Promise.all([
+        gitIgnoredNames(resolved.absolutePath, entries.map((entry) => entry.name)),
+        Promise.all(entries.map((entry) => fs.promises.stat(path.join(resolved.absolutePath, entry.name)).catch(() => null))),
+    ]);
     return entries
-        .map((entry) => {
+        .map((entry, index) => {
             const absolutePath = path.join(resolved.absolutePath, entry.name);
-            let itemStats = null;
-            try { itemStats = fs.statSync(absolutePath); } catch { itemStats = null; }
+            const itemStats = entryStats[index];
             return {
                 name: entry.name,
                 path: path.relative(resolved.root, absolutePath),

@@ -39,6 +39,7 @@ import {
 import { ToolsContext, ToolsRail, ToolsView } from "../features/tools/ToolsView";
 import { getDefaultZoraiTool, type ZoraiToolId } from "../features/tools/tools";
 import { WorkspacesRail, WorkspacesView } from "../features/workspaces/WorkspacesView";
+import { WorkspacesContext } from "../features/workspaces/WorkspaceContextPanel";
 import { SkillsRail, SkillsView } from "../features/skills/SkillsView";
 import { contextPanelLabels, getDefaultZoraiView, LAST_ZORAI_VIEW_STORAGE_KEY, normalizeZoraiToolNavigation, RAIL_ITEM_IDS, zoraiNavItems, type ZoraiNavItem, type ZoraiViewId } from "./navigation";
 import { visibleItemIds } from "@/lib/itemLayout";
@@ -564,6 +565,7 @@ function renderContext(
   if (view === "code") return <CodeAgentPane />;
   if (view === "threads") return <ThreadsContext />;
   if (view === "goals") return <GoalsContext />;
+  if (view === "workspaces") return <WorkspacesContext />;
   if (view === "tools") return <ToolsContext activeTool={activeTool} onSelectTool={setActiveTool} />;
   return <GenericContext view={view} />;
 }

@@ -67,6 +67,7 @@ import {
   pinnedMessageBudgetChars,
   sumMessageContentChars,
 } from "@/lib/agent-client/pinnedMessageBudget";
+import { pushToast } from "@/lib/toastStore";
 
 const EMPTY_MESSAGES: ReturnType<typeof useAgentStore.getState>["messages"][string] = [];
 const EMPTY_TODOS: ReturnType<typeof useAgentStore.getState>["todos"][string] = [];
@@ -938,10 +939,20 @@ export function useAgentChatPanelProviderValue(): {
       return;
     }
     const result = await api
-      .dbExportThread(daemonThreadId, messageId)
-      .catch((error) => ({ ok: false, file_path: null, error: String(error) }));
+      .dbExportThread(daemonThreadId, messageId, activeThread?.title)
+      .catch((error) => ({ ok: false, file_path: null, canceled: false, error: String(error) }));
+    if (result?.ok && "canceled" in result && result.canceled) return;
     if (result?.ok && result.file_path) {
       notify({ source: "system", title: "Thread exported", body: `Saved to ${result.file_path}` });
+      const filePath = result.file_path;
+      const bridge = getAgentBridge();
+      pushToast(`Thread exported to ${filePath}`, "success", {
+        durationMs: 20000,
+        actions: [
+          { label: "Open", run: () => void bridge?.openFsPath?.(filePath) },
+          { label: "Open folder", run: () => void bridge?.revealFsPath?.(filePath) },
+        ],
+      });
     } else {
       notify({ source: "system", title: "Export failed", body: result?.error || "Unknown error." });
     }

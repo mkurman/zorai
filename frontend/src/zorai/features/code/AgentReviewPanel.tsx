@@ -33,6 +33,9 @@ export function AgentReviewPanel({ root, reviewerLabel, commitWindow, onFindIssu
 
   const run = () => void onFindIssues();
   const hasFindings = review.status === "done" && review.findings.length > 0;
+  const [sectionOpen, setSectionOpen] = useState(false);
+  const autoExpanded = review.status === "running" || review.status === "error" || hasFindings;
+  const isOpen = sectionOpen || autoExpanded;
 
   const fixAll = () => {
     if (!hasFindings) return;
@@ -47,9 +50,28 @@ export function AgentReviewPanel({ root, reviewerLabel, commitWindow, onFindIssu
 
   return (
     <div className="zorai-agent-review" data-status={review.status}>
-      <details className="zorai-agent-review-summary" open>
+      <details
+        className="zorai-agent-review-summary"
+        open={isOpen}
+        onToggle={(event) => setSectionOpen((event.target as HTMLDetailsElement).open)}
+      >
         <summary>
           <span>AGENT REVIEW</span>
+          {!isOpen && review.status === "idle" ? (
+            <button
+              type="button"
+              className="zorai-agent-review-inline-trigger"
+              title={`Reviews the last ${commitWindow} commit${commitWindow === 1 ? "" : "s"} with ${reviewerLabel}`}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setSectionOpen(true);
+                run();
+              }}
+            >
+              Find Issues
+            </button>
+          ) : null}
         </summary>
         <div className="zorai-agent-review-body">
           <button
