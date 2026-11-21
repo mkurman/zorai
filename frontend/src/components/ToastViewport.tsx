@@ -52,6 +52,15 @@ export function ToastViewport() {
             </span>
             <span style={{ fontSize: "var(--text-sm)", color: "var(--text-primary, var(--text-primary))", lineHeight: 1.45, minWidth: 0, overflowWrap: "anywhere" }}>
               {toast.message}
+              {toast.actions?.length ? (
+                <span style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                  {toast.actions.map((action) => (
+                    <button key={action.label} type="button" className="zorai-data-table__action" onClick={() => { action.run(); dismissToast(toast.id); }}>
+                      {action.label}
+                    </button>
+                  ))}
+                </span>
+              ) : null}
             </span>
             <button
               type="button"

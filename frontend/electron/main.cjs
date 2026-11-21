@@ -624,7 +624,21 @@ function registerIpcHandlers() {
         writeJsonFile,
         writeTextFile,
     });
-    registerDbIpcHandlers(ipcMain, { sendDbAckCommand, sendDbQuery });
+    registerDbIpcHandlers(ipcMain, {
+        sendDbAckCommand,
+        sendDbQuery,
+        async saveExportedFile(event, exportedPath, suggestedName) {
+            const name = `${String(suggestedName || 'thread').replace(/[\\/:*?"<>|]+/g, '-').trim() || 'thread'}.json`;
+            const { canceled, filePath } = await dialog.showSaveDialog(BrowserWindow.fromWebContents(event.sender), {
+                title: 'Export Thread',
+                defaultPath: path.join(app.getPath('downloads'), name),
+                filters: [{ name: 'JSON', extensions: ['json'] }],
+            });
+            if (canceled || !filePath) return null;
+            await fs.promises.copyFile(exportedPath, filePath);
+            return filePath;
+        },
+    });
 
     ipcMain.handle('git-askpass-respond', (_event, id, value) => {
         pendingGitAskpass.get(id)?.(typeof value === 'string' ? value : null);

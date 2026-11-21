@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getBridge } from "@/lib/bridge";
 import { BUILTIN_THEMES, type TerminalTheme, type TerminalThemeColors } from "@/lib/themes";
+import { deriveAppShellTheme } from "@/lib/themesAppShell";
 import { isVideoBackground, THEME_EDITOR_SHELL_VARIABLES, THEME_EDITOR_TERMINAL_COLORS } from "@/lib/userThemes";
 import { mediaUrlForPath } from "@/zorai/features/threads/ThreadFilePreviewOverlay";
 import { colorInputValue, draftFromTheme, draftNameProblem, draftSavePayload, rebaseDraft, themeFromDraft, withAccent, type ThemeDraft } from "./themeDraft";
@@ -13,12 +14,12 @@ const TERMINAL_COLOR_LABELS: Partial<Record<keyof TerminalThemeColors, string>> 
   selectionBg: "Selection",
 };
 
-function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function ColorField({ label, value, fallback = "", onChange }: { label: string; value: string; fallback?: string; onChange: (value: string) => void }) {
   return (
     <label className="zorai-theme-editor__color">
       <span>{label}</span>
-      <input type="color" value={colorInputValue(value)} onChange={(event) => onChange(event.target.value)} aria-label={`${label} colour`} />
-      <input className="zorai-input" value={value} spellCheck={false} onChange={(event) => onChange(event.target.value)} aria-label={`${label} value`} />
+      <input type="color" value={colorInputValue(value || fallback)} onChange={(event) => onChange(event.target.value)} aria-label={`${label} colour`} />
+      <input className="zorai-input" value={value} placeholder={fallback} spellCheck={false} onChange={(event) => onChange(event.target.value)} aria-label={`${label} value`} />
     </label>
   );
 }
@@ -44,6 +45,7 @@ export function ThemeEditor({ source, onClose, onSaved }: { source: TerminalThem
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const preview = useMemo(() => themeFromDraft(draft), [draft]);
+  const derivedShell = useMemo(() => deriveAppShellTheme(preview.colors, draft.appearance), [preview.colors, draft.appearance]);
   const nameProblem = draftNameProblem(draft, knownThemes);
   const update = (patch: Partial<ThemeDraft>) => setDraft((current) => ({ ...current, ...patch }));
   const bases = BUILTIN_THEMES.filter((theme) => theme.appearance === draft.appearance || theme.name === draft.base);
@@ -209,7 +211,7 @@ export function ThemeEditor({ source, onClose, onSaved }: { source: TerminalThem
       <section>
         <h3>Interface colours</h3>
         {THEME_EDITOR_SHELL_VARIABLES.map(({ key, label }) => (
-          <ColorField key={key} label={label} value={draft.appShell[key] ?? ""} onChange={(value) => key === "--accent" ? setDraft((current) => withAccent(current, value)) : update({ appShell: { ...draft.appShell, [key]: value } })} />
+          <ColorField key={key} label={label} value={draft.appShell[key] ?? ""} fallback={derivedShell[key]} onChange={(value) => key === "--accent" ? setDraft((current) => withAccent(current, value)) : update({ appShell: { ...draft.appShell, [key]: value } })} />
         ))}
       </section>
 

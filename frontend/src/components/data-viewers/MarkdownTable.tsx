@@ -1,5 +1,6 @@
-import { Children, cloneElement, isValidElement, useMemo, useState, type ReactElement, type ReactNode } from "react";
+import { Children, cloneElement, isValidElement, useContext, useMemo, useState, type ReactElement, type ReactNode } from "react";
 import { getBridge } from "@/lib/bridge";
+import { exportTablePng, MessageExportTimeContext, timestampedFileName } from "./tablePng";
 import { sortRowIndexes, tableToCsv } from "./tabularData";
 
 type HastNode = {
@@ -31,6 +32,7 @@ export function markdownTableModel(node: HastNode | undefined): { columns: strin
 export function MarkdownTable({ node, children }: { node?: unknown; children?: ReactNode }) {
   const model = useMemo(() => markdownTableModel(node as HastNode | undefined), [node]);
   const [sort, setSort] = useState<{ column: number; direction: "asc" | "desc" } | null>(null);
+  const exportTime = useContext(MessageExportTimeContext);
   const parts = Children.toArray(children);
   const tbodyIndex = parts.findIndex((part) => isValidElement(part) && part.type === "tbody");
   const tbody = tbodyIndex >= 0 ? parts[tbodyIndex] as ReactElement<{ children?: ReactNode }> : null;
@@ -41,8 +43,10 @@ export function MarkdownTable({ node, children }: { node?: unknown; children?: R
     ? parts.map((part, index) => index === tbodyIndex ? cloneElement(tbody, {}, order.map((rowIndex) => bodyRows[rowIndex])) : part)
     : parts;
 
+  const orderedRows = () => order ? order.map((index) => model.rows[index]) : model.rows;
+
   const copyCsv = () => {
-    const rows = order ? order.map((index) => model.rows[index]) : model.rows;
+    const rows = orderedRows();
     const csv = tableToCsv(model.columns, rows);
     const bridge = getBridge();
     if (bridge?.writeClipboardText) void bridge.writeClipboardText(csv);
@@ -80,6 +84,7 @@ export function MarkdownTable({ node, children }: { node?: unknown; children?: R
             </>
           ) : null}
           <button type="button" className="zorai-data-table__action" onClick={copyCsv}>Copy CSV</button>
+          <button type="button" className="zorai-data-table__action" onClick={() => exportTablePng(model.columns, orderedRows(), `${timestampedFileName("table", exportTime)}.png`)}>PNG</button>
         </div>
       ) : null}
       <div style={{ overflowX: "auto", margin: "6px 0", maxWidth: "100%", minWidth: 0 }}>

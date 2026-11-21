@@ -38,6 +38,8 @@ const AUDIO_PREVIEW_PATTERN = /\.(mp3|wav|ogg|oga|opus|m4a|aac|flac|weba)$/i;
 const MARKDOWN_PREVIEW_PATTERN = /\.(md|markdown|mdx)$/i;
 const MERMAID_PREVIEW_PATTERN = /\.(mmd|mermaid)$/i;
 const TRUNCATION_SUFFIX = "\n\n[Preview truncated]";
+const BINARY_NOTICE = "Binary file preview is not available.";
+const MISSING_NOTICE = "This file does not exist. It may have been moved or deleted, or it lives on another machine.";
 const DATA_PREVIEW_MAX_BYTES = 512 * 1024;
 
 const MARKDOWN_MODES = [
@@ -80,10 +82,18 @@ export async function loadFilePreviewSection(path: string): Promise<PreviewSecti
     if (Array.isArray(entries)) {
       return { title: `Folder · ${entries.length} item${entries.length === 1 ? "" : "s"}`, kind: "directory", text: "", path, entries };
     }
+    const slash = path.replace(/\\/g, "/").lastIndexOf("/");
+    if (slash > 0) {
+      const name = path.replace(/\\/g, "/").slice(slash + 1);
+      const siblings = await getBridge()?.workspaceListDirectory?.(path.slice(0, slash), "").catch(() => null);
+      if (Array.isArray(siblings) && !siblings.some((entry) => entry.name === name)) {
+        return { title: "File not found", kind: "file-preview", text: MISSING_NOTICE, path };
+      }
+    }
   }
   if (!preview) return null;
   const text = !preview.isText
-    ? "Binary file preview is not available."
+    ? BINARY_NOTICE
     : preview.truncated
       ? `${preview.content}${TRUNCATION_SUFFIX}`
       : preview.content;
@@ -235,7 +245,7 @@ export function ThreadFilePreviewOverlay() {
 
 function PreviewSectionView({ section }: { section: PreviewSection }) {
   const path = section.path ?? "";
-  const isFile = section.kind === "file-preview" && section.text !== "Binary file preview is not available.";
+  const isFile = section.kind === "file-preview" && section.text !== BINARY_NOTICE && section.text !== MISSING_NOTICE;
   const content = section.truncated ? section.text.slice(0, -TRUNCATION_SUFFIX.length) : section.text;
   const isMarkdown = isFile && MARKDOWN_PREVIEW_PATTERN.test(path);
   const isMermaid = isFile && MERMAID_PREVIEW_PATTERN.test(path);
@@ -332,7 +342,7 @@ function PreviewText({ text, kind, path }: { text: string; kind: PreviewSection[
   if (kind === "audio") {
     return <audio className="zorai-file-preview-overlay__audio" src={text} controls preload="metadata" />;
   }
-  if (text === "Binary file preview is not available.") {
+  if (text === BINARY_NOTICE || text === MISSING_NOTICE) {
     return <pre className="zorai-file-preview-overlay__pre">{text}</pre>;
   }
   const language = kind === "git-diff" ? "diff" : languageForWorkspacePath(path ?? "");

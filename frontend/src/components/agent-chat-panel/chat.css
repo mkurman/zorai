@@ -656,7 +656,7 @@
 /* ── Tool event rows ────────────────────────────────────────────────────── */
 .acp-tool-row {
   padding: 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
@@ -688,9 +688,9 @@
   border: none;
   background: transparent;
   padding: 0;
-  color: var(--text-primary);
+  color: var(--text-muted);
   cursor: pointer;
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-sm);
   display: flex;
   align-items: center;
@@ -720,7 +720,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
+}
+
+.acp-tool-row__toggle:hover {
+  color: var(--text-primary);
 }
 
 .acp-tool-row__tool {
@@ -831,6 +835,7 @@
 
 .acp-tool-mark--shown {
   opacity: 1;
+  animation: acp-tool-mark-turn 3.6s linear infinite;
 }
 
 .acp-tool-mark--leave {
@@ -839,23 +844,28 @@
 
 .acp-tool-mark__petal {
   fill: currentColor;
-  opacity: 0.18;
+  opacity: 0.3;
   transform-box: view-box;
   transform-origin: 12px 12px;
-  animation: acp-tool-mark-petal 1.2s ease-in-out infinite;
+  animation: acp-tool-mark-petal 1.8s cubic-bezier(0.45, 0, 0.25, 1) infinite;
 }
 
 .acp-tool-mark g:nth-child(1) .acp-tool-mark__petal { animation-delay: 0s; }
-.acp-tool-mark g:nth-child(2) .acp-tool-mark__petal { animation-delay: 0.2s; }
-.acp-tool-mark g:nth-child(3) .acp-tool-mark__petal { animation-delay: 0.4s; }
-.acp-tool-mark g:nth-child(4) .acp-tool-mark__petal { animation-delay: 0.6s; }
-.acp-tool-mark g:nth-child(5) .acp-tool-mark__petal { animation-delay: 0.8s; }
-.acp-tool-mark g:nth-child(6) .acp-tool-mark__petal { animation-delay: 1s; }
+.acp-tool-mark g:nth-child(2) .acp-tool-mark__petal { animation-delay: -1.5s; }
+.acp-tool-mark g:nth-child(3) .acp-tool-mark__petal { animation-delay: -1.2s; }
+.acp-tool-mark g:nth-child(4) .acp-tool-mark__petal { animation-delay: -0.9s; }
+.acp-tool-mark g:nth-child(5) .acp-tool-mark__petal { animation-delay: -0.6s; }
+.acp-tool-mark g:nth-child(6) .acp-tool-mark__petal { animation-delay: -0.3s; }
 
 @keyframes acp-tool-mark-petal {
-  0%, 100% { opacity: 0.18; fill: currentColor; transform: scale(0.92); }
-  30% { opacity: 1; fill: var(--zorai-accent); transform: scale(1.04); }
-  60% { opacity: 0.25; fill: currentColor; transform: scale(0.92); }
+  0%, 100% { opacity: 0.3; fill: currentColor; transform: scale(0.28, 0.4); }
+  35% { opacity: 1; fill: var(--zorai-accent); transform: scale(1.12); }
+  55% { opacity: 0.85; fill: var(--zorai-accent); transform: scale(0.95, 1); }
+  80% { opacity: 0.4; fill: currentColor; transform: scale(0.5, 0.6); }
+}
+
+@keyframes acp-tool-mark-turn {
+  to { transform: translateY(-1px) rotate(360deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -864,8 +874,12 @@
     transition: none;
   }
 
-  .acp-tool-mark__petal {
+  .acp-tool-mark__petal,
+  .acp-tool-mark--shown {
     animation: none;
+  }
+
+  .acp-tool-mark__petal {
     opacity: 0.6;
   }
 }
@@ -915,9 +929,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   color: var(--text-muted);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   line-height: var(--acp-tool-title-line);
 }
 
@@ -1212,7 +1226,7 @@
 }
 
 .acp-diff__line--add {
-  color: var(--text-primary);
+  color: var(--success);
   background: var(--acp-diff-add-bg);
 }
 
@@ -1281,10 +1295,52 @@
 }
 
 .acp-md :not(pre) > code {
-  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
-  padding: 1px 5px;
-  border-radius: 2px;
+  font-size: 0.86em;
+  color: color-mix(in srgb, var(--accent) 55%, var(--text-secondary));
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  padding: 0 3px;
+  border-radius: 3px;
   overflow-wrap: anywhere;
+}
+
+.acp-md th :not(pre) > code,
+.acp-md td :not(pre) > code,
+.acp-md th > code,
+.acp-md td > code {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+.acp-md .zorai-code-file-icon {
+  width: auto;
+  height: auto;
+  flex: none;
+  margin-right: 4px;
+  font-size: 0.78em;
+  vertical-align: 0.06em;
+}
+
+.acp-md .zorai-code-file-icon.type-config,
+.acp-md .zorai-code-file-icon.type-react,
+.acp-md .zorai-code-file-icon.type-image {
+  font-size: 1em;
+  vertical-align: 0;
+}
+
+.acp-md a:has(> .acp-md-file-ref) {
+  text-decoration: none;
+}
+
+.acp-md :not(pre) > code.acp-md-file-ref {
+  color: var(--acp-link, var(--accent));
+  font-weight: 600;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.acp-md :not(pre) > code.acp-md-file-ref:hover {
+  text-decoration: underline;
 }
 
 .acp-md ul {

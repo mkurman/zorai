@@ -760,7 +760,7 @@ declare global {
         dbListThreads?: () => Promise<unknown[]>;
         dbGetThread?: (id: string) => Promise<{ thread: unknown; messages: unknown[] }>;
         dbAddMessage?: (message: unknown) => Promise<boolean>;
-        dbExportThread?: (threadId: string, messageId: string) => Promise<{ ok: boolean; file_path?: string | null; error?: string }>;
+        dbExportThread?: (threadId: string, messageId: string, suggestedName?: string) => Promise<{ ok: boolean; file_path?: string | null; canceled?: boolean; error?: string }>;
         dbForkThread?: (threadId: string, messageId: string) => Promise<{ ok: boolean; thread_id?: string | null; title?: string | null; error?: string }>;
         dbDeleteMessage?: (threadId: string, messageId: string) => Promise<boolean>;
         dbListMessages?: (threadId: string, limit?: number | null) => Promise<unknown[]>;

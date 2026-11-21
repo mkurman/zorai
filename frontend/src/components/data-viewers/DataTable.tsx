@@ -1,11 +1,13 @@
-import { useMemo, useState } from "react";
+import { useContext, useMemo, useState } from "react";
 import { getBridge } from "@/lib/bridge";
+import { exportTablePng, MessageExportTimeContext, timestampedFileName } from "./tablePng";
 import { MAX_TABLE_ROWS, sortRowIndexes, tableToCsv, type TabularData } from "./tabularData";
 
 type SortState = { column: number; direction: "asc" | "desc" } | null;
 
 export function DataTable({ data, truncated = false }: { data: TabularData; truncated?: boolean }) {
   const [sort, setSort] = useState<SortState>(null);
+  const exportTime = useContext(MessageExportTimeContext);
   const order = useMemo(
     () => (sort ? sortRowIndexes(data.rows, sort.column, sort.direction) : data.rows.map((_, index) => index)),
     [data.rows, sort],
@@ -35,6 +37,7 @@ export function DataTable({ data, truncated = false }: { data: TabularData; trun
           {data.rows.length} rows × {data.columns.length} columns{limited ? " (preview, not the full file)" : ""}
         </span>
         <button type="button" className="zorai-data-table__action" onClick={copyCsv}>Copy CSV</button>
+        <button type="button" className="zorai-data-table__action" onClick={() => exportTablePng(data.columns, order.map((index) => data.rows[index]), `${timestampedFileName("table", exportTime)}.png`)}>PNG</button>
       </div>
       {data.errors.length > 0 ? (
         <div className="zorai-data-table__errors">{data.errors.join(" ")}</div>

@@ -178,6 +178,13 @@ export const BUILTIN_THEMES: TerminalTheme[] = [
       brightCyan: "#29b8db",
       brightWhite: "#d6d6d6",
     },
+    appShell: {
+      "--accent": "#d9a548",
+      "--accent-hover": "#e6b862",
+      "--accent-soft": "rgba(217, 165, 72, 0.16)",
+      "--accent-dim": "rgba(217, 165, 72, 0.08)",
+      "--accent-glow": "rgba(217, 165, 72, 0.28)",
+    },
   },
   {
     name: "Dracula",
@@ -393,6 +400,13 @@ export const BUILTIN_THEMES: TerminalTheme[] = [
       brightMagenta: "#d946ef",
       brightCyan: "#06b6d4",
       brightWhite: "#111827",
+    },
+    appShell: {
+      "--accent": "#89632e",
+      "--accent-hover": "#74521f",
+      "--accent-soft": "rgba(137, 99, 46, 0.12)",
+      "--accent-dim": "rgba(137, 99, 46, 0.06)",
+      "--accent-glow": "rgba(201, 150, 62, 0.24)",
     },
   },
   {

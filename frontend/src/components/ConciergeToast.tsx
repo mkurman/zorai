@@ -37,33 +37,17 @@ export function ConciergeToast() {
     };
 
     return (
-        <div style={{
-            position: "fixed",
-            bottom: 20,
-            right: 20,
-            zIndex: 2147483647,
-            maxWidth: "30vw",
-            maxHeight: "80vh",
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            background: "var(--zorai-backdrop-solid, var(--bg-void))",
-            border: "1px solid var(--accent)",
-            borderRadius: 8,
-            padding: 16,
-            boxShadow: "0 8px 32px color-mix(in srgb, var(--shade) 50%, transparent)",
-        }}>
-            <div style={{ fontSize: 10, color: "var(--accent)", fontWeight: 700, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Concierge
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-primary)", lineHeight: 1.5, marginBottom: 10, overflow: "auto" }}>
+        <div className="zorai-concierge-card" role="dialog" aria-label="Concierge">
+            <div className="zorai-concierge-card__eyebrow">Concierge</div>
+            <div className="zorai-concierge-card__body">
                 <MarkdownContent content={welcome.content} />
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            <div className="zorai-concierge-card__actions">
                 {welcome.actions.map((action, i) => (
                     <button
                         key={i}
+                        type="button"
+                        className={i === 0 && welcome.actions.length > 1 ? "zorai-primary-button" : "zorai-ghost-button"}
                         onClick={async () => {
                             if (action.action_type === "dismiss" || action.action_type === "dismiss_welcome") {
                                 await dismiss();
@@ -92,33 +76,15 @@ export function ConciergeToast() {
                                 await dismiss();
                             }
                         }}
-                        style={{
-                            background: "color-mix(in srgb, var(--info) 10%, transparent)",
-                            border: "1px solid color-mix(in srgb, var(--info) 30%, transparent)",
-                            color: "var(--accent)",
-                            borderRadius: 4,
-                            padding: "4px 10px",
-                            fontSize: "var(--text-sm)",
-                            cursor: "pointer",
-                            fontFamily: "inherit",
-                        }}
                     >
                         {action.label}
                     </button>
                 ))}
                 {welcome.actions.length === 0 && (
                     <button
+                        type="button"
+                        className="zorai-ghost-button"
                         onClick={() => dismiss()}
-                        style={{
-                            background: "color-mix(in srgb, var(--info) 10%, transparent)",
-                            border: "1px solid color-mix(in srgb, var(--info) 30%, transparent)",
-                            color: "var(--accent)",
-                            borderRadius: 4,
-                            padding: "4px 10px",
-                            fontSize: "var(--text-sm)",
-                            cursor: "pointer",
-                            fontFamily: "inherit",
-                        }}
                     >
                         Dismiss
                     </button>

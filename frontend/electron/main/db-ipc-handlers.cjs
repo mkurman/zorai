@@ -54,7 +54,7 @@ function normalizeTranscriptIndexForRenderer(entry) {
 }
 
 function registerDbIpcHandlers(ipcMain, runtime) {
-    const { sendDbAckCommand, sendDbQuery } = runtime;
+    const { sendDbAckCommand, sendDbQuery, saveExportedFile } = runtime;
 
     ipcMain.handle('db-append-command-log', async (_event, entry) => {
         try {
@@ -135,10 +135,13 @@ function registerDbIpcHandlers(ipcMain, runtime) {
             return false;
         }
     });
-    ipcMain.handle('db-export-thread', async (_event, threadId, messageId) => {
+    ipcMain.handle('db-export-thread', async (event, threadId, messageId, suggestedName) => {
         try {
             const result = await sendDbQuery({ type: 'export-agent-thread', thread_id: threadId, message_id: messageId }, 'agent-thread-exported');
-            return { ok: true, file_path: result?.file_path ?? null };
+            const exported = result?.file_path ?? null;
+            if (!exported || !saveExportedFile) return { ok: true, file_path: exported };
+            const saved = await saveExportedFile(event, exported, suggestedName);
+            return saved ? { ok: true, file_path: saved } : { ok: true, file_path: exported, canceled: true };
         } catch (error) {
             return { ok: false, error: error?.message || String(error) };
         }

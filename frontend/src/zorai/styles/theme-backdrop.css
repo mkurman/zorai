@@ -20,8 +20,16 @@
   background: transparent;
 }
 
-:root[data-backdrop] :is([role="menu"], [role="listbox"], [role="dialog"], [role="tooltip"], .zorai-titlebar__dropdown, .zorai-code-toolbar-menu__list, .zorai-branch-switcher-menu, .zorai-composer-context-preview, .zorai-terminal-find, .zorai-theme-editor footer, .zorai-thread-hovercard, .zorai-spawned-card__popover, .zorai-handoff-popover, .zorai-composer-context-circle__popover, .zorai-effort-gauge__popover, .zorai-chart-tooltip, .zorai-code-recent-menu, .zorai-code-runtime-switcher__menu, .zorai-security-shield__menu, .zorai-font-picker__list, .zorai-preferred-skills__suggestions, .zorai-toast, .zorai-update-prompt) {
-  background: var(--zorai-backdrop-solid);
+:root[data-backdrop] :is([role="menu"], [role="listbox"], [role="dialog"], [role="tooltip"], .zorai-titlebar__dropdown, .zorai-code-toolbar-menu__list, .zorai-branch-switcher-menu, .zorai-composer-context-preview, .zorai-terminal-find, .zorai-thread-find, .zorai-theme-editor footer, .zorai-thread-hovercard, .zorai-spawned-card__popover, .zorai-handoff-popover, .zorai-composer-context-circle__popover, .zorai-effort-gauge__popover, .zorai-chart-tooltip, .zorai-code-recent-menu, .zorai-code-runtime-switcher__menu, .zorai-security-shield__menu, .zorai-font-picker__list, .zorai-preferred-skills__suggestions, .zorai-toast, .zorai-update-prompt, .zorai-concierge-card) {
+  background: var(--bg-tertiary);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+:root[data-backdrop] #zorai-runtime-switcher-menu {
+  background: var(--bg-tertiary);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
 }
 
 :root[data-backdrop] .zorai-shell--code .zorai-main {

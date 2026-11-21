@@ -6757,7 +6757,7 @@ button.zorai-composer-context-chip { cursor: pointer; }
   overflow: auto;
   border: 1px solid var(--zorai-border-strong);
   border-radius: 10px;
-  background: var(--zorai-backdrop-solid, var(--zorai-bg-panel));
+  background: var(--zorai-bg-panel);
   box-shadow: 0 12px 32px color-mix(in srgb, var(--shade) 35%, transparent);
   padding: 4px;
   font-family: var(--font-ui);
@@ -7926,7 +7926,7 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-code-explorer-actions button:hover, .zorai-code-source-heading button:not([role^="menuitem"]):hover { background: var(--zorai-bg-active); color: var(--zorai-text); }
 .zorai-code-folder-chevron { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .zorai-code-file-icon { width: 20px; height: 18px; display: inline-flex; flex: 0 0 20px; align-items: center; justify-content: center; color: var(--text-secondary); font: 700 var(--text-xs)/1 var(--font-mono); letter-spacing: -.04em; }
-.zorai-code-file-icon.type-react { color: #61dafb; font-size: var(--text-base); }.zorai-code-file-icon.type-typescript { color: #4d9de0; }.zorai-code-file-icon.type-javascript { color: #e6d34f; }.zorai-code-file-icon.type-css { color: #5a9df0; font-size: var(--text-sm); }.zorai-code-file-icon.type-sass { color: #cf649a; }.zorai-code-file-icon.type-html { color: #e56b3f; }.zorai-code-file-icon.type-json { color: #d7ba7d; }.zorai-code-file-icon.type-markdown { color: #78a9df; }.zorai-code-file-icon.type-rust { color: #d68b5f; }.zorai-code-file-icon.type-python { color: #6ca4d9; }.zorai-code-file-icon.type-go { color: #5dc9e2; }.zorai-code-file-icon.type-java { color: #e6783c; }.zorai-code-file-icon.type-node { color: #6bbf59; }.zorai-code-file-icon.type-docker { color: #2496ed; }.zorai-code-file-icon.type-git { color: #f05032; }.zorai-code-file-icon.type-config { color: #a4aab3; }.zorai-code-file-icon.type-image { color: #b47ad6; }.zorai-code-file-icon.type-database { color: #d7a94a; }
+.zorai-code-file-icon.type-react { color: #61dafb; font-size: var(--text-base); }.zorai-code-file-icon.type-typescript { color: #4d9de0; }.zorai-code-file-icon.type-javascript { color: #e6d34f; }.zorai-code-file-icon.type-css { color: #5a9df0; font-size: var(--text-sm); }.zorai-code-file-icon.type-sass { color: #cf649a; }.zorai-code-file-icon.type-html { color: #e56b3f; }.zorai-code-file-icon.type-json { color: #d7ba7d; }.zorai-code-file-icon.type-markdown { color: #78a9df; }.zorai-code-file-icon.type-rust { color: #d68b5f; }.zorai-code-file-icon.type-python { color: #6ca4d9; }.zorai-code-file-icon.type-go { color: #5dc9e2; }.zorai-code-file-icon.type-java { color: #e6783c; }.zorai-code-file-icon.type-node { color: #6bbf59; }.zorai-code-file-icon.type-docker { color: #2496ed; }.zorai-code-file-icon.type-git { color: #f05032; }.zorai-code-file-icon.type-config { color: #a4aab3; }.zorai-code-file-icon.type-yaml { color: #e0a76a; }.zorai-code-file-icon.type-image { color: #b47ad6; }.zorai-code-file-icon.type-database { color: #d7a94a; }
 .zorai-code-source-heading button:not([role^="menuitem"]) { margin-left: auto; }
 
 /* --- Agent review (Find Issues) --- */
@@ -9747,7 +9747,7 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-terminal-find button { width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--zorai-muted); font-size: var(--text-base); cursor: pointer; }
 .zorai-terminal-find button:hover { background: var(--zorai-bg-active); color: var(--zorai-text); }
 
-.zorai-theme-editor { position: fixed; top: 44px; right: 16px; bottom: 16px; z-index: 1200; width: min(440px, calc(100vw - 32px)); overflow: auto; display: grid; align-content: start; gap: 16px; padding: 18px; border: 1px solid var(--zorai-border-strong); border-radius: 12px; background: var(--bg-elevated); color: var(--zorai-text); box-shadow: 0 24px 80px color-mix(in srgb, var(--shade) 45%, transparent); }
+.zorai-theme-editor { position: fixed; top: 44px; right: 16px; bottom: 16px; z-index: 1200; width: min(440px, calc(100vw - 32px)); overflow: auto; display: grid; align-content: start; gap: 16px; padding: 18px; border: 1px solid var(--zorai-border-strong); border-radius: 12px; background: var(--zorai-bg-panel); color: var(--zorai-text); box-shadow: 0 24px 80px color-mix(in srgb, var(--shade) 45%, transparent); }
 .zorai-theme-editor h2 { margin: 0; font-size: var(--text-lg); }
 .zorai-theme-editor h3 { margin: 0 0 4px; font-size: var(--text-base); color: var(--zorai-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
 .zorai-theme-editor header p, .zorai-theme-editor__hint { margin: 4px 0 0; color: var(--zorai-muted); font-size: var(--text-sm); line-height: 1.5; }
@@ -10216,3 +10216,19 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-model-modalities__option { display: inline-flex; align-items: center; gap: 5px; color: var(--zorai-text); cursor: pointer; }
 .zorai-model-modalities__option:has(input:disabled) { color: var(--zorai-muted); cursor: default; }
 .zorai-model-modalities__option input { margin: 0; accent-color: var(--zorai-accent); }
+
+.zorai-thread-find { position: fixed; top: 52px; right: 16px; z-index: 1200; display: flex; align-items: center; gap: 4px; padding: 6px 6px 6px 14px; border: 1px solid var(--zorai-border-strong); border-radius: 12px; background: var(--bg-elevated); color: var(--zorai-text); box-shadow: 0 1px 0 color-mix(in srgb, var(--zorai-text) 6%, transparent) inset, 0 2px 6px color-mix(in srgb, var(--shade) 35%, transparent), 0 16px 40px color-mix(in srgb, var(--shade) 60%, transparent); }
+.zorai-thread-find__input, .zorai-thread-find__input:focus-visible { width: 220px; border: 0; border-radius: 0; padding: 0; outline: none; background: transparent; color: var(--text-primary); font: var(--text-sm) var(--font-ui); }
+.zorai-thread-find__count { min-width: 64px; text-align: right; color: var(--text-muted); font-size: var(--text-xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.zorai-thread-find__button { width: 24px; height: 24px; display: grid; place-items: center; border: 0; border-radius: 5px; padding: 0; background: transparent; color: var(--text-secondary); font-size: var(--text-base); line-height: 1; cursor: pointer; }
+.zorai-thread-find__button:hover:not(:disabled) { background: color-mix(in srgb, var(--text-primary) 8%, transparent); color: var(--text-primary); }
+.zorai-thread-find__button:disabled { opacity: .35; cursor: default; }
+.zorai-thread-find__regex { width: 28px; font: 600 var(--text-xs) var(--font-mono); }
+.zorai-thread-find__regex[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+::highlight(zorai-find) { background-color: color-mix(in srgb, var(--accent) 28%, transparent); color: inherit; }
+::highlight(zorai-find-current) { background-color: var(--accent); color: var(--text-on-accent, #000); }
+
+.zorai-concierge-card { position: fixed; right: 20px; bottom: 20px; z-index: 2147483647; width: min(420px, calc(100vw - 40px)); max-height: 80vh; display: flex; flex-direction: column; gap: 10px; padding: 16px 18px 18px; overflow: hidden; border: 1px solid var(--zorai-border-strong); border-radius: 12px; background: var(--bg-elevated); color: var(--zorai-text); box-shadow: 0 1px 0 color-mix(in srgb, var(--zorai-text) 6%, transparent) inset, 0 2px 6px color-mix(in srgb, var(--shade) 35%, transparent), 0 16px 40px color-mix(in srgb, var(--shade) 60%, transparent), 0 32px 80px color-mix(in srgb, var(--shade) 40%, transparent); }
+.zorai-concierge-card__eyebrow { color: var(--zorai-muted); font-size: var(--text-xs); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.zorai-concierge-card__body { min-height: 0; overflow: auto; color: var(--text-primary); font-size: var(--text-sm); line-height: 1.55; }
+.zorai-concierge-card__actions { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 4px; }

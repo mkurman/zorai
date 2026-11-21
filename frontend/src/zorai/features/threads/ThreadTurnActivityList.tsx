@@ -89,12 +89,24 @@ function turnActivityEntryTitle(entry: TurnActivityEntry): string {
   return activity.title;
 }
 
+export function finishedTurnTitle(elapsedMs: number): string {
+  return elapsedMs >= 1000 ? `Worked for ${formatActivityElapsed(elapsedMs)}` : "Worked";
+}
+
+export function finishedTurnStats(toolCount: number, failedCount: number, entryCount: number): string {
+  const steps = toolCount > 0 ? toolCount : entryCount;
+  const label = `${steps} ${steps === 1 ? "step" : "steps"}`;
+  return failedCount > 0 ? `${label} · ${failedCount} failed` : label;
+}
+
 export const ThreadTurnActivityList = memo(function ThreadTurnActivityList({
   entries,
+  live,
   onRefreshOperation,
   onCancelOperation,
 }: {
   entries: TurnActivityEntry[];
+  live: boolean;
   onRefreshOperation: (operationId: string) => Promise<OperationStatusView | null>;
   onCancelOperation: (operationId: string) => Promise<ThreadMutationResult>;
 }) {
@@ -122,6 +134,9 @@ export const ThreadTurnActivityList = memo(function ThreadTurnActivityList({
   if (entries.length === 0) return null;
   const { title, working, toolCount, doneCount } = summarizeTurnActivity(entries);
   const { startedAt, endedAt } = turnActivitySpan(entries);
+  const failedCount = entries.reduce((sum, entry) => sum + (entry.kind === "tools" ? entry.groups.filter((group) => group.status === "error").length : 0), 0);
+  const active = live || working;
+  const finished = !active;
 
   return (
     <div className="acp-tool-list zorai-turn-activity">
@@ -136,14 +151,15 @@ export const ThreadTurnActivityList = memo(function ThreadTurnActivityList({
         }}
       >
         <div className="acp-tool-list__title-container">
+          <span className={expanded ? "acp-tool-row__caret zorai-motion-caret is-open" : "acp-tool-row__caret zorai-motion-caret"} aria-hidden="true">▶</span>
+          {active ? <ZoraiToolMark active /> : null}
           <span className="acp-tool-list__title-slot" title={title}>
-            <span className={`acp-tool-list__title${working ? " acp-tool-list__title--working" : ""}`}>{title}</span>
+            <span className={`acp-tool-list__title${active ? " acp-tool-list__title--working" : ""}`}>{finished ? finishedTurnTitle(endedAt - startedAt) : title}</span>
           </span>
-          <TurnActivityElapsed startedAt={startedAt} endedAt={endedAt} live={working} />
-          <ZoraiToolMark active={working} />
+          {finished ? null : <TurnActivityElapsed startedAt={startedAt} endedAt={endedAt} live={active} />}
         </div>
         <span className="acp-tool-list__stats">
-          {toolCount > 0 ? `[${doneCount} / ${toolCount}]` : `[${entries.length}]`}
+          {finished ? finishedTurnStats(toolCount, failedCount, entries.length) : toolCount > 0 ? `[${doneCount} / ${toolCount}]` : `[${entries.length}]`}
         </span>
       </button>
       {presence.mounted ? (
@@ -179,7 +195,8 @@ export const ThreadTurnActivityList = memo(function ThreadTurnActivityList({
     </div>
   );
 }, (prev, next) => (
-  prev.onRefreshOperation === next.onRefreshOperation
+  prev.live === next.live
+  && prev.onRefreshOperation === next.onRefreshOperation
   && prev.onCancelOperation === next.onCancelOperation
   && sameTurnActivityEntries(prev.entries, next.entries)
 ));

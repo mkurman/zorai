@@ -1,7 +1,8 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { getBridge } from "@/lib/bridge";
 import { ImageLightbox } from "@/zorai/features/threads/ImageLightbox";
 import { Presence } from "@/components/Presence";
+import { MessageExportTimeContext, timestampedFileName } from "./tablePng";
 import { standaloneSvg, svgViewBoxSize, svgWithIntrinsicSize } from "./mermaidSvg";
 
 type MermaidModule = typeof import("mermaid")["default"];
@@ -80,7 +81,9 @@ function exportPng(svg: string, fileName: string) {
   image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(standaloneSvg(svg))}`;
 }
 
-export function MermaidDiagram({ source, fileName = "diagram" }: { source: string; fileName?: string }) {
+export function MermaidDiagram({ source, fileName: namedFile }: { source: string; fileName?: string }) {
+  const exportTime = useContext(MessageExportTimeContext);
+  const fileName = namedFile ?? timestampedFileName("diagram", exportTime);
   const { svg, error } = useMermaidSvg(source);
   const [zoom, setZoom] = useState(1);
   const [expanded, setExpanded] = useState(false);

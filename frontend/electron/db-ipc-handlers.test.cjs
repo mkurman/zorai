@@ -3,7 +3,7 @@ const test = require("node:test");
 
 const { registerDbIpcHandlers } = require("./main/db-ipc-handlers.cjs");
 
-function createHarness() {
+function createHarness(extraRuntime = {}) {
   const handlers = new Map();
   const ackCommands = [];
   const queryCommands = [];
@@ -22,6 +22,7 @@ function createHarness() {
       queryCommands.push(command);
       return queryResult;
     },
+    ...extraRuntime,
   });
 
   return {
@@ -136,4 +137,25 @@ test("db-list-transcript-index converts daemon transcript entries for renderer s
     preview: "hello",
     content: "",
   }]);
+});
+
+test("db-export-thread hands the daemon's export to the user's chosen location instead of leaving it hidden in the thread folder", async () => {
+  const saves = [];
+  const { handlers, setQueryResult } = createHarness({
+    async saveExportedFile(_event, exportedPath, suggestedName) {
+      saves.push({ exportedPath, suggestedName });
+      return "/home/me/Downloads/My thread.json";
+    },
+  });
+  setQueryResult({ file_path: "/data/threads/t1/inventory/thread-export-1.json" });
+  const result = await handlers.get("db-export-thread")({}, "t1", "m1", "My thread");
+  assert.deepEqual(saves, [{ exportedPath: "/data/threads/t1/inventory/thread-export-1.json", suggestedName: "My thread" }]);
+  assert.deepEqual(result, { ok: true, file_path: "/home/me/Downloads/My thread.json" });
+});
+
+test("db-export-thread reports a cancelled save dialog so the UI stays quiet", async () => {
+  const { handlers, setQueryResult } = createHarness({ async saveExportedFile() { return null; } });
+  setQueryResult({ file_path: "/data/export.json" });
+  const result = await handlers.get("db-export-thread")({}, "t1", "m1", "x");
+  assert.deepEqual(result, { ok: true, file_path: "/data/export.json", canceled: true });
 });

@@ -1,7 +1,8 @@
 import { LoadingState } from "@/components/LoadingState";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type ReactNode, type UIEvent } from "react";
 import { threadTint, tintStyle, useTintStore } from "@/zorai/features/tints/tintStore";
-import { shortcutMatches } from "@/zorai/features/shortcuts/appShortcuts";
+import { shortcutCombo, shortcutMatches } from "@/zorai/features/shortcuts/appShortcuts";
+import { useSettingsStore } from "@/lib/settingsStore";
 import { MemoizedToolEventRow } from "@/components/agent-chat-panel/chat-view/ToolEventRow";
 import { ToolEventList } from "@/components/agent-chat-panel/chat-view/ToolEventList";
 import { buildDisplayItems } from "@/components/agent-chat-panel/chat-view/helpers";
@@ -52,6 +53,7 @@ import { useThreadRailTabStore } from "./threadRailTabStore";
 import { useAgentDisplayName } from "@/lib/useAgentDisplayName";
 import { resolveThreadCreationAgent } from "./threadFilterModel";
 import { DelegatedSessionSlot } from "./DelegatedSessionBar";
+import { ThreadFindBar } from "./ThreadFindBar";
 import { ThreadSessionTabs } from "./SessionTabStrip";
 import { threadMessageItemKey } from "./threadMessageWindow";
 import { ThreadMessageMeasure, useThreadMessageWindow } from "./useThreadMessageWindow";
@@ -160,6 +162,19 @@ export function ThreadsView({
     ));
     if (arrived) endThreadCompaction(compactionStatus.daemonThreadId);
   }, [compactionStatus, runtime.messages]);
+
+  const [findNonce, setFindNonce] = useState(0);
+  const findPaneFocused = splitPane ? splitPane.focused : true;
+  useEffect(() => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (!findPaneFocused || !shortcutMatches("thread.find", event)) return;
+      if ((event.target as Element | null)?.closest?.(".monaco-editor, .xterm")) return;
+      event.preventDefault();
+      setFindNonce((value) => value + 1);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [findPaneFocused]);
 
   // Global shortcuts for the thread surface:
   //   Ctrl+L — speak/stop the latest assistant message
@@ -423,6 +438,8 @@ export function ThreadsView({
         onPushHandoff={runtime.pushHandoff}
         onReturnHandoff={runtime.returnHandoff}
         onOpenParticipants={() => useThreadPanelStore.getState().toggle("participants")}
+        findOpen={findNonce > 0}
+        onFind={() => setFindNonce((value) => (value > 0 ? 0 : 1))}
         messages={runtime.messages}
         extraActions={variant === "compact" ? compactHeaderActions : splitPane?.actions ?? null}
         onDragStart={splitPane?.onHeaderDragStart}
@@ -437,6 +454,9 @@ export function ThreadsView({
 
       <div className="zorai-thread-chat">
         <DelegatedSessionSlot />
+        {findNonce > 0 ? (
+          <ThreadFindBar key={findNonce} messages={runtime.messages} scrollerRef={scrollerRef} reveal={messageWindow.reveal} onClose={() => setFindNonce(0)} />
+        ) : null}
         <div ref={scrollerRef} className="zorai-thread-chat-scroll" onScroll={(event) => void handleThreadScroll(event)}>
         {showConversationSkeleton ? (
           <ThreadConversationSkeleton embedded />
@@ -458,6 +478,7 @@ export function ThreadsView({
             row = (
               <ThreadTurnActivityList
                 entries={item.entries}
+                live={runtime.isStreamingResponse && item === displayItems[displayItems.length - 1]}
                 onRefreshOperation={runtime.getOperationStatus}
                 onCancelOperation={runtime.cancelOperation}
               />
@@ -583,6 +604,8 @@ function ThreadHeader({
   onPushHandoff,
   onReturnHandoff,
   onOpenParticipants,
+  findOpen,
+  onFind,
   messages,
   extraActions = null,
   onDragStart,
@@ -596,6 +619,8 @@ function ThreadHeader({
   onPushHandoff: ReturnType<typeof useAgentChatPanelRuntime>["pushHandoff"];
   onReturnHandoff: ReturnType<typeof useAgentChatPanelRuntime>["returnHandoff"];
   onOpenParticipants: () => void;
+  findOpen: boolean;
+  onFind: () => void;
   messages: AgentMessage[];
   extraActions?: ReactNode;
   onDragStart?: (event: DragEvent<HTMLElement>) => void;
@@ -645,6 +670,9 @@ function ThreadHeader({
             ))}
           </div>
         </div>
+        <button type="button" className="zorai-thread-header__icon" title={`Find in thread (${shortcutCombo(useSettingsStore.getState().settings.shortcuts, "thread.find")})`} aria-label="Find in thread" aria-expanded={findOpen} data-thread-find-toggle onClick={onFind}>
+          <ThreadHeaderIcon kind="find" />
+        </button>
         <ThreadHandoffControl
           daemonLinked={Boolean(thread.daemonThreadId)}
           handoffState={thread.threadHandoffState}
@@ -667,9 +695,10 @@ function ThreadHeader({
   );
 }
 
-function ThreadHeaderIcon({ kind }: { kind: "info" | "handoff" | "gateway" | "participants" | "operations" | "context" }) {
+function ThreadHeaderIcon({ kind }: { kind: "info" | "find" | "handoff" | "gateway" | "participants" | "operations" | "context" }) {
   const common = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
   if (kind === "info") return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M12 11v5" /><path d="M12 8h.01" /></svg>;
+  if (kind === "find") return <svg {...common}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>;
   if (kind === "handoff") return <svg {...common}><path d="M17 3l4 4-4 4" /><path d="M21 7H9" /><path d="M7 21l-4-4 4-4" /><path d="M3 17h12" /></svg>;
   if (kind === "gateway") return <svg {...common}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>;
   if (kind === "participants") return <svg {...common}><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7" /><path d="M18 14.5a6.5 6.5 0 0 1 3.5 5.5" /></svg>;

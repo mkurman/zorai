@@ -31,6 +31,7 @@ export const APP_SHORTCUTS: AppShortcut[] = [
   { id: "thread.next", label: "Next thread", category: "Threads", defaultCombo: "Ctrl+Shift+PageDown", menuCommand: "next-thread" },
   { id: "thread.back", label: "Back to previous thread", category: "Threads", defaultCombo: "", menuCommand: "thread-back" },
   { id: "thread.speakLatest", label: "Read the latest reply aloud", category: "Threads", defaultCombo: "Ctrl+L" },
+  { id: "thread.find", label: "Find in thread", category: "Threads", defaultCombo: "Ctrl+F" },
   { id: "thread.recordVoice", label: "Record a voice message", category: "Threads", defaultCombo: "Ctrl+M" },
 ];
 

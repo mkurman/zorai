@@ -51,6 +51,19 @@ describe("loadFilePreviewSection", () => {
     expect(section).toMatchObject({ kind: "file-preview", text: "Binary file preview is not available." });
   });
 
+  it("says a missing file is missing instead of calling it binary, so a stale link in a reply is not mistaken for a broken file", async () => {
+    mocks.fetchFilePreview.mockResolvedValue({ path: "/work/sft_mix_v3_1.json", content: "", truncated: false, isText: false });
+    mocks.workspaceListDirectory.mockImplementation(async (path: string) => {
+      if (path === "/work") return [{ name: "config.yaml" }];
+      throw new Error("not a directory");
+    });
+
+    const section = await loadFilePreviewSection("/work/sft_mix_v3_1.json");
+
+    expect(section).toMatchObject({ kind: "file-preview", title: "File not found" });
+    expect(section?.text).toContain("does not exist");
+  });
+
   it("plays generated speech and other audio files instead of showing the binary-file notice", async () => {
     mocks.agentReadAudioFile.mockResolvedValue("data:audio/mpeg;base64,bXAz");
 

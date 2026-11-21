@@ -28,6 +28,7 @@ export function useThreadMessageWindow(options: {
   onReleaseFollow?: () => void;
 }): ThreadMessageWindow & {
   reportHeight: (key: string, height: number) => void;
+  reveal: (messageId: string) => void;
 } {
   const { scrollerRef, items, followBottom, threadId, onReleaseFollow } = options;
   const [scrollTop, setScrollTop] = useState(0);
@@ -168,8 +169,11 @@ export function useThreadMessageWindow(options: {
     };
   }, [followBottom, itemKeys, threadId, messageWindow.bottomSpacer, messageWindow.end, messageWindow.start, messageWindow.topSpacer, scrollerRef]);
 
+  const revealRef = useRef<RevealHandler>(() => undefined);
+  const reveal = useCallback((messageId: string) => revealRef.current(messageId), []);
+
   useEffect(() => {
-    revealHandler = (messageId: string) => {
+    revealRef.current = (messageId: string) => {
       const scroller = scrollerRef.current;
       const keys = itemKeysRef.current;
       const directIndex = keys.indexOf(`message:${messageId}`);
@@ -201,12 +205,13 @@ export function useThreadMessageWindow(options: {
         document.getElementById(`zorai-message-${messageId}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
       });
     };
+    revealHandler = revealRef.current;
     return () => {
-      revealHandler = null;
+      if (revealHandler === revealRef.current) revealHandler = null;
     };
   }, [scrollerRef]);
 
-  return { ...messageWindow, reportHeight };
+  return { ...messageWindow, reportHeight, reveal };
 }
 
 export function ThreadMessageMeasure({
