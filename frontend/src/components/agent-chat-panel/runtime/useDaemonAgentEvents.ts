@@ -47,6 +47,8 @@ import {
   clearThreadRetryStatus,
   releaseSuppressedThreadRetryStatus,
 } from "@/zorai/features/threads/threadRetryStatus";
+import { useComputerControlStore } from "@/zorai/features/computer/computerControlStore";
+import { pushToast } from "@/lib/toastStore";
 
 export function resolveDaemonEventLocalThreadId(
   event: any,
@@ -559,6 +561,17 @@ export function useDaemonAgentEvents({
         }
         case "thread_title_updated": {
           handleThreadTitleUpdatedEvent({ event });
+          break;
+        }
+        case "computer_control": {
+          const controlThreadId = typeof event.thread_id === "string" ? event.thread_id : null;
+          if (!controlThreadId) break;
+          const notice = useComputerControlStore.getState().apply({
+            threadId: controlThreadId,
+            active: event.active === true,
+            reason: typeof event.reason === "string" ? event.reason : null,
+          });
+          if (notice) pushToast(notice, "info");
           break;
         }
         case "next_reply_suggestion": {

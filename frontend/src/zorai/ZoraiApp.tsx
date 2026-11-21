@@ -21,6 +21,7 @@ import { ZoraiShell } from "./shell/ZoraiShell";
 import { ZoraiTitleBar } from "./shell/ZoraiTitleBar";
 import { ZoraiContextMenu } from "./shell/ZoraiContextMenu";
 import { ThreadBrowserHost } from "./features/browser/ThreadBrowserHost";
+import { ComputerControlBanner } from "./features/computer/ComputerControlBanner";
 
 export function ZoraiApp() {
   const operatorProfileAutoStartRequested = useRef(false);
@@ -106,6 +107,7 @@ export function ZoraiApp() {
       <AgentApprovalOverlay />
       <OperatorQuestionOverlay />
       <ConciergeToast />
+      <ComputerControlBanner />
       <ToastViewport />
       <UpdatePrompt />
       <ThreadBrowserHost />

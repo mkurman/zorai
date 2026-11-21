@@ -2,7 +2,15 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ToolEventList, advanceToolTitleFrame } from "./ToolEventList";
-import { TOOL_MARK_ENTER_DELAY_MS, TOOL_MARK_LEAVE_MS, toolMarkPresence } from "./ZoraiToolMark";
+import {
+  TOOL_MARK_ENTER_DELAY_MS,
+  TOOL_MARK_LEAVE_MS,
+  ZORAI_MARK_LETTERS,
+  ZoraiToolMark,
+  toolMarkPresence,
+} from "./ZoraiToolMark";
+import { createMarkTimeline, sampleMarkFrame } from "./zoraiMark3d";
+import { createEpisode } from "./zoraiMarkGlyphs";
 import type { ToolEventGroup } from "./types";
 
 function toolGroup(status: ToolEventGroup["status"]): ToolEventGroup {
@@ -64,5 +72,50 @@ describe("tool list mark", () => {
     const finished = renderToStaticMarkup(createElement(ToolEventList, { groups: [toolGroup("done")] }));
     expect(finished).not.toContain("acp-tool-mark");
     expect(finished).toContain("Read File");
+  });
+
+  it("cycles one anamorphic 3D letter at a time through z-o-r-a-i without repeating the same choreography", () => {
+    const activeHtml = renderToStaticMarkup(createElement(ZoraiToolMark, { active: true }));
+    expect(activeHtml).toContain('data-letter="z"');
+
+    const inactiveHtml = renderToStaticMarkup(createElement(ZoraiToolMark, { active: false }));
+    expect(inactiveHtml).toBe("");
+
+    const timeline = createMarkTimeline(424242);
+    const seenLetters: string[] = [];
+    let cursorMs = 0;
+    for (let epIdx = 0; epIdx < ZORAI_MARK_LETTERS.length; epIdx += 1) {
+      const ep = createEpisode(424242, epIdx);
+      const frame = sampleMarkFrame(timeline, cursorMs + ep.durationMs * 0.5);
+      seenLetters.push(frame.letter);
+      const colors = [
+        ...frame.facets.map((f) => f.fill),
+        ...frame.backLines.map((l) => l.color),
+        ...frame.frontLines.map((l) => l.color),
+        ...frame.backArcs.map((a) => a.color),
+        ...frame.frontArcs.map((a) => a.color),
+        ...frame.backDots.map((d) => d.color),
+        ...frame.frontDots.map((d) => d.color),
+      ];
+      expect(new Set(colors).size).toBeGreaterThanOrEqual(2);
+      expect(colors.every((color) => color.includes("var(--"))).toBe(true);
+      const totalDots = frame.backDots.length + frame.frontDots.length;
+      expect(totalDots).toBeGreaterThanOrEqual(4);
+      expect(totalDots).toBeLessThanOrEqual(8);
+      cursorMs += ep.durationMs;
+    }
+    expect(seenLetters).toEqual([...ZORAI_MARK_LETTERS]);
+
+    // 3D companion cages appear randomly across episodes (not on every episode)
+    const sampleCages = Array.from({ length: 20 }, (_, i) => createEpisode(424242, i).cageKind);
+    expect(sampleCages.some((kind) => kind === "none")).toBe(true);
+    expect(sampleCages.some((kind) => kind !== "none")).toBe(true);
+
+    // Next cycle returns to "z" with fresh randomized 3D depths, rotations, and presentation
+    const firstZ = createEpisode(424242, 0);
+    const secondZ = createEpisode(424242, 5);
+    expect(secondZ.letter).toBe("z");
+    expect(secondZ.entryRot).not.toEqual(firstZ.entryRot);
+    expect(secondZ.segmentDepths).not.toEqual(firstZ.segmentDepths);
   });
 });

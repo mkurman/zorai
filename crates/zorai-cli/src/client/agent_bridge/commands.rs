@@ -760,6 +760,9 @@ where
                 .send(ClientMessage::AgentSetConciergeConfig { config_json })
                 .await?;
         }
+        AgentBridgeCommand::StopComputerControl => {
+            framed.send(ClientMessage::AgentStopComputerControl).await?;
+        }
         AgentBridgeCommand::DismissConciergeWelcome => {
             framed
                 .send(ClientMessage::AgentDismissConciergeWelcome)

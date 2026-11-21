@@ -23,6 +23,7 @@ pub(crate) async fn dispatch_part7(
             | ClientMessage::AgentSetConciergeConfig { .. }
             | ClientMessage::AgentRequestConciergeWelcome
             | ClientMessage::AgentDismissConciergeWelcome
+            | ClientMessage::AgentStopComputerControl
             | ClientMessage::AuditQuery { .. }
             | ClientMessage::AuditDismiss { .. }
             | ClientMessage::EscalationCancel { .. }
@@ -381,6 +382,10 @@ pub(crate) async fn dispatch_part7(
                     BackgroundSideEffectOutcome::Completed
                 },
             );
+        }
+
+        ClientMessage::AgentStopComputerControl => {
+            crate::agent::stop_computer_control(&agent.event_tx, "stopped from Zorai").await;
         }
 
         ClientMessage::AgentDismissConciergeWelcome => {

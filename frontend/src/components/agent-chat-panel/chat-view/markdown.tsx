@@ -18,6 +18,8 @@ import { CodeFileIcon } from "@/zorai/features/code/CodeFileIcon";
 import { looksLikeFileReference } from "@/zorai/features/code/codeFileTypes";
 import { fileLinkCandidatesFromTools } from "./fileLinkCandidates";
 import { MathSegmentsContext } from "./mathText";
+import { HtmlEmbed } from "@/components/data-viewers/HtmlEmbed";
+import { expandAgentEmbedTags } from "@/components/data-viewers/htmlEmbed";
 
 export const KATEX_DELIMITERS = [
   { left: "$$", right: "$$", display: true },
@@ -206,6 +208,12 @@ const markdownComponents: Components = {
     const language = Array.isArray(className)
       ? String(className.find((value) => String(value).startsWith("language-")) ?? "").slice("language-".length)
       : "";
+    if (code && (language === "agent-embed" || language === "html-embed")) {
+      const source = hastText(code).replace(/\n$/, "");
+      return language === "agent-embed"
+        ? <HtmlEmbed src={source.trim()} resolvePath={resolveThreadFileLink} />
+        : <HtmlEmbed inline={source} />;
+    }
     if (code && language && fencedBlockKind(language)) {
       return <FencedDataBlock language={language} source={hastText(code).replace(/\n$/, "")} />;
     }
@@ -418,7 +426,7 @@ export const MarkdownContent = memo(function MarkdownContent({
   const rootRef = useRef<HTMLDivElement>(null);
   const renderMode = markdownRenderMode(streaming);
   const protectedMath = useMemo(
-    () => renderMode === "markdown" ? protectMathSegments(content) : { content, segments: [] },
+    () => renderMode === "markdown" ? protectMathSegments(expandAgentEmbedTags(content)) : { content, segments: [] },
     [content, renderMode],
   );
 

@@ -154,7 +154,7 @@ export const ThreadTurnActivityList = memo(function ThreadTurnActivityList({
         }}
       >
         <div className="acp-tool-list__title-container">
-          {active ? <ZoraiToolMark active /> : null}
+          <ZoraiToolMark active={active} />
           <span className="acp-tool-list__title-slot" title={title}>
             <span className={`acp-tool-list__title${active ? " acp-tool-list__title--working" : ""}`}>{finished ? finishedSummary(entries, endedAt - startedAt) : title}</span>
           </span>

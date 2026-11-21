@@ -26,6 +26,13 @@ pub const BROWSER_RELOAD: &str = "browser_reload";
 pub const BROWSER_SCROLL: &str = "browser_scroll";
 pub const BROWSER_TABS: &str = "browser_tabs";
 pub const BROWSER_TAKE_SCREENSHOT: &str = "browser_take_screenshot";
+pub const COMPUTER_SCREENSHOT: &str = "computer_screenshot";
+pub const COMPUTER_CLICK: &str = "computer_click";
+pub const COMPUTER_MOVE: &str = "computer_move";
+pub const COMPUTER_DRAG: &str = "computer_drag";
+pub const COMPUTER_SCROLL: &str = "computer_scroll";
+pub const COMPUTER_TYPE: &str = "computer_type";
+pub const COMPUTER_KEY: &str = "computer_key";
 pub const BROWSER_TYPE: &str = "browser_type";
 pub const CANCEL_TASK: &str = "cancel_task";
 pub const CANCEL_WAKEUP: &str = "cancel_wakeup";
@@ -246,6 +253,15 @@ pub const BROWSER_TOOLS: &[&str] = &[
     BROWSER_FORWARD,
     BROWSER_RELOAD,
     BROWSER_TABS,
+];
+pub const COMPUTER_TOOLS: &[&str] = &[
+    COMPUTER_SCREENSHOT,
+    COMPUTER_CLICK,
+    COMPUTER_MOVE,
+    COMPUTER_DRAG,
+    COMPUTER_SCROLL,
+    COMPUTER_TYPE,
+    COMPUTER_KEY,
 ];
 pub const GENERATED_TOOL_FRAGMENT: &str = "generated_tool";
 pub const PLUGIN_TOOL_PREFIX: &str = "plugin_";

@@ -150,7 +150,11 @@ async fn send_chunks(
 
 fn messages_to_interaction_input(messages: &[ApiMessage]) -> serde_json::Value {
     let mut steps = Vec::new();
+    let mut pending_tool_images = Vec::new();
     for message in messages {
+        if message.role != "tool" && !pending_tool_images.is_empty() {
+            steps.push(tool_images_step(std::mem::take(&mut pending_tool_images)));
+        }
         match message.role.as_str() {
             "system" | "user" => {
                 let content = content_parts(&message.content);
@@ -197,6 +201,9 @@ fn messages_to_interaction_input(messages: &[ApiMessage]) -> serde_json::Value {
                 else {
                     continue;
                 };
+                pending_tool_images.extend(content_parts(&message.content).into_iter().filter(
+                    |part| part.get("type").and_then(|value| value.as_str()) == Some("image"),
+                ));
                 let mut result_text = text_from_content(&message.content);
                 if result_text.trim().is_empty() {
                     result_text = "(empty result)".to_string();
@@ -211,7 +218,19 @@ fn messages_to_interaction_input(messages: &[ApiMessage]) -> serde_json::Value {
             _ => {}
         }
     }
+    if !pending_tool_images.is_empty() {
+        steps.push(tool_images_step(pending_tool_images));
+    }
     serde_json::Value::Array(steps)
+}
+
+fn tool_images_step(images: Vec<serde_json::Value>) -> serde_json::Value {
+    let mut content = vec![serde_json::json!({
+        "type": "text",
+        "text": "Image returned by the previous tool call:",
+    })];
+    content.extend(images);
+    serde_json::json!({ "type": "user_input", "content": content })
 }
 
 fn tool_definition_to_json(tool: &ToolDefinition) -> serde_json::Value {
@@ -246,7 +265,7 @@ fn block_to_part(block: &serde_json::Value) -> Option<serde_json::Value> {
             .get("text")
             .and_then(|value| value.as_str())
             .map(|text| serde_json::json!({ "type": "text", "text": text })),
-        "image" | "input_image" => {
+        "image" | "input_image" | "image_url" => {
             let url = block
                 .get("image_url")
                 .and_then(|value| value.as_str())

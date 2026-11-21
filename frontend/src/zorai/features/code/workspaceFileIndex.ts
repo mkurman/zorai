@@ -1,4 +1,4 @@
-export type WorkspaceFileIndexBridge = Pick<ZoraiBridge, "workspaceListDirectory">;
+export type WorkspaceFileIndexBridge = Pick<ZoraiBridge, "workspaceListDirectory" | "workspaceListFiles">;
 
 export const WORKSPACE_FILE_INDEX_MAX_FILES = 8000;
 export const WORKSPACE_FILE_INDEX_MAX_DIRS = 1200;
@@ -15,7 +15,10 @@ export async function collectWorkspaceFiles(
   root: string,
   options: { maxFiles?: number; maxDirs?: number; signal?: AbortSignal } = {},
 ): Promise<string[]> {
-  if (!bridge.workspaceListDirectory || !root) return [];
+  if (!root) return [];
+  const wholeRepo = bridge.workspaceListFiles ? await bridge.workspaceListFiles(root).catch(() => null) : null;
+  if (wholeRepo) return wholeRepo;
+  if (!bridge.workspaceListDirectory) return [];
   const maxFiles = Math.max(1, Math.min(options.maxFiles ?? WORKSPACE_FILE_INDEX_MAX_FILES, 20000));
   const maxDirs = Math.max(1, Math.min(options.maxDirs ?? WORKSPACE_FILE_INDEX_MAX_DIRS, 5000));
   const files: string[] = [];
@@ -77,7 +80,7 @@ export async function getWorkspaceFiles(
   root: string,
   options: { force?: boolean } = {},
 ): Promise<string[]> {
-  if (!root || !bridge.workspaceListDirectory) return [];
+  if (!root || (!bridge.workspaceListDirectory && !bridge.workspaceListFiles)) return [];
   if (!options.force) {
     const cached = indexByRoot.get(root);
     if (cached) return cached.files;

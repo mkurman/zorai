@@ -626,3 +626,31 @@ test('git that exits before reading its input reports its own error instead of c
     }
     assert.deepEqual(uncaught, []);
 });
+
+test('file-name search ranks exact and prefix name matches above deep path matches across the whole workspace', () => {
+    const { rankFileNameMatches } = require('./main/workspace-service.cjs');
+    const files = [
+        'plugins/science/deep/nested/config_loader.py',
+        'src/config.ts',
+        'docs/configuration-guide.md',
+        'src/app/configurable/widget.tsx',
+    ];
+    const ranked = rankFileNameMatches(files, 'config', 10);
+    assert.equal(ranked[0], 'src/config.ts');
+    assert.ok(ranked.includes('plugins/science/deep/nested/config_loader.py'));
+    assert.deepEqual(rankFileNameMatches(files, 'science loader', 10), ['plugins/science/deep/nested/config_loader.py']);
+    assert.deepEqual(rankFileNameMatches(files, '   ', 10), []);
+});
+
+test('the full file listing walks every folder, not just the opened one', async () => {
+    const { listAllWorkspaceFiles } = require('./main/workspace-service.cjs');
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zorai-files-'));
+    fs.mkdirSync(path.join(root, 'a', 'b', 'c'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'node_modules', 'x'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'top.txt'), '');
+    fs.writeFileSync(path.join(root, 'a', 'b', 'c', 'deep.rs'), '');
+    fs.writeFileSync(path.join(root, 'node_modules', 'x', 'skip.js'), '');
+    const { files } = await listAllWorkspaceFiles(root);
+    assert.deepEqual(files.sort(), ['a/b/c/deep.rs', 'top.txt']);
+    fs.rmSync(root, { recursive: true, force: true });
+});

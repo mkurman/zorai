@@ -747,7 +747,9 @@ pub(crate) fn build_anthropic_messages(messages: &[ApiMessage]) -> Vec<serde_jso
                         "tool_use_id": tool_use_id,
                         "content": match &tool_message.content {
                             ApiContent::Text(text) => serde_json::Value::String(text.clone()),
-                            ApiContent::Blocks(blocks) => serde_json::Value::Array(blocks.clone()),
+                            ApiContent::Blocks(blocks) => {
+                                serde_json::json!(map_api_blocks_to_anthropic_blocks(blocks))
+                            }
                         }
                     }));
                 }

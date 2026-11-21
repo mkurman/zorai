@@ -347,6 +347,7 @@ export function buildDaemonAgentConfig(
       bash: agentSettings.enable_bash_tool,
       web_search: agentSettings.enable_web_search_tool,
       web_browse: agentSettings.enable_web_browsing_tool,
+      computer_use: agentSettings.enable_computer_use_tool,
       vision: agentSettings.enable_vision_tool,
       gateway_messaging: agentSettings.enable_gateway_messaging_tool,
       file_operations: agentSettings.enable_file_operations_tool,

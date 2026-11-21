@@ -8,6 +8,7 @@ const { gitAskpassEnv } = require('./git-askpass.cjs');
 const execFileAsync = promisify(execFile);
 const DEFAULT_MAX_FILE_BYTES = 2 * 1024 * 1024;
 const GIT_MAX_BUFFER = 8 * 1024 * 1024;
+const GIT_STATUS_TIMEOUT_MS = 30000;
 const GIT_REPOSITORY_CHANGING_COMMANDS = new Set(['add', 'apply', 'branch', 'checkout', 'cherry-pick', 'clean', 'commit', 'merge', 'mv', 'rebase', 'reset', 'restore', 'rm', 'stash', 'switch', 'tag', 'worktree']);
 const GIT_READ_ONLY_FLAGS = new Set(['--show-current', '--list', '--format', '-l', 'list']);
 const INDEX_LOCK_RETRY_DELAYS_MS = [100, 250, 500, 1000];
@@ -283,6 +284,50 @@ async function resolveGitRoot(targetPath) {
     } catch { return null; }
 }
 
+async function listAllWorkspaceFiles(rootPath, options = {}) {
+    const root = canonicalWorkspaceRoot(rootPath);
+    const maxFiles = Math.max(1, Math.min(Number(options.maxFiles) || 60000, 200000));
+    const files = [];
+    const pending = [root];
+    while (pending.length > 0 && files.length < maxFiles) {
+        const directory = pending.shift();
+        let entries;
+        try { entries = await fs.promises.readdir(directory, { withFileTypes: true }); } catch { continue; }
+        for (const entry of entries) {
+            if (IGNORED_DIRECTORY_NAMES.has(entry.name) || entry.isSymbolicLink()) continue;
+            const absolutePath = path.join(directory, entry.name);
+            if (entry.isDirectory()) pending.push(absolutePath);
+            else if (entry.isFile()) {
+                files.push(path.relative(root, absolutePath).replace(/\\/g, '/'));
+                if (files.length >= maxFiles) break;
+            }
+        }
+    }
+    return { root, files, truncated: files.length >= maxFiles };
+}
+
+function rankFileNameMatches(files, query, limit = 200) {
+    const terms = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
+    if (terms.length === 0) return [];
+    const scored = [];
+    for (const file of files) {
+        const lower = file.toLowerCase();
+        if (!terms.every((term) => lower.includes(term))) continue;
+        const name = lower.slice(lower.lastIndexOf('/') + 1);
+        let score = 0;
+        for (const term of terms) {
+            if (name === term) score += 100;
+            else if (name.startsWith(term)) score += 60;
+            else if (name.includes(term)) score += 30;
+            else score += 5;
+        }
+        score -= Math.min(20, file.split('/').length);
+        scored.push({ file, score });
+    }
+    scored.sort((left, right) => right.score - left.score || left.file.length - right.file.length || left.file.localeCompare(right.file));
+    return scored.slice(0, limit).map((entry) => entry.file);
+}
+
 async function searchWorkspace(rootPath, query, options = {}) {
     const root = canonicalWorkspaceRoot(rootPath);
     const needle = typeof query === 'string' ? query.trim() : '';
@@ -337,7 +382,7 @@ async function workspaceGitStatus(rootPath) {
     const gitRoot = await resolveGitRoot(root);
     if (!gitRoot || !isWithinRoot(gitRoot, root)) return [];
     const { stdout } = await execGit(['status', '--porcelain=v1', '-z', '--untracked-files=all'], {
-        cwd: root, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER,
+        cwd: root, encoding: 'utf8', timeout: GIT_STATUS_TIMEOUT_MS, maxBuffer: GIT_MAX_BUFFER,
     });
     const records = stdout.split('\0').filter(Boolean);
     const result = [];
@@ -538,7 +583,7 @@ async function workspaceGitConflicts(rootPath) {
     const root = canonicalWorkspaceRoot(rootPath);
     const gitRoot = await resolveGitRoot(root);
     if (!gitRoot) return [];
-    const { stdout } = await execGit(['diff', '--name-only', '--diff-filter=U'], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
+    const { stdout } = await execGit(['diff', '--name-only', '--diff-filter=U'], { cwd: gitRoot, encoding: 'utf8', timeout: GIT_STATUS_TIMEOUT_MS, maxBuffer: GIT_MAX_BUFFER });
     return stdout.split(/\r?\n/).filter(Boolean).map((filePath) => ({ path: filePath }));
 }
 
@@ -1049,6 +1094,8 @@ async function workspaceGitDiff(rootPath, relativePath = null, options = {}) {
 }
 
 module.exports = {
+    listAllWorkspaceFiles,
+    rankFileNameMatches,
     runGitWithInput,
     canonicalWorkspaceRoot,
     createWorkspaceDirectory,

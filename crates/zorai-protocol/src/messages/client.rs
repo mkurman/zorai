@@ -164,6 +164,7 @@ pub enum ClientMessage {
     AgentGetConciergeConfig,
     AgentSetConciergeConfig { config_json: String },
     AgentDismissConciergeWelcome,
+    AgentStopComputerControl,
     AgentRequestConciergeWelcome,
     AuditQuery { action_types: Option<Vec<String>>, since: Option<u64>, limit: Option<usize> },
     EscalationCancel { thread_id: String },

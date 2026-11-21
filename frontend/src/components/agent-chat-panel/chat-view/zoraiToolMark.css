@@ -1,0 +1,46 @@
+/* Abstract anamorphic 3D kinetic Z -> O -> R -> A -> I tool working indicator */
+
+.acp-tool-mark {
+  width: calc(24px * var(--ui-font-scale, 1));
+  height: calc(24px * var(--ui-font-scale, 1));
+  flex: 0 0 auto;
+  display: block;
+  overflow: visible;
+  opacity: 0;
+  transform: scale(0.84);
+  filter: drop-shadow(0 0 2.5px var(--accent-glow, transparent));
+  transition: opacity 240ms ease, transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.acp-tool-mark--shown {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.acp-tool-mark--leave {
+  transition-delay: 180ms;
+}
+
+.acp-tool-mark__arc,
+.acp-tool-mark__line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.acp-tool-mark__facet {
+  stroke-width: 0.75;
+  stroke-linejoin: round;
+}
+
+.acp-tool-mark__dashed {
+  stroke-dasharray: 2.2 2.2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acp-tool-mark,
+  .acp-tool-mark--leave {
+    transition: none;
+    transform: none;
+  }
+}

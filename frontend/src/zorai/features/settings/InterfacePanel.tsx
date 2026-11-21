@@ -158,6 +158,16 @@ export function InterfacePanel() {
             <span />
           </button>
         </SettingRow>
+        <SettingRow label="Interactive Embeds in Chat" description="Run HTML pages that agents embed in replies (animations, charts, demos) in a sandbox with no network or app access. Off shows their source instead.">
+          <button
+            type="button"
+            className={["zorai-switch", settings.allowInteractiveEmbeds ? "zorai-switch--on" : ""].filter(Boolean).join(" ")}
+            aria-pressed={settings.allowInteractiveEmbeds}
+            onClick={() => updateSetting("allowInteractiveEmbeds", !settings.allowInteractiveEmbeds)}
+          >
+            <span />
+          </button>
+        </SettingRow>
         <SettingRow label="Night Mode" description="Default stays on. Auto follows the system appearance preference.">
           <select
             className="zorai-input"

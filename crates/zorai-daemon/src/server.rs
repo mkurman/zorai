@@ -240,6 +240,7 @@ fn client_message_variant_name(msg: &ClientMessage) -> &'static str {
         AgentForceCompact { .. } => "AgentForceCompact",
         AgentRequestConciergeWelcome => "AgentRequestConciergeWelcome",
         AgentDismissConciergeWelcome => "AgentDismissConciergeWelcome",
+        AgentStopComputerControl => "AgentStopComputerControl",
         AgentGetConciergeConfig => "AgentGetConciergeConfig",
         AgentSetConciergeConfig { .. } => "AgentSetConciergeConfig",
         AgentDeclareAsyncCommandCapability { .. } => "AgentDeclareAsyncCommandCapability",

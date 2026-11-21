@@ -75,12 +75,19 @@ export function resolveZoraiAppCommand(command: string): ZoraiAppCommandResoluti
   return MENU_COMMANDS[command] ?? { kind: "unhandled" };
 }
 
+let commandPaletteOverride: (() => boolean) | null = null;
+
+export function setCommandPaletteOverride(override: (() => boolean) | null): void {
+  commandPaletteOverride = override;
+}
+
 export function handleZoraiAppCommand(command: string): boolean {
   const resolution = resolveZoraiAppCommand(command);
   if (resolution.kind === "unhandled") {
     return false;
   }
   if (resolution.kind === "palette") {
+    if (commandPaletteOverride?.()) return true;
     useWorkspaceStore.getState().toggleCommandPalette();
     return true;
   }

@@ -248,6 +248,7 @@ export interface ZoraiSettings {
   nightMode: NightModePreference;
   chatWidth: ChatWidthPreference;
   scrollToLatestToolOnExpand: boolean;
+  allowInteractiveEmbeds: boolean;
   startupView: StartupViewPreference;
   railLayout: ItemLayout;
   composerLayout: ItemLayout;
@@ -313,6 +314,7 @@ export const DEFAULT_SETTINGS: ZoraiSettings = {
   nightMode: "on",
   chatWidth: "full",
   scrollToLatestToolOnExpand: true,
+  allowInteractiveEmbeds: true,
   startupView: "threads",
   railLayout: EMPTY_ITEM_LAYOUT,
   composerLayout: EMPTY_ITEM_LAYOUT,

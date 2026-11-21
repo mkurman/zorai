@@ -1254,6 +1254,17 @@ impl AgentEngine {
         else {
             return false;
         };
+        if crate::agent::is_computer_approval(approval_id) {
+            let notice = crate::agent::resolve_computer_approval(
+                approval_id,
+                &thread_id,
+                decision,
+                self,
+            )
+            .await;
+            self.spawn_thread_approval_continuation(thread_id, notice);
+            return true;
+        }
         let session_id = approval
             .session_id
             .as_deref()

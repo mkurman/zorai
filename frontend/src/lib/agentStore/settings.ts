@@ -171,6 +171,7 @@ export interface AgentSettings {
   managed_security_level: "highest" | "moderate" | "lowest" | "yolo";
   enable_vision_tool: boolean;
   enable_web_browsing_tool: boolean;
+  enable_computer_use_tool: boolean;
   bash_timeout_seconds: number;
   enable_web_search_tool: boolean;
   search_provider: "none" | "firecrawl" | "duckduckgo" | "exa" | "tavily" | "keenable" | "youcom";
@@ -359,6 +360,7 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   managed_security_level: "lowest",
   enable_vision_tool: false,
   enable_web_browsing_tool: false,
+  enable_computer_use_tool: false,
   bash_timeout_seconds: 30,
   enable_web_search_tool: false,
   search_provider: "none",
@@ -819,6 +821,7 @@ export type DiskAgentSettings = Partial<AgentSettings> & {
     bash?: boolean;
     vision?: boolean;
     web_browse?: boolean;
+    computer_use?: boolean;
     web_search?: boolean;
     file_operations?: boolean;
     system_info?: boolean;
@@ -1217,6 +1220,7 @@ export function normalizeAgentSettingsFromSource(source: DiskAgentSettings): Age
     ),
     enable_vision_tool: source.enable_vision_tool ?? source.tools?.vision ?? DEFAULT_AGENT_SETTINGS.enable_vision_tool,
     enable_web_browsing_tool: source.enable_web_browsing_tool ?? source.tools?.web_browse ?? DEFAULT_AGENT_SETTINGS.enable_web_browsing_tool,
+    enable_computer_use_tool: source.enable_computer_use_tool ?? source.tools?.computer_use ?? DEFAULT_AGENT_SETTINGS.enable_computer_use_tool,
     enable_web_search_tool: source.enable_web_search_tool ?? source.tools?.web_search ?? DEFAULT_AGENT_SETTINGS.enable_web_search_tool,
     anticipatory_enabled: source.anticipatory?.enabled ?? source.anticipatory_enabled ?? DEFAULT_AGENT_SETTINGS.anticipatory_enabled,
     anticipatory_morning_brief: source.anticipatory?.morning_brief ?? source.anticipatory_morning_brief ?? DEFAULT_AGENT_SETTINGS.anticipatory_morning_brief,
