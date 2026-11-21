@@ -309,6 +309,10 @@ impl AgentEngine {
 
     pub(in crate::agent) async fn persist_config(&self) {
         let config = self.config.read().await.clone();
+        if !config.tools.computer_use {
+            crate::agent::stop_computer_control(&self.event_tx, "computer use was turned off")
+                .await;
+        }
         self.store_config_snapshot(config).await;
     }
 

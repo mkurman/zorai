@@ -70,3 +70,24 @@ describe("workspaceFileIndex", () => {
     expect(await second).toEqual(["README.md", "data/questions.jsonl"]);
   });
 });
+
+describe("whole-repo Quick Open index", () => {
+  it("takes every file in the repo from one background listing instead of a capped folder-by-folder walk", async () => {
+    const deep = Array.from({ length: 9000 }, (_, index) => `plugins/p${index % 300}/deep/nested/file${index}.py`);
+    const bridge = {
+      workspaceListFiles: vi.fn(async () => deep),
+      workspaceListDirectory: vi.fn(async () => [] as ZoraiWorkspaceEntry[]),
+    };
+    const files = await collectWorkspaceFiles(bridge, "/repo");
+    expect(files).toHaveLength(9000);
+    expect(bridge.workspaceListDirectory).not.toHaveBeenCalled();
+  });
+
+  it("falls back to walking folders when the running app predates the whole-repo listing", async () => {
+    const bridge = {
+      workspaceListFiles: vi.fn(async () => { throw new Error("No handler registered for 'workspace-list-files'"); }),
+      workspaceListDirectory: vi.fn(async () => [{ name: "a.ts", path: "a.ts", isDirectory: false, isSymbolicLink: false, sizeBytes: 1, modifiedAt: 1 }] as ZoraiWorkspaceEntry[]),
+    };
+    expect(await collectWorkspaceFiles(bridge, "/repo")).toEqual(["a.ts"]);
+  });
+});

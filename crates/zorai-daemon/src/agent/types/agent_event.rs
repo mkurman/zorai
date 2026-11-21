@@ -97,6 +97,12 @@ pub enum AgentEvent {
         thread_id: String,
         content: String,
     },
+    ComputerControl {
+        thread_id: String,
+        active: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reason: Option<String>,
+    },
     ThreadReloadRequired {
         thread_id: String,
     },

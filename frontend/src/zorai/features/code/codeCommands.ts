@@ -76,7 +76,7 @@ export const CODE_COMMANDS: CodeCommand[] = [
   command("view.toggleExplorer", "Toggle Explorer", "View", "file", "CtrlCmd+B"),
   command("view.toggleAgent", "Toggle Code Agent", "View", "terminal", "CtrlCmd+Shift+A"),
   command("view.settings", "Preferences: Open Code Settings", "View", "settings", "CtrlCmd+,", ["settings"]),
-  command("view.commandPalette", "Show Code Command Palette", "View", "palette", "CtrlCmd+Shift+P"),
+  command("view.commandPalette", "Show Code Command Palette", "View", "palette", "F1"),
   command("view.toggleMinimap", "Toggle Minimap", "View", "minimap", null),
   command("view.toggleWrap", "Toggle Word Wrap", "View", "wrap", "Alt+Z"),
   command("view.fontIncrease", "Increase Editor Font Size", "View", "text", "CtrlCmd++"),

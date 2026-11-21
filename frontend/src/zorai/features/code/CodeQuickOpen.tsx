@@ -3,13 +3,32 @@ import { parseQuickOpenQuery, rankFuzzyItems } from "./codeFuzzySearch";
 import { preloadCodeEditor } from "./codeEditorPreload";
 import { CodeFileIcon } from "./CodeFileIcon";
 
-export function CodeQuickOpen({ files, onOpen, onClose }: { files: string[]; onOpen: (path: string, line?: number, column?: number) => void; onClose: () => void }) {
+const WORKSPACE_SEARCH_DEBOUNCE_MS = 120;
+
+export function CodeQuickOpen({ files, searchFiles, onOpen, onClose }: { files: string[]; searchFiles?: (query: string) => Promise<string[]>; onOpen: (path: string, line?: number, column?: number) => void; onClose: () => void }) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const [workspaceMatches, setWorkspaceMatches] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const parsed = parseQuickOpenQuery(query);
-  const results = useMemo(() => rankFuzzyItems(parsed.query, [...new Set(files)].map((path, index) => ({ id: path, label: path.split(/[\\/]/).pop() ?? path, searchText: path, open: index < files.length, recent: index < 5 }))).slice(0, 100), [files, parsed.query]);
+  const candidates = useMemo(() => [...new Set([...files, ...workspaceMatches])], [files, workspaceMatches]);
+  const results = useMemo(() => rankFuzzyItems(parsed.query, candidates.map((path, index) => ({ id: path, label: path.split(/[\\/]/).pop() ?? path, searchText: path, open: index < files.length, recent: index < 5 }))).slice(0, 100), [candidates, files.length, parsed.query]);
   useEffect(() => { inputRef.current?.focus(); void preloadCodeEditor(); }, []);
+  useEffect(() => {
+    const text = parsed.query.trim();
+    if (!searchFiles || !text) {
+      setWorkspaceMatches([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      searchFiles(text).then((matches) => { if (!cancelled) setWorkspaceMatches(matches); }).catch(() => {});
+    }, WORKSPACE_SEARCH_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [parsed.query, searchFiles]);
   return <div className="zorai-code-overlay" role="dialog" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onClose(); }} aria-label="Quick open file">
     <input ref={inputRef} value={query} onChange={(event) => { setQuery(event.target.value); setActive(0); }} placeholder="Search files by name (append :line to jump)" aria-label="Quick open file" onKeyDown={(event) => {
       if (event.key === "Escape") onClose();

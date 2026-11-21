@@ -17,6 +17,7 @@ import { useWorkspaceEditorRequestStore } from "@/lib/workspaceEditorRequestStor
 import { openExternalFileInWorkspace } from "@/zorai/features/code/workspaceExternalFile";
 import { CodeQuickOpen } from "@/zorai/features/code/CodeQuickOpen";
 import { CodeProjectSearch } from "@/zorai/features/code/CodeProjectSearch";
+import { setCommandPaletteOverride } from "@/zorai/shell/zoraiAppCommands";
 import { CodeCommandPalette } from "@/zorai/features/code/CodeCommandPalette";
 import { RUNNABLE_CODE_COMMANDS, matchesCodeBinding, shouldLeaveKeyToTerminal, shouldPassthroughCodeCommand, type CodeCommandId } from "@/zorai/features/code/codeCommands";
 import { CodeBottomPanel } from "@/zorai/features/code/CodeBottomPanel";
@@ -66,6 +67,8 @@ import { mediaUrlForPath } from "@/zorai/features/threads/ThreadFilePreviewOverl
 import { Presence } from "@/components/Presence";
 
 const LSP_OPEN_DELAY_MS = 200;
+const FILE_INDEX_START_DELAY_MS = 4000;
+const WATCHER_START_DELAY_MS = 3000;
 
 const WorkspaceCodeEditor = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.WorkspaceCodeEditor })));
 const WorkspaceDiffEditor = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.WorkspaceDiffEditor })));
@@ -389,15 +392,19 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         });
       }).catch(() => {});
     });
-    void bridge.workspaceWatchStart(context.root, { debounceMs: 120 }).then((subscription) => {
-      if (disposed) {
-        void bridge.workspaceWatchStop?.(subscription.subscriptionId);
-        return;
-      }
-      subscriptionId = subscription.subscriptionId;
-    }).catch(() => {});
+    const watchRoot = context.root;
+    const watchTimer = window.setTimeout(() => {
+      void bridge.workspaceWatchStart!(watchRoot, { debounceMs: 120 }).then((subscription) => {
+        if (disposed) {
+          void bridge.workspaceWatchStop?.(subscription.subscriptionId);
+          return;
+        }
+        subscriptionId = subscription.subscriptionId;
+      }).catch(() => {});
+    }, WATCHER_START_DELAY_MS);
     return () => {
       disposed = true;
+      window.clearTimeout(watchTimer);
       if (refreshTimer !== null) window.clearTimeout(refreshTimer);
       if (typeof unsubscribe === "function") unsubscribe();
       if (subscriptionId) void bridge.workspaceWatchStop?.(subscriptionId);
@@ -1101,6 +1108,17 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     if (!searchRoot || !bridge?.workspaceSearch) return [];
     return bridge.workspaceSearch(searchRoot, query, { maxResults: 100 });
   }, [bridge, searchRoot]);
+  const searchProjectFileNames = useCallback(async (query: string) => {
+    if (!searchRoot || !bridge?.workspaceSearchFileNames) return [];
+    return bridge.workspaceSearchFileNames(searchRoot, query, { maxResults: 200 });
+  }, [bridge, searchRoot]);
+  useEffect(() => {
+    setCommandPaletteOverride(() => {
+      setCodeOverlay("quickOpen");
+      return true;
+    });
+    return () => setCommandPaletteOverride(null);
+  }, []);
 
   const runSearch = async () => {
     if (!context?.root || !searchQuery.trim() || !bridge?.workspaceSearch) {
@@ -1332,6 +1350,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   }, [editorSettings.keybindings, runCodeCommand]);
 
   const [indexedFiles, setIndexedFiles] = useState<string[] | null>(null);
+  const quickOpenRequested = codeOverlay === "quickOpen";
   useEffect(() => {
     if (!context?.root || !bridge?.workspaceListDirectory) { setIndexedFiles(null); return; }
     const root = context.root;
@@ -1339,11 +1358,16 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     const cached = getCachedWorkspaceFiles(root);
     if (cached) { setIndexedFiles(cached); return; }
     const controller = new AbortController();
-    void getWorkspaceFiles(bridge, root).then((files) => {
-      if (!controller.signal.aborted) setIndexedFiles(files);
-    }).catch(() => {});
-    return () => controller.abort();
-  }, [bridge, context?.root]);
+    const timer = window.setTimeout(() => {
+      void getWorkspaceFiles(bridge, root).then((files) => {
+        if (!controller.signal.aborted) setIndexedFiles(files);
+      }).catch(() => {});
+    }, quickOpenRequested ? 0 : FILE_INDEX_START_DELAY_MS);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [bridge, context?.root, quickOpenRequested]);
   const explorerFiles = useMemo(() => {
     const shallow: string[] = [];
     for (const entry of rootEntries) if (!entry.isDirectory) shallow.push(entry.path);
@@ -2043,6 +2067,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         <Presence value={codeOverlay === "quickOpen"}>{() => (
           <CodeQuickOpen
             files={explorerFiles}
+            searchFiles={searchProjectFileNames}
             onOpen={(path, line, column) => void openFile(path, line ? { line, column: column ?? 1 } : undefined)}
             onClose={() => setCodeOverlay(null)}
           />
@@ -2050,7 +2075,9 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         <Presence value={codeOverlay === "search"}>{() => (
           <CodeProjectSearch
             search={searchProjectFiles}
+            searchFiles={searchProjectFileNames}
             onOpen={(hit) => void openFile(hit.path, { line: hit.line, column: hit.column })}
+            onOpenFile={(path) => void openFile(path)}
             onClose={() => setCodeOverlay(null)}
           />
         )}</Presence>

@@ -108,6 +108,10 @@ pub(crate) fn add_available_tools_part_c(
         tools.extend(crate::agent::browser_tool_definitions());
     }
 
+    if config.tools.computer_use {
+        tools.extend(crate::agent::computer_tool_definitions());
+    }
+
     tools.push(tool_def(
         tool_names::SETUP_WEB_BROWSING,
         "Detect, install, or configure a headless browser for web browsing. Run detect first; install adds Lightpanda via npm (Chrome must be installed manually); configure sets browse_provider (chrome requires Chrome on PATH).",

@@ -885,7 +885,13 @@ pub(crate) fn build_chat_completion_messages_with_options(
     }));
 
     let mut current_turn_has_tool_call = false;
+    let mut pending_tool_images = Vec::new();
     for message in messages {
+        if message.role != "tool" && !pending_tool_images.is_empty() {
+            out.push(tool_images_user_message(std::mem::take(
+                &mut pending_tool_images,
+            )));
+        }
         if message.role == "user" {
             current_turn_has_tool_call = false;
         }
@@ -920,6 +926,26 @@ pub(crate) fn build_chat_completion_messages_with_options(
             }
         } else {
             let mut content_json = api_content_to_json(&message.content);
+            if message.role == "tool" {
+                if let serde_json::Value::Array(parts) = &content_json {
+                    let (images, texts): (Vec<_>, Vec<_>) =
+                        parts.iter().cloned().partition(|part| {
+                            part.get("type").and_then(|value| value.as_str()) == Some("image_url")
+                        });
+                    if !images.is_empty() {
+                        pending_tool_images.extend(images);
+                        content_json = serde_json::Value::String(
+                            texts
+                                .iter()
+                                .filter_map(|part| {
+                                    part.get("text").and_then(|value| value.as_str())
+                                })
+                                .collect::<Vec<_>>()
+                                .join("\n"),
+                        );
+                    }
+                }
+            }
             if message.role == "assistant" {
                 let include_after_tool_call = include_non_tool_reasoning_content_after_tool_call
                     && current_turn_has_tool_call;
@@ -957,8 +983,20 @@ pub(crate) fn build_chat_completion_messages_with_options(
 
         out.push(serde_json::Value::Object(obj));
     }
+    if !pending_tool_images.is_empty() {
+        out.push(tool_images_user_message(pending_tool_images));
+    }
 
     Ok(out)
+}
+
+fn tool_images_user_message(images: Vec<serde_json::Value>) -> serde_json::Value {
+    let mut content = vec![serde_json::json!({
+        "type": "text",
+        "text": "Image returned by the previous tool call:",
+    })];
+    content.extend(images);
+    serde_json::json!({ "role": "user", "content": content })
 }
 
 fn assistant_content_is_unset(content: &serde_json::Value) -> bool {

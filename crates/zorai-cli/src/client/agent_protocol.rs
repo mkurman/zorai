@@ -387,6 +387,7 @@ pub(super) enum AgentBridgeCommand {
         config_json: String,
     },
     DismissConciergeWelcome,
+    StopComputerControl,
     RequestConciergeWelcome,
     AuditDismiss {
         entry_id: String,

@@ -324,6 +324,15 @@ pub(super) fn build_system_prompt(
         );
     }
 
+    if agent_has_terminal_tools {
+        prompt.push_str(
+            "\n\n## Rich Output in the Zorai App\n\
+             - Fenced ```mermaid blocks render as diagrams, and ```csv or ```tsv blocks render as sortable tables.\n\
+             - To show something interactive (an animation, chart, simulation or UI demo), write one self-contained HTML file in the thread files with all CSS and JavaScript inline, then embed it in your reply with <agent-embed src=\"/absolute/path/to/file.html\"></agent-embed>. Short pages can go straight into a ```html-embed fenced block instead.\n\
+             - Embeds run in a sandbox with no network access, so never load scripts, fonts or data from a CDN or URL; inline everything.\n",
+        );
+    }
+
     if !is_subagent {
         prompt.push_str("\n\n## Subagent Supervision\n");
         prompt.push_str(&render_subagent_supervision_section(config));

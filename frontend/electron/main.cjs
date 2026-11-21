@@ -87,7 +87,7 @@ const workspaceWorker = createWorkspaceWorkerClient({
     },
     log: (message, details) => logToFile('warn', message, details),
 });
-const workspaceServiceInWorker = workspaceServiceProxy(workspaceWorker, Object.keys(workspaceService).filter((name) => typeof workspaceService[name] === 'function'));
+const workspaceServiceInWorker = workspaceServiceProxy(workspaceWorker, [...Object.keys(workspaceService).filter((name) => typeof workspaceService[name] === 'function'), 'searchWorkspaceFileNames', 'listWorkspaceFiles']);
 const lspRuntime = createLspRuntime();
 const testRuntime = createTestRuntime((webContents, event) => webContents.send('workspace-test-event', event));
 const updateRuntime = createUpdateRuntime({ app, getCliPath, logToFile });

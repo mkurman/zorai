@@ -2184,6 +2184,24 @@ async fn dispatch_tool_execution(
         name if tool_names::BROWSER_TOOLS.contains(&name) => {
             crate::agent::execute_browser_tool(name, args, agent, thread_id).await
         }
+        name if tool_names::COMPUTER_TOOLS.contains(&name) => {
+            match crate::agent::execute_computer_tool(
+                name,
+                args,
+                agent,
+                thread_id,
+                task_id,
+                tool_call_id,
+            )
+            .await
+            {
+                Ok((content, approval)) => {
+                    pending_approval = approval;
+                    Ok(content)
+                }
+                Err(error) => Err(error),
+            }
+        }
         tool_names::PLUGIN_API_CALL => {
             let plugin_name = match get_string_arg(args, &["plugin_name"]) {
                 Some(name) => name.to_string(),

@@ -22,8 +22,29 @@ function post(message) {
     process.parentPort.postMessage(message);
 }
 
+const FILE_INDEX_TTL_MS = 30000;
+const fileIndexByRoot = new Map();
+
+async function workspaceFileIndex(rootPath) {
+    const root = workspaceService.canonicalWorkspaceRoot(rootPath);
+    let index = fileIndexByRoot.get(root);
+    if (!index || Date.now() - index.at > FILE_INDEX_TTL_MS) {
+        const listing = await workspaceService.listAllWorkspaceFiles(root);
+        index = { files: listing.files, at: Date.now() };
+        fileIndexByRoot.set(root, index);
+    }
+    return index.files;
+}
+
+async function searchWorkspaceFileNames(rootPath, query, options = {}) {
+    const files = await workspaceFileIndex(rootPath);
+    return workspaceService.rankFileNameMatches(files, query, Math.max(1, Math.min(Number(options.maxResults) || 200, 1000)));
+}
+
 const handlers = {
     ...workspaceService,
+    searchWorkspaceFileNames,
+    listWorkspaceFiles: workspaceFileIndex,
     listWorkspaceDirectory: listCache.listDirectory,
     discoverTests: discoverWorkspaceTests,
     setAskpassEnv(env) {
@@ -33,6 +54,7 @@ const handlers = {
     watchStart(rootPath, options) {
         const watcher = createWorkspaceWatcher(rootPath, (batch) => {
             listCache.applyChanges(batch.root, batch.changes);
+            if (batch.changes.some((change) => change.eventType === 'rename')) fileIndexByRoot.delete(batch.root);
             post({ type: 'watch-batch', batch });
         }, options);
         watchers.set(watcher.subscriptionId, watcher);
@@ -60,8 +82,13 @@ process.parentPort.on('message', async ({ data }) => {
     try {
         if (typeof handler !== 'function') throw new Error(`Unknown workspace worker method: ${method}`);
         const callArgs = Array.isArray(args) ? args : [];
+        if (MUTATING_METHODS.has(method)) workspaceService.forgetGitStatus(callArgs[0]);
         const result = await handler(...callArgs);
-        if (MUTATING_METHODS.has(method)) listCache.invalidateRoot(callArgs[0]);
+        if (MUTATING_METHODS.has(method)) {
+            workspaceService.forgetGitStatus(callArgs[0]);
+            listCache.invalidateRoot(callArgs[0]);
+            try { fileIndexByRoot.delete(workspaceService.canonicalWorkspaceRoot(callArgs[0])); } catch {}
+        }
         post({ type: 'result', id, ok: true, result });
     } catch (error) {
         post({

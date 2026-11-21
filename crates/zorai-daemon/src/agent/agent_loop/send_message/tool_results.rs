@@ -554,14 +554,31 @@ impl<'a> SendMessageRunner<'a> {
         });
 
         {
+            let tool_image_blocks = crate::agent::take_tool_image_blocks(
+                &tool_result_id,
+                &tool_result_content,
+                &self.active_provider_id,
+                &self.provider_config.model,
+            );
             let mut threads = self.engine.threads.write().await;
             if let Some(thread) = threads.get_mut(&self.tid) {
                 self.tool_side_effect_committed = true;
+                if !tool_image_blocks.is_empty() {
+                    for earlier in thread.messages.iter_mut().filter(|message| {
+                        message.role == MessageRole::Tool
+                            && message
+                                .content_blocks
+                                .iter()
+                                .any(|block| matches!(block, AgentContentBlock::Image { .. }))
+                    }) {
+                        earlier.content_blocks.clear();
+                    }
+                }
                 thread.messages.push(AgentMessage {
                     id: persisted_message_id,
                     role: MessageRole::Tool,
                     content: tool_result_content,
-                    content_blocks: Vec::new(),
+                    content_blocks: tool_image_blocks,
                     tool_calls: None,
                     tool_call_id: Some(tool_result_id),
                     tool_name: Some(tool_result_name),

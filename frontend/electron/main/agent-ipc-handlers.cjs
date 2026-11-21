@@ -401,6 +401,7 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
     ipcMain.handle('agent-link-thread-to-gateway-chat', async (_event, threadId, channelKey) => sendAgentQuery({ type: 'link-thread-to-gateway-chat', thread_id: threadId, channel_key: channelKey ?? null }, ['gateway-chats', 'error'], 30000));
     ipcMain.handle('agent-get-concierge-config', async () => sendAgentQuery({ type: 'get-concierge-config' }, 'concierge-config'));
     ipcMain.handle('agent-set-concierge-config', async (_event, config) => { try { sendAgentCommand({ type: 'set-concierge-config', config_json: JSON.stringify(config) }); return { ok: true }; } catch (err) { return { ok: false, error: err.message }; } });
+    ipcMain.handle('agent-stop-computer-control', async () => { try { sendAgentCommand({ type: 'stop-computer-control' }); return { ok: true }; } catch { return { ok: false }; } });
     ipcMain.handle('agent-dismiss-concierge-welcome', async () => { try { sendAgentCommand({ type: 'dismiss-concierge-welcome' }); return { ok: true }; } catch { return { ok: false }; } });
     ipcMain.handle('agent-request-concierge-welcome', async () => { try { sendAgentCommand({ type: 'request-concierge-welcome' }); return { ok: true }; } catch { return { ok: false }; } });
     ipcMain.handle('dismiss-audit-entry', async (_event, entryId) => { try { sendAgentCommand({ type: 'audit-dismiss', entry_id: entryId }); return { ok: true }; } catch (err) { return { ok: false, error: err.message }; } });

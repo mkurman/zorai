@@ -232,3 +232,43 @@ fn gemini_receives_inline_video_as_a_video_part() {
         serde_json::json!({ "type": "video", "data": "AAAA", "mime_type": "video/webm" })
     );
 }
+
+#[test]
+fn chat_completions_image_parts_reach_gemini_so_analyze_image_actually_sends_the_picture() {
+    let message = ApiMessage {
+        role: "user".to_string(),
+        content: ApiContent::Blocks(vec![
+            serde_json::json!({ "type": "text", "text": "Describe this" }),
+            serde_json::json!({ "type": "image_url", "image_url": { "url": "data:image/png;base64,iVBORw0K" } }),
+        ]),
+        reasoning: None,
+        tool_call_id: None,
+        name: None,
+        tool_calls: None,
+    };
+    let input = messages_to_interaction_input(&[message]);
+    let content = &input[0]["content"];
+    assert_eq!(content[1]["type"], "image");
+    assert_eq!(content[1]["data"], "iVBORw0K");
+    assert_eq!(content[1]["mime_type"], "image/png");
+}
+
+#[test]
+fn tool_result_images_follow_the_function_result_as_user_input_for_gemini() {
+    let tool = ApiMessage {
+        role: "tool".to_string(),
+        content: ApiContent::Blocks(vec![
+            serde_json::json!({ "type": "input_text", "text": "Saved a screenshot" }),
+            serde_json::json!({ "type": "input_image", "image_url": "data:image/png;base64,iVBORw0K" }),
+        ]),
+        reasoning: None,
+        tool_call_id: Some("call_1".to_string()),
+        name: Some("computer_screenshot".to_string()),
+        tool_calls: None,
+    };
+    let input = messages_to_interaction_input(&[tool]);
+    assert_eq!(input[0]["type"], "function_result");
+    assert_eq!(input[0]["result"][0]["text"], "Saved a screenshot");
+    assert_eq!(input[1]["type"], "user_input");
+    assert_eq!(input[1]["content"][1]["type"], "image");
+}

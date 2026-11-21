@@ -82,6 +82,7 @@ arrow-schema = { workspace = true, optional = true }
 tempfile = "3"
 duckdb = { version = "1.10506.0", features = ["bundled", "parquet", "json"] }
 calamine = "0.36.1"
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 [target.'cfg(windows)'.dependencies]
 interprocess = { version = "2", features = ["tokio"] }
@@ -99,6 +100,10 @@ tokio = { workspace = true, features = ["net"] }
 # in src/main.rs. tikv-jemallocator cannot be built on MSVC, hence the
 # target-specific gate; macOS and Windows keep their platform allocators.
 [target.'cfg(target_os = "linux")'.dependencies]
+ashpd = { version = "0.11", default-features = false, features = ["tokio"] }
+x11rb = "0.13"
+png = "0.18"
+zbus = { version = "5", default-features = false, features = ["tokio"] }
 tikv-jemallocator = "0.6"
 
 [dev-dependencies]

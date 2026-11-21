@@ -95,7 +95,7 @@ export const conciergeReasoningEffortOptions: Array<{ value: AgentSettings["reas
   { value: "xhigh", label: "xhigh" },
   { value: "max", label: "max" },
 ];
-const APP_VERSION = "1.1.12";
+const APP_VERSION = "1.1.13";
 const APP_AUTHOR = "Mariusz Kurman";
 const APP_GITHUB = "mkurman/zorai";
 const APP_HOMEPAGE = "zorai.app";
@@ -106,6 +106,7 @@ const toolToggles: ToggleSetting[] = [
   { key: "enable_file_operations_tool", label: "File operations", description: "Read, write, and edit files in the workspace." },
   { key: "enable_vision_tool", label: "Vision", description: "Inspect screenshots and images." },
   { key: "enable_web_browsing_tool", label: "Browser", description: "Open and read web pages." },
+  { key: "enable_computer_use_tool", label: "Computer use", description: "Let agents see your screen and, after you approve each action, control the mouse and keyboard. Turning this off ends any active control." },
   { key: "enable_web_search_tool", label: "Web search", description: "Query the configured search provider." },
   { key: "enable_system_info_tool", label: "System info", description: "Read host resources such as CPU, memory, and disks." },
   { key: "enable_gateway_messaging_tool", label: "Gateway messaging", description: "Send messages to connected Slack, Discord, Telegram, and WhatsApp chats." },

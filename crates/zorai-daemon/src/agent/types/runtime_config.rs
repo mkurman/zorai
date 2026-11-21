@@ -584,6 +584,8 @@ pub struct ToolsConfig {
     #[serde(default)]
     pub web_browse: bool,
     #[serde(default)]
+    pub computer_use: bool,
+    #[serde(default)]
     pub vision: bool,
     #[serde(default = "default_true")]
     pub gateway_messaging: bool,
@@ -613,6 +615,7 @@ impl Default for ToolsConfig {
             bash: true,
             web_search: false,
             web_browse: false,
+            computer_use: false,
             vision: false,
             gateway_messaging: true,
             file_operations: true,
