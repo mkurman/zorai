@@ -1,5 +1,7 @@
 import { Children, cloneElement, isValidElement, useContext, useMemo, useState, type ReactElement, type ReactNode } from "react";
 import { getBridge } from "@/lib/bridge";
+import { Presence } from "@/components/Presence";
+import { TableFullscreen } from "./TableFullscreen";
 import { exportTablePng, MessageExportTimeContext, timestampedFileName } from "./tablePng";
 import { sortRowIndexes, tableToCsv } from "./tabularData";
 
@@ -33,6 +35,7 @@ export function MarkdownTable({ node, children }: { node?: unknown; children?: R
   const model = useMemo(() => markdownTableModel(node as HastNode | undefined), [node]);
   const [sort, setSort] = useState<{ column: number; direction: "asc" | "desc" } | null>(null);
   const exportTime = useContext(MessageExportTimeContext);
+  const [expanded, setExpanded] = useState(false);
   const parts = Children.toArray(children);
   const tbodyIndex = parts.findIndex((part) => isValidElement(part) && part.type === "tbody");
   const tbody = tbodyIndex >= 0 ? parts[tbodyIndex] as ReactElement<{ children?: ReactNode }> : null;
@@ -52,6 +55,8 @@ export function MarkdownTable({ node, children }: { node?: unknown; children?: R
     if (bridge?.writeClipboardText) void bridge.writeClipboardText(csv);
     else void navigator.clipboard?.writeText(csv);
   };
+
+  const savePng = () => exportTablePng(model.columns, orderedRows(), `${timestampedFileName("table", exportTime)}.png`);
 
   return (
     <div className="zorai-md-table">
@@ -84,12 +89,20 @@ export function MarkdownTable({ node, children }: { node?: unknown; children?: R
             </>
           ) : null}
           <button type="button" className="zorai-data-table__action" onClick={copyCsv}>Copy CSV</button>
-          <button type="button" className="zorai-data-table__action" onClick={() => exportTablePng(model.columns, orderedRows(), `${timestampedFileName("table", exportTime)}.png`)}>PNG</button>
+          <button type="button" className="zorai-data-table__action" onClick={savePng}>PNG</button>
+          <button type="button" className="zorai-data-table__action" title="Open the table full screen" onClick={() => setExpanded(true)}>Full screen</button>
         </div>
       ) : null}
       <div style={{ overflowX: "auto", margin: "6px 0", maxWidth: "100%", minWidth: 0 }}>
         <table>{renderedParts}</table>
       </div>
+      <Presence value={expanded}>
+        {(_, closing) => (
+          <TableFullscreen title={`Table · ${model.rows.length} rows`} bodyClassName="acp-md" closing={closing} onCopyCsv={copyCsv} onPng={savePng} onClose={() => setExpanded(false)}>
+            <table>{renderedParts}</table>
+          </TableFullscreen>
+        )}
+      </Presence>
     </div>
   );
 }

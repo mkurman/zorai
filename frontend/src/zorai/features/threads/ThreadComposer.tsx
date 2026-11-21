@@ -86,7 +86,8 @@ export function ThreadComposer({
   const setInput = useComposerDraftStore((state) => state.setInput);
   const agentSettings = useAgentStore((state) => state.agentSettings);
   const activeThreadId = useAgentStore((state) => state.activeThreadId);
-  const workspaceContext = useWorkspaceContextStore((state) => activeThreadId ? state.byThreadId[activeThreadId] : undefined);
+  const paneThreadId = runtime.activeThreadId ?? activeThreadId;
+  const workspaceContext = useWorkspaceContextStore((state) => paneThreadId ? state.byThreadId[paneThreadId] : undefined);
   const toggleAttachedFile = useWorkspaceContextStore((state) => state.toggleAttachedFile);
   const subAgents = useAgentStore((state) => state.subAgents);
   const agentDisplayName = useAgentDisplayName();
@@ -623,14 +624,18 @@ export function ThreadComposer({
       onDrop={onDrop}
       onPaste={onPaste}
     >
-      {workspaceContext?.activeFile || (workspaceContext?.attachedFiles.length ?? 0) > 0 ? (
+      {(compact && workspaceContext?.activeFile) || (workspaceContext?.attachedFiles.length ?? 0) > 0 ? (
         <div className="zorai-composer-workspace-context">
-          {workspaceContext?.activeFile ? <span className="zorai-composer-context-chip">Active · {workspaceContext.activeFile}</span> : null}
-          {workspaceContext?.selection && workspaceContext.activeFile ? <span className="zorai-composer-context-chip">Lines {workspaceContext.selection.startLine}-{workspaceContext.selection.endLine}</span> : null}
+          {compact && workspaceContext?.activeFile ? (
+            <span className="zorai-composer-context-chip zorai-composer-context-chip--file" title={workspaceContext.activeFile}>
+              {workspaceContext.activeFile.split(/[\\/]/).pop() ?? workspaceContext.activeFile}
+              {workspaceContext.selection ? `:${workspaceContext.selection.startLine}-${workspaceContext.selection.endLine}` : ""}
+            </span>
+          ) : null}
           {workspaceContext?.attachedFiles.map((filePath) => (
-            <span key={filePath} className="zorai-composer-context-chip zorai-composer-context-chip--attached">
-              {filePath}
-              <button type="button" aria-label={`Detach ${filePath}`} onClick={() => activeThreadId && toggleAttachedFile(activeThreadId, filePath)}>×</button>
+            <span key={filePath} className="zorai-composer-context-chip zorai-composer-context-chip--attached" title={filePath}>
+              {filePath.split(/[\\/]/).pop() ?? filePath}
+              <button type="button" aria-label={`Detach ${filePath}`} onClick={() => paneThreadId && toggleAttachedFile(paneThreadId, filePath)}>×</button>
             </span>
           ))}
         </div>

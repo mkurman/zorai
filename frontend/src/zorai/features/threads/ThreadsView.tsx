@@ -431,6 +431,8 @@ export function ThreadsView({
         thread={runtime.activeThread}
         messageCount={runtime.messages.length}
         agentOptions={agentOptions}
+        hideDuplicateTitle={!splitPane}
+        compactTools={variant === "compact" || Boolean(splitPane)}
         returnTarget={variant === "compact"
           ? (runtime.canGoBackThread ? { view: "code", label: runtime.backThreadTitle ? `Back to ${runtime.backThreadTitle}` : "Back to parent" } : null)
           : returnTarget}
@@ -599,6 +601,8 @@ function ThreadHeader({
   thread,
   messageCount,
   agentOptions,
+  hideDuplicateTitle = false,
+  compactTools = false,
   returnTarget,
   onReturnTarget,
   onPushHandoff,
@@ -614,6 +618,8 @@ function ThreadHeader({
   thread: AgentThread;
   messageCount: number;
   agentOptions: ReturnType<typeof buildThreadAgentOptions>;
+  hideDuplicateTitle?: boolean;
+  compactTools?: boolean;
   returnTarget?: ZoraiReturnTarget | null;
   onReturnTarget?: () => void;
   onPushHandoff: ReturnType<typeof useAgentChatPanelRuntime>["pushHandoff"];
@@ -626,6 +632,24 @@ function ThreadHeader({
   onDragStart?: (event: DragEvent<HTMLElement>) => void;
   onContextMenu?: (event: MouseEvent<HTMLElement>) => void;
 }) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onPointerDown = (event: globalThis.PointerEvent) => {
+      if (!moreRef.current?.contains(event.target as Node)) setMoreOpen(false);
+    };
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setMoreOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [moreOpen]);
+
   const participants = thread.threadParticipants ?? [];
   const activeParticipants = participants.filter((participant) => participant.status === "active");
   const responderStack = thread.threadHandoffState?.responderStack ?? [];
@@ -649,9 +673,40 @@ function ThreadHeader({
     ["Effort", effort],
     ["Context", `${context} tokens`],
   ];
+  const secondaryTools = (
+    <>
+      <ThreadHandoffControl
+        daemonLinked={Boolean(thread.daemonThreadId)}
+        handoffState={thread.threadHandoffState}
+        options={agentOptions}
+        onPush={onPushHandoff}
+        onReturn={onReturnHandoff}
+        icon={<ThreadHeaderIcon kind="handoff" />}
+      />
+      <ThreadGatewayControl daemonThreadId={thread.daemonThreadId} icon={<ThreadHeaderIcon kind="gateway" />} />
+      <ThreadOperationsControl daemonThreadId={thread.daemonThreadId} messages={messages} icon={<ThreadHeaderIcon kind="operations" />} />
+    </>
+  );
   return (
     <header className="zorai-thread-header zorai-thread-header--slim" draggable={Boolean(onDragStart)} onDragStart={onDragStart} onContextMenu={onContextMenu}>
-      <h3 title={thread.title}>{thread.title}</h3>
+      <div className="zorai-thread-header__identity">
+        {hideDuplicateTitle ? (
+          <div className="zorai-thread-header__info zorai-thread-header__runtime-pill" tabIndex={0} aria-label="Thread details">
+            <strong>{activeResponder}</strong>
+            <span>{model}</span>
+            <div className="zorai-thread-header__info-card" role="tooltip">
+              {runtimeInfo.map(([label, value]) => (
+                <div key={label}>
+                  <span>{label}</span>
+                  <strong>{value}</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <h3 title={thread.title}>{thread.title}</h3>
+        )}
+      </div>
       <div className="zorai-thread-header__actions">
         {extraActions}
         {returnTarget && onReturnTarget ? (
@@ -659,34 +714,54 @@ function ThreadHeader({
             {returnTarget.label}
           </button>
         ) : null}
-        <div className="zorai-thread-header__info" tabIndex={0} aria-label="Thread details">
-          <ThreadHeaderIcon kind="info" />
-          <div className="zorai-thread-header__info-card" role="tooltip">
-            {runtimeInfo.map(([label, value]) => (
-              <div key={label}>
-                <span>{label}</span>
-                <strong>{value}</strong>
-              </div>
-            ))}
+        {!hideDuplicateTitle ? (
+          <div className="zorai-thread-header__info" tabIndex={0} aria-label="Thread details">
+            <ThreadHeaderIcon kind="info" />
+            <div className="zorai-thread-header__info-card" role="tooltip">
+              {runtimeInfo.map(([label, value]) => (
+                <div key={label}>
+                  <span>{label}</span>
+                  <strong>{value}</strong>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : null}
         <button type="button" className="zorai-thread-header__icon" title={`Find in thread (${shortcutCombo(useSettingsStore.getState().settings.shortcuts, "thread.find")})`} aria-label="Find in thread" aria-expanded={findOpen} data-thread-find-toggle onClick={onFind}>
           <ThreadHeaderIcon kind="find" />
         </button>
-        <ThreadHandoffControl
-          daemonLinked={Boolean(thread.daemonThreadId)}
-          handoffState={thread.threadHandoffState}
-          options={agentOptions}
-          onPush={onPushHandoff}
-          onReturn={onReturnHandoff}
-          icon={<ThreadHeaderIcon kind="handoff" />}
-        />
-        <ThreadGatewayControl daemonThreadId={thread.daemonThreadId} icon={<ThreadHeaderIcon kind="gateway" />} />
         <button type="button" className="zorai-thread-header__icon" title={`Participants (${activeParticipants.length} active)`} aria-label={`Participants, ${activeParticipants.length} active`} onClick={onOpenParticipants}>
           <ThreadHeaderIcon kind="participants" />
           {activeParticipants.length > 0 ? <span className="zorai-thread-header__badge">{activeParticipants.length}</span> : null}
         </button>
-        <ThreadOperationsControl daemonThreadId={thread.daemonThreadId} messages={messages} icon={<ThreadHeaderIcon kind="operations" />} />
+        {compactTools ? (
+          <div ref={moreRef} className="zorai-thread-header__more-wrap">
+            <button
+              type="button"
+              className={["zorai-thread-header__icon", moreOpen ? "is-active" : ""].filter(Boolean).join(" ")}
+              title="More thread tools (Handoff, Gateway, Operations)"
+              aria-label="More thread tools"
+              aria-expanded={moreOpen}
+              onClick={() => setMoreOpen((open) => !open)}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <circle cx="5" cy="12" r="1.8" />
+                <circle cx="12" cy="12" r="1.8" />
+                <circle cx="19" cy="12" r="1.8" />
+              </svg>
+            </button>
+            {moreOpen ? (
+              <div className="zorai-thread-header__more-bar" role="toolbar" aria-label="Secondary thread tools">
+                {secondaryTools}
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <>
+            <span className="zorai-thread-header__sep" aria-hidden="true" />
+            {secondaryTools}
+          </>
+        )}
         <button type="button" className="zorai-thread-header__icon" title="Toggle context panel" aria-label="Toggle context panel" onClick={() => navigateZorai({ toggleContext: true })}>
           <ThreadHeaderIcon kind="context" />
         </button>

@@ -65,32 +65,33 @@ function createWorkspaceWatcher(rootPath, onBatch, options = {}) {
         watchers.set(directory, watcher);
     }
 
-    function discoverDirectories(startPath) {
-        if (closed || watchers.size >= maxDirectories) return;
-        let stats;
-        try { stats = fs.statSync(startPath); } catch { return; }
-        if (!stats.isDirectory()) return;
-        const canonical = (() => {
-            try { return fs.realpathSync.native(startPath); } catch { return null; }
-        })();
-        if (!canonical || !isWithinRoot(root, canonical)) return;
-        if (IGNORED_DIRECTORY_NAMES.has(path.basename(canonical))) return;
-        watchDirectory(canonical);
-        if (watchers.size >= maxDirectories) return;
-        let entries;
-        try { entries = fs.readdirSync(canonical, { withFileTypes: true }); } catch { return; }
-        for (const entry of entries) {
-            if (watchers.size >= maxDirectories) break;
-            if (!entry.isDirectory() || entry.isSymbolicLink() || IGNORED_DIRECTORY_NAMES.has(entry.name)) continue;
-            discoverDirectories(path.join(canonical, entry.name));
+    async function discoverDirectories(startPath) {
+        const queue = [startPath];
+        while (queue.length > 0) {
+            if (closed || watchers.size >= maxDirectories) return;
+            const next = queue.shift();
+            let stats;
+            try { stats = await fs.promises.stat(next); } catch { continue; }
+            if (!stats.isDirectory()) continue;
+            let canonical;
+            try { canonical = await fs.promises.realpath(next); } catch { continue; }
+            if (!isWithinRoot(root, canonical) || IGNORED_DIRECTORY_NAMES.has(path.basename(canonical))) continue;
+            watchDirectory(canonical);
+            let entries;
+            try { entries = await fs.promises.readdir(canonical, { withFileTypes: true }); } catch { continue; }
+            for (const entry of entries) {
+                if (!entry.isDirectory() || entry.isSymbolicLink() || IGNORED_DIRECTORY_NAMES.has(entry.name)) continue;
+                queue.push(path.join(canonical, entry.name));
+            }
         }
     }
 
-    discoverDirectories(root);
+    const discovered = discoverDirectories(root);
 
     return {
         subscriptionId,
         root,
+        ready: discovered,
         get watchedDirectoryCount() { return watchers.size; },
         close() {
             if (closed) return;

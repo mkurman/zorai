@@ -42,7 +42,7 @@ export const CODE_COMMANDS: CodeCommand[] = [
   command("file.reveal", "Reveal in File Manager", "File", "reveal", null),
   command("search.file", "Find in File", "Search", "search", "CtrlCmd+F"),
   command("search.replace", "Replace in File", "Search", "replace", "CtrlCmd+H"),
-  command("search.project", "Search Project", "Search", "search", "CtrlCmd+Shift+F"),
+  command("search.project", "Search in Files", "Search", "search", "CtrlCmd+Shift+F"),
   command("navigation.line", "Go to Line", "Navigation", "terminal", "CtrlCmd+G"),
   command("navigation.symbol", "Go to Symbol", "Navigation", "terminal", "CtrlCmd+Shift+O"),
   command("navigation.definition", "Go to Definition", "Navigation", "terminal", "F12"),

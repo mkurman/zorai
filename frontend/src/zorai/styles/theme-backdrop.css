@@ -20,10 +20,16 @@
   background: transparent;
 }
 
-:root[data-backdrop] :is([role="menu"], [role="listbox"], [role="dialog"], [role="tooltip"], .zorai-titlebar__dropdown, .zorai-code-toolbar-menu__list, .zorai-branch-switcher-menu, .zorai-composer-context-preview, .zorai-terminal-find, .zorai-thread-find, .zorai-theme-editor footer, .zorai-thread-hovercard, .zorai-spawned-card__popover, .zorai-handoff-popover, .zorai-composer-context-circle__popover, .zorai-effort-gauge__popover, .zorai-chart-tooltip, .zorai-code-recent-menu, .zorai-code-runtime-switcher__menu, .zorai-security-shield__menu, .zorai-font-picker__list, .zorai-preferred-skills__suggestions, .zorai-toast, .zorai-update-prompt, .zorai-concierge-card) {
+:root[data-backdrop] :is([role="menu"], [role="listbox"], [role="dialog"], [role="tooltip"], .zorai-titlebar__dropdown, .zorai-code-toolbar-menu__list, .zorai-branch-switcher-menu, .zorai-composer-context-preview, .zorai-terminal-find, .zorai-thread-find, .zorai-theme-editor footer, .zorai-thread-hovercard, .zorai-spawned-card__popover, .zorai-handoff-popover, .zorai-composer-context-circle__popover, .zorai-effort-gauge__popover, .zorai-chart-tooltip, .zorai-code-recent-menu, .zorai-code-runtime-switcher__menu, .zorai-security-shield__menu, .zorai-font-picker__list, .zorai-preferred-skills__suggestions, .zorai-toast, .zorai-update-prompt, .zorai-concierge-card, .zorai-table-fullscreen__panel) {
   background: var(--bg-tertiary);
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
+}
+
+:root[data-backdrop] .zorai-concierge-card {
+  background: color-mix(in srgb, var(--bg-elevated) 90%, var(--zorai-text) 3%);
+  -webkit-backdrop-filter: blur(22px);
+  backdrop-filter: blur(22px);
 }
 
 :root[data-backdrop] #zorai-runtime-switcher-menu {

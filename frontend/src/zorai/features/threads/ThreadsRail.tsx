@@ -135,6 +135,7 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
   const pendingFetchIdRef = useRef(0);
   const loadedAgentFilterRef = useRef<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const pickerInputRef = useRef<HTMLInputElement | null>(null);
   const [threadSearch, setThreadSearch] = useState<{ query: string; response: ThreadSearchResponse | null; error: string | null }>({ query: "", response: null, error: null });
   const searchActive = threadSearchQueryIsActive(runtime.searchQuery);
   const goalThreadIdSet = useMemo(() => goalThreadIds(runtime.goalRunsForTrace), [runtime.goalRunsForTrace]);
@@ -355,10 +356,15 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
           type="button"
           className="zorai-thread-section__label"
           aria-expanded={filtersOpen}
-          title="Show filters"
+          title="Toggle filters"
           onClick={() => setFiltersOpen((open) => !open)}
         >
-          {[threadTabs.find((item) => item.id === tab)?.label ?? "Threads", dateFilters.find((item) => item.id === dateFilter)?.label].filter(Boolean).join(" · ")}
+          <span className="zorai-thread-section__chip">{threadTabs.find((item) => item.id === tab)?.label ?? "Threads"}</span>
+          {dateFilters.find((item) => item.id === dateFilter)?.label ? (
+            <span className="zorai-thread-section__chip zorai-thread-section__chip--muted">
+              {dateFilters.find((item) => item.id === dateFilter)?.label}
+            </span>
+          ) : null}
         </button>
         <button
           type="button"
@@ -441,21 +447,41 @@ const ThreadsRailBody = memo(function ThreadsRailBody({
       </div>
       {pickerPresence.mounted ? (
         <div data-closing={pickerPresence.closing || undefined} className="zorai-thread-agent-filter zorai-reveal">
-          <input
-            className="zorai-search-input"
-            value={pickerQuery}
-            onChange={(event) => setPickerQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") setPickerOpen(false);
-              if (event.key === "Enter" && pickerTabs[0]) {
-                setTab(pickerTabs[0].id);
-                setPickerOpen(false);
-              }
-            }}
-            placeholder="Search agents and filters"
-            aria-label="Search agents and filters"
-            autoFocus
-          />
+          <div className="zorai-search-field">
+            <input
+              ref={pickerInputRef}
+              className="zorai-search-input"
+              value={pickerQuery}
+              onChange={(event) => setPickerQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  if (pickerQuery) setPickerQuery("");
+                  else setPickerOpen(false);
+                }
+                if (event.key === "Enter" && pickerTabs[0]) {
+                  setTab(pickerTabs[0].id);
+                  setPickerOpen(false);
+                }
+              }}
+              placeholder="Search agents and filters"
+              aria-label="Search agents and filters"
+              autoFocus
+            />
+            {pickerQuery ? (
+              <button
+                type="button"
+                className="zorai-search-field__clear"
+                title="Clear filter search"
+                aria-label="Clear filter search"
+                onClick={() => {
+                  setPickerQuery("");
+                  pickerInputRef.current?.focus();
+                }}
+              >
+                ×
+              </button>
+            ) : null}
+          </div>
           <div className="zorai-thread-agent-picker" role="listbox" aria-label="Agents and filters">
             {pickerTabs.length === 0 ? (
               <div className="zorai-empty">No matches.</div>
@@ -749,7 +775,7 @@ function ThreadSessionRow({
           {status === "needs-action" ? <span className="zorai-thread-needs-action-slot" title="Waiting for your approval or answer"><ThreadNeedsActionIcon /></span> : null}
           {status === "working" ? <span className="zorai-thread-dot zorai-thread-dot--working" aria-hidden="true" /> : null}
           <span className="zorai-thread-title">{thread.title}</span>
-          {loading ? <LoadingState size={12} className="zorai-thread-item__spinner" /> : null}
+          {loading ? <LoadingState size={12} className="zorai-thread-item__spinner" /> : activity ? <span className="zorai-thread-activity">{activity}</span> : null}
         </button>
       )}
       {editing ? null : (

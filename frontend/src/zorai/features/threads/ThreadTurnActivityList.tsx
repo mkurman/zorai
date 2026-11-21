@@ -19,6 +19,7 @@ import { classifySystemNotice, classifyThreadActivityMessage } from "./threadAct
 import { ThreadReasoningBlock } from "./NativeThreadMessageBubble";
 import type { TurnActivityEntry } from "./threadTurnActivity";
 import { usePresence } from "@/hooks/usePresence";
+import { finishedTurnSummary } from "./turnActivitySummary";
 import { useToolRevealStore } from "@/components/agent-chat-panel/chat-view/toolRevealStore";
 import { useSettingsStore } from "@/lib/settingsStore";
 
@@ -71,6 +72,12 @@ export function turnActivitySpan(entries: TurnActivityEntry[]): { startedAt: num
   return Number.isFinite(startedAt) ? { startedAt, endedAt } : { startedAt: 0, endedAt: 0 };
 }
 
+function finishedSummary(entries: TurnActivityEntry[], elapsedMs: number): string {
+  const groups = entries.flatMap((entry) => (entry.kind === "tools" ? entry.groups : []));
+  const lastGroup = groups[groups.length - 1];
+  return finishedTurnSummary(entries[0]?.key ?? "", groups, elapsedMs, lastGroup ? toolGroupTitle(lastGroup) : null);
+}
+
 function toolGroupTitle(group: ToolEventGroup): string {
   return toolIntentLabel(group.toolArguments) || humanizeToolName(group.toolName || "Tools");
 }
@@ -87,10 +94,6 @@ function turnActivityEntryTitle(entry: TurnActivityEntry): string {
   if (!activity) return "Notice";
   if (activity.kind === "handoff") return "Handoff";
   return activity.title;
-}
-
-export function finishedTurnTitle(elapsedMs: number): string {
-  return elapsedMs >= 1000 ? `Worked for ${formatActivityElapsed(elapsedMs)}` : "Worked";
 }
 
 export function finishedTurnStats(toolCount: number, failedCount: number, entryCount: number): string {
@@ -151,16 +154,16 @@ export const ThreadTurnActivityList = memo(function ThreadTurnActivityList({
         }}
       >
         <div className="acp-tool-list__title-container">
-          <span className={expanded ? "acp-tool-row__caret zorai-motion-caret is-open" : "acp-tool-row__caret zorai-motion-caret"} aria-hidden="true">▶</span>
           {active ? <ZoraiToolMark active /> : null}
           <span className="acp-tool-list__title-slot" title={title}>
-            <span className={`acp-tool-list__title${active ? " acp-tool-list__title--working" : ""}`}>{finished ? finishedTurnTitle(endedAt - startedAt) : title}</span>
+            <span className={`acp-tool-list__title${active ? " acp-tool-list__title--working" : ""}`}>{finished ? finishedSummary(entries, endedAt - startedAt) : title}</span>
           </span>
           {finished ? null : <TurnActivityElapsed startedAt={startedAt} endedAt={endedAt} live={active} />}
         </div>
         <span className="acp-tool-list__stats">
           {finished ? finishedTurnStats(toolCount, failedCount, entries.length) : toolCount > 0 ? `[${doneCount} / ${toolCount}]` : `[${entries.length}]`}
         </span>
+        <span className={expanded ? "acp-tool-row__caret zorai-motion-caret is-open" : "acp-tool-row__caret zorai-motion-caret"} aria-hidden="true">▶</span>
       </button>
       {presence.mounted ? (
         <div ref={bodyRef} data-closing={presence.closing || undefined} className="acp-tool-list__body zorai-reveal">

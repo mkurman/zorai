@@ -6,11 +6,10 @@ import { getDataDir, listPersistedDir } from "@/lib/persistence";
 import { useThreadFilePreview } from "../threads/ThreadFilePreviewContext";
 import {
   controlGoalRun,
-  formatGoalRunStatus,
-  summarizeGoalRunStep,
   type GoalRun,
   type GoalRunControlAction,
 } from "@/lib/goalRuns";
+import { normalizeGoalText } from "./goalPresentation";
 import {
   buildGoalWorkspaceModel,
   goalFilesFromWorkContext,
@@ -202,205 +201,242 @@ export function GoalWorkspacePanel({
     return false;
   };
 
+  const summaryLinks = model.summaryRows.filter((row) => row.id !== "goal-prompt-body");
+  const promptBodyRow = model.summaryRows.find((row) => row.id === "goal-prompt-body");
+  const hasDetailSections = model.detailSections.length > 0;
+
   return (
     <div className="zorai-goal-workspace-shell" aria-label="Goal workspace">
-      <section className="zorai-panel zorai-goal-toolbar">
-        <div>
-          <div className="zorai-section-label">{model.footerTitle}</div>
-          <strong>{model.statusLabel}</strong>
-        </div>
-        <div className="zorai-card-actions">
-          {model.footerActions.map((action) => (
-            action.id === "refresh" ? (
-              <RefreshButton key={action.id} disabled={!action.enabled} onClick={() => void runFooterAction(action)} />
-            ) : (
-              <button
-                key={action.id}
-                type="button"
-                className={action.id === "toggle" && action.label === "Resume" ? "zorai-primary-button" : "zorai-ghost-button"}
-                onClick={() => void runFooterAction(action)}
-                disabled={!action.enabled}
-              >
-                {action.label}
-              </button>
-            )
-          ))}
-        </div>
-      </section>
-
-      {run.status === "awaiting_review" ? (
-        <section className="zorai-panel zorai-goal-review-banner" aria-label="Supervisor review">
-          <div className="zorai-section-label">Worker report</div>
-          <p className="zorai-goal-review-report">{run.pending_review_report || "The worker asked for supervisor review."}</p>
-        </section>
-      ) : null}
-
-      <section className="zorai-panel zorai-goal-summary-pane">
-        <div className="zorai-section-label">Goal</div>
-        <RowList rows={model.summaryRows} onRowClick={handleSummaryRowClick} />
-      </section>
-
-      <div className="zorai-goal-workspace-main">
-        <nav className="zorai-goal-tabs" aria-label="Goal views">
-          {model.tabs.map((tab) => (
-            <button
-              type="button"
-              key={tab.id}
-              className={["zorai-goal-tab", tab.active ? "zorai-goal-tab--active" : ""].filter(Boolean).join(" ")}
-              onClick={() => {
-                setMode(tab.id);
-                setSelectedCenterIndex(0);
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-        <section className="zorai-panel zorai-goal-pane zorai-goal-workspace-pane">
-          <div className="zorai-section-label">{model.centerTitle}</div>
-          <div className="zorai-goal-pane__body">
-            <RowList
-              rows={model.centerRows}
-              onRowClick={(row, index) => {
-                setSelectedCenterIndex(index);
-                handleTargetRow(row);
-              }}
-            />
-            <SectionList sections={model.detailSections} onRowClick={handleTargetRow} />
+          <div className="zorai-goal-controlbar">
+            <div className="zorai-goal-controlbar__links" aria-label="Goal links">
+              {summaryLinks.map((row) => {
+                const clickable = row.id === "goal-prompt" || Boolean(row.targetThreadId) || Boolean(row.targetFilePath);
+                return (
+                  <button
+                    key={row.id}
+                    type="button"
+                    className={["zorai-goal-link-chip", row.id === "goal-prompt" && promptExpanded ? "is-active" : ""].filter(Boolean).join(" ")}
+                    disabled={!clickable}
+                    onClick={() => handleSummaryRowClick(row)}
+                  >
+                    <span>{row.text}</span>
+                    {row.meta ? <small>{row.id === "goal-prompt" ? (promptExpanded ? "Hide" : "Show") : "↗"}</small> : null}
+                  </button>
+                );
+              })}
+            </div>
+              <div className="zorai-goal-controlbar__actions" aria-label={model.footerTitle}>
+                {model.footerActions.map((action) => (
+                  action.id === "refresh" ? (
+                    <RefreshButton key={action.id} disabled={!action.enabled} onClick={() => void runFooterAction(action)} />
+                  ) : (
+                    <button
+                      key={action.id}
+                      type="button"
+                      className={[
+                        "zorai-ghost-button",
+                        action.id === "cancel" || action.id === "hard_reject" ? "zorai-ghost-button--danger" : "",
+                        action.id === "accept" || (action.id === "toggle" && action.label === "Resume") ? "zorai-ghost-button--primary-soft" : "",
+                      ].filter(Boolean).join(" ")}
+                      onClick={() => void runFooterAction(action)}
+                      disabled={!action.enabled}
+                    >
+                      {action.label}
+                    </button>
+                  )
+                ))}
+              </div>
           </div>
-        </section>
-        <div className="zorai-goal-workspace-status">
-          <span className="zorai-status-pill">{formatGoalRunStatus(run.status)}</span>
-          <span>{summarizeGoalRunStep(run)}</span>
-        </div>
-      </div>
 
-    </div>
-  );
+          {promptExpanded && promptBodyRow ? (
+            <section className="zorai-goal-prompt-drawer" aria-label="Goal prompt">
+              <p>{normalizeGoalText(promptBodyRow.text)}</p>
+            </section>
+          ) : null}
+
+          {run.status === "awaiting_review" ? (
+            <section className="zorai-panel zorai-goal-review-banner" aria-label="Supervisor review">
+              <div className="zorai-section-label">Worker report</div>
+              <p className="zorai-goal-review-report">{normalizeGoalText(run.pending_review_report || "The worker asked for supervisor review.")}</p>
+            </section>
+          ) : null}
+
+          <div className="zorai-goal-workspace-main">
+              <nav className="zorai-goal-tabs" role="tablist" aria-label="Goal views">
+                {model.tabs.map((tab) => (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={tab.active}
+                    key={tab.id}
+                    className={["zorai-goal-tab", tab.active ? "zorai-goal-tab--active" : ""].filter(Boolean).join(" ")}
+                    onClick={() => {
+                      setMode(tab.id);
+                      setSelectedCenterIndex(0);
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </nav>
+                  <section className={["zorai-panel", "zorai-goal-pane", "zorai-goal-workspace-pane", hasDetailSections ? "zorai-goal-pane--split" : ""].filter(Boolean).join(" ")}>
+                    <div className="zorai-goal-pane__column">
+                      <div className="zorai-section-label">{model.centerTitle}</div>
+                      <div className="zorai-goal-pane__body">
+                        <RowList
+                          rows={model.centerRows}
+                          onRowClick={(row, index) => {
+                            setSelectedCenterIndex(index);
+                            handleTargetRow(row);
+                          }}
+                        />
+                      </div>
+                    </div>
+                    {hasDetailSections ? (
+                      <div className="zorai-goal-pane__detail">
+                        <SectionList sections={model.detailSections} onRowClick={handleTargetRow} />
+                      </div>
+                    ) : null}
+                  </section>
+                </div>
+              </div>
+              );
 }
 
-function RowList({
-  rows,
-  onRowClick,
+              function RowList({
+                rows,
+                onRowClick,
 }: {
-  rows: GoalWorkspaceRow[];
+                rows: GoalWorkspaceRow[];
   onRowClick?: (row: GoalWorkspaceRow, index: number) => void;
 }) {
   const [expandedTextRows, setExpandedTextRows] = useState<Set<string>>(() => new Set());
-  return (
-    <div className="zorai-goal-item-list">
-      {rows.map((row, index) => {
-        const expanded = expandedTextRows.has(row.id);
-        const longText = row.text.length > 420;
-        const text = longText && !expanded
-          ? `${row.text.slice(0, 420).trimEnd()}…`
-          : row.text;
-        return (
-        <button
-          key={`${row.id}-${index}`}
-          type="button"
-          className={[
-            "zorai-goal-item",
-            `zorai-row-tone--${row.tone ?? "normal"}`,
-            row.selected ? "zorai-goal-item--selected" : "",
-          ].filter(Boolean).join(" ")}
-          style={{ paddingLeft: `${10 + (row.depth ?? 0) * 16}px` }}
-          onClick={() => onRowClick?.(row, index)}
-        >
-          <span
-            className={[
-              "zorai-goal-indicator",
-              row.working ? "zorai-goal-indicator--working" : "",
-            ].filter(Boolean).join(" ")}
-            aria-label={row.indicatorLabel}
-          />
-          <span className="zorai-goal-item__body">
-            <span
-              className={[
-                "zorai-goal-item__text",
-                expanded ? "zorai-goal-item__text--expanded" : "",
-              ].filter(Boolean).join(" ")}
-            >
-              {text}
-            </span>
-            {longText ? (
-              <span
-                className="zorai-goal-item__text-toggle"
-                role="button"
-                tabIndex={0}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setExpandedTextRows((current) => {
-                    const next = new Set(current);
-                    if (next.has(row.id)) next.delete(row.id);
-                    else next.add(row.id);
-                    return next;
-                  });
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") event.currentTarget.click();
-                }}
-              >
-                {expanded ? "Show less" : "Show full text"}
-              </span>
-            ) : null}
-            {row.meta ? <span className="zorai-goal-item__meta">{row.meta}</span> : null}
-            {typeof row.progress === "number" ? (
-              <span className="zorai-goal-progress" aria-label={`${row.indicatorLabel ?? "Progress"} ${row.progress}%`}>
-                <span className="zorai-goal-progress__bar" style={{ width: `${Math.max(0, Math.min(100, row.progress))}%` }} />
-              </span>
-            ) : null}
-          </span>
-        </button>
-        );
+                return (
+                <div className="zorai-goal-item-list">
+                  {rows.map((row, index) => {
+                    if (row.id === "todos-label") {
+                      return (
+                        <div key={`${row.id}-${index}`} className="zorai-goal-subhead">
+                          {row.text}
+                        </div>
+                      );
+                    }
+                    const normalizedText = normalizeGoalText(row.text);
+                    const expanded = expandedTextRows.has(row.id);
+                    const longText = normalizedText.length > 420;
+                    const text = longText && !expanded
+          ? `${normalizedText.slice(0, 420).trimEnd()}…`
+                    : normalizedText;
+        const showProgress = typeof row.progress === "number" && row.progress > 0 && row.progress < 100;
+                  return (
+                  <button
+                    key={`${row.id}-${index}`}
+                    type="button"
+                    className={[
+                      "zorai-goal-item",
+                      `zorai-row-tone--${row.tone ?? "normal"}`,
+                      row.selected ? "zorai-goal-item--selected" : "",
+                    ].filter(Boolean).join(" ")}
+                    style={row.depth ? { paddingLeft: `${12 + row.depth * 14}px` } : undefined}
+                    onClick={() => onRowClick?.(row, index)}
+                  >
+                    <span
+                      className={[
+                        "zorai-goal-indicator",
+                        `zorai-goal-indicator--${row.tone ?? "normal"}`,
+                        row.working ? "zorai-goal-indicator--working" : "",
+                      ].filter(Boolean).join(" ")}
+                      aria-label={row.indicatorLabel}
+                    />
+                    <span className="zorai-goal-item__body">
+                        <span className="zorai-goal-item__headline">
+                          <span
+                            className={[
+                              "zorai-goal-item__text",
+                              expanded ? "zorai-goal-item__text--expanded" : "",
+                            ].filter(Boolean).join(" ")}
+                          >
+                            {text}
+                          </span>
+                          {row.meta ? <span className="zorai-goal-item__meta">{row.meta}</span> : null}
+                        </span>
+                        {longText ? (
+                          <span
+                            className="zorai-goal-item__text-toggle"
+                            role="button"
+                            tabIndex={0}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setExpandedTextRows((current) => {
+                                const next = new Set(current);
+                                if (next.has(row.id)) next.delete(row.id);
+                                else next.add(row.id);
+                                return next;
+                              });
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") event.currentTarget.click();
+                            }}
+                          >
+                            {expanded ? "Show less" : "Show full text"}
+                          </span>
+                        ) : null}
+                        {showProgress ? (
+                          <span className="zorai-goal-progress" aria-label={`${row.indicatorLabel ?? "Progress"} ${row.progress}%`}>
+                            <span className="zorai-goal-progress__bar" style={{ width: `${Math.max(0, Math.min(100, row.progress ?? 0))}%` }} />
+                          </span>
+                        ) : null}
+                    </span>
+                  </button>
+                  );
       })}
-    </div>
-  );
+                </div>
+                );
 }
 
-function SectionList({
-  sections,
-  onRowClick,
+                function SectionList({
+                  sections,
+                  onRowClick,
 }: {
-  sections: GoalWorkspaceSection[];
+                  sections: GoalWorkspaceSection[];
   onRowClick?: (row: GoalWorkspaceRow, index: number) => void;
 }) {
   if (sections.length === 0) return null;
-  return (
-    <div className="zorai-goal-detail-sections">
-      {sections.map((section) => (
-        <section key={section.title} className="zorai-goal-detail-section">
-          <h3>{section.title}</h3>
-          <RowList rows={section.rows} onRowClick={onRowClick} />
-        </section>
-      ))}
-    </div>
-  );
+                return (
+                <div className="zorai-goal-detail-sections">
+                  {sections.map((section) => (
+                    <section key={section.title} className="zorai-goal-detail-section">
+                      <h3>{section.title}</h3>
+                      <RowList rows={section.rows} onRowClick={onRowClick} />
+                    </section>
+                  ))}
+                </div>
+                );
 }
 
-function goalFileFingerprint(files: GoalProjectionFile[]): string {
+                function goalFileFingerprint(files: GoalProjectionFile[]): string {
   return files.map((file) => `${file.absolutePath}:${file.source ?? ""}:${file.sizeBytes ?? ""}`).join("|");
 }
 
-async function loadGoalProjectionFiles(goalRunId: string): Promise<GoalProjectionFile[]> {
+                async function loadGoalProjectionFiles(goalRunId: string): Promise<GoalProjectionFile[]> {
   const dataDir = await getDataDir();
-  if (!dataDir) return [];
-  const root = `goals/${goalRunId}`;
-  const files: GoalProjectionFile[] = [];
+                if (!dataDir) return [];
+                const root = `goals/${goalRunId}`;
+                const files: GoalProjectionFile[] = [];
   const visit = async (relativeDir: string) => {
     const entries = await listPersistedDir(relativeDir);
-    for (const entry of entries) {
+                for (const entry of entries) {
       if (entry.isDirectory) {
-        await visit(entry.path);
+                  await visit(entry.path);
       } else {
-        files.push({
-          relativePath: entry.path.startsWith(`${root}/`) ? entry.path.slice(root.length + 1) : entry.path,
-          absolutePath: `${dataDir.replace(/\/$/, "")}/${entry.path}`,
-          sizeBytes: null,
-        });
+                  files.push({
+                    relativePath: entry.path.startsWith(`${root}/`) ? entry.path.slice(root.length + 1) : entry.path,
+                    absolutePath: `${dataDir.replace(/\/$/, "")}/${entry.path}`,
+                    sizeBytes: null,
+                  });
       }
     }
   };
-  await visit(root);
+                await visit(root);
   return files.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
 }

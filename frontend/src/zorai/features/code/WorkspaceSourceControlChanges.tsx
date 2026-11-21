@@ -14,9 +14,10 @@ export function WorkspaceGitChangeRow({ entry, staged, onOpen, onReview, onActio
   onAction: (action: WorkspaceGitAction, path: string) => Promise<void>;
 }) {
   const status = staged ? entry.indexStatus : entry.worktreeStatus || entry.indexStatus;
+  const statusCode = status.trim() || "?";
   const parent = entry.path.split(/[\\/]/).slice(0, -1).join("/");
   return <div className="zorai-workspace-change-row" style={style}>
-    <button type="button" className="zorai-workspace-change-path" title={entry.path} onClick={() => void onOpen(entry.path)}><CodeFileIcon path={entry.path} /><span><strong>{entry.path.split(/[\\/]/).pop()}</strong>{parent && showParent ? <small>{parent}</small> : null}</span><em>{status.trim() || "?"}</em></button>
+    <button type="button" className="zorai-workspace-change-path" title={entry.path} onClick={() => void onOpen(entry.path)}><CodeFileIcon path={entry.path} /><span><strong>{entry.path.split(/[\\/]/).pop()}</strong>{parent && showParent ? <small>{parent}</small> : null}</span><em data-status={statusCode}>{statusCode}</em></button>
     <span className="zorai-workspace-change-actions">
       <button type="button" title="Review hunks" aria-label={`Review hunks for ${entry.path}`} onClick={() => void onReview(entry.path, staged)}><ChangeActionIcon d="M3 4h4M3 8h10M3 12h7M10.5 2.5v3M9 4h3" /></button>
       <button type="button" title={staged ? "Unstage" : "Stage"} aria-label={`${staged ? "Unstage" : "Stage"} ${entry.path}`} onClick={() => void onAction(staged ? "unstage" : "stage", entry.path)}><ChangeActionIcon d={staged ? "M3.5 8h9" : "M8 3.5v9M3.5 8h9"} /></button>
@@ -80,12 +81,13 @@ export function WorkspaceSourceControlChanges({ status, onOpen, onReview, onActi
   const bulkButton = (action: "stage" | "unstage", entries: ZoraiWorkspaceGitStatus[]) => (
     <button
       type="button"
-      className={["zorai-workspace-changes-bulk", bulkBusy === action ? "is-busy" : ""].filter(Boolean).join(" ")}
+      className={["zorai-workspace-changes-bulk", bulkBusy ? "is-busy" : ""].filter(Boolean).join(" ")}
+      aria-busy={bulkBusy !== null}
       aria-label={action === "stage" ? "Stage all changes" : "Unstage all changes"}
       title={action === "stage" ? "Stage all changes" : "Unstage all changes"}
       disabled={bulkBusy !== null}
       onClick={() => void runBulk(action, entries)}
-    >{action === "stage" ? "＋ All" : "− All"}</button>
+    >{bulkBusy ? <span className="zorai-workspace-changes-bulk__spinner" aria-hidden="true" /> : action === "stage" ? "＋ All" : "− All"}</button>
   );
   const toggleFolder = (key: string) => setCollapsed((current) => {
     const next = new Set(current);

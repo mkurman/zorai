@@ -1,5 +1,7 @@
 import { useContext, useMemo, useState } from "react";
 import { getBridge } from "@/lib/bridge";
+import { Presence } from "@/components/Presence";
+import { TableFullscreen } from "./TableFullscreen";
 import { exportTablePng, MessageExportTimeContext, timestampedFileName } from "./tablePng";
 import { MAX_TABLE_ROWS, sortRowIndexes, tableToCsv, type TabularData } from "./tabularData";
 
@@ -8,6 +10,7 @@ type SortState = { column: number; direction: "asc" | "desc" } | null;
 export function DataTable({ data, truncated = false }: { data: TabularData; truncated?: boolean }) {
   const [sort, setSort] = useState<SortState>(null);
   const exportTime = useContext(MessageExportTimeContext);
+  const [expanded, setExpanded] = useState(false);
   const order = useMemo(
     () => (sort ? sortRowIndexes(data.rows, sort.column, sort.direction) : data.rows.map((_, index) => index)),
     [data.rows, sort],
@@ -29,6 +32,34 @@ export function DataTable({ data, truncated = false }: { data: TabularData; trun
     }
   };
   const limited = truncated || data.rows.length >= MAX_TABLE_ROWS;
+  const savePng = () => exportTablePng(data.columns, order.map((index) => data.rows[index]), `${timestampedFileName("table", exportTime)}.png`);
+  const tableElement = (
+    <table>
+      <thead>
+        <tr>
+          <th className="zorai-data-table__index">#</th>
+          {data.columns.map((column, index) => (
+            <th key={`${column}-${index}`}>
+              <button type="button" className="zorai-data-table__sort" onClick={() => toggleSort(index)}>
+                {column}
+                {sort?.column === index ? (sort.direction === "asc" ? " ▲" : " ▼") : ""}
+              </button>
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {order.map((rowIndex) => (
+          <tr key={rowIndex}>
+            <td className="zorai-data-table__index">{rowIndex + 1}</td>
+            {data.rows[rowIndex].map((cell, cellIndex) => (
+              <td key={cellIndex} title={cell.length > 80 ? cell : undefined}>{cell}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
 
   return (
     <div className="zorai-data-table">
@@ -37,38 +68,20 @@ export function DataTable({ data, truncated = false }: { data: TabularData; trun
           {data.rows.length} rows × {data.columns.length} columns{limited ? " (preview, not the full file)" : ""}
         </span>
         <button type="button" className="zorai-data-table__action" onClick={copyCsv}>Copy CSV</button>
-        <button type="button" className="zorai-data-table__action" onClick={() => exportTablePng(data.columns, order.map((index) => data.rows[index]), `${timestampedFileName("table", exportTime)}.png`)}>PNG</button>
+        <button type="button" className="zorai-data-table__action" onClick={savePng}>PNG</button>
+        <button type="button" className="zorai-data-table__action" title="Open the table full screen" onClick={() => setExpanded(true)}>Full screen</button>
       </div>
       {data.errors.length > 0 ? (
         <div className="zorai-data-table__errors">{data.errors.join(" ")}</div>
       ) : null}
-      <div className="zorai-data-table__scroll">
-        <table>
-          <thead>
-            <tr>
-              <th className="zorai-data-table__index">#</th>
-              {data.columns.map((column, index) => (
-                <th key={`${column}-${index}`}>
-                  <button type="button" className="zorai-data-table__sort" onClick={() => toggleSort(index)}>
-                    {column}
-                    {sort?.column === index ? (sort.direction === "asc" ? " ▲" : " ▼") : ""}
-                  </button>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {order.map((rowIndex) => (
-              <tr key={rowIndex}>
-                <td className="zorai-data-table__index">{rowIndex + 1}</td>
-                {data.rows[rowIndex].map((cell, cellIndex) => (
-                  <td key={cellIndex} title={cell.length > 80 ? cell : undefined}>{cell}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <div className="zorai-data-table__scroll">{tableElement}</div>
+      <Presence value={expanded}>
+        {(_, closing) => (
+          <TableFullscreen title={`${data.rows.length} rows × ${data.columns.length} columns`} bodyClassName="zorai-data-table" closing={closing} onCopyCsv={copyCsv} onPng={savePng} onClose={() => setExpanded(false)}>
+            <div className="zorai-data-table__scroll">{tableElement}</div>
+          </TableFullscreen>
+        )}
+      </Presence>
     </div>
   );
 }

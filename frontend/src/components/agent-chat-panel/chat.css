@@ -1296,10 +1296,11 @@
 
 .acp-md :not(pre) > code {
   font-size: 0.86em;
-  color: color-mix(in srgb, var(--accent) 55%, var(--text-secondary));
-  background: color-mix(in srgb, var(--accent) 5%, transparent);
-  padding: 0 3px;
-  border-radius: 3px;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 9%, transparent);
+  padding: 1px 5px;
+  border-radius: 4px;
   overflow-wrap: anywhere;
 }
 
@@ -1335,6 +1336,7 @@
   color: var(--acp-link, var(--accent));
   font-weight: 600;
   background: transparent;
+  border: 0;
   padding: 0;
   cursor: pointer;
 }

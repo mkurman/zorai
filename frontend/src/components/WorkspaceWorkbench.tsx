@@ -16,6 +16,7 @@ import { isCodeProjectThread, useCodeWorkspaceBindingStore } from "@/zorai/featu
 import { useWorkspaceEditorRequestStore } from "@/lib/workspaceEditorRequestStore";
 import { openExternalFileInWorkspace } from "@/zorai/features/code/workspaceExternalFile";
 import { CodeQuickOpen } from "@/zorai/features/code/CodeQuickOpen";
+import { CodeProjectSearch } from "@/zorai/features/code/CodeProjectSearch";
 import { CodeCommandPalette } from "@/zorai/features/code/CodeCommandPalette";
 import { RUNNABLE_CODE_COMMANDS, matchesCodeBinding, shouldLeaveKeyToTerminal, shouldPassthroughCodeCommand, type CodeCommandId } from "@/zorai/features/code/codeCommands";
 import { CodeBottomPanel } from "@/zorai/features/code/CodeBottomPanel";
@@ -131,7 +132,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const [unsupportedFile, setUnsupportedFile] = useState<string | null>(null);
   const [mediaPreview, setMediaPreview] = useState<{ path: string; kind: "image" | "video" | "audio" } | null>(null);
   const reducedModePathsRef = useRef(new Set<string>());
-  const [codeOverlay, setCodeOverlay] = useState<"quickOpen" | "commands" | null>(null);
+  const [codeOverlay, setCodeOverlay] = useState<"quickOpen" | "commands" | "search" | null>(null);
   const [settingsTabOpen, setSettingsTabOpen] = useState(false);
   const [settingsTabPinned, setSettingsTabPinned] = useState(false);
   const [activeEditorTabId, setActiveEditorTabId] = useState<string | null>(null);
@@ -340,6 +341,8 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     }, 3000);
     return () => window.clearInterval(timer);
   }, [activeDaemonThreadId, bridge]);
+  const activeDocumentRef = useRef(activeDocument);
+  activeDocumentRef.current = activeDocument;
   useEffect(() => {
     if (!context?.root || !bridge?.workspaceWatchStart || !bridge?.onWorkspaceFilesChanged) return;
     let subscriptionId: string | null = null;
@@ -360,10 +363,12 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     };
     const unsubscribe = bridge.onWorkspaceFilesChanged((batch) => {
       if (batch.root !== watchedRoot || (subscriptionId && batch.subscriptionId !== subscriptionId)) return;
-      invalidateWorkspaceFileIndex(watchedRoot);
-      void getWorkspaceFiles(bridge, watchedRoot, { force: true }).then((files) => setIndexedFiles(files)).catch(() => {});
+      if (batch.changes.some((change) => change.eventType === "rename")) {
+        invalidateWorkspaceFileIndex(watchedRoot);
+        void getWorkspaceFiles(bridge, watchedRoot, { force: true }).then((files) => setIndexedFiles(files)).catch(() => {});
+      }
       scheduleGitRefresh();
-      const currentActive = activeDocument;
+      const currentActive = activeDocumentRef.current;
       if (!currentActive) return;
       const activeChange = batch.changes.some((change) => change.path === currentActive.path);
       if (!activeChange || !bridge.workspaceReadFile) return;
@@ -395,7 +400,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       if (typeof unsubscribe === "function") unsubscribe();
       if (subscriptionId) void bridge.workspaceWatchStop?.(subscriptionId);
     };
-  }, [activeDocument?.path, activeDocument?.hash, bridge, context?.root, refreshRoot, refreshGitOnly]);
+  }, [bridge, context?.root, refreshGitOnly]);
   useEffect(() => {
     if (!context?.root || !activeDocument || !bridge?.workspaceReadFile || bridge.workspaceWatchStart) return;
     const timer = window.setInterval(() => {
@@ -478,13 +483,6 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeDocument?.content, activeDocument?.language, activeDocument?.path, activeDocument?.hash, bridge, context?.root, editorSettings.diagnosticsDelayMs, editorSettings.lspEnabled, lspStatus?.available]);
 
-  useEffect(() => {
-    if (!context?.root || !bridge?.workspaceTestsDiscover) {
-      setWorkspaceTests([]);
-      return;
-    }
-    void bridge.workspaceTestsDiscover(context.root, { maxTests: 2000 }).then((result) => setWorkspaceTests(result.tests)).catch(() => setWorkspaceTests([]));
-  }, [bridge, context?.root]);
   useEffect(() => {
     if (!bridge?.onWorkspaceTestEvent) return;
     const unsubscribe = bridge.onWorkspaceTestEvent((event) => {
@@ -705,6 +703,27 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const [operationDiff, setOperationDiff] = useState<AgentOperationDiffTarget | null>(null);
   const [previewPaths, setPreviewPaths] = useState<Record<string, boolean>>({});
   const [railTab, setRailTab] = useCodeRailTab();
+  const testsWanted = railTab === "testing";
+  const discoveredTestsRootRef = useRef<string | null>(null);
+  const [testsDiscovering, setTestsDiscovering] = useState(false);
+  useEffect(() => {
+    const root = context?.root ?? null;
+    if (discoveredTestsRootRef.current !== root) {
+      discoveredTestsRootRef.current = null;
+      setWorkspaceTests([]);
+      setTestsDiscovering(false);
+    }
+    if (!testsWanted || !root || !bridge?.workspaceTestsDiscover || discoveredTestsRootRef.current === root) return;
+    discoveredTestsRootRef.current = root;
+    setTestsDiscovering(true);
+    void bridge.workspaceTestsDiscover(root, { maxTests: 2000 }).then((result) => {
+      if (discoveredTestsRootRef.current === root) setWorkspaceTests(result.tests);
+    }).catch(() => {
+      if (discoveredTestsRootRef.current === root) setWorkspaceTests([]);
+    }).finally(() => {
+      if (discoveredTestsRootRef.current === root) setTestsDiscovering(false);
+    });
+  }, [bridge, context?.root, testsWanted]);
   const codeReviewAgentId = useAgentStore((state) => state.agentSettings.code_review_agent);
   const codeReviewCommitWindow = useAgentStore((state) => state.agentSettings.code_review_commit_window) || 5;
   const reviewSubAgents = useAgentStore((state) => state.subAgents);
@@ -1074,6 +1093,12 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     void refreshGitOnly(root);
   };
 
+  const searchRoot = context?.root;
+  const searchProjectFiles = useCallback(async (query: string) => {
+    if (!searchRoot || !bridge?.workspaceSearch) return [];
+    return bridge.workspaceSearch(searchRoot, query, { maxResults: 100 });
+  }, [bridge, searchRoot]);
+
   const runSearch = async () => {
     if (!context?.root || !searchQuery.trim() || !bridge?.workspaceSearch) {
       setSearchResults([]);
@@ -1261,11 +1286,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     if (id === "view.commandPalette") { setCodeOverlay("commands"); return; }
     if (id === "file.save") { void saveCommandRef.current(); return; }
     if (id === "file.reload") { void reloadCommandRef.current(); return; }
-    if (id === "search.project") {
-      const input = document.querySelector<HTMLInputElement>(".zorai-workspace-search-row input");
-      input?.focus();
-      return;
-    }
+    if (id === "search.project") { setCodeOverlay("search"); return; }
     if (id === "file.openExternal" || id === "file.reveal") {
       const target = activeFileTargetRef.current;
       if (!target) return;
@@ -1620,18 +1641,18 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                       ) : null}
                     </div>
                   </details>
-                    {bridge?.agentSpawnSubagent ? (
-                      <AgentReviewPanel
-                        root={context.root}
-                        reviewerLabel={codeReviewer.label}
-                        commitWindow={codeReviewCommitWindow}
-                        onFindIssues={() => runAgentReview(context.root)}
-                        onPrefillAgentInput={prefillAgentInput}
-                      />
-                    ) : null}
                   </>
                 ) : null}
                 <WorkspaceSourceControlChanges status={gitStatus} onOpen={(path) => openFile(path, undefined, "diff")} onReview={reviewHunks} onAction={runGitAction} onBulkAction={runBulkGitAction} onRefresh={() => refreshGitOnly(context?.root)} />
+                {gitOverview?.isRepository && bridge?.agentSpawnSubagent ? (
+                  <AgentReviewPanel
+                    root={context.root}
+                    reviewerLabel={codeReviewer.label}
+                    commitWindow={codeReviewCommitWindow}
+                    onFindIssues={() => runAgentReview(context.root)}
+                    onPrefillAgentInput={prefillAgentInput}
+                  />
+                ) : null}
                 {reviewedChange ? (
                   <div className="zorai-workspace-hunk-review">
                     <div className="zorai-workspace-hunk-heading">
@@ -1715,7 +1736,9 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             ) : null}
             {railTab === "testing" ? (
               <>
-                {workspaceTests.length === 0 && testProblems.length === 0 ? (
+                {testsDiscovering && workspaceTests.length === 0 ? (
+                  <div className="zorai-workspace-empty">Looking for tests…</div>
+                ) : workspaceTests.length === 0 && testProblems.length === 0 ? (
                   <div className="zorai-workspace-empty">No tests found in this workspace. Supported test files show up here so you can run them one by one or all at once.</div>
                 ) : null}
                 {workspaceTests.length > 0 ? (
@@ -1951,7 +1974,47 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             <nav className="zorai-workspace-breadcrumbs zorai-workspace-breadcrumbs--empty" aria-label="File breadcrumbs">
               <span>No file selected</span>
             </nav>
-            <div className="zorai-tool-empty zorai-code-editor-empty"><strong>Workspace editor</strong><span>Select a text file from Explorer. File contents are loaded on demand and never injected implicitly.</span></div>
+            <div className="zorai-tool-empty zorai-code-editor-empty">
+              <div className="zorai-code-editor-empty__card">
+                <strong>Workspace editor</strong>
+                <span>Select a file from Explorer or jump straight in below. File contents load on demand and are never injected implicitly.</span>
+                <div className="zorai-code-editor-empty__actions">
+                  <button type="button" className="zorai-ghost-button zorai-ghost-button--primary-soft" onClick={() => runCodeCommand("file.quickOpen")}>
+                    Quick Open
+                  </button>
+                  <button type="button" className="zorai-ghost-button" onClick={() => runCodeCommand("search.project")}>
+                    Search in Files
+                  </button>
+                  <button type="button" className="zorai-ghost-button" onClick={() => runCodeCommand("view.commandPalette")}>
+                    Commands
+                  </button>
+                  <button type="button" className="zorai-ghost-button" onClick={() => togglePanel("terminal")}>
+                    Terminal
+                  </button>
+                </div>
+                {gitStatus.length > 0 ? (
+                  <div className="zorai-code-editor-empty__changes">
+                    <div className="zorai-section-label">Changed files ({gitStatus.length})</div>
+                    <ul>
+                      {gitStatus.slice(0, 6).map((entry) => {
+                        const code = statusLabel(entry) || "M";
+                        const fileName = entry.path.split(/[\\/]/).pop() ?? entry.path;
+                        const dir = entry.path.split(/[\\/]/).slice(0, -1).join("/");
+                        return (
+                          <li key={entry.path}>
+                            <button type="button" title={entry.path} onClick={() => void openFile(entry.path, undefined, "diff")}>
+                              <span className="zorai-code-editor-empty__file">{fileName}</span>
+                              {dir ? <small>{dir}</small> : null}
+                              <em data-status={code}>{code}</em>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            </div>
             {bottomPanel}
             <div className="zorai-workspace-statusbar">
               {statusToggles}
@@ -1975,6 +2038,13 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
           <CodeQuickOpen
             files={explorerFiles}
             onOpen={(path, line, column) => void openFile(path, line ? { line, column: column ?? 1 } : undefined)}
+            onClose={() => setCodeOverlay(null)}
+          />
+        )}</Presence>
+        <Presence value={codeOverlay === "search"}>{() => (
+          <CodeProjectSearch
+            search={searchProjectFiles}
+            onOpen={(hit) => void openFile(hit.path, { line: hit.line, column: hit.column })}
             onClose={() => setCodeOverlay(null)}
           />
         )}</Presence>
