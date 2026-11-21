@@ -774,6 +774,9 @@ pub(crate) async fn execute_web_search(
                     )
                     .await
                 }
+                "parallel" => {
+                    super::parallel_search::search(&request.query, request.max_results).await
+                }
                 "duckduckgo" => {
                     execute_ddg_search(
                         http_client,
@@ -820,6 +823,7 @@ where
         "firecrawl" if !firecrawl_api_key.is_empty() => "firecrawl",
         "keenable" => "keenable",
         "youcom" => "youcom",
+        "parallel" => "parallel",
         "duckduckgo" | "ddg" => "duckduckgo",
         _ => "ddg",
     };

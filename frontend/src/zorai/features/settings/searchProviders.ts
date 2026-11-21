@@ -8,6 +8,7 @@ export const searchProviderOptions: AgentSettings["search_provider"][] = [
   "tavily",
   "keenable",
   "youcom",
+  "parallel",
 ];
 
 export const duckDuckGoSafeSearchOptions: AgentSettings["duckduckgo_safe_search"][] = [

@@ -966,8 +966,8 @@ export function AgentTab({
                         <SettingRow label="Search Provider">
                             <SelectInput
                                 value={settings.search_provider}
-                                options={["none", "firecrawl", "exa", "tavily", "keenable", "youcom"]}
-                                onChange={(value) => updateSetting("search_provider", value as "none" | "firecrawl" | "exa" | "tavily" | "keenable" | "youcom")}
+                                options={["none", "firecrawl", "exa", "tavily", "keenable", "youcom", "parallel"]}
+                                onChange={(value) => updateSetting("search_provider", value as AgentSettings["search_provider"])}
                             />
                         </SettingRow>
                         <SettingRow label="Firecrawl API Key">
