@@ -33,7 +33,7 @@ export async function loadWorkspaceRootState(bridge: WorkspaceRefreshBridge, roo
     return fallback;
   });
   const [entries, statuses, overview, worktrees, history, conflicts] = await Promise.all([
-    bridge.workspaceListDirectory(root, "").then((entries) => {
+    bridge.workspaceListDirectory(root, "", { fresh: true }).then((entries) => {
       onEntries?.(entries);
       return entries;
     }),

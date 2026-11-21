@@ -21,6 +21,7 @@ import { EngineDataTable } from "@/components/data-viewers/EngineDataTable";
 import { dataEngineAvailable, isEngineDataPath, isEngineOnlyDataPath } from "@/components/data-viewers/dataQuery";
 import { CodeFileIcon, CodeFolderChevron } from "@/zorai/features/code/CodeFileIcon";
 
+import { preloadCodeEditor } from "@/zorai/features/code/codeEditorPreload";
 const MonacoReadOnlyView = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.MonacoReadOnlyView })));
 
 type PreviewSection = {
@@ -141,6 +142,7 @@ export function ThreadFilePreviewOverlay() {
     setLoading(true);
     setError(null);
     setSections([]);
+    void preloadCodeEditor().catch(() => {});
 
     const requests = previewRequestsForWorkContextEntry(entry);
     void Promise.all(requests.map(async (request): Promise<PreviewSection | null> => {

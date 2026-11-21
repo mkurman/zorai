@@ -17,6 +17,7 @@ import { Presence } from "@/components/Presence";
 import { CodeFileIcon } from "@/zorai/features/code/CodeFileIcon";
 import { looksLikeFileReference } from "@/zorai/features/code/codeFileTypes";
 import { fileLinkCandidatesFromTools } from "./fileLinkCandidates";
+import { MathSegmentsContext } from "./mathText";
 
 export const KATEX_DELIMITERS = [
   { left: "$$", right: "$$", display: true },
@@ -421,27 +422,36 @@ export const MarkdownContent = memo(function MarkdownContent({
     [content, renderMode],
   );
 
+  const mathRendering = useMemo(() => ({
+    segments: protectedMath.segments,
+    render: (root: HTMLElement) => {
+      restoreMathSegments(root, protectedMath.segments);
+      renderMathInElement(root, {
+        delimiters: [...KATEX_DELIMITERS],
+        ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code", "option"],
+        ignoredClasses: ["no-math", "katex", "katex-display"],
+        throwOnError: false,
+        strict: "ignore",
+      });
+    },
+  }), [protectedMath]);
+
   useEffect(() => {
     const root = rootRef.current;
     if (!root || renderMode === "plain") return;
-    restoreMathSegments(root, protectedMath.segments);
-    renderMathInElement(root, {
-      delimiters: [...KATEX_DELIMITERS],
-      ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code", "option"],
-      ignoredClasses: ["no-math", "katex", "katex-display"],
-      throwOnError: false,
-      strict: "ignore",
-    });
-  }, [protectedMath, renderMode]);
+    mathRendering.render(root);
+  }, [mathRendering, renderMode]);
 
   if (renderMode === "plain") {
     return <StreamingMarkdown content={content} />;
   }
   return (
     <div ref={rootRef} className="acp-md">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-        {protectedMath.content}
-      </ReactMarkdown>
+      <MathSegmentsContext.Provider value={mathRendering}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+          {protectedMath.content}
+        </ReactMarkdown>
+      </MathSegmentsContext.Provider>
     </div>
   );
 });

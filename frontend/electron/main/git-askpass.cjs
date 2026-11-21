@@ -109,8 +109,14 @@ function startGitAskpass({ requestPrompt, runtimePath = process.execPath, baseDi
     return state;
 }
 
-function gitAskpassEnv() {
-    return state ? state.env : {};
+let forwardedEnv = null;
+
+function setGitAskpassEnv(env) {
+    forwardedEnv = env && typeof env === 'object' ? { ...env } : null;
 }
 
-module.exports = { startGitAskpass, gitAskpassEnv };
+function gitAskpassEnv() {
+    return state ? state.env : forwardedEnv ?? {};
+}
+
+module.exports = { startGitAskpass, gitAskpassEnv, setGitAskpassEnv };

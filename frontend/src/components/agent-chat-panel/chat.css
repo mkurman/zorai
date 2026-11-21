@@ -1385,7 +1385,14 @@
   font-size: var(--text-xs);
 }
 
+.acp-md th,
+.acp-md td {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
 .acp-md th {
+  min-width: 6ch;
   text-align: left;
   padding: 4px 8px;
   border-bottom: 1px solid var(--border-strong);

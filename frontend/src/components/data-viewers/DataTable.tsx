@@ -2,6 +2,7 @@ import { useContext, useMemo, useState } from "react";
 import { getBridge } from "@/lib/bridge";
 import { Presence } from "@/components/Presence";
 import { TableFullscreen } from "./TableFullscreen";
+import { TableIconButton } from "./TableIconButton";
 import { exportTablePng, MessageExportTimeContext, timestampedFileName } from "./tablePng";
 import { MAX_TABLE_ROWS, sortRowIndexes, tableToCsv, type TabularData } from "./tabularData";
 
@@ -67,9 +68,9 @@ export function DataTable({ data, truncated = false }: { data: TabularData; trun
         <span>
           {data.rows.length} rows × {data.columns.length} columns{limited ? " (preview, not the full file)" : ""}
         </span>
-        <button type="button" className="zorai-data-table__action" onClick={copyCsv}>Copy CSV</button>
-        <button type="button" className="zorai-data-table__action" onClick={savePng}>PNG</button>
-        <button type="button" className="zorai-data-table__action" title="Open the table full screen" onClick={() => setExpanded(true)}>Full screen</button>
+        <TableIconButton icon="copy" label="Copy as CSV" onClick={copyCsv} />
+        <TableIconButton icon="image" label="Save as PNG" onClick={savePng} />
+        <TableIconButton icon="expand" label="Open full screen" onClick={() => setExpanded(true)} />
       </div>
       {data.errors.length > 0 ? (
         <div className="zorai-data-table__errors">{data.errors.join(" ")}</div>

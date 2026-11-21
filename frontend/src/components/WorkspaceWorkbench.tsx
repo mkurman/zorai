@@ -35,7 +35,7 @@ import {
 } from "@/zorai/features/code/workspaceFileIndex";
 import { codeSettingsCommandPatch, codeSettingsToggleState, useCodeEditorSettingsStore } from "@/zorai/features/code/codeEditorSettingsStore";
 import { createFileTab } from "@/zorai/features/code/codeEditorTabs";
-import { CodeLargeFileGate, exceedsCodeFileLimit, CodeUnsupportedFileNotice, isBinaryFileError } from "@/zorai/features/code/CodeLargeFileGate";
+import { CodeLargeFileGate, CodeUnsupportedFileNotice, fileTooLargeBytes, isBinaryFileError } from "@/zorai/features/code/CodeLargeFileGate";
 import { WorkspaceExplorerTree } from "@/zorai/features/code/WorkspaceExplorerTree";
 import { WorkspacePathDialog, type WorkspacePathOperation } from "@/zorai/features/code/WorkspacePathDialog";
 import { WorkspaceSourceControlChanges } from "@/zorai/features/code/WorkspaceSourceControlChanges";
@@ -64,6 +64,8 @@ import { ImageLightbox } from "@/zorai/features/threads/ImageLightbox";
 import { MediaLightbox } from "@/zorai/features/threads/MediaLightbox";
 import { mediaUrlForPath } from "@/zorai/features/threads/ThreadFilePreviewOverlay";
 import { Presence } from "@/components/Presence";
+
+const LSP_OPEN_DELAY_MS = 200;
 
 const WorkspaceCodeEditor = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.WorkspaceCodeEditor })));
 const WorkspaceDiffEditor = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.WorkspaceDiffEditor })));
@@ -457,15 +459,21 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       setLspStatus(null);
       return;
     }
-    const version = (lspVersionRef.current[activeDocument.path] ?? 0) + 1;
-    lspVersionRef.current[activeDocument.path] = version;
     let disposed = false;
-    void bridge.workspaceLspOpen(context.root, activeDocument.path, activeDocument.language, activeDocument.content, version).then((result) => {
-      if (!disposed) setLspStatus({ available: result.available, command: result.command ?? null, reason: result.reason });
-    }).catch((reason) => { if (!disposed) setLspStatus({ available: false, reason: reason?.message ?? String(reason) }); });
+    let opened = false;
+    const openTimer = window.setTimeout(() => {
+      if (disposed) return;
+      opened = true;
+      const version = (lspVersionRef.current[activeDocument.path] ?? 0) + 1;
+      lspVersionRef.current[activeDocument.path] = version;
+      void bridge.workspaceLspOpen!(context.root, activeDocument.path, activeDocument.language, activeDocument.content, version).then((result) => {
+        if (!disposed) setLspStatus({ available: result.available, command: result.command ?? null, reason: result.reason });
+      }).catch((reason) => { if (!disposed) setLspStatus({ available: false, reason: reason?.message ?? String(reason) }); });
+    }, LSP_OPEN_DELAY_MS);
     return () => {
       disposed = true;
-      void bridge.workspaceLspClose?.(context.root, activeDocument.path, activeDocument.language);
+      window.clearTimeout(openTimer);
+      if (opened) void bridge.workspaceLspClose?.(context.root, activeDocument.path, activeDocument.language);
     };
   // Document open/close follows identity; incremental content changes use the debounced effect below.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -530,16 +538,6 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     const generation = ++openGenRef.current;
     const isCurrentOpen = () => generation === openGenRef.current
       && useWorkspaceContextStore.getState().byThreadId[activeThreadId]?.root === rootAtOpen;
-    if (!reducedOverride && bridge.workspaceStatFile) {
-      const metadata = await bridge.workspaceStatFile(rootAtOpen, filePath).catch(() => null);
-      if (!isCurrentOpen()) return;
-      if (metadata && exceedsCodeFileLimit(metadata.sizeBytes, editorSettings.maxFileSizeMb)) {
-        setActiveFile(activeThreadId, filePath);
-        setActiveEditorTabId(`file:${filePath}`);
-        setLargeFileGate({ path: filePath, sizeBytes: metadata.sizeBytes });
-        return;
-      }
-    }
     if (reducedOverride) reducedModePathsRef.current.add(filePath);
     const controller = documentControllerRef.current;
     const cacheHit = Boolean(controller.get(context.root, filePath)); // rootAtOpen === context.root at this point
@@ -626,6 +624,11 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       }
     } catch (reason: any) {
       if (!isCurrentOpen()) return;
+      const tooLargeBytes = !reducedOverride ? fileTooLargeBytes(reason) : null;
+      if (tooLargeBytes !== null) {
+        setLargeFileGate({ path: filePath, sizeBytes: tooLargeBytes });
+        return;
+      }
       if (isBinaryFileError(reason)) {
         closeFile(activeThreadId, filePath);
         setUnsupportedFile(filePath);
@@ -1929,7 +1932,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                   <WorkspaceDiffEditor original={activeDocument.content} modified={activeDocument.externalContent ?? ""} language={activeDocument.language} />
                 </Suspense>
               ) : previewPaths[activeDocument.path] && codePreviewKind(activeDocument.path) ? (
-                <CodeDocumentPreview path={activeDocument.path} content={activeDocument.content} />
+                <CodeDocumentPreview path={activeDocument.path} content={activeDocument.content} root={context?.root ?? null} />
               ) : (
                 <Suspense fallback={<div className="zorai-workspace-editor-loading">Loading Monaco editor…</div>}>
                   <WorkspaceCodeEditor
@@ -1960,12 +1963,6 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                   />
                 </Suspense>
               )}
-            </div>
-            {bottomPanel}
-            <div className="zorai-workspace-statusbar">
-              {statusToggles}
-              <span>{activeDocument.path}</span>
-              <span>{activeDocument.language}{lspStatus ? ` · LSP ${lspStatus.available ? lspStatus.command ?? "ready" : "unavailable"}` : ""}</span>
             </div>
             {mode === "diff" && diff !== null ? <details className="zorai-workspace-raw-diff"><summary>Git patch</summary><pre>{diff || "No working-tree diff for this file."}</pre></details> : null}
           </>
@@ -2015,14 +2012,23 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                 ) : null}
               </div>
             </div>
-            {bottomPanel}
-            <div className="zorai-workspace-statusbar">
-              {statusToggles}
-              <span>Ready · Select a file from Explorer</span>
-              <span>No language mode</span>
-            </div>
           </>
         )}
+        {bottomPanel}
+        <div className="zorai-workspace-statusbar">
+          {statusToggles}
+          {activeDocument ? (
+            <>
+              <span>{activeDocument.path}</span>
+              <span>{activeDocument.language}{lspStatus ? ` · LSP ${lspStatus.available ? lspStatus.command ?? "ready" : "unavailable"}` : ""}</span>
+            </>
+          ) : (
+            <>
+              <span>Ready · Select a file from Explorer</span>
+              <span>No language mode</span>
+            </>
+          )}
+        </div>
         <Presence value={mediaPreview}>
           {(preview, closing) => preview.kind === "image" ? (
             <ImageLightbox src={mediaUrlForPath(preview.path)} name={preview.path.split("/").pop() || preview.path} closing={closing} onClose={() => setMediaPreview(null)} />

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Notification, clipboard, dialog, ipcMain, nativeImage, net: electronNet, protocol, screen, shell, session } = require('electron');
+const { app, BrowserWindow, Menu, Notification, clipboard, dialog, ipcMain, nativeImage, net: electronNet, protocol, screen, shell, session, utilityProcess } = require('electron');
 const { registerMediaProtocol, registerMediaSchemePrivileges } = require('./main/media-protocol.cjs');
 const { spawn, spawnSync } = require('child_process');
 const path = require('path');
@@ -60,7 +60,7 @@ const { createChildLogEnv } = require('./main/log-env.cjs');
 const workspaceService = require('./main/workspace-service.cjs');
 const { startGitAskpass } = require('./main/git-askpass.cjs');
 const crypto = require('crypto');
-const { createWorkspaceWatcher } = require('./main/workspace-watch-service.cjs');
+const { createWorkspaceWorkerClient, workspaceServiceProxy } = require('./main/workspace-worker-client.cjs');
 const { createLspRuntime } = require('./main/lsp-runtime.cjs');
 const { createTestRuntime } = require('./main/test-runtime.cjs');
 const { createUpdateRuntime } = require('./main/update-runtime.cjs');
@@ -77,7 +77,17 @@ const MAX_TERMINAL_HISTORY_BYTES = 1024 * 1024;
 const MAX_REATTACH_HISTORY_BYTES = 64 * 1024;
 const VISION_SCREENSHOT_TTL_MS = 10 * 60 * 1000;
 let mainWindow = null;
-const workspaceWatchers = new Map();
+const workspaceWatchSubscribers = new Map();
+const workspaceWorker = createWorkspaceWorkerClient({
+    fork: (entryPath, args, options) => utilityProcess.fork(entryPath, args, options),
+    askpassEnv: () => gitAskpass?.env ?? null,
+    onWatchBatch: (batch) => {
+        const webContents = workspaceWatchSubscribers.get(batch?.subscriptionId);
+        if (webContents && !webContents.isDestroyed()) webContents.send('workspace-files-changed', batch);
+    },
+    log: (message, details) => logToFile('warn', message, details),
+});
+const workspaceServiceInWorker = workspaceServiceProxy(workspaceWorker, Object.keys(workspaceService).filter((name) => typeof workspaceService[name] === 'function'));
 const lspRuntime = createLspRuntime();
 const testRuntime = createTestRuntime((webContents, event) => webContents.send('workspace-test-event', event));
 const updateRuntime = createUpdateRuntime({ app, getCliPath, logToFile });
@@ -603,23 +613,18 @@ function registerIpcHandlers() {
         spawnDaemon,
         terminalBridgeRuntime,
         windowState: () => mainWindow,
-        workspaceService,
-        startWorkspaceWatch: (webContents, rootPath, runtimeOptions) => {
-            const watcher = createWorkspaceWatcher(rootPath, (batch) => {
-                if (!webContents.isDestroyed()) webContents.send('workspace-files-changed', batch);
-            }, runtimeOptions);
-            workspaceWatchers.set(watcher.subscriptionId, watcher);
-            return { subscriptionId: watcher.subscriptionId, root: watcher.root, watchedDirectoryCount: watcher.watchedDirectoryCount };
+        workspaceService: workspaceServiceInWorker,
+        startWorkspaceWatch: async (webContents, rootPath, runtimeOptions) => {
+            const subscription = await workspaceWorker.call('watchStart', rootPath, runtimeOptions);
+            workspaceWatchSubscribers.set(subscription.subscriptionId, webContents);
+            return subscription;
         },
-        stopWorkspaceWatch: (subscriptionId) => {
-            const watcher = workspaceWatchers.get(subscriptionId);
-            if (!watcher) return false;
-            watcher.close();
-            workspaceWatchers.delete(subscriptionId);
-            return true;
+        stopWorkspaceWatch: async (subscriptionId) => {
+            workspaceWatchSubscribers.delete(subscriptionId);
+            return workspaceWorker.call('watchStop', subscriptionId);
         },
         lspRuntime,
-        testRuntime,
+        testRuntime: { ...testRuntime, discover: (rootPath, runtimeOptions) => workspaceWorker.call('discoverTests', rootPath, runtimeOptions) },
         writeFsText,
         writeJsonFile,
         writeTextFile,
@@ -747,8 +752,8 @@ app.whenReady().then(async () => {
 app.on('before-quit', () => {
     logToFile('info', 'electron before-quit');
     terminalBridgeRuntime.stopAllTerminalBridges(true, true);
-    for (const watcher of workspaceWatchers.values()) watcher.close();
-    workspaceWatchers.clear();
+    workspaceWatchSubscribers.clear();
+    workspaceWorker.stop();
     void lspRuntime.stopAll();
     testRuntime.stopAll();
     gitAskpass?.stop();

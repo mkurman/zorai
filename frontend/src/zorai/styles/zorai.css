@@ -113,6 +113,7 @@
 
 .zorai-context-menu {
   position: fixed;
+  z-index: 2147483000;
   top: auto;
   min-width: 200px;
   color: var(--zorai-text);
@@ -2492,7 +2493,7 @@
 .zorai-code-rail-tabs__badge.is-danger { background: var(--danger); color: var(--text-on-accent); }
 .zorai-code-toolbar-menu { position: relative; display: inline-flex; }
 .zorai-code-toolbar-menu__list { position: absolute; z-index: 60; top: calc(100% + 4px); right: 0; min-width: 260px; padding: 4px; border: 1px solid var(--zorai-border-strong); border-radius: 10px; background: var(--zorai-bg-panel); box-shadow: 0 12px 32px color-mix(in srgb, var(--shade) 35%, transparent); display: grid; font-family: var(--font-ui); font-weight: 400; letter-spacing: normal; text-transform: none; cursor: default; }
-.zorai-code-context-menu { position: fixed; z-index: 60; }
+.zorai-code-context-menu { position: fixed; z-index: 2147483000; }
 .zorai-code-context-menu > .zorai-code-toolbar-menu__list { position: static; }
 .zorai-code-toolbar-menu__list button { position: relative; height: 28px; display: flex; align-items: center; justify-content: space-between; gap: 32px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--zorai-text); font: 13px var(--font-ui); white-space: nowrap; text-align: left; cursor: pointer; }
 .zorai-code-toolbar-menu__list button:hover:not(:disabled),
@@ -5996,6 +5997,17 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-composer-context-preview { position: absolute; left: 0; bottom: calc(100% + 6px); z-index: 20; width: min(520px, 92vw); display: flex; flex-direction: column; gap: 5px; padding: 10px 12px; border: 1px solid var(--zorai-border-strong); border-radius: 7px; background: var(--zorai-bg-panel); box-shadow: 0 14px 34px var(--zorai-shadow); color: var(--zorai-text); font-size: var(--text-sm); }
 .zorai-composer-context-preview code { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 10px var(--font-mono); color: var(--zorai-accent-secondary); }
 .zorai-composer-context-preview span { color: var(--zorai-muted); }
+.zorai-workspace-context-card { position: fixed; z-index: 1200; width: min(440px, calc(100vw - 32px)); display: grid; gap: 12px; padding: 14px 16px; border: 1px solid var(--zorai-border-strong); border-radius: 12px; background: var(--bg-elevated); color: var(--zorai-text); box-shadow: 0 1px 0 color-mix(in srgb, var(--zorai-text) 6%, transparent) inset, 0 2px 6px color-mix(in srgb, var(--shade) 35%, transparent), 0 16px 40px color-mix(in srgb, var(--shade) 60%, transparent); }
+.zorai-workspace-context-card__header { display: flex; align-items: center; gap: 10px; }
+.zorai-workspace-context-card__header .zorai-workspace-pin__folder { width: 28px; height: 28px; flex: none; padding: 6px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); box-sizing: border-box; }
+.zorai-workspace-context-card__header div { display: grid; gap: 1px; min-width: 0; }
+.zorai-workspace-context-card__header strong { font-size: var(--text-base); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zorai-workspace-context-card__header span { color: var(--zorai-muted); font-size: var(--text-xs); }
+.zorai-workspace-context-card__rows { display: grid; gap: 6px; margin: 0; padding: 10px 12px; border-radius: 8px; background: color-mix(in srgb, var(--text-primary) 4%, transparent); }
+.zorai-workspace-context-card__rows > div { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 10px; align-items: baseline; }
+.zorai-workspace-context-card__rows dt { color: var(--zorai-muted); font-size: var(--text-xs); }
+.zorai-workspace-context-card__rows dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font: var(--text-xs) var(--font-mono); }
+.zorai-workspace-context-card__note { margin: 0; color: var(--zorai-muted); font-size: var(--text-xs); line-height: 1.5; }
 
 .zorai-workspace-hunk-review { max-height: 48%; overflow: auto; border-block: 1px solid var(--zorai-border); background: var(--zorai-bg-panel); }
 .zorai-workspace-hunk-heading { position: sticky; top: 0; z-index: 2; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 4px; padding: 7px 9px; background: var(--zorai-bg-elevated); }
@@ -8368,13 +8380,44 @@ button.zorai-composer-context-chip { cursor: pointer; }
   text-transform: lowercase;
 }
 
+.zorai-md-table__toolbar > *,
+.zorai-data-table__toolbar > button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .zorai-md-table__toolbar select {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 220px;
   background: var(--zorai-bg-surface);
   color: var(--zorai-text);
   border: 1px solid var(--zorai-border);
   border-radius: 6px;
   padding: 2px 6px;
   font-size: var(--text-xs);
+}
+
+.zorai-data-table__action--icon {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+}
+
+.zorai-data-table__action--icon svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.zorai-data-table__action:hover {
+  background: var(--zorai-bg-active);
 }
 
 .zorai-data-table__action {
@@ -10768,3 +10811,6 @@ button.zorai-composer-context-chip { cursor: pointer; }
 @keyframes zorai-table-fullscreen-in { from { opacity: 0; } }
 @keyframes zorai-table-fullscreen-out { to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .zorai-table-fullscreen, .zorai-table-fullscreen[data-closing] { animation: none; } }
+
+.zorai-workspace-files__search { position: sticky; top: 41px; z-index: 2; background: linear-gradient(var(--bg-secondary), var(--bg-secondary)), var(--zorai-backdrop-solid, var(--zorai-bg-panel)); box-shadow: 0 0 0 4px var(--zorai-backdrop-solid, var(--zorai-bg-panel)); }
+.zorai-code-preview__html { width: 100%; height: 100%; min-height: 0; border: 0; border-radius: 8px; background: #fff; }

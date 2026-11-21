@@ -25,7 +25,7 @@ export function TableFullscreen({ title, bodyClassName, closing, onCopyCsv, onPn
 
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div className="zorai-table-fullscreen" data-closing={closing || undefined} onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className="zorai-table-fullscreen" data-closing={closing || undefined} onContextMenu={(event) => event.stopPropagation()} onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="zorai-table-fullscreen__panel" role="dialog" aria-label={title}>
         <header className="zorai-table-fullscreen__header">
           <strong>{title}</strong>
