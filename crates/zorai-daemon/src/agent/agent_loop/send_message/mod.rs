@@ -365,6 +365,9 @@ impl AgentEngine {
         let mut interrupted_llm_user_content = None;
         if let Some(thread_id) = thread_id.as_deref() {
             self.clear_operator_stream_stop(thread_id).await;
+            if initial_record_operator {
+                crate::agent::resume_computer_control(thread_id);
+            }
             if self.take_operator_interrupted_turn(thread_id).await && initial_record_operator {
                 interrupted_llm_user_content = Some(format!(
                     "{OPERATOR_INTERRUPTED_TURN_NOTE}\n\n{llm_user_content}"

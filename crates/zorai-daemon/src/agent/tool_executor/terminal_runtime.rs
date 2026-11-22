@@ -845,6 +845,81 @@ pub(crate) async fn execute_headless_shell_command(
     agent: Option<&AgentEngine>,
     thread_id: Option<&str>,
 ) -> Result<(String, Option<ToolPendingApproval>)> {
+    let marker = match agent {
+        Some(agent) => sandbox_result_marker(agent, args).await,
+        None => None,
+    };
+    let Some(marker) = marker else {
+        return run_headless_shell_command(
+            args,
+            session_manager,
+            session_id,
+            tool_name,
+            cancel_token,
+            foreground_detach_after,
+            agent,
+            thread_id,
+        )
+        .await;
+    };
+    let sandboxed_args = sandboxed_headless_args(args, session_manager, session_id).await?;
+    let (output, pending) = run_headless_shell_command(
+        &sandboxed_args,
+        session_manager,
+        session_id,
+        tool_name,
+        cancel_token,
+        foreground_detach_after,
+        agent,
+        thread_id,
+    )
+    .await?;
+    Ok((format!("{marker}\n{output}"), pending))
+}
+
+async fn sandboxed_headless_args(
+    args: &serde_json::Value,
+    session_manager: &Arc<SessionManager>,
+    session_id: Option<SessionId>,
+) -> Result<serde_json::Value> {
+    let command = args
+        .get("command")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| anyhow::anyhow!("missing 'command' argument"))?;
+    let workspace_root = match resolve_tool_cwd(args, session_manager, session_id).await? {
+        Some(cwd) => cwd,
+        None => std::env::current_dir().context("failed to resolve sandbox workspace")?,
+    };
+    let wrapped = crate::sandbox::detect_sandbox().wrap(
+        command,
+        &workspace_root.to_string_lossy(),
+        sandbox_allows_network(args),
+    );
+    let mut sandboxed = args.clone();
+    if let Some(map) = sandboxed.as_object_mut() {
+        map.insert(
+            "command".to_string(),
+            serde_json::Value::String(crate::pty_session::shell_join(
+                &wrapped.program,
+                &wrapped.args,
+            )),
+        );
+    }
+    Ok(sandboxed)
+}
+
+async fn run_headless_shell_command(
+    args: &serde_json::Value,
+    session_manager: &Arc<SessionManager>,
+    session_id: Option<SessionId>,
+    tool_name: &str,
+    cancel_token: Option<CancellationToken>,
+    foreground_detach_after: Option<std::time::Duration>,
+    agent: Option<&AgentEngine>,
+    thread_id: Option<&str>,
+) -> Result<(String, Option<ToolPendingApproval>)> {
     let command = args
         .get("command")
         .and_then(|value| value.as_str())

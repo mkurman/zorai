@@ -240,7 +240,7 @@ fn command_in_child_shell(command: &str, cwd: Option<&str>) -> String {
     format!("bash -c {}", shell_escape(&script))
 }
 
-fn shell_join(program: &str, args: &[String]) -> String {
+pub(crate) fn shell_join(program: &str, args: &[String]) -> String {
     let mut parts = Vec::with_capacity(args.len() + 1);
     parts.push(shell_escape(program));
     for arg in args {

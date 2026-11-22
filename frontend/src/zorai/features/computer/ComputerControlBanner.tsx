@@ -8,7 +8,7 @@ export function ComputerControlBanner() {
   const threadId = useComputerControlStore((state) => state.threadId);
   const threadTitle = useAgentStore((state) => state.threads.find((thread) => thread.daemonThreadId === threadId || thread.id === threadId)?.title ?? null);
   const [stopping, setStopping] = useState(false);
-  if (!active) return null;
+  if (!active || getBridge()) return null;
   const stop = async () => {
     setStopping(true);
     try {

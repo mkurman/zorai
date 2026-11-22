@@ -1,6 +1,7 @@
 use super::*;
 use serde_json::Value;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 use zorai_protocol::tool_names;
@@ -8,7 +9,9 @@ use zorai_protocol::tool_names;
 const SESSION_GRANT: Duration = Duration::from_secs(10 * 60);
 const IDLE_RELEASE: Duration = Duration::from_secs(2 * 60);
 const USER_INPUT_MARGIN_MS: u64 = 400;
+const TAKEOVER_POLL: Duration = Duration::from_millis(500);
 const APPROVAL_PREFIX: &str = "computer-";
+const OPERATOR_HOLD_NOTE: &str = "The operator took back control of the mouse and keyboard, so this action was not performed. Stop using computer tools now: do not retry or wait for approval. Briefly tell the operator where you stopped; you may continue only after they send a new message.";
 
 pub(crate) fn computer_tool_definitions() -> Vec<ToolDefinition> {
     use crate::agent::tool_executor::tool_def;
@@ -127,26 +130,23 @@ pub(crate) async fn execute_computer_tool(
     if task_id.is_some() {
         anyhow::bail!("Mouse and keyboard control needs operator approval, which is only available in a normal thread, not inside a goal task.");
     }
-    let mut rationale = "The agent wants to control your mouse or keyboard. Approve once, approve for 10 minutes in this thread, or deny.".to_string();
+    if operator_holds_control(thread_id) {
+        return Ok((OPERATOR_HOLD_NOTE.to_string(), None));
+    }
+    let rationale = "The agent wants to control your mouse or keyboard. Approve once, approve for 10 minutes in this thread, or deny.".to_string();
     if session_granted(thread_id) {
         if user_took_over().await {
-            SESSION_GRANTS
-                .lock()
-                .expect("session grants lock")
-                .remove(thread_id);
+            hold_computer_control(thread_id);
             emit_control(
                 agent,
                 thread_id,
                 false,
                 Some("paused because you used the mouse or keyboard"),
             );
-            rationale =
-                "Paused because you used the mouse or keyboard. Approve to let the agent continue."
-                    .to_string();
-        } else {
-            let outcome = run_action(agent, thread_id, &action).await?;
-            return Ok((outcome, None));
+            return Ok((OPERATOR_HOLD_NOTE.to_string(), None));
         }
+        let outcome = run_action(agent, thread_id, &action).await?;
+        return Ok((outcome, None));
     }
     let approval_id = format!("{APPROVAL_PREFIX}{}", uuid::Uuid::new_v4());
     PENDING_ACTIONS
@@ -254,6 +254,7 @@ fn emit_control(agent: &AgentEngine, thread_id: &str, active: bool, reason: Opti
         thread_id: thread_id.to_string(),
         active,
         reason: reason.map(str::to_string),
+        return_to_app: false,
     });
 }
 
@@ -262,12 +263,15 @@ async fn run_action(
     thread_id: &str,
     action: &ComputerAction,
 ) -> Result<String> {
+    ACTION_IN_PROGRESS.store(true, Ordering::SeqCst);
     let outcome = perform_action(action, &agent.data_dir).await;
     *LAST_ACTION_AT.lock().expect("last action lock") = Some(Instant::now());
+    ACTION_IN_PROGRESS.store(false, Ordering::SeqCst);
     *CONTROL_THREAD.lock().expect("control thread lock") = Some(thread_id.to_string());
     match &outcome {
         Ok(_) => {
             emit_control(agent, thread_id, true, None);
+            watch_for_takeover(agent.event_tx.clone());
             let event_tx = agent.event_tx.clone();
             let thread = thread_id.to_string();
             tokio::spawn(async move {
@@ -278,10 +282,12 @@ async fn run_action(
                     .is_some_and(|last| last.elapsed() >= IDLE_RELEASE);
                 if idle {
                     release_desktop().await;
+                    CONTROL_THREAD.lock().expect("control thread lock").take();
                     let _ = event_tx.send(AgentEvent::ComputerControl {
                         thread_id: thread,
                         active: false,
                         reason: Some("released after 2 minutes without actions".to_string()),
+                        return_to_app: false,
                     });
                 }
             });
@@ -289,6 +295,66 @@ async fn run_action(
         Err(_) => emit_control(agent, thread_id, false, Some("the control session ended")),
     }
     outcome
+}
+
+fn hold_computer_control(thread_id: &str) {
+    SESSION_GRANTS
+        .lock()
+        .expect("session grants lock")
+        .remove(thread_id);
+    OPERATOR_HOLDS
+        .lock()
+        .expect("operator holds lock")
+        .insert(thread_id.to_string());
+}
+
+fn operator_holds_control(thread_id: &str) -> bool {
+    OPERATOR_HOLDS
+        .lock()
+        .expect("operator holds lock")
+        .contains(thread_id)
+}
+
+pub(crate) fn resume_computer_control(thread_id: &str) {
+    OPERATOR_HOLDS
+        .lock()
+        .expect("operator holds lock")
+        .remove(thread_id);
+}
+
+fn watch_for_takeover(event_tx: tokio::sync::broadcast::Sender<AgentEvent>) {
+    if TAKEOVER_WATCH.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(TAKEOVER_POLL).await;
+            let Some(thread_id) = CONTROL_THREAD.lock().expect("control thread lock").clone()
+            else {
+                break;
+            };
+            if LAST_ACTION_AT.lock().expect("last action lock").is_none() {
+                break;
+            }
+            if ACTION_IN_PROGRESS.load(Ordering::SeqCst) || !user_took_over().await {
+                continue;
+            }
+            if ACTION_IN_PROGRESS.load(Ordering::SeqCst) {
+                continue;
+            }
+            hold_computer_control(&thread_id);
+            CONTROL_THREAD.lock().expect("control thread lock").take();
+            release_desktop().await;
+            let _ = event_tx.send(AgentEvent::ComputerControl {
+                thread_id,
+                active: false,
+                reason: Some("paused because you used the mouse or keyboard".to_string()),
+                return_to_app: false,
+            });
+            break;
+        }
+        TAKEOVER_WATCH.store(false, Ordering::SeqCst);
+    });
 }
 
 async fn release_desktop() {
@@ -304,12 +370,39 @@ pub(crate) async fn stop_computer_control(
     revoke_computer_control();
     release_desktop().await;
     if let Some(thread_id) = CONTROL_THREAD.lock().expect("control thread lock").take() {
+        OPERATOR_HOLDS
+            .lock()
+            .expect("operator holds lock")
+            .insert(thread_id.clone());
         let _ = event_tx.send(AgentEvent::ComputerControl {
             thread_id,
             active: false,
             reason: Some(reason.to_string()),
+            return_to_app: false,
         });
     }
+}
+
+pub(crate) async fn finish_computer_control_turn(
+    event_tx: &tokio::sync::broadcast::Sender<AgentEvent>,
+    thread_id: &str,
+) {
+    let controls_thread = CONTROL_THREAD
+        .lock()
+        .expect("control thread lock")
+        .as_deref()
+        == Some(thread_id);
+    if !controls_thread {
+        return;
+    }
+    release_desktop().await;
+    CONTROL_THREAD.lock().expect("control thread lock").take();
+    let _ = event_tx.send(AgentEvent::ComputerControl {
+        thread_id: thread_id.to_string(),
+        active: false,
+        reason: None,
+        return_to_app: true,
+    });
 }
 
 static LAST_SCREEN_SIZE: LazyLock<std::sync::Mutex<Option<(u32, u32)>>> =
@@ -363,6 +456,10 @@ pub(crate) fn take_tool_image_blocks(
 
 static LAST_ACTION_AT: LazyLock<std::sync::Mutex<Option<Instant>>> =
     LazyLock::new(Default::default);
+static OPERATOR_HOLDS: LazyLock<std::sync::Mutex<std::collections::HashSet<String>>> =
+    LazyLock::new(Default::default);
+static ACTION_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
+static TAKEOVER_WATCH: AtomicBool = AtomicBool::new(false);
 static CONTROL_THREAD: LazyLock<std::sync::Mutex<Option<String>>> = LazyLock::new(Default::default);
 
 fn session_granted(thread_id: &str) -> bool {
@@ -1018,6 +1115,64 @@ async fn capture_screen() -> Result<ScreenCapture> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    static CONTROL_STATE_TESTS: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+    #[tokio::test]
+    async fn after_the_operator_stops_control_the_agent_stays_off_the_desktop_until_they_write_again(
+    ) {
+        let _serial = CONTROL_STATE_TESTS.lock().await;
+        let (event_tx, _events) = tokio::sync::broadcast::channel(8);
+        SESSION_GRANTS
+            .lock()
+            .expect("session grants lock")
+            .insert("held".to_string(), Instant::now() + SESSION_GRANT);
+        *CONTROL_THREAD.lock().expect("control thread lock") = Some("held".to_string());
+
+        stop_computer_control(&event_tx, "stopped from Zorai").await;
+        assert!(operator_holds_control("held"));
+        assert!(!session_granted("held"));
+        assert!(!operator_holds_control("other"));
+
+        resume_computer_control("held");
+        assert!(!operator_holds_control("held"));
+    }
+
+    #[tokio::test]
+    async fn finishing_the_controlling_turn_hands_the_desktop_back_and_returns_to_zorai() {
+        let _serial = CONTROL_STATE_TESTS.lock().await;
+        let (event_tx, mut events) = tokio::sync::broadcast::channel(8);
+        *CONTROL_THREAD.lock().expect("control thread lock") = Some("controller".to_string());
+
+        finish_computer_control_turn(&event_tx, "other-thread").await;
+        assert!(events.try_recv().is_err());
+        assert_eq!(
+            CONTROL_THREAD
+                .lock()
+                .expect("control thread lock")
+                .as_deref(),
+            Some("controller")
+        );
+
+        finish_computer_control_turn(&event_tx, "controller").await;
+        match events.try_recv().expect("control end event") {
+            AgentEvent::ComputerControl {
+                thread_id,
+                active,
+                return_to_app,
+                ..
+            } => {
+                assert_eq!(thread_id, "controller");
+                assert!(!active);
+                assert!(return_to_app);
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+        assert!(CONTROL_THREAD
+            .lock()
+            .expect("control thread lock")
+            .is_none());
+    }
 
     #[test]
     fn wayland_wins_over_xwayland_so_gnome_uses_the_portal_instead_of_a_black_x11_capture() {

@@ -51,6 +51,55 @@ pub(crate) async fn execute_managed_command(
     thread_id: &str,
     cancel_token: Option<CancellationToken>,
 ) -> Result<(String, Option<ToolPendingApproval>)> {
+    let marker = sandbox_result_marker(agent, args).await;
+    let (output, pending) = run_managed_command(
+        args,
+        agent,
+        session_manager,
+        session_id,
+        event_tx,
+        thread_id,
+        cancel_token,
+    )
+    .await?;
+    Ok(match marker {
+        Some(marker) if pending.is_none() => (format!("{marker}\n{output}"), pending),
+        _ => (output, pending),
+    })
+}
+
+pub(crate) async fn sandbox_result_marker(
+    agent: &AgentEngine,
+    args: &serde_json::Value,
+) -> Option<String> {
+    let operator_enabled = agent.config.read().await.managed_execution.sandbox_enabled;
+    let requested = args
+        .get("sandbox_enabled")
+        .and_then(|value| value.as_bool());
+    if !resolve_sandbox_enabled(operator_enabled, requested) {
+        return None;
+    }
+    crate::sandbox::result_marker(
+        crate::sandbox::detect_sandbox().name(),
+        sandbox_allows_network(args),
+    )
+}
+
+pub(crate) fn sandbox_allows_network(args: &serde_json::Value) -> bool {
+    args.get("allow_network")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false)
+}
+
+async fn run_managed_command(
+    args: &serde_json::Value,
+    agent: &AgentEngine,
+    session_manager: &Arc<SessionManager>,
+    session_id: Option<SessionId>,
+    event_tx: &broadcast::Sender<AgentEvent>,
+    thread_id: &str,
+    cancel_token: Option<CancellationToken>,
+) -> Result<(String, Option<ToolPendingApproval>)> {
     let command = args
         .get("command")
         .and_then(|v| v.as_str())

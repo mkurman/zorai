@@ -35,6 +35,7 @@ const {
 } = require('./main/agent-runtime-discovery.cjs');
 const { registerAgentIpcHandlers } = require('./main/agent-ipc-handlers.cjs');
 const { createAgentDbBridgeRuntime } = require('./main/agent-db-bridge-runtime.cjs');
+const { createComputerControlOverlay } = require('./main/computer-control-overlay.cjs');
 const { registerCoreIpcHandlers } = require('./main/core-ipc-handlers.cjs');
 const { registerDbIpcHandlers } = require('./main/db-ipc-handlers.cjs');
 const { cleanupDiscordClient, sendDiscordMessage } = require('./main/discord.cjs');
@@ -158,12 +159,21 @@ const whatsAppRuntime = createWhatsAppRuntime({
     spawn,
 });
 
+const computerControlOverlay = createComputerControlOverlay({
+    BrowserWindow,
+    screen,
+    getMainWindow: () => mainWindow,
+    logToFile,
+    onStop: () => sendAgentCommandFn?.({ type: 'stop-computer-control' }),
+});
+
 const agentDbBridgeRuntime = createAgentDbBridgeRuntime({
     fs,
     getDaemonPath,
     getChildProcessEnv,
     getMainWindow: () => mainWindow,
     logToFile,
+    onComputerControl: (event) => computerControlOverlay.apply(event),
     pendingHandlerMatchesResponseType,
     resolvePendingAgentQueryEvent,
     sendRenderedWhatsAppQr: async (asciiQr) => {
@@ -751,6 +761,7 @@ app.whenReady().then(async () => {
 
 app.on('before-quit', () => {
     logToFile('info', 'electron before-quit');
+    computerControlOverlay.hide();
     terminalBridgeRuntime.stopAllTerminalBridges(true, true);
     workspaceWatchSubscribers.clear();
     workspaceWorker.stop();

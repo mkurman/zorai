@@ -26,6 +26,7 @@ function createAgentDbBridgeRuntime(options) {
         getDaemonPath,
         getMainWindow,
         logToFile,
+        onComputerControl,
         pendingHandlerMatchesResponseType,
         resolvePendingAgentQueryEvent,
         sendRenderedWhatsAppQr,
@@ -215,6 +216,7 @@ function createAgentDbBridgeRuntime(options) {
                     continue;
                 }
 
+                if (event.type === 'computer_control') onComputerControl?.(event);
                 const mainWindow = getMainWindow();
                 if (event.type === 'concierge_welcome') {
                     logToFile('info', '[concierge] forwarding concierge_welcome to renderer', { contentLen: event.content?.length, actionsLen: event.actions?.length });
@@ -231,6 +233,7 @@ function createAgentDbBridgeRuntime(options) {
 
         bridgeProcess.on('exit', (code) => {
             logToFile('info', 'agent bridge exited', { code });
+            onComputerControl?.({ active: false });
             for (const [, handler] of (agentBridge?.pending ?? new Map()).entries()) {
                 handler.reject(new Error('agent bridge exited'));
             }
