@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { buildEmbedDocument, EMBED_CONTENT_SECURITY_POLICY, expandAgentEmbedTags } from "./htmlEmbed";
+import { buildEmbedDocument, EMBED_CONTENT_SECURITY_POLICY, expandAgentEmbedTags } from "./htmlEmbedDocument";
 
 describe("interactive HTML embeds", () => {
   it("puts the no-network policy before any page code so an embed cannot phone home or touch the app", () => {
