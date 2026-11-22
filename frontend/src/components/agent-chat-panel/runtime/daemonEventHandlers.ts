@@ -1,6 +1,6 @@
 import { getBridge } from "@/lib/bridge";
 import { useAgentStore } from "@/lib/agentStore";
-import { fetchGoalRuns, normalizeGoalRun } from "@/lib/goalRuns";
+import { fetchGoalRun, fetchGoalRuns, normalizeGoalRun, upsertGoalRun, type GoalRun } from "@/lib/goalRuns";
 import { useAgentMissionStore } from "@/lib/agentMissionStore";
 import { useSnippetStore } from "@/lib/snippetStore";
 import { closePanesForSession, provisionTerminalPaneInWorkspace } from "@/lib/agentWorkspace";
@@ -237,10 +237,27 @@ export function handleTaskUpdateEvent({ event, activePaneId, activeWorkspace, ad
   }
 }
 
+const latestGoalRunRefresh = new Map<string, number>();
+
+function refreshSingleGoalRun(goalRunId: string, setGoalRunsForTrace: (update: (current: GoalRun[]) => GoalRun[]) => void) {
+  const request = (latestGoalRunRefresh.get(goalRunId) ?? 0) + 1;
+  latestGoalRunRefresh.set(goalRunId, request);
+  void fetchGoalRun(goalRunId).then((goalRun) => {
+    if (latestGoalRunRefresh.get(goalRunId) !== request) return;
+    latestGoalRunRefresh.delete(goalRunId);
+    if (goalRun) {
+      setGoalRunsForTrace((current) => upsertGoalRun(current, goalRun));
+      return;
+    }
+    void fetchGoalRuns().then((runs) => setGoalRunsForTrace(() => runs));
+  });
+}
+
 export function handleGoalRunEvent({ event, activePaneId, activeWorkspace, addNotification, cleanupGoalRunWorkspace, setGoalRunsForTrace }: any) {
   const goalRun = normalizeGoalRun(event.goal_run ?? event.goalRun ?? event.run ?? null);
   if (!goalRun) return;
-  void fetchGoalRuns().then(setGoalRunsForTrace);
+  latestGoalRunRefresh.delete(goalRun.id);
+  setGoalRunsForTrace((current: GoalRun[]) => upsertGoalRun(current, goalRun));
   if (goalRun.status === "awaiting_approval") {
     addNotification({
       title: "Goal runner awaiting approval",
@@ -317,7 +334,7 @@ export function handleTodoUpdateEvent({ event, daemonLocalThreadRef, daemonThrea
     setThreadTodos(localThreadId, todos);
   }
   if (typeof event.goal_run_id === "string" && event.goal_run_id.trim()) {
-    void fetchGoalRuns().then(setGoalRunsForTrace);
+    refreshSingleGoalRun(event.goal_run_id.trim(), setGoalRunsForTrace);
   }
 }
 

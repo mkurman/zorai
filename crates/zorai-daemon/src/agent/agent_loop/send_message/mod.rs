@@ -20,6 +20,7 @@ use types::{
 };
 
 pub(super) const DEFAULT_LLM_STREAM_CHUNK_TIMEOUT_SECS: u64 = 300;
+pub(crate) const OPERATOR_INTERRUPTED_TURN_NOTE: &str = "[Your previous response was stopped by the user before it finished, so any reply or tool call in progress may be incomplete.]";
 
 pub(super) fn tool_args_summary(arguments: &str) -> String {
     arguments.chars().take(100).collect()
@@ -361,9 +362,18 @@ impl AgentEngine {
         let mut reuse_existing_user_message = initial_reuse_existing_user_message;
         let mut scheduled_retry_cycles = 0u32;
         let mut retained_stream: Option<(String, u64)> = None;
+        let mut interrupted_llm_user_content = None;
         if let Some(thread_id) = thread_id.as_deref() {
             self.clear_operator_stream_stop(thread_id).await;
+            if self.take_operator_interrupted_turn(thread_id).await && initial_record_operator {
+                interrupted_llm_user_content = Some(format!(
+                    "{OPERATOR_INTERRUPTED_TURN_NOTE}\n\n{llm_user_content}"
+                ));
+            }
         }
+        let llm_user_content = interrupted_llm_user_content
+            .as_deref()
+            .unwrap_or(llm_user_content);
 
         loop {
             let initialized = SendMessageRunner::initialize(

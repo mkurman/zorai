@@ -509,6 +509,24 @@ impl AgentEngine {
         }
     }
 
+    pub async fn operator_interrupt_stream(&self, thread_id: &str) -> bool {
+        let stopped = self.stop_stream(thread_id).await;
+        if stopped {
+            self.operator_interrupted_turns
+                .lock()
+                .await
+                .insert(thread_id.to_string());
+        }
+        stopped
+    }
+
+    pub(crate) async fn take_operator_interrupted_turn(&self, thread_id: &str) -> bool {
+        self.operator_interrupted_turns
+            .lock()
+            .await
+            .remove(thread_id)
+    }
+
     pub(crate) async fn clear_operator_stream_stop(&self, thread_id: &str) {
         self.operator_stopped_streams.lock().await.remove(thread_id);
     }

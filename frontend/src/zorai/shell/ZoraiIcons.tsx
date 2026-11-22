@@ -128,6 +128,23 @@ function renderIconPath(icon: ZoraiNavIconId) {
     );
   }
 
+  if (icon === "usage") {
+    return (
+      <>
+        <path d="M5 19V11M10 19V5M15 19v-6M20 19V8" />
+      </>
+    );
+  }
+
+  if (icon === "inbox") {
+    return (
+      <>
+        <path d="M4 13l2.5-7h11L20 13v6H4z" />
+        <path d="M4 13h4.5l1 2.5h5l1-2.5H20" />
+      </>
+    );
+  }
+
   if (icon === "activity") {
     return (
       <>

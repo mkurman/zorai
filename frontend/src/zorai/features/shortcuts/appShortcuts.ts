@@ -20,7 +20,7 @@ export const APP_SHORTCUTS: AppShortcut[] = [
   { id: "app.toggleRail", label: "Toggle sidebar", category: "General", defaultCombo: "", menuCommand: "toggle-rail" },
   { id: "app.nightMode", label: "Toggle night mode", category: "General", defaultCombo: "" },
   { id: "app.screenshot", label: "Take screenshot", category: "General", defaultCombo: "" },
-  ...zoraiNavItems.map((item): AppShortcut => ({ id: `go.${item.id}`, label: `Go to ${item.label}`, category: "Navigation", defaultCombo: "", menuCommand: `go-${item.id}`, view: item.id })),
+  ...zoraiNavItems.map((item): AppShortcut => ({ id: `go.${item.id}`, label: `Go to ${item.label}`, category: "Navigation", defaultCombo: item.id === "activity" ? "Ctrl+I" : "", menuCommand: `go-${item.id}`, view: item.id })),
   { id: "app.files", label: "Open Files", category: "Navigation", defaultCombo: "Ctrl+Shift+E", menuCommand: "toggle-file-manager" },
   { id: "app.newWorkspace", label: "Open Workspaces board", category: "Navigation", defaultCombo: "Ctrl+Shift+N", menuCommand: "new-workspace" },
   { id: "app.newThread", label: "New thread", category: "Threads", defaultCombo: "Ctrl+T", menuCommand: "new-surface" },

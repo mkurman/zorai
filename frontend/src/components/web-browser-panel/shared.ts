@@ -12,8 +12,7 @@ export function getBrowserContainerStyle(webBrowserFullscreen: boolean): CSSProp
             position: "fixed",
             inset: 0,
             zIndex: 3500,
-            background: "var(--zorai-bg)",
-            borderLeft: "1px solid var(--border)",
+            background: "var(--zorai-bg-panel)",
             display: "flex",
             flexDirection: "column",
             minWidth: 0,
@@ -32,21 +31,9 @@ export function getBrowserContainerStyle(webBrowserFullscreen: boolean): CSSProp
         flexShrink: 0,
         minHeight: 0,
         position: "relative",
-        background: "var(--zorai-bg)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius-xl)",
+        background: "var(--zorai-bg-panel)",
+        border: "1px solid var(--zorai-border)",
+        borderRadius: 10,
         overflow: "hidden",
     };
 }
-
-export const navBtnStyle: CSSProperties = {
-    height: 26,
-    minWidth: 28,
-    border: "1px solid var(--border)",
-    borderRadius: "var(--radius-sm)",
-    background: "var(--zorai-bg)",
-    color: "var(--text-primary)",
-    fontSize: 12,
-    cursor: "pointer",
-    padding: "0 8px",
-};

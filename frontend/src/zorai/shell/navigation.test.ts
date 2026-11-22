@@ -24,6 +24,7 @@ describe("Zorai navigation", () => {
       "tools",
       "skills",
       "activity",
+      "usage",
       "plugins",
       "settings",
     ]);

@@ -228,13 +228,22 @@ export function ShareDonut({
             onMouseLeave={() => setActiveIndex((current) => (current === index ? null : current))}
           >
             <i style={{ background: CHART_COLORS[(accentStart + index) % CHART_COLORS.length] }} />
-            <span title={`${slice.row.provider}/${slice.row.model}`}>{slice.row.provider}/{slice.row.model}</span>
+            <span title={slice.row.model ? `${slice.row.provider} / ${slice.row.model}` : slice.row.provider}>{modelShortName(slice.row.model) || slice.row.provider}</span>
             <strong>{formatPercent(slice.share)}</strong>
           </button>
         ))}
       </div>
     </div>
   );
+}
+
+function modelShortName(model: string): string {
+  return model.slice(model.lastIndexOf("/") + 1);
+}
+
+function modelSourceLabel(provider: string, model: string): string {
+  const vendor = model.includes("/") ? model.slice(0, model.lastIndexOf("/")) : "";
+  return vendor && vendor !== provider ? `${provider} · ${vendor}` : provider;
 }
 
 export function UsageBarList({
@@ -246,16 +255,21 @@ export function UsageBarList({
   metric: "totalTokens" | "cost";
   emptyText: string;
 }) {
-  const max = rows.reduce((peak, row) => Math.max(peak, row[metric]), 0);
-  const total = rows.reduce((acc, row) => acc + row[metric], 0);
+  const ranked = rows.filter((row) => row[metric] > 0);
+  const max = ranked.reduce((peak, row) => Math.max(peak, row[metric]), 0);
+  const total = ranked.reduce((acc, row) => acc + row[metric], 0);
+  const omitted = rows.length - ranked.length;
 
-  if (rows.length === 0 || max <= 0) return <div className="zorai-empty-state">{emptyText}</div>;
+  if (ranked.length === 0 || max <= 0) return <div className="zorai-empty-state">{emptyText}</div>;
 
   return (
     <div className="zorai-usage-bars">
-      {rows.slice(0, 8).map((row) => (
-        <div key={row.key} className="zorai-usage-bar">
-          <span title={`${row.provider}/${row.model}`}>{row.provider}/{row.model}</span>
+      {ranked.slice(0, 8).map((row) => (
+        <div key={row.key} className="zorai-usage-bar zorai-usage-bar--ranked">
+          <span className="zorai-usage-bar__label" title={row.model ? `${row.provider} / ${row.model}` : row.provider}>
+            <b>{modelShortName(row.model) || row.provider}</b>
+            {row.model ? <small>{modelSourceLabel(row.provider, row.model)}</small> : null}
+          </span>
           <div>
             <i style={{ width: `${(row[metric] / max) * 100}%` }} />
           </div>
@@ -265,6 +279,7 @@ export function UsageBarList({
           </strong>
         </div>
       ))}
+      {omitted > 0 ? <div className="zorai-usage-bars__note">{omitted} more {rows.some((row) => row.model) ? "model" : "provider"}{omitted === 1 ? "" : "s"} with no recorded {metric === "cost" ? "cost" : "tokens"} in this window.</div> : null}
     </div>
   );
 }

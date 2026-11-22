@@ -35,7 +35,6 @@ export function WebBrowserPanel({ style, className, enableInternalResize = false
     const webBrowserUrl = useWorkspaceStore((s) => s.webBrowserUrl);
     const webBrowserReloadToken = useWorkspaceStore((s) => s.webBrowserReloadToken);
     const webBrowserFullscreen = useWorkspaceStore((s) => s.webBrowserFullscreen);
-    const setWebBrowserOpen = useWorkspaceStore((s) => s.setWebBrowserOpen);
     const navigateWebBrowser = useWorkspaceStore((s) => s.navigateWebBrowser);
     const webBrowserBack = useWorkspaceStore((s) => s.webBrowserBack);
     const webBrowserForward = useWorkspaceStore((s) => s.webBrowserForward);
@@ -183,7 +182,7 @@ export function WebBrowserPanel({ style, className, enableInternalResize = false
             ref={panelRef}
             style={{
                 ...containerStyle,
-                ...(style ?? {}),
+                ...(webBrowserFullscreen ? {} : style ?? {}),
                 ...(enableInternalResize && !webBrowserFullscreen
                     ? {
                         width: panelWidth,
@@ -220,7 +219,7 @@ export function WebBrowserPanel({ style, className, enableInternalResize = false
                 reload={webBrowserReload}
                 navigate={navigateWebBrowser}
                 toggleFullscreen={toggleWebBrowserFullscreen}
-                close={() => setWebBrowserOpen(false)}
+                fullscreen={webBrowserFullscreen}
             />
 
             <WebviewFrame

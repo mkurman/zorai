@@ -812,7 +812,7 @@ declare global {
         dbListSnapshotIndex?: (workspaceId?: string | null) => Promise<unknown[]>;
         dbUpsertAgentEvent?: (eventRow: unknown) => Promise<boolean>;
         dbListAgentEvents?: (opts?: { category?: string | null; paneId?: string | null; limit?: number | null }) => Promise<unknown[]>;
-        dbListDatabaseTables?: () => Promise<unknown[]>;
+        dbListDatabaseTables?: () => Promise<unknown[] | { error: string }>;
         dbQueryDatabaseRows?: (opts: { tableName: string; offset?: number; limit?: number; sortColumn?: string | null; sortDirection?: "asc" | "desc" | null }) => Promise<unknown>;
         dbUpdateDatabaseRows?: (tableName: string, updates: unknown[]) => Promise<{ updatedRows?: number; error?: string } | unknown>;
         dbExecuteDatabaseSql?: (sql: string) => Promise<unknown>;

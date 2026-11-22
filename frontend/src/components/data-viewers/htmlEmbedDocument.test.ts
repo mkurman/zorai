@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { buildEmbedDocument, EMBED_CONTENT_SECURITY_POLICY, expandAgentEmbedTags } from "./htmlEmbedDocument";
+import { buildEmbedDocument, EMBED_CONTENT_SECURITY_POLICY, expandAgentEmbedTags, isStandaloneHtmlDocument } from "./htmlEmbedDocument";
 
 describe("interactive HTML embeds", () => {
   it("puts the no-network policy before any page code so an embed cannot phone home or touch the app", () => {
@@ -28,5 +28,12 @@ describe("interactive HTML embeds", () => {
     const source = readFileSync(fileURLToPath(new URL("./HtmlEmbed.tsx", import.meta.url)), "utf8");
     expect(source).toContain('sandbox="allow-scripts"');
     expect(source).not.toContain("allow-same-origin");
+  });
+
+  it("renders a complete page an agent pastes into an html code block, but leaves snippets and half-streamed pages as code", () => {
+    expect(isStandaloneHtmlDocument("<!DOCTYPE html>\n<html lang=\"en\"><body>hi</body></html>\n")).toBe(true);
+    expect(isStandaloneHtmlDocument("<html><body>hi</body></html>")).toBe(true);
+    expect(isStandaloneHtmlDocument("<div class=\"card\">snippet</div>")).toBe(false);
+    expect(isStandaloneHtmlDocument("<!DOCTYPE html>\n<html><body>still streaming")).toBe(false);
   });
 });

@@ -34,7 +34,7 @@ const MAX_CHART_DAYS = 30;
 
 export function UsagePanel({ stats }: { stats: UsageStats }) {
   const [tab, setTab] = useState<UsageTab>("overview");
-  const [windowId, setWindowId] = useState<ZoraiStatisticsWindow>("all");
+  const [windowId, setWindowId] = useState<ZoraiStatisticsWindow>("7d");
   const [snapshot, setSnapshot] = useState<ZoraiAgentStatisticsSnapshot | null>(null);
   const [sessionPageSize, setSessionPageSize] = useState(25);
   const [sessionPage, setSessionPage] = useState(0);
@@ -233,11 +233,7 @@ function StatisticsBody({ snapshot, tab }: { snapshot: ZoraiAgentStatisticsSnaps
           <UsageMetric label="Providers" value={String(snapshot.totals.provider_count)} />
           <UsageMetric label="Models" value={String(snapshot.totals.model_count)} />
         </div>
-        <p className="zorai-empty-state">Input counts the whole conversation context, re-sent to the provider on every agent step, so it grows much faster than the text actually written. Stored content below is what was written once.</p>
-        <p className="zorai-empty-state">Generated at: {formatGeneratedAt(snapshot.generated_at)}</p>
-        {snapshot.has_incomplete_cost_history ? (
-          <p className="zorai-empty-state">Warning: historical cost is incomplete for this window. Older rows without stored cost are counted as $0.</p>
-        ) : null}
+        <p className="zorai-usage-generated">Generated at: {formatGeneratedAt(snapshot.generated_at)}</p>
       </div>
       <UsageTable title="Stored content" columns={["Content", "Chars", "≈ Tokens"]} empty="No stored content for this window.">
         {contentRows.map((row) => (

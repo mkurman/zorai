@@ -230,8 +230,10 @@ export function SessionVaultPanel({ style, className }: SessionVaultPanelProps =
         onClick={(e) => e.stopPropagation()}
         style={{
           background: "var(--zorai-bg)",
-          border: "1px solid var(--glass-border)",
-          borderRadius: 0,
+          border: "none",
+          color: "var(--zorai-text)",
+          fontFamily: "var(--font-ui)",
+          fontSize: "var(--text-sm)",
           width: "min(1500px, 96vw)",
           maxHeight: "88vh",
           overflow: "hidden",
@@ -240,16 +242,6 @@ export function SessionVaultPanel({ style, className }: SessionVaultPanelProps =
         }}
         className="zorai-shell-card"
       >
-        <SessionVaultHeader
-          visibleCount={display.length}
-          totalCount={transcripts.length}
-          timelineCount={timeline.length}
-          scopeLabel={activeWorkspace?.name ?? "all workspaces"}
-          captureActivePane={captureActivePane}
-          clearAll={clearAll}
-          close={toggle}
-        />
-
         <SessionVaultFilters
           query={query}
           setQuery={setQuery}
@@ -267,8 +259,16 @@ export function SessionVaultPanel({ style, className }: SessionVaultPanelProps =
           surfaceOptions={surfaceOptions}
           paneOptions={uniquePaneIds}
           reasonOptions={uniqueReasons}
-          close={toggle}
-        />
+        >
+          <SessionVaultHeader
+            visibleCount={display.length}
+            totalCount={transcripts.length}
+            timelineCount={timeline.length}
+            scopeLabel={activeWorkspace?.name ?? "all workspaces"}
+            captureActivePane={captureActivePane}
+            clearAll={clearAll}
+          />
+        </SessionVaultFilters>
 
         <SessionVaultContent
           timeline={timeline}

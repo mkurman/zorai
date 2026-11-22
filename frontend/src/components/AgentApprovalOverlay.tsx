@@ -34,7 +34,7 @@ export function threadApprovalNeedsBanner(
   return entry.status === "pending" && entry.handledAt === null && Boolean(entry.threadId) && inlineHosts === 0;
 }
 
-const useApprovalInlineHosts = create<{ hosts: number; register: () => () => void }>((set) => ({
+export const useApprovalInlineHosts = create<{ hosts: number; register: () => () => void }>((set) => ({
   hosts: 0,
   register: () => {
     set((state) => ({ hosts: state.hosts + 1 }));

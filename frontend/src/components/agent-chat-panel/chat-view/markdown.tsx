@@ -19,7 +19,7 @@ import { looksLikeFileReference } from "@/zorai/features/code/codeFileTypes";
 import { fileLinkCandidatesFromTools } from "./fileLinkCandidates";
 import { MathSegmentsContext } from "./mathText";
 import { HtmlEmbed } from "@/components/data-viewers/HtmlEmbed";
-import { expandAgentEmbedTags } from "@/components/data-viewers/htmlEmbedDocument";
+import { expandAgentEmbedTags, isStandaloneHtmlDocument } from "@/components/data-viewers/htmlEmbedDocument";
 
 export const KATEX_DELIMITERS = [
   { left: "$$", right: "$$", display: true },
@@ -213,6 +213,10 @@ const markdownComponents: Components = {
       return language === "agent-embed"
         ? <HtmlEmbed src={source.trim()} resolvePath={resolveThreadFileLink} />
         : <HtmlEmbed inline={source} />;
+    }
+    if (code && language === "html") {
+      const source = hastText(code).replace(/\n$/, "");
+      if (isStandaloneHtmlDocument(source)) return <HtmlEmbed inline={source} />;
     }
     if (code && language && fencedBlockKind(language)) {
       return <FencedDataBlock language={language} source={hastText(code).replace(/\n$/, "")} />;

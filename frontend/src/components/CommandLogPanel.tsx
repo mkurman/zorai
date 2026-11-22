@@ -106,27 +106,16 @@ export function CommandLogPanel({ style, className }: CommandLogPanelProps = {})
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "var(--zorai-bg)",
-          border: "1px solid var(--glass-border)",
-          borderRadius: 0,
-          width: "min(1380px, 96vw)",
-          maxHeight: "88vh",
+          width: "100%",
+          height: "100%",
+          minHeight: 0,
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
+          fontFamily: "var(--font-ui)",
+          color: "var(--zorai-text)",
         }}
-        className="zorai-shell-card"
       >
-        <CommandLogHeader
-          visibleCount={filteredEntries.length}
-          totalCount={entries.length}
-          failureCount={entries.filter((entry) => entry.exitCode !== null && entry.exitCode !== 0).length}
-          runningCount={entries.filter((entry) => entry.exitCode === null).length}
-          exportVisible={exportVisible}
-          clearAll={clearAll}
-          close={toggle}
-        />
-
         <CommandLogFilters
           query={query}
           setQuery={setQuery}
@@ -143,10 +132,18 @@ export function CommandLogPanel({ style, className }: CommandLogPanelProps = {})
           workspaceOptions={workspaceOptions}
           surfaceOptions={surfaceOptions}
           paneOptions={uniquePaneIds}
-          close={toggle}
+          exportVisible={exportVisible}
+          clearAll={clearAll}
         />
 
-        <div style={{ flex: 1, overflow: "auto" }}>
+        <CommandLogHeader
+          visibleCount={filteredEntries.length}
+          totalCount={entries.length}
+          failureCount={entries.filter((entry) => entry.exitCode !== null && entry.exitCode !== 0).length}
+          runningCount={entries.filter((entry) => entry.exitCode === null).length}
+        />
+
+        <div style={{ flex: 1, minHeight: 0, overflow: "auto", margin: 12, border: "1px solid var(--zorai-border)", borderRadius: 10, background: "var(--zorai-bg-panel)" }}>
           <CommandLogTable
             entries={filteredEntries}
             workspaceLabels={workspaceLabels}

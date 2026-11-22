@@ -9,6 +9,7 @@ export type ZoraiViewId =
   | "tools"
   | "skills"
   | "activity"
+  | "usage"
   | "plugins"
   | "settings";
 
@@ -29,6 +30,8 @@ export type ZoraiNavIconId =
   | "tools"
   | "skills"
   | "activity"
+  | "inbox"
+  | "usage"
   | "plugins"
   | "settings"
   | "nightMode"
@@ -86,10 +89,17 @@ export const zoraiNavItems: ZoraiNavItem[] = [
   },
   {
     id: "activity",
-    label: "Activity",
-    railLabel: "Activity Feed",
-    icon: "activity",
-    description: "Review events, approvals, notifications, and audit state.",
+    label: "Inbox",
+    railLabel: "Inbox",
+    icon: "inbox",
+    description: "Approve, answer, and reply to agents; review the timeline and planner.",
+  },
+  {
+    id: "usage",
+    label: "Usage",
+    railLabel: "Usage",
+    icon: "usage",
+    description: "Token, request, and cost statistics across providers, models, and sessions.",
   },
   {
     id: "plugins",

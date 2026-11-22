@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { browserWebview, registerBrowserSlot } from "./threadBrowserRegistry";
 import { useComposerPanelHeight } from "../threads/useComposerPanelHeight";
+import { PanelFullscreenIcon } from "../threads/PanelFullscreenIcon";
 import {
   BROWSER_HOME_URL,
   closeBrowserTab,
@@ -26,6 +27,7 @@ export function ComposerBrowserPanel({ sessionKey }: { sessionKey: string }) {
   const activeTab = session.tabs.find((tab) => tab.id === session.activeTabId) ?? null;
   const [address, setAddress] = useState(activeTab?.url ?? "");
   const [editing, setEditing] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   const agentDriving = session.agentUsed && !session.operatorControl;
 
   useEffect(() => {
@@ -44,9 +46,18 @@ export function ComposerBrowserPanel({ sessionKey }: { sessionKey: string }) {
     void webview()?.loadURL(normalizeBrowserAddress(address)).catch(() => undefined);
   };
 
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !editing) setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editing, fullscreen]);
+
   return (
-    <div ref={resize.panelRef} className="zorai-browser-panel" style={{ height: resize.height }}>
-      <div className="zorai-composer-panel-resize" {...resize.handleProps} />
+    <div ref={resize.panelRef} className={["zorai-browser-panel", fullscreen ? "is-fullscreen" : ""].filter(Boolean).join(" ")} style={fullscreen ? undefined : { height: resize.height }}>
+      {fullscreen ? null : <div className="zorai-composer-panel-resize" {...resize.handleProps} />}
       <div className="zorai-browser-panel__tabs" role="tablist" aria-label="Browser tabs">
         {session.tabs.map((tab) => (
           <div
@@ -74,6 +85,9 @@ export function ComposerBrowserPanel({ sessionKey }: { sessionKey: string }) {
           </div>
         ))}
         <button type="button" className="zorai-browser-panel__icon" title="New tab" aria-label="New tab" disabled={agentDriving} onClick={() => openBrowserTab(sessionKey)}>+</button>
+        <button type="button" className="zorai-browser-panel__icon zorai-browser-panel__fullscreen" title={fullscreen ? "Exit full screen (Esc)" : "Full screen"} aria-label={fullscreen ? "Exit full screen" : "Full screen"} aria-pressed={fullscreen} onClick={() => setFullscreen((value) => !value)}>
+          <PanelFullscreenIcon active={fullscreen} />
+        </button>
         <button type="button" className="zorai-browser-panel__icon zorai-browser-panel__hide" title="Hide browser (the agent can keep using it)" aria-label="Hide browser" onClick={() => setBrowserPanelOpen(sessionKey, false)}>×</button>
       </div>
       <form className="zorai-browser-panel__bar" onSubmit={submitAddress}>

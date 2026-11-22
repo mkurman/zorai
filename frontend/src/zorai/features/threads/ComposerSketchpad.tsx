@@ -39,6 +39,7 @@ import {
 } from "./sketchpadModel";
 import { annotateImageToPngFile, sketchToPngFile } from "./sketchExport";
 import { useComposerPanelHeight } from "./useComposerPanelHeight";
+import { PanelFullscreenIcon } from "./PanelFullscreenIcon";
 
 const SKETCH_COLORS = ["ink", "#e5484d", "#f5a524", "#3e9b4f", "#3b82f6", "#a571f0"] as const;
 const SKETCH_WIDTHS = [2, 4, 8] as const;
@@ -142,6 +143,7 @@ export function ComposerSketchpad({
   const [future, setFuture] = useState<SketchShape[][]>([]);
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [fullscreen, setFullscreen] = useState(false);
   const [editor, setEditor] = useState<SketchTextEditor | null>(null);
   const draftRef = useRef<SketchShape | null>(null);
   const panRef = useRef<{ pointerId: number; last: SketchPoint } | null>(null);
@@ -689,6 +691,7 @@ export function ComposerSketchpad({
     if (event.key === "Escape") {
       event.preventDefault();
       if (selectedIds.length > 0) setSelectedIds([]);
+      else if (fullscreen) setFullscreen(false);
       else onClose();
       return;
     }
@@ -707,10 +710,10 @@ export function ComposerSketchpad({
         if (typeof ref === "function") ref(node);
         else if (ref) ref.current = node;
       }}
-      className="zorai-sketchpad"
-      style={{ height: resize.height }}
+      className={["zorai-sketchpad", fullscreen ? "is-fullscreen" : ""].filter(Boolean).join(" ")}
+      style={fullscreen ? undefined : { height: resize.height }}
     >
-      <div className="zorai-composer-panel-resize" {...resize.handleProps} />
+      {fullscreen ? <div /> : <div className="zorai-composer-panel-resize" {...resize.handleProps} />}
       <div className="zorai-sketchpad__toolbar" role="toolbar" aria-label="Sketch tools">
         <div className="zorai-sketchpad__group">
           {SKETCH_TOOLS.map((entry) => (
@@ -794,6 +797,16 @@ export function ComposerSketchpad({
             onClick={() => void downloadPng()}
           >
             <SketchActionIcon kind="download" />
+          </button>
+          <button
+            type="button"
+            className="zorai-sketchpad__button"
+            title={fullscreen ? "Exit full screen (Esc)" : "Full screen"}
+            aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+            aria-pressed={fullscreen}
+            onClick={() => setFullscreen((value) => !value)}
+          >
+            <PanelFullscreenIcon active={fullscreen} />
           </button>
         </div>
         <span className="zorai-sketchpad__zoom">{Math.round(view.scale * 100)}%</span>

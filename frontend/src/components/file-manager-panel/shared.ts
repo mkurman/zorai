@@ -108,32 +108,15 @@ export function buildPaneRows(pane: PaneState): PaneRow[] {
 }
 
 export const inputStyle: CSSProperties = {
-    background: "var(--bg-tertiary)",
-    border: "1px solid var(--border)",
-    color: "var(--text-primary)",
-    borderRadius: "var(--radius-md)",
-    padding: "6px 8px",
-    fontSize: "var(--text-xs)",
+    height: 28,
+    boxSizing: "border-box",
+    background: "transparent",
+    border: "1px solid var(--zorai-border)",
+    color: "var(--zorai-text)",
+    borderRadius: 6,
+    padding: "4px 8px",
+    fontFamily: "var(--font-ui)",
+    fontSize: "var(--text-sm)",
     outline: "none",
     width: "100%",
-};
-
-export const actionButtonStyle: CSSProperties = {
-    background: "var(--accent-soft)",
-    border: "1px solid var(--accent)",
-    color: "var(--accent)",
-    borderRadius: "var(--radius-md)",
-    fontSize: "var(--text-xs)",
-    padding: "6px 10px",
-    cursor: "pointer",
-};
-
-export const secondaryButtonStyle: CSSProperties = {
-    background: "var(--bg-tertiary)",
-    border: "1px solid var(--border)",
-    color: "var(--text-primary)",
-    borderRadius: "var(--radius-md)",
-    fontSize: "var(--text-xs)",
-    padding: "6px 10px",
-    cursor: "pointer",
 };

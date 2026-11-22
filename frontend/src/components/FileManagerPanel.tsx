@@ -9,13 +9,11 @@ import { SshProfilesPanel } from "./file-manager-panel/SshProfilesPanel";
 import {
     DEFAULT_LEFT_PATH,
     DEFAULT_RIGHT_PATH,
-    actionButtonStyle,
     buildPaneRows,
     encodeToBase64,
     getBridge,
     getParentPath,
     joinPath,
-    secondaryButtonStyle,
     type FsEntry,
     type PaneKey,
     type PaneState,
@@ -28,7 +26,6 @@ type FileManagerPanelProps = {
 
 export function FileManagerPanel({ style, className }: FileManagerPanelProps = {}) {
     const fileManagerOpen = useWorkspaceStore((s) => s.fileManagerOpen);
-    const toggleFileManager = useWorkspaceStore((s) => s.toggleFileManager);
     const activePaneId = useWorkspaceStore((s) => s.activePaneId());
 
     const sshProfiles = useFileManagerStore((s) => s.sshProfiles);
@@ -56,7 +53,6 @@ export function FileManagerPanel({ style, className }: FileManagerPanelProps = {
     const [rightPathInput, setRightPathInput] = useState(DEFAULT_RIGHT_PATH);
     const [statusMessage, setStatusMessage] = useState<string>("");
     const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
-    const [fullscreen, setFullscreen] = useState(true);
     const [pendingDelete, setPendingDelete] = useState<{ name: string; path: string } | null>(null);
     const [newFolderDialogOpen, setNewFolderDialogOpen] = useState(false);
     const [newFolderDraft, setNewFolderDraft] = useState("new-folder");
@@ -341,139 +337,109 @@ export function FileManagerPanel({ style, className }: FileManagerPanelProps = {
     return (
         <div
             style={{
-                width: fullscreen ? "100%" : 860,
-                minWidth: fullscreen ? 0 : 560,
-                maxWidth: fullscreen ? "100%" : "70vw",
-                height: fullscreen ? "100%" : "100%",
+                width: "100%",
+                height: "100%",
+                minWidth: 0,
+                minHeight: 0,
                 display: "flex",
                 flexDirection: "column",
-                borderLeft: fullscreen ? "none" : "1px solid var(--border)",
-                border: fullscreen ? "1px solid var(--border)" : undefined,
-                background: "var(--zorai-bg)",
+                background: "var(--zorai-bg-panel)",
+                color: "var(--zorai-text)",
+                fontFamily: "var(--font-ui)",
+                fontSize: "var(--text-sm)",
                 overflow: "hidden",
                 position: "relative",
-                inset: fullscreen ? 0 : undefined,
-                zIndex: fullscreen ? 1400 : undefined,
                 ...(style ?? {}),
             }}
             className={className}
         >
             <div
                 style={{
-                    padding: "var(--space-3)",
-                    borderBottom: "1px solid var(--border)",
+                    padding: "8px 10px",
+                    borderBottom: "1px solid var(--zorai-border)",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: "var(--space-2)",
+                    gap: 8,
                     flexWrap: "wrap",
                 }}
             >
-                <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
-                    <span className="zorai-agent-indicator">Dual Pane Commander</span>
-                    <span className="zorai-chip">F5 Copy</span>
-                    <span className="zorai-chip">F6 Move</span>
-                    <span className="zorai-chip">F7 Mkdir</span>
-                    <span className="zorai-chip">F8 Delete</span>
-                    <span className="zorai-chip">Arrows Navigate</span>
-                    <span className="zorai-chip">Enter Open</span>
-                    <span className="zorai-chip">Tab Switch Pane</span>
-                </div>
-
-                <div style={{ display: "flex", gap: "var(--space-2)" }}>
-                    <button type="button" onClick={() => setFullscreen((v) => !v)} style={secondaryButtonStyle}>
-                        {fullscreen ? "Docked" : "Full Screen"}
-                    </button>
-                    <button type="button" onClick={toggleFileManager} style={secondaryButtonStyle}>
-                        Close
-                    </button>
-                </div>
-            </div>
-
-            <div
-                style={{
-                    padding: "var(--space-2) var(--space-3)",
-                    borderBottom: "1px solid var(--border)",
-                    display: "flex",
-                    gap: "var(--space-2)",
-                    flexWrap: "wrap",
-                }}
-            >
-                <button type="button" style={actionButtonStyle} disabled={!canActOnSelection} onClick={() => void handleCopy()}>
+                <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" title="F5" disabled={!canActOnSelection} onClick={() => void handleCopy()}>
                     Copy -&gt;
                 </button>
-                <button type="button" style={actionButtonStyle} disabled={!canActOnSelection} onClick={() => void handleMove()}>
+                <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" title="F6" disabled={!canActOnSelection} onClick={() => void handleMove()}>
                     Move -&gt;
                 </button>
-                <button type="button" style={actionButtonStyle} disabled={!canActOnSelection} onClick={() => void handleDelete()}>
+                <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" title="F8" disabled={!canActOnSelection} onClick={() => void handleDelete()}>
                     Delete
                 </button>
-                <button type="button" style={actionButtonStyle} onClick={() => void handleCreateDirectory()}>
+                <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" title="F7" onClick={() => void handleCreateDirectory()}>
                     Mkdir
                 </button>
-                <button type="button" style={actionButtonStyle} disabled={!canActOnSelection} onClick={() => void handleReveal()}>
+                <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" disabled={!canActOnSelection} onClick={() => void handleReveal()}>
                     Reveal
                 </button>
-                <button type="button" style={secondaryButtonStyle} onClick={() => void handleSwapPanes()}>
+                <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" onClick={() => void handleSwapPanes()}>
                     Swap Panes
                 </button>
                 <RefreshButton label="Refresh Both" onClick={() => void Promise.all([refreshPane("left"), refreshPane("right")])} />
 
                 {statusMessage && (
-                    <span style={{ color: "var(--text-secondary)", fontSize: "var(--text-xs)", marginLeft: "auto" }}>
+                    <span style={{ color: "var(--zorai-muted)", fontSize: "var(--text-xs)", marginLeft: "auto" }}>
                         {statusMessage}
                     </span>
                 )}
             </div>
 
-            <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-2)", padding: "var(--space-2)" }}>
-                <PaneView
-                    title="Left"
-                    active={activePane === "left"}
-                    pane={leftPane}
-                    inputPath={leftPathInput}
-                    onPathInputChange={setLeftPathInput}
-                    onGo={() => void refreshPane("left", leftPathInput.trim() || leftPane.path)}
-                    onSelect={(path) => setPaneSelection("left", path)}
-                    onOpen={(entry) => void openEntry("left", entry)}
-                    onParent={() => {
-                        const parent = getParentPath(leftPane.path);
-                        if (parent) {
-                            void refreshPane("left", parent);
-                        }
-                    }}
-                />
+            <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 12, padding: 12 }}>
+                <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <PaneView
+                        title="Left"
+                        active={activePane === "left"}
+                        pane={leftPane}
+                        inputPath={leftPathInput}
+                        onPathInputChange={setLeftPathInput}
+                        onGo={() => void refreshPane("left", leftPathInput.trim() || leftPane.path)}
+                        onSelect={(path) => setPaneSelection("left", path)}
+                        onOpen={(entry) => void openEntry("left", entry)}
+                        onParent={() => {
+                            const parent = getParentPath(leftPane.path);
+                            if (parent) {
+                                void refreshPane("left", parent);
+                            }
+                        }}
+                    />
 
-                <PaneView
-                    title="Right"
-                    active={activePane === "right"}
-                    pane={rightPane}
-                    inputPath={rightPathInput}
-                    onPathInputChange={setRightPathInput}
-                    onGo={() => void refreshPane("right", rightPathInput.trim() || rightPane.path)}
-                    onSelect={(path) => setPaneSelection("right", path)}
-                    onOpen={(entry) => void openEntry("right", entry)}
-                    onParent={() => {
-                        const parent = getParentPath(rightPane.path);
-                        if (parent) {
-                            void refreshPane("right", parent);
-                        }
-                    }}
+                    <PaneView
+                        title="Right"
+                        active={activePane === "right"}
+                        pane={rightPane}
+                        inputPath={rightPathInput}
+                        onPathInputChange={setRightPathInput}
+                        onGo={() => void refreshPane("right", rightPathInput.trim() || rightPane.path)}
+                        onSelect={(path) => setPaneSelection("right", path)}
+                        onOpen={(entry) => void openEntry("right", entry)}
+                        onParent={() => {
+                            const parent = getParentPath(rightPane.path);
+                            if (parent) {
+                                void refreshPane("right", parent);
+                            }
+                        }}
+                    />
+                </div>
+
+                <SshProfilesPanel
+                    sshProfiles={sshProfiles}
+                    selectedProfileId={selectedProfileId}
+                    selectedProfile={selectedProfile}
+                    setSelectedProfileId={setSelectedProfileId}
+                    addProfile={addProfile}
+                    updateProfile={updateProfile}
+                    buildSshCommand={buildSshCommand}
+                    runSshProfile={runSshProfile}
+                    removeSshProfile={removeSshProfile}
+                    setStatusMessage={setStatusMessage}
                 />
             </div>
-
-            <SshProfilesPanel
-                sshProfiles={sshProfiles}
-                selectedProfileId={selectedProfileId}
-                selectedProfile={selectedProfile}
-                setSelectedProfileId={setSelectedProfileId}
-                addProfile={addProfile}
-                updateProfile={updateProfile}
-                buildSshCommand={buildSshCommand}
-                runSshProfile={runSshProfile}
-                removeSshProfile={removeSshProfile}
-                setStatusMessage={setStatusMessage}
-            />
 
             <AppConfirmDialog
                 open={Boolean(pendingDelete)}

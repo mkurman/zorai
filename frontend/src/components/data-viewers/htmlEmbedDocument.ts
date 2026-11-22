@@ -45,6 +45,11 @@ export function expandAgentEmbedTags(markdown: string): string {
     .join("\n");
 }
 
+export function isStandaloneHtmlDocument(source: string): boolean {
+  const trimmed = source.trim();
+  return /^(<!doctype\s+html[^>]*>\s*)?<html[\s>]/i.test(trimmed) && /<\/html>$/i.test(trimmed);
+}
+
 export function embedFileName(src: string): string {
   return src.replace(/^file:\/\//i, "").split(/[\\/]/).pop() || "embed.html";
 }

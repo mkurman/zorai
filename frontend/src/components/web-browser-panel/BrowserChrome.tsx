@@ -1,5 +1,4 @@
-import { RefreshIcon } from "@/zorai/shell/RefreshButton";
-import { navBtnStyle } from "./shared";
+import { PanelFullscreenIcon } from "@/zorai/features/threads/PanelFullscreenIcon";
 
 export function BrowserChrome({
     address,
@@ -10,9 +9,8 @@ export function BrowserChrome({
     reload,
     navigate,
     toggleFullscreen,
-    close,
+    fullscreen = false,
     showFullscreen = true,
-    showClose = true,
 }: {
     address: string;
     setAddress: (value: string) => void;
@@ -22,30 +20,33 @@ export function BrowserChrome({
     reload: () => void;
     navigate: (url: string) => void;
     toggleFullscreen?: () => void;
-    close?: () => void;
+    fullscreen?: boolean;
     showFullscreen?: boolean;
-    showClose?: boolean;
 }) {
     return (
         <>
             <div
                 data-no-drag="true"
                 style={{
-                    height: 40,
                     display: "flex",
                     alignItems: "center",
                     flexShrink: 0,
                     gap: 6,
-                    padding: "0 10px",
-                    borderBottom: "1px solid var(--border)",
-                    background: "var(--bg-secondary)",
+                    padding: "6px 8px",
+                    borderBottom: "1px solid var(--zorai-border)",
+                    background: "var(--zorai-bg-panel)",
+                    fontFamily: "var(--font-ui)",
                 }}
             >
-                <button onClick={back} style={navBtnStyle} title="Back">←</button>
-                <button onClick={forward} style={navBtnStyle} title="Forward">→</button>
-                <button onClick={reload} style={navBtnStyle} title="Reload" aria-label="Reload"><RefreshIcon /></button>
+                <button type="button" className="zorai-browser-panel__icon" onClick={back} title="Back" aria-label="Back">‹</button>
+                <button type="button" className="zorai-browser-panel__icon" onClick={forward} title="Forward" aria-label="Forward">›</button>
+                <button type="button" className="zorai-browser-panel__icon" onClick={reload} title="Reload" aria-label="Reload">↻</button>
                 <input
+                    className="zorai-browser-panel__address"
                     value={address}
+                    placeholder="Search or enter address"
+                    spellCheck={false}
+                    aria-label="Address"
                     onChange={(event) => setAddress(event.target.value)}
                     onKeyDown={(event) => {
                         if (event.key === "Enter") {
@@ -53,36 +54,39 @@ export function BrowserChrome({
                         }
                     }}
                     style={{
-                        flex: 1,
-                        height: 26,
-                        border: "1px solid var(--border)",
-                        borderRadius: "var(--radius-sm)",
-                        background: "var(--zorai-bg)",
-                        color: "var(--text-primary)",
-                        padding: "0 8px",
-                        fontFamily: "var(--font-mono)",
+                        borderRadius: 999,
+                        background: "transparent",
                         fontSize: "var(--text-xs)",
                     }}
                 />
-                <button onClick={() => navigate(address)} style={navBtnStyle} title="Go">Go</button>
+                <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" onClick={() => navigate(address)} title="Go">Go</button>
                 {showFullscreen && toggleFullscreen ? (
-                    <button onClick={toggleFullscreen} style={navBtnStyle} title="Toggle fullscreen">⛶</button>
-                ) : null}
-                {showClose && close ? (
-                    <button onClick={close} style={navBtnStyle} title="Close browser">✕</button>
+                    <button
+                        type="button"
+                        className="zorai-browser-panel__icon"
+                        onClick={toggleFullscreen}
+                        title={fullscreen ? "Exit full screen" : "Full screen"}
+                        aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+                        aria-pressed={fullscreen}
+                    >
+                        <PanelFullscreenIcon active={fullscreen} />
+                    </button>
                 ) : null}
             </div>
 
             <div
                 style={{
-                    height: 24,
                     display: "flex",
                     alignItems: "center",
                     flexShrink: 0,
-                    padding: "0 10px",
-                    borderBottom: "1px solid var(--border)",
-                    color: "var(--text-muted)",
+                    padding: "4px 10px",
+                    borderBottom: "1px solid var(--zorai-border)",
+                    color: "var(--zorai-muted)",
+                    fontFamily: "var(--font-ui)",
                     fontSize: "var(--text-xs)",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
                 }}
             >
                 {pageTitle || "Browser"}

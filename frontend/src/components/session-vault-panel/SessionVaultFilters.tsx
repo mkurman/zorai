@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { filterInputStyle } from "./shared";
 
 export function SessionVaultFilters({
@@ -17,7 +18,7 @@ export function SessionVaultFilters({
     surfaceOptions,
     paneOptions,
     reasonOptions,
-    close,
+    children,
 }: {
     query: string;
     setQuery: (value: string) => void;
@@ -35,18 +36,17 @@ export function SessionVaultFilters({
     surfaceOptions: Array<{ id: string; name: string }>;
     paneOptions: string[];
     reasonOptions: string[];
-    close: () => void;
+    children?: ReactNode;
 }) {
     return (
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) repeat(5, minmax(0, 1fr))", gap: 10, padding: 14, borderBottom: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)", background: "color-mix(in srgb, var(--text-primary) 2%, transparent)" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: "10px 12px", borderBottom: "1px solid var(--zorai-border)" }}>
             <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search transcripts..."
                 autoFocus
-                onKeyDown={(e) => e.key === "Escape" && close()}
-                style={filterInputStyle}
+                style={{ ...filterInputStyle, flex: "1 1 180px", minWidth: 140, maxWidth: "none" }}
             />
             <select value={workspaceFilter} onChange={(e) => setWorkspaceFilter(e.target.value)} style={filterInputStyle}>
                 <option value="all">All workspaces</option>
@@ -70,6 +70,7 @@ export function SessionVaultFilters({
                 <option value="7d">Last 7 days</option>
                 <option value="30d">Last 30 days</option>
             </select>
+            {children}
         </div>
     );
 }
