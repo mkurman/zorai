@@ -102,24 +102,16 @@ export function SystemMonitorPanel({ style, className }: SystemMonitorPanelProps
             <div
                 onClick={(event) => event.stopPropagation()}
                 style={{
-                    width: "min(1440px, 96vw)",
-                    maxHeight: "88vh",
+                    width: "100%",
+                    height: "100%",
+                    minHeight: 0,
                     display: "grid",
                     gridTemplateRows: "auto auto 1fr",
                     overflow: "hidden",
-                    borderRadius: 0,
+                    fontFamily: "var(--font-ui)",
+                    color: "var(--zorai-text)",
                 }}
-                className="zorai-shell-card"
             >
-                <SystemMonitorHeader
-                    hostname={snapshot?.hostname ?? "pending"}
-                    platform={snapshot?.platform ?? "pending"}
-                    intervalMs={intervalMs}
-                    uptimeSeconds={snapshot?.uptimeSeconds ?? null}
-                    clear={() => setSnapshot(null)}
-                    close={toggle}
-                />
-
                 <SystemMonitorControls
                     processQuery={processQuery}
                     setProcessQuery={setProcessQuery}
@@ -129,6 +121,14 @@ export function SystemMonitorPanel({ style, className }: SystemMonitorPanelProps
                     setProcessLimit={setProcessLimit}
                     visibleProcesses={filteredProcesses.length}
                     timestampLabel={snapshot ? new Date(snapshot.timestamp).toLocaleTimeString() : loading ? "sampling" : "idle"}
+                    clear={() => setSnapshot(null)}
+                />
+
+                <SystemMonitorHeader
+                    hostname={snapshot?.hostname ?? "pending"}
+                    platform={snapshot?.platform ?? "pending"}
+                    intervalMs={intervalMs}
+                    uptimeSeconds={snapshot?.uptimeSeconds ?? null}
                 />
 
                 <SystemMonitorContent

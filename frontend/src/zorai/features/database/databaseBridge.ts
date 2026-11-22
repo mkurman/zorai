@@ -55,6 +55,7 @@ function toCamelSqlResult(raw: any): DatabaseSqlResult {
 export async function listDatabaseTables(): Promise<DatabaseTableSummary[]> {
   const bridge = getBridge();
   const rows = await bridge?.dbListDatabaseTables?.();
+  if (rows && !Array.isArray(rows) && typeof rows.error === "string") throw new Error(rows.error);
   return Array.isArray(rows) ? rows.map(toCamelTable).filter((table) => table.name) : [];
 }
 

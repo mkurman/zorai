@@ -204,6 +204,7 @@ export interface NotificationState {
   loadSharedNotifications: () => Promise<void>;
   upsertSharedNotification: (notification: unknown) => void;
   markRead: (id: NotificationId) => void;
+  markUnread: (id: NotificationId) => void;
   archiveNotification: (id: NotificationId) => void;
   removeNotification: (id: NotificationId) => void;
   clearPaneNotifications: (paneId: PaneId, source?: NotificationSource) => void;
@@ -302,6 +303,17 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       const notifications = upsertNotificationList(state.notifications, next);
       return { notifications, unreadCount: unreadCount(notifications) };
     });
+  },
+
+  markUnread: (id) => {
+    const notification = get().notifications.find((entry) => entry.id === id);
+    if (!notification || !notification.isRead) return;
+    const updated: TerminalNotification = { ...notification, isRead: false, updatedAt: Date.now() };
+    set((state) => {
+      const notifications = upsertNotificationList(state.notifications, updated);
+      return { notifications, unreadCount: unreadCount(notifications) };
+    });
+    void persistNotification(updated);
   },
 
   markRead: (id) => {

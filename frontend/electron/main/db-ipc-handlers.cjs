@@ -231,9 +231,9 @@ function registerDbIpcHandlers(ipcMain, runtime) {
     });
     ipcMain.handle('db-list-database-tables', async () => {
         try {
-            return await sendDbQuery({ type: 'list-database-tables' }, 'database-tables');
-        } catch {
-            return [];
+            return await sendDbQuery({ type: 'list-database-tables' }, 'database-tables', 30000);
+        } catch (error) {
+            return { error: error instanceof Error ? error.message : String(error) };
         }
     });
     ipcMain.handle('db-query-database-rows', async (_event, opts = {}) => {

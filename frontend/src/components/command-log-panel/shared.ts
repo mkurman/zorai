@@ -43,34 +43,14 @@ export function filterCommandEntries(entries: CommandLogEntry[], filters: Comman
     });
 }
 
-export const hdrBtn: CSSProperties = {
-    background: "color-mix(in srgb, var(--text-primary) 4%, transparent)",
-    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
-    color: "var(--text-secondary)",
-    cursor: "pointer",
-    fontSize: 13,
-    padding: "8px 10px",
-    borderRadius: 0,
-};
-
 export const filterInputStyle: CSSProperties = {
-    width: "100%",
-    padding: "10px 12px",
-    background: "color-mix(in srgb, var(--bg-surface) 80%, transparent)",
-    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
-    color: "var(--text-primary)",
-    fontSize: 13,
+    height: 28,
+    padding: "4px 8px",
+    background: "transparent",
+    border: "1px solid var(--zorai-border)",
+    color: "var(--zorai-text)",
+    fontSize: "var(--text-sm)",
     fontFamily: "inherit",
     outline: "none",
-    borderRadius: 0,
-};
-
-export const actionBtn: CSSProperties = {
-    background: "color-mix(in srgb, var(--text-primary) 4%, transparent)",
-    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
-    borderRadius: 0,
-    color: "var(--text-secondary)",
-    cursor: "pointer",
-    fontSize: 12,
-    padding: "6px 10px",
+    borderRadius: 6,
 };

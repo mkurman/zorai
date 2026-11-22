@@ -371,24 +371,27 @@ describe("Zorai feature surfaces", () => {
     expect(source).toContain("zorai-activity-surface");
   });
 
-  it("exposes a TUI-style notification inbox with read-all and archive-read", () => {
+  it("exposes a unified inbox where the operator can act on approvals, questions, and replies in place", () => {
     const source = readFeature("./activity/ActivityView.tsx");
     const inboxSource = readFeature("./activity/ActivityInbox.tsx");
+    const detailSource = readFeature("./activity/InboxDetail.tsx");
 
     expect(source).toContain('"inbox"');
     expect(source).toContain("ActivityInbox");
-    expect(inboxSource).toContain("Read all");
+    expect(inboxSource).toContain("Mark read");
     expect(inboxSource).toContain("Archive read");
-    expect(inboxSource).toContain("markAllRead");
-    expect(inboxSource).toContain("archiveRead");
+    expect(detailSource).toContain("resolveApprovalAtSource");
+    expect(detailSource).toContain("agentAnswerQuestion");
+    expect(detailSource).toContain("agentSendMessage");
   });
 
-  it("exposes TUI-style usage statistics inside native Activity", () => {
-    const source = readFeature("./activity/ActivityView.tsx");
+  it("exposes TUI-style usage statistics as its own navigation view", () => {
+    const source = readFeature("./activity/UsageView.tsx");
+    const navigation = readFeature("../shell/navigation.ts");
     const usageSource = readFeature("./activity/ActivityUsagePanel.tsx");
     const surfaceCss = readFeature("../styles/zorai-surfaces.css");
 
-    expect(source).toContain('"usage"');
+    expect(navigation).toContain('id: "usage"');
     expect(source).toContain("UsagePanel");
     expect(usageSource).toContain("agentGetStatistics");
     expect(usageSource).toContain("Overview");

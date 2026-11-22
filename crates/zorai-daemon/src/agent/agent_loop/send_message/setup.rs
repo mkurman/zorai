@@ -614,13 +614,14 @@ impl<'a> SendMessageRunner<'a> {
                     .clear_deferred_visible_thread_continuations(&tid)
                     .await;
             }
-            let stored_user_content_blocks = crate::agent::thread_crud::store_user_images_in_inventory(
-                engine.history.data_root(),
-                &tid,
-                &now_millis().to_string(),
-                stored_user_content_blocks,
-            )
-            .await;
+            let stored_user_content_blocks =
+                crate::agent::thread_crud::store_user_images_in_inventory(
+                    engine.history.data_root(),
+                    &tid,
+                    &now_millis().to_string(),
+                    stored_user_content_blocks,
+                )
+                .await;
             {
                 let mut threads = engine.threads.write().await;
                 if let Some(thread) = threads.get_mut(&tid) {
@@ -1680,7 +1681,10 @@ mod tests {
             "data_url must stay so the provider still receives the image"
         );
         let path = std::path::Path::new(path);
-        assert!(path.starts_with(zorai_protocol::thread_inventory_dir(root.path(), "thread-1")));
+        assert!(path.starts_with(zorai_protocol::thread_inventory_dir(
+            root.path(),
+            "thread-1"
+        )));
         assert_eq!(path.extension().and_then(|ext| ext.to_str()), Some("png"));
         assert_eq!(std::fs::read(path).expect("inventory copy"), b"png-bytes");
     }

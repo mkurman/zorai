@@ -43,7 +43,7 @@ impl HistoryStore {
     ) -> Result<AgentStatisticsSnapshot> {
         let session_limit = session_limit.unwrap_or(25).clamp(1, 100);
         let session_offset = session_offset.unwrap_or(0);
-        let cutoff_ms = window_cutoff_ms(window);
+        let cutoff_ms = window_cutoff_ms(window).unwrap_or(i64::MIN);
         let totals_db_row = self
             .read_db
             .query_opt(
@@ -58,7 +58,7 @@ impl HistoryStore {
                      FROM agent_messages
                      WHERE role = 'assistant'
                        AND deleted_at IS NULL
-                       AND (?1 IS NULL OR created_at >= ?1)",
+                       AND created_at >= ?1",
                 db::db_params![cutoff_ms],
             )
             .await?
@@ -85,7 +85,7 @@ impl HistoryStore {
                      FROM agent_messages
                      WHERE role = 'assistant'
                        AND deleted_at IS NULL
-                       AND (?1 IS NULL OR created_at >= ?1)
+                       AND created_at >= ?1
                      GROUP BY provider_key",
                 db::db_params![cutoff_ms],
             )
@@ -116,7 +116,7 @@ impl HistoryStore {
                      FROM agent_messages
                      WHERE role = 'assistant'
                        AND deleted_at IS NULL
-                       AND (?1 IS NULL OR created_at >= ?1)
+                       AND created_at >= ?1
                        AND NOT (
                            (provider IS NULL OR TRIM(provider) = '')
                            AND (model IS NULL OR TRIM(model) = '')
@@ -168,7 +168,7 @@ impl HistoryStore {
                      WHERE role = 'assistant'
                        AND deleted_at IS NULL
                        AND created_at > 0
-                       AND (?1 IS NULL OR created_at >= ?1)
+                       AND created_at >= ?1
                      GROUP BY day_key
                      ORDER BY day_key ASC",
                 db::db_params![cutoff_ms],
@@ -204,7 +204,7 @@ impl HistoryStore {
                         COALESCE(SUM(CASE WHEN role = 'assistant' THEN LENGTH(COALESCE(reasoning, '')) ELSE 0 END), 0)
                      FROM agent_messages
                      WHERE deleted_at IS NULL
-                       AND (?1 IS NULL OR created_at >= ?1)",
+                       AND created_at >= ?1",
                 db::db_params![cutoff_ms],
             )
             .await?
@@ -288,7 +288,7 @@ impl HistoryStore {
         session_limit: usize,
         session_offset: usize,
     ) -> Result<(Vec<SessionStatisticsRow>, u64)> {
-        let cutoff_ms = window_cutoff_ms(window);
+        let cutoff_ms = window_cutoff_ms(window).unwrap_or(i64::MIN);
         let session_total_row = self
             .read_db
             .query_opt(
@@ -300,7 +300,7 @@ impl HistoryStore {
                        AND m.deleted_at IS NULL
                        AND t.deleted_at IS NULL
                        AND m.created_at > 0
-                       AND (?1 IS NULL OR m.created_at >= ?1)
+                       AND m.created_at >= ?1
                      GROUP BY m.thread_id
                  )",
                 db::db_params![cutoff_ms],
@@ -336,7 +336,7 @@ impl HistoryStore {
                        AND m.deleted_at IS NULL
                        AND t.deleted_at IS NULL
                        AND m.created_at > 0
-                       AND (?1 IS NULL OR m.created_at >= ?1)
+                       AND m.created_at >= ?1
                      GROUP BY m.thread_id, title
                      ORDER BY updated_at DESC, m.thread_id ASC
                      LIMIT ?2 OFFSET ?3",

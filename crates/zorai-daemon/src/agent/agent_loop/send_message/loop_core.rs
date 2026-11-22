@@ -213,12 +213,9 @@ impl<'a> SendMessageRunner<'a> {
             );
             Some(v)
         } else if needs_patch {
-            let idx = thread
-                .messages
-                .iter()
-                .rposition(|m| {
-                    m.role == MessageRole::User && !self.delivered_queued_message_ids.contains(&m.id)
-                });
+            let idx = thread.messages.iter().rposition(|m| {
+                m.role == MessageRole::User && !self.delivered_queued_message_ids.contains(&m.id)
+            });
             if let Some(i) = idx {
                 let mut v = thread.messages.clone();
                 v[i].content = self.llm_user_content.to_string();

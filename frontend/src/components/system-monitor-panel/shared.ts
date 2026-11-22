@@ -67,34 +67,29 @@ export function formatUptime(totalSeconds: number) {
     return `${hours}h ${minutes}m`;
 }
 
-export const panelButtonStyle: CSSProperties = {
-    background: "color-mix(in srgb, var(--text-primary) 4%, transparent)",
-    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
-    color: "var(--text-secondary)",
-    cursor: "pointer",
-    fontSize: 13,
-    padding: "8px 10px",
-    borderRadius: 0,
-};
-
 export const fieldStyle: CSSProperties = {
-    width: "100%",
-    padding: "10px 12px",
-    background: "color-mix(in srgb, var(--bg-surface) 80%, transparent)",
-    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
-    color: "var(--text-primary)",
-    fontSize: 13,
+    height: 28,
+    padding: "4px 8px",
+    background: "transparent",
+    border: "1px solid var(--zorai-border)",
+    color: "var(--zorai-text)",
+    fontSize: "var(--text-sm)",
+    fontFamily: "inherit",
     outline: "none",
-    borderRadius: 0,
+    borderRadius: 6,
 };
 
 export const headerCellStyle: CSSProperties = {
-    padding: "10px 12px",
-    fontSize: 11,
-    fontWeight: 600,
+    padding: "6px 10px",
+    fontSize: "var(--text-xs)",
+    fontWeight: 500,
+    color: "var(--zorai-muted)",
+    textAlign: "left",
+    whiteSpace: "nowrap",
 };
 
 export const bodyCellStyle: CSSProperties = {
-    padding: "10px 12px",
-    verticalAlign: "top",
+    padding: "6px 10px",
+    fontSize: "var(--text-sm)",
+    verticalAlign: "middle",
 };

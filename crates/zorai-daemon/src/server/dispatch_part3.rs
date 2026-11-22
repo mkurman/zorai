@@ -805,7 +805,7 @@ pub(crate) async fn dispatch_part3(
 
         ClientMessage::AgentStopStream { thread_id } => {
             client_agent_threads.insert(thread_id.clone());
-            let ok = agent.stop_stream(&thread_id).await;
+            let ok = agent.operator_interrupt_stream(&thread_id).await;
             framed
                 .send(DaemonMessage::AgentThreadControlled {
                     thread_id,

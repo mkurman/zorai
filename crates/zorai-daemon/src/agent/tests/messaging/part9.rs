@@ -219,3 +219,88 @@ async fn restored_question_is_dropped_when_the_thread_moved_on_since_it_was_aske
         "no tool result may be added after the operator already continued the thread"
     );
 }
+
+fn last_request_user_messages(recorded_bodies: &Arc<StdMutex<VecDeque<String>>>) -> Vec<String> {
+    let body = recorded_bodies
+        .lock()
+        .expect("lock request log")
+        .back()
+        .cloned()
+        .expect("the turn must call the model");
+    let request: serde_json::Value = serde_json::from_str(&body).expect("request json");
+    request["messages"]
+        .as_array()
+        .expect("messages")
+        .iter()
+        .filter(|message| message["role"] == "user")
+        .map(|message| message["content"].to_string())
+        .collect()
+}
+
+#[tokio::test]
+async fn operator_stop_tells_the_model_once_that_its_previous_response_was_cut_off() {
+    let recorded_bodies = Arc::new(StdMutex::new(VecDeque::new()));
+    let config = mock_openai_config(spawn_recording_openai_server(recorded_bodies.clone()).await);
+    let (engine, _temp_dir) = make_runner_test_engine(config).await;
+    let note = crate::agent::agent_loop::send_message::OPERATOR_INTERRUPTED_TURN_NOTE;
+
+    let thread_id = engine
+        .send_message(None, "first question")
+        .await
+        .expect("first turn");
+
+    let (generation, _, _) = engine.begin_stream_cancellation(&thread_id).await;
+    assert!(engine.operator_interrupt_stream(&thread_id).await);
+    engine
+        .finish_stream_cancellation(&thread_id, generation)
+        .await;
+
+    engine
+        .send_message(Some(&thread_id), "second question")
+        .await
+        .expect("turn after the stop");
+    let users = last_request_user_messages(&recorded_bodies);
+    let last = users.last().expect("user message");
+    assert!(
+        last.contains(note) && last.contains("second question"),
+        "the message right after a stop must tell the model its previous response was cut off: {users:?}"
+    );
+    assert!(
+        users[..users.len() - 1]
+            .iter()
+            .all(|content| !content.contains(note)),
+        "earlier messages must not carry the note: {users:?}"
+    );
+    let thread = engine.get_thread(&thread_id).await.expect("thread");
+    assert!(
+        thread
+            .messages
+            .iter()
+            .all(|message| !message.content.contains(note)),
+        "the note is for the model only and must not be stored as what the operator typed"
+    );
+
+    engine
+        .send_message(Some(&thread_id), "third question")
+        .await
+        .expect("turn without a stop");
+    let users = last_request_user_messages(&recorded_bodies);
+    assert!(
+        users.iter().all(|content| !content.contains(note)),
+        "a later message sent without stopping must not repeat the note: {users:?}"
+    );
+
+    assert!(
+        !engine.operator_interrupt_stream(&thread_id).await,
+        "pressing stop while nothing is streaming interrupts nothing"
+    );
+    engine
+        .send_message(Some(&thread_id), "fourth question")
+        .await
+        .expect("turn after an idle stop");
+    let users = last_request_user_messages(&recorded_bodies);
+    assert!(
+        users.iter().all(|content| !content.contains(note)),
+        "an idle stop must not claim a response was cut off: {users:?}"
+    );
+}

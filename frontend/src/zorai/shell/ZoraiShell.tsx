@@ -3,6 +3,7 @@ import { getBridge } from "@/lib/bridge";
 import { syncTintsWithDaemon } from "@/zorai/features/tints/tintStore";
 import { OperatorQuestionDock } from "@/components/OperatorQuestionDock";
 import { ActivityRail, ActivityView } from "../features/activity/ActivityView";
+import { UsageRail, UsageView } from "../features/activity/UsageView";
 import { DatabaseRail, DatabaseView } from "../features/database/DatabaseView";
 import { GoalsContext, GoalsRail, GoalsView } from "../features/goals/GoalsView";
 import { SettingsRail, SettingsView } from "../features/settings/SettingsView";
@@ -41,6 +42,7 @@ import { getDefaultZoraiTool, type ZoraiToolId } from "../features/tools/tools";
 import { WorkspacesRail, WorkspacesView } from "../features/workspaces/WorkspacesView";
 import { WorkspacesContext } from "../features/workspaces/WorkspaceContextPanel";
 import { SkillsRail, SkillsView } from "../features/skills/SkillsView";
+import { InboxRailBadge, InboxThreadReadTracker } from "../features/activity/InboxShellParts";
 import { contextPanelLabels, getDefaultZoraiView, LAST_ZORAI_VIEW_STORAGE_KEY, normalizeZoraiToolNavigation, RAIL_ITEM_IDS, zoraiNavItems, type ZoraiNavItem, type ZoraiViewId } from "./navigation";
 import { visibleItemIds } from "@/lib/itemLayout";
 import { useAppShortcuts } from "@/zorai/features/shortcuts/useAppShortcuts";
@@ -354,6 +356,7 @@ export function ZoraiShell() {
             }}
           />
         ) : null}
+        <InboxThreadReadTracker viewingThreads={activeView === "threads"} />
         <nav className="zorai-global-rail" aria-label="Zorai navigation">
           <div className="zorai-brand" title="Zorai">
             <ZoraiBrandMark />
@@ -375,6 +378,7 @@ export function ZoraiShell() {
                 aria-label={entry.item.label}
               >
                 <ZoraiNavIcon icon={entry.item.icon} />
+                {entry.item.id === "activity" ? <InboxRailBadge /> : null}
               </button>
             ) : (
               <button
@@ -529,6 +533,7 @@ function renderRail(
   if (view === "tools") return <ToolsRail activeTool={activeTool} onSelectTool={setActiveTool} />;
   if (view === "skills") return <SkillsRail />;
   if (view === "activity") return <ActivityRail />;
+  if (view === "usage") return <UsageRail />;
   if (view === "plugins") return <PluginsRail />;
   return <SettingsRail activeTab={activeSettingsTab} onSelectTab={setActiveSettingsTab} />;
 }
@@ -553,6 +558,7 @@ function renderMain(
   if (view === "tools") return <ToolsView activeTool={activeTool} onSelectTool={setActiveTool} />;
   if (view === "skills") return <SkillsView />;
   if (view === "activity") return <ActivityView />;
+  if (view === "usage") return <UsageView />;
   if (view === "plugins") return <PluginsView />;
   return <SettingsView activeTab={activeSettingsTab} onSelectTab={setActiveSettingsTab} />;
 }

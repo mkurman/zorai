@@ -27,15 +27,14 @@ const embeddedPanelStyle: CSSProperties = {
   maxHeight: "none",
   padding: 0,
   background: "transparent",
-  border: "1px solid var(--zorai-border)",
-  borderRadius: 7,
+  border: 0,
+  borderRadius: 0,
   overflow: "hidden",
 };
 
 export function ToolsRail({ activeTool, onSelectTool }: ToolsProps) {
   return (
     <div className="zorai-rail-stack">
-      <div className="zorai-section-label">Tools</div>
       {zoraiTools.map((tool) => (
         <button
           type="button"
@@ -47,8 +46,8 @@ export function ToolsRail({ activeTool, onSelectTool }: ToolsProps) {
           ].filter(Boolean).join(" ")}
           onClick={() => onSelectTool(tool.id)}
         >
-          <strong>{tool.title}</strong>
-          <span>{tool.description}</span>
+          <strong className="zorai-rail-card__title">{tool.title}</strong>
+          <span className="zorai-rail-card__status">{tool.description}</span>
         </button>
       ))}
     </div>
@@ -60,14 +59,11 @@ export function ToolsView({ activeTool, onSelectTool }: ToolsProps) {
 
   return (
     <section className="zorai-feature-surface zorai-tools-surface">
-      <div className="zorai-view-header">
+      <div className="zorai-view-header zorai-tools-header">
         <div>
           <div className="zorai-kicker">Tools</div>
           <h1>{selectedTool.title}</h1>
-          <p>
-            Zorai keeps terminal multiplexing as a useful capability, while the default
-            shell remains centered on threads, goals, and workspace orchestration.
-          </p>
+          <p>{selectedTool.description}</p>
         </div>
       </div>
 
@@ -217,9 +213,9 @@ function TerminalTool() {
           <strong>{terminalSurface ? terminalSurface.name : "No BSP terminal surface open"}</strong>
         </div>
         <div className="zorai-card-actions">
-          <button type="button" className="zorai-primary-button" onClick={createTerminalSurface}>New terminal surface</button>
-          <button type="button" className="zorai-ghost-button" onClick={() => splitTerminal("horizontal")}>Split right</button>
-          <button type="button" className="zorai-ghost-button" onClick={() => splitTerminal("vertical")}>Split down</button>
+          <button type="button" className="zorai-primary-button zorai-tool-actionbar__primary" onClick={createTerminalSurface}>New terminal surface</button>
+          <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" onClick={() => splitTerminal("horizontal")}>Split right</button>
+          <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" onClick={() => splitTerminal("vertical")}>Split down</button>
           <CanvasCreateButton />
         </div>
       </div>
@@ -294,10 +290,10 @@ function CanvasTool() {
           <strong>{canvasSurface ? canvasSurface.name : "No canvas surface open"}</strong>
         </div>
         <div className="zorai-card-actions">
-          <button type="button" className="zorai-primary-button" onClick={createCanvasSurface}>New infinite canvas</button>
-          <button type="button" className="zorai-ghost-button" onClick={createCanvasTerminal}>Add terminal panel</button>
-          <button type="button" className="zorai-ghost-button" onClick={createCanvasBrowser}>Add browser panel</button>
-          <button type="button" className="zorai-ghost-button" onClick={() => canvasSurface && arrangeCanvasPanels(canvasSurface.id)} disabled={!canvasSurface}>Arrange canvas</button>
+          <button type="button" className="zorai-primary-button zorai-tool-actionbar__primary" onClick={createCanvasSurface}>New infinite canvas</button>
+          <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" onClick={createCanvasTerminal}>Add terminal panel</button>
+          <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" onClick={createCanvasBrowser}>Add browser panel</button>
+          <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" onClick={() => canvasSurface && arrangeCanvasPanels(canvasSurface.id)} disabled={!canvasSurface}>Arrange canvas</button>
         </div>
       </div>
 
@@ -328,7 +324,7 @@ function CanvasCreateButton() {
     createSurface(activeWorkspace.id, { layoutMode: "canvas" });
   };
 
-  return <button type="button" className="zorai-ghost-button" onClick={createCanvasSurface}>New infinite canvas</button>;
+  return <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" onClick={createCanvasSurface}>New infinite canvas</button>;
 }
 
 function resolveCanvasSurface(activeSurface: Surface | undefined, surfaces: Surface[]): Surface | null {

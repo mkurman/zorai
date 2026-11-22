@@ -189,7 +189,7 @@ export function CanvasBrowserPane({
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        background: "var(--bg-primary)",
+        background: "var(--zorai-bg-panel)",
       }}
     >
       <BrowserChrome
@@ -201,7 +201,6 @@ export function CanvasBrowserPane({
         reload={reload}
         navigate={navigate}
         showFullscreen={false}
-        showClose={false}
       />
 
       <div

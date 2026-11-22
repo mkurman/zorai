@@ -740,6 +740,28 @@ export async function fetchGoalRuns(): Promise<GoalRun[]> {
     }
 }
 
+export async function fetchGoalRun(goalRunId: string): Promise<GoalRun | null> {
+    const bridge = getBridge();
+    if (!bridge?.agentGetGoalRun) {
+        return null;
+    }
+    try {
+        return normalizeGoalRun(await bridge.agentGetGoalRun(goalRunId));
+    } catch {
+        return null;
+    }
+}
+
+export function upsertGoalRun(goalRuns: GoalRun[], goalRun: GoalRun): GoalRun[] {
+    const index = goalRuns.findIndex((entry) => entry.id === goalRun.id);
+    if (index < 0) {
+        return [goalRun, ...goalRuns].sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+    }
+    const next = goalRuns.slice();
+    next[index] = goalRun;
+    return next;
+}
+
 async function fetchGoalRunsFromDatabase(): Promise<GoalRun[]> {
     const page = await getBridge()?.dbQueryDatabaseRows?.({
         tableName: "goal_runs",

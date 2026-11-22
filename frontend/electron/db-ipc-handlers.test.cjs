@@ -159,3 +159,18 @@ test("db-export-thread reports a cancelled save dialog so the UI stays quiet", a
   const result = await handlers.get("db-export-thread")({}, "t1", "m1", "x");
   assert.deepEqual(result, { ok: true, file_path: "/data/export.json", canceled: true });
 });
+
+test("db-list-database-tables reports a failed listing instead of claiming the database is empty", async () => {
+  const timeouts = [];
+  const { handlers } = createHarness({
+    async sendDbQuery(_command, _responseType, timeoutMs) {
+      timeouts.push(timeoutMs);
+      throw new Error("DB query timeout: database-tables");
+    },
+  });
+
+  const result = await handlers.get("db-list-database-tables")({});
+
+  assert.deepEqual(result, { error: "DB query timeout: database-tables" });
+  assert.ok(timeouts[0] >= 30000, "a cold history database needs longer than the default 5s to count every table");
+});

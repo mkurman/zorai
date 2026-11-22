@@ -110,100 +110,75 @@ export function formatBytes(bytes: number): string {
     return `${(bytes / 1048576).toFixed(1)} MB`;
 }
 
-export const hdrBtn: CSSProperties = {
-    background: "color-mix(in srgb, var(--text-primary) 4%, transparent)",
-    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
-    color: "var(--text-secondary)",
-    cursor: "pointer",
-    fontSize: 13,
-    padding: "6px 10px",
-    borderRadius: 0,
-};
-
 export const filterInputStyle: CSSProperties = {
-    width: "100%",
-    padding: "10px 12px",
-    background: "color-mix(in srgb, var(--bg-surface) 80%, transparent)",
-    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
-    color: "var(--text-primary)",
-    fontSize: 13,
+    height: 28,
+    padding: "4px 8px",
+    background: "transparent",
+    border: "1px solid var(--zorai-border)",
+    color: "var(--zorai-text)",
+    fontSize: "var(--text-sm)",
     fontFamily: "inherit",
     outline: "none",
-    borderRadius: 0,
-};
-
-export const modeBtnStyle: CSSProperties = {
-    background: "color-mix(in srgb, var(--text-primary) 4%, transparent)",
-    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
-    color: "var(--text-secondary)",
-    borderRadius: 0,
-    padding: "7px 12px",
-    fontSize: 11,
-    cursor: "pointer",
+    borderRadius: 6,
+    maxWidth: 180,
 };
 
 export const activeModeBtnStyle: CSSProperties = {
-    color: "var(--text-primary)",
-    borderColor: "color-mix(in srgb, var(--info) 36%, transparent)",
-    background: "var(--bg-secondary)",
+    background: "var(--zorai-bg-active)",
+    borderColor: "var(--zorai-accent)",
 };
 
 export const timelineCardStyle: CSSProperties = {
-    minWidth: 220,
-    maxWidth: 260,
-    padding: 12,
+    minWidth: 200,
+    maxWidth: 240,
+    padding: "10px 12px",
     display: "grid",
-    gap: 6,
+    gap: 4,
+    alignContent: "start",
     textAlign: "left",
-    borderRadius: 0,
-    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
-    background: "var(--bg-secondary)",
-    color: "var(--text-primary)",
+    borderRadius: 10,
+    border: "1px solid var(--zorai-border)",
+    background: "var(--zorai-bg-panel)",
+    color: "var(--zorai-text)",
+    fontFamily: "inherit",
     flexShrink: 0,
 };
 
 export const timelineTypeStyle: CSSProperties = {
-    fontSize: 10,
-    color: "var(--text-secondary)",
-    textTransform: "uppercase",
-    letterSpacing: "0.08em",
+    fontSize: "var(--text-xs)",
+    color: "var(--zorai-muted)",
 };
 
 export const timelineMetaStyle: CSSProperties = {
-    fontSize: 10,
-    color: "var(--text-secondary)",
+    fontSize: "var(--text-xs)",
+    color: "var(--zorai-muted)",
+    fontVariantNumeric: "tabular-nums",
 };
 
 export const timelineBodyStyle: CSSProperties = {
-    fontSize: 11,
-    color: "var(--text-primary)",
+    fontFamily: "var(--font-mono)",
+    fontSize: "var(--text-xs)",
+    lineHeight: 1.5,
+    color: "var(--zorai-text)",
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
-};
-
-export const miniActionBtnStyle: CSSProperties = {
-    background: "color-mix(in srgb, var(--text-primary) 5%, transparent)",
-    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
-    color: "var(--text-primary)",
-    borderRadius: 0,
-    padding: "6px 9px",
-    fontSize: 11,
-    cursor: "pointer",
+    maxHeight: 54,
+    overflow: "hidden",
 };
 
 export const timelineRowStyle: CSSProperties = {
     display: "flex",
-    gap: 12,
-    padding: 14,
-    borderRadius: 0,
-    border: "1px solid color-mix(in srgb, var(--text-primary) 8%, transparent)",
-    background: "color-mix(in srgb, var(--text-primary) 3%, transparent)",
+    gap: 10,
+    padding: "10px 12px",
+    borderRadius: 10,
+    border: "1px solid var(--zorai-border)",
+    background: "var(--zorai-bg-panel)",
     alignItems: "stretch",
 };
 
 export const timelineRailStyle: CSSProperties = {
-    width: 4,
-    borderRadius: 0,
+    width: 3,
+    borderRadius: 2,
     background: "var(--warning)",
     flexShrink: 0,
 };

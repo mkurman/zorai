@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DependencyList } from "react";
 import { abortThreadStream, buildHydratedRemoteThread, useAgentStore } from "@/lib/agentStore";
 import { getAgentDbApi } from "@/lib/agentStore/history";
 import { getAgentBridge, shouldUseDaemonRuntime } from "@/lib/agentDaemonConfig";
@@ -108,6 +108,16 @@ function filterThreadsForSearch(
       thread.title.toLowerCase().includes(lower)
       || thread.lastMessagePreview.toLowerCase().includes(lower),
   );
+}
+
+function useStableRuntimeValue(next: AgentChatPanelRuntimeValue, deps: DependencyList): AgentChatPanelRuntimeValue {
+  const cache = useRef<{ deps: DependencyList; value: AgentChatPanelRuntimeValue } | null>(null);
+  const cached = cache.current;
+  if (cached && cached.deps.length === deps.length && cached.deps.every((dep, index) => Object.is(dep, deps[index]))) {
+    return cached.value;
+  }
+  cache.current = { deps, value: next };
+  return next;
 }
 
 export function filterThreadsForBrowserView(
@@ -1349,7 +1359,7 @@ export function useAgentChatPanelProviderValue(): {
     usageMessageCount,
   });
 
-  const value = useMemo<AgentChatPanelRuntimeValue>(() => ({
+  const nextValue: AgentChatPanelRuntimeValue = {
     togglePanel,
     activeWorkspace,
     threads,
@@ -1437,7 +1447,8 @@ export function useAgentChatPanelProviderValue(): {
     pinnedUsageChars,
     pinnedOverBudget,
     welesHealth,
-  }), [
+  };
+  const value = useStableRuntimeValue(nextValue, [
     activeThread,
     activeThreadId,
     activeWorkspace,

@@ -15,7 +15,10 @@ type DatabaseRailProps = DatabaseViewProps;
 export function DatabaseRail({ activeTable, onSelectTable }: DatabaseRailProps) {
   const [tables, setTables] = useState<DatabaseTableSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const activeTableRef = useRef(activeTable);
+  activeTableRef.current = activeTable;
 
   useEffect(() => {
     const refreshTables = () => setRefreshKey((current) => current + 1);
@@ -26,14 +29,15 @@ export function DatabaseRail({ activeTable, onSelectTable }: DatabaseRailProps) 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setError(null);
     listDatabaseTables()
       .then((nextTables) => {
         if (cancelled) return;
         setTables(nextTables);
-        if (!activeTable && nextTables[0]) onSelectTable(nextTables[0].name);
+        if (!activeTableRef.current && nextTables[0]) onSelectTable(nextTables[0].name);
       })
-      .catch(() => {
-        if (!cancelled) setTables([]);
+      .catch((reason: unknown) => {
+        if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -41,7 +45,7 @@ export function DatabaseRail({ activeTable, onSelectTable }: DatabaseRailProps) 
     return () => {
       cancelled = true;
     };
-  }, [activeTable, onSelectTable, refreshKey]);
+  }, [onSelectTable, refreshKey]);
 
   return (
     <div className="zorai-rail-stack">
@@ -57,11 +61,17 @@ export function DatabaseRail({ activeTable, onSelectTable }: DatabaseRailProps) 
           ].filter(Boolean).join(" ")}
           onClick={() => onSelectTable(table.name)}
         >
-          <strong>{table.name}</strong>
-          <span>{table.rowCount ?? "-"} rows · {table.editable ? "editable" : table.tableType}</span>
+          <strong className="zorai-rail-card__title">{table.name}</strong>
+          <span className="zorai-rail-card__status">{table.rowCount?.toLocaleString() ?? "-"} rows · {table.editable ? "editable" : table.tableType}</span>
         </button>
       ))}
-      {!loading && tables.length === 0 ? <div className="zorai-empty">No database tables found.</div> : null}
+      {!loading && error && tables.length === 0 ? (
+        <div className="zorai-empty" role="alert">
+          <p>Could not load database tables: {error}</p>
+          <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" onClick={() => setRefreshKey((current) => current + 1)}>Retry</button>
+        </div>
+      ) : null}
+      {!loading && !error && tables.length === 0 ? <div className="zorai-empty">No database tables found.</div> : null}
     </div>
   );
 }
@@ -302,11 +312,11 @@ export function DatabaseView({ activeTable }: DatabaseViewProps) {
             Push{dirtyCount > 0 ? ` ${dirtyCount}` : ""}
           </button>
           <RefreshButton disabled={loading || !page} busy={loading} onClick={refreshVisibleRows} />
-          <button type="button" className="zorai-ghost-button" disabled={!canGoPrevious || loading} onClick={() => { setSelection(null); setOffset(0); }}>First</button>
-          <button type="button" className="zorai-ghost-button" disabled={!canGoPrevious || loading} onClick={() => { setSelection(null); setOffset(Math.max(0, offset - pageSize)); }}>Prev</button>
+          <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" disabled={!canGoPrevious || loading} onClick={() => { setSelection(null); setOffset(0); }}>First</button>
+          <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" disabled={!canGoPrevious || loading} onClick={() => { setSelection(null); setOffset(Math.max(0, offset - pageSize)); }}>Prev</button>
           <span>{page ? `${offset + 1}-${Math.min(offset + page.limit, page.totalRows)} / ${page.totalRows}` : "0 / 0"}</span>
-          <button type="button" className="zorai-ghost-button" disabled={!canGoNext || loading} onClick={() => { setSelection(null); setOffset(offset + pageSize); }}>Next</button>
-          <button type="button" className="zorai-ghost-button" disabled={loading || !page || offset === lastOffset} onClick={() => { setSelection(null); setOffset(lastOffset); }}>Last</button>
+          <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" disabled={!canGoNext || loading} onClick={() => { setSelection(null); setOffset(offset + pageSize); }}>Next</button>
+          <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" disabled={loading || !page || offset === lastOffset} onClick={() => { setSelection(null); setOffset(lastOffset); }}>Last</button>
           <label>
             <span>Rows</span>
             <input
@@ -510,7 +520,7 @@ export function DatabaseCellEditor({
         className="zorai-database-cell-editor"
         value={value}
         disabled={!editable || loading}
-        rows={2}
+        rows={1}
         spellCheck={false}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={onKeyDown}
