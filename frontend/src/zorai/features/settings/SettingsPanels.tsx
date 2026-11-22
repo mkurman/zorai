@@ -95,7 +95,7 @@ export const conciergeReasoningEffortOptions: Array<{ value: AgentSettings["reas
   { value: "xhigh", label: "xhigh" },
   { value: "max", label: "max" },
 ];
-const APP_VERSION = "1.1.16";
+const APP_VERSION = "1.1.17";
 const APP_AUTHOR = "Mariusz Kurman";
 const APP_GITHUB = "mkurman/zorai";
 const APP_HOMEPAGE = "zorai.app";
@@ -1422,7 +1422,7 @@ function SafetyPanel() {
   return (
     <SettingsGrid>
       <Panel section="Safety" title="Managed commands">
-        <SettingRow label="Sandbox Managed Cmds" description="Use daemon-managed command execution defaults."><Switch checked={Boolean(agentSettings.managed_sandbox_enabled)} onChange={(checked) => updateLooseAgentSetting("managed_sandbox_enabled", checked)} /></SettingRow>
+        <SettingRow label="Run Agent Commands in a Sandbox" description="Confines the agent's shell commands (bubblewrap on Linux, seatbelt on macOS): only the working folder is writable, your home folder is hidden, and network is off unless the agent asks for it. Commands that need anything else will fail. Not available on Windows."><Switch checked={Boolean(agentSettings.managed_sandbox_enabled)} onChange={(checked) => updateLooseAgentSetting("managed_sandbox_enabled", checked)} /></SettingRow>
         <SettingRow label="Managed Security" description="Default approval strictness for managed shell commands.">
           <select className="zorai-input" value={String(agentSettings.managed_security_level ?? "lowest")} onChange={(event) => updateLooseAgentSetting("managed_security_level", event.target.value)}>
             {["highest", "moderate", "lowest", "yolo"].map((value) => <option key={value} value={value}>{value}</option>)}

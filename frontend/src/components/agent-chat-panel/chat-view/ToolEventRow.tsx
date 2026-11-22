@@ -5,6 +5,7 @@ import { getToolDiffPresentation, ToolDiffView } from "./toolDiffPresentation";
 import { ToolStatusIcon } from "./ToolStatusIcon";
 import { extractToolArtifacts } from "./toolArtifacts";
 import { ToolArtifactChips } from "./ToolArtifactChips";
+import { parseToolSandbox } from "./toolSandbox";
 import {
   getToolFileTarget,
   getToolStructuredFields,
@@ -35,9 +36,11 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
       window.clearTimeout(timer);
     };
   }, [group.key, revealNonce]);
+  const sandbox = useMemo(() => parseToolSandbox(group.resultContent), [group.resultContent]);
+  const resultContent = sandbox ? sandbox.body : group.resultContent;
   const artifacts = useMemo(
-    () => extractToolArtifacts(group.toolArguments, group.resultContent),
-    [group.resultContent, group.toolArguments],
+    () => extractToolArtifacts(group.toolArguments, resultContent),
+    [resultContent, group.toolArguments],
   );
   const statusLabel = group.status.toUpperCase();
   const reviewPresentation = useMemo(
@@ -45,8 +48,8 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
     [group.welesReview],
   );
   const details = useMemo(
-    () => (!presence.mounted ? null : expandedToolDetails(group.toolName, group.toolArguments, group.resultContent)),
-    [presence.mounted, group.toolName, group.toolArguments, group.resultContent],
+    () => (!presence.mounted ? null : expandedToolDetails(group.toolName, group.toolArguments, resultContent)),
+    [presence.mounted, group.toolName, group.toolArguments, resultContent],
   );
   const reviewToneClass = reviewPresentation?.tone === "blocked"
     ? "acp-tool-review--blocked"
@@ -68,6 +71,13 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
           <span className="acp-tool-row__name" title={intent ? toolName : undefined}>{intent || toolName}</span>
         </button>
         <div className="acp-tool-row__status">
+          {sandbox ? (
+            <span className="acp-tool-row__badge acp-tool-row__badge--status" title={`Ran in sandbox (${sandbox.label})`}>
+              <svg className="acp-tool-status-icon" width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" role="img" aria-label={`Ran in sandbox (${sandbox.label})`}>
+                <path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z" />
+              </svg>
+            </span>
+          ) : null}
           {reviewPresentation && (
             <span className="acp-tool-row__badge">
               {reviewPresentation.badgeLabel === "Blocked" ? "blocked" : null}
@@ -110,7 +120,7 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
           ) : null}
 
           {details?.fileTarget ? (
-            <ToolFileTargetView label="file" path={details.fileTarget.path} summaryText={group.resultContent} />
+            <ToolFileTargetView label="file" path={details.fileTarget.path} summaryText={resultContent} />
           ) : details?.toolDiff ? (
             <ToolDiffView sections={details.toolDiff} />
           ) : details?.structuredArgDetails ? (
@@ -124,10 +134,10 @@ export function ToolEventRow({ group }: { group: ToolEventGroup }) {
 
           {details && !details.fileTarget && details.structuredResult ? (
             <ToolStructuredValueView label="result" fields={details.structuredResult} />
-          ) : details && !details.fileTarget && group.resultContent ? (
+          ) : details && !details.fileTarget && resultContent ? (
             <div>
               <div className="acp-field-label">result</div>
-              <div className="acp-tool-result">{group.resultContent}</div>
+              <div className="acp-tool-result">{resultContent}</div>
             </div>
           ) : null}
 

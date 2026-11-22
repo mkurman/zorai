@@ -102,6 +102,8 @@ pub enum AgentEvent {
         active: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         reason: Option<String>,
+        #[serde(default)]
+        return_to_app: bool,
     },
     ThreadReloadRequired {
         thread_id: String,

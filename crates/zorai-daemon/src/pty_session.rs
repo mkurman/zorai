@@ -18,6 +18,7 @@ use crate::sandbox;
 
 mod helpers;
 pub use helpers::sanitize_scrollback_for_replay;
+pub(crate) use helpers::shell_join;
 use helpers::{configure_shell_command, default_shell, dispatch_managed_command, pty_reader_loop};
 
 /// Rolling scrollback buffer capacity (bytes).

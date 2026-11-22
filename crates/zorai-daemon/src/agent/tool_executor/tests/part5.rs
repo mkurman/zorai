@@ -107,6 +107,79 @@ async fn headless_shell_command_can_be_cancelled() {
     assert!(error.to_string().contains("cancelled"));
 }
 
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn sandbox_setting_confines_everyday_shell_commands_and_says_so() {
+    if crate::sandbox::detect_sandbox().name() != "bwrap" {
+        return;
+    }
+    let root = tempfile::tempdir().unwrap();
+    let workspace = tempfile::tempdir().unwrap();
+    let session_manager = SessionManager::new_test(root.path()).await;
+    let mut config = AgentConfig::default();
+    config.managed_execution.sandbox_enabled = true;
+    let engine = AgentEngine::new_test(session_manager.clone(), config, root.path()).await;
+    let probe =
+        std::path::PathBuf::from(std::env::var("HOME").unwrap()).join(".zorai-sandbox-probe");
+    std::fs::write(&probe, "private").unwrap();
+    struct RemoveProbe(std::path::PathBuf);
+    impl Drop for RemoveProbe {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_file(&self.0);
+        }
+    }
+    let _probe_guard = RemoveProbe(probe.clone());
+    let host_cargo =
+        std::path::PathBuf::from(std::env::var("HOME").unwrap()).join(".cargo/bin/cargo");
+    let args = serde_json::json!({
+        "command": "test -e \"$HOME/.zorai-sandbox-probe\" && echo home-visible || echo home-hidden; [[ -n bash ]] && echo ok > inside.txt; cargo --version >/dev/null 2>&1 && echo cargo-ok || echo cargo-missing",
+        "cwd": workspace.path().to_string_lossy(),
+        "timeout_seconds": 30
+    });
+
+    let (sandboxed, _) = execute_headless_shell_command(
+        &args,
+        &session_manager,
+        None,
+        "bash_command",
+        None,
+        None,
+        Some(&engine),
+        None,
+    )
+    .await
+    .expect("sandboxed command should run");
+
+    assert!(sandboxed.starts_with("[sandboxed: bubblewrap, network blocked]\n"));
+    assert!(sandboxed.contains("home-hidden"));
+    assert!(workspace.path().join("inside.txt").exists());
+    if host_cargo.exists() {
+        assert!(sandboxed.contains("cargo-ok"), "{sandboxed}");
+    }
+
+    engine
+        .config
+        .write()
+        .await
+        .managed_execution
+        .sandbox_enabled = false;
+    let (unsandboxed, _) = execute_headless_shell_command(
+        &args,
+        &session_manager,
+        None,
+        "bash_command",
+        None,
+        None,
+        Some(&engine),
+        None,
+    )
+    .await
+    .expect("unsandboxed command should run");
+
+    assert!(!unsandboxed.contains("[sandboxed:"));
+    assert!(unsandboxed.contains("home-visible"));
+}
+
 #[tokio::test]
 async fn cancel_headless_operation_kills_backgrounded_command_by_operation_id() {
     let root = tempfile::tempdir().unwrap();

@@ -178,6 +178,7 @@ impl<'a> SendMessageRunner<'a> {
         provider_final_result: Option<CompletionProviderFinalResult>,
         upstream_thread_id: Option<String>,
     ) -> Result<LoopDisposition> {
+        crate::agent::finish_computer_control_turn(&self.engine.event_tx, &self.tid).await;
         let turn_cost =
             crate::agent::cost::reported_turn_cost(self.config.cost.enabled, reported_cost_usd);
         let mut final_content = if content.is_empty() {
