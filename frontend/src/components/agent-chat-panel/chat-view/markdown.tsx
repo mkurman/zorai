@@ -19,7 +19,7 @@ import { looksLikeFileReference } from "@/zorai/features/code/codeFileTypes";
 import { fileLinkCandidatesFromTools } from "./fileLinkCandidates";
 import { MathSegmentsContext } from "./mathText";
 import { HtmlEmbed } from "@/components/data-viewers/HtmlEmbed";
-import { expandAgentEmbedTags } from "@/components/data-viewers/htmlEmbed";
+import { expandAgentEmbedTags } from "@/components/data-viewers/htmlEmbedDocument";
 
 export const KATEX_DELIMITERS = [
   { left: "$$", right: "$$", display: true },

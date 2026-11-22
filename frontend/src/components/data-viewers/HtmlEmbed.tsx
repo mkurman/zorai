@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { fetchFilePreview } from "@/lib/agentWorkContext";
 import { useSettingsStore } from "@/lib/settingsStore";
 import { mediaUrlForPath } from "@/zorai/features/threads/ThreadFilePreviewOverlay";
-import { buildEmbedDocument, EMBED_HEIGHT_MESSAGE, embedFileName } from "./htmlEmbed";
+import { buildEmbedDocument, EMBED_HEIGHT_MESSAGE, embedFileName } from "./htmlEmbedDocument";
 
 const MAX_EMBED_BYTES = 2 * 1024 * 1024;
 const MIN_HEIGHT = 120;

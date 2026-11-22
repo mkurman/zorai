@@ -642,7 +642,8 @@ function ThreadHeader({
   useEffect(() => {
     if (!moreOpen) return;
     const onPointerDown = (event: globalThis.PointerEvent) => {
-      if (!moreRef.current?.contains(event.target as Node)) setMoreOpen(false);
+      if (moreRef.current?.contains(event.target as Node) || (event.target instanceof Element && event.target.closest(".zorai-thread-side-panel"))) return;
+      setMoreOpen(false);
     };
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") setMoreOpen(false);
