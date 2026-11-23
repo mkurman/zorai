@@ -162,6 +162,8 @@ impl AgentEngine {
             .map(|message| {
                 let metadata_json = build_message_metadata_json(message);
                 zorai_protocol::AgentDbMessage {
+                    reasoning_tokens: message.reasoning_tokens.map(|value| value as i64),
+                    thinking_ms: message.thinking_ms.map(|value| value as i64),
                     id: message.id.clone(),
                     thread_id: thread.id.clone(),
                     created_at: message.timestamp as i64,

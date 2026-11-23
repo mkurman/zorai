@@ -1895,6 +1895,10 @@
   }
 }
 
+.zorai-message__reasoning-toggle--static {
+  cursor: default;
+}
+
 .zorai-message__reasoning-toggle::-webkit-details-marker {
   display: none;
 }
@@ -2679,6 +2683,15 @@
   color: var(--zorai-text);
   padding: 12px 14px;
   overflow: auto;
+}
+
+.zorai-file-preview-overlay__html {
+  width: 100%;
+  min-height: 70vh;
+  flex: 1 1 auto;
+  border: none;
+  border-radius: 7px;
+  background: #fff;
 }
 
 .zorai-file-preview-overlay__markdown .acp-md {

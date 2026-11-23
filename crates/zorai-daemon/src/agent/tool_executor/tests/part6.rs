@@ -326,6 +326,8 @@ async fn compaction_trims_participant_playground_threads_without_dropping_latest
     config.max_context_messages = 4;
     config.keep_recent_on_compact = 2;
     let assistant_message = |content: &str, timestamp: u64| crate::agent::types::AgentMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: crate::agent::types::generate_message_id(),
         role: crate::agent::MessageRole::Assistant,
         content: content.to_string(),
@@ -360,6 +362,8 @@ async fn compaction_trims_participant_playground_threads_without_dropping_latest
     };
     let compaction_artifact_message =
         |content: &str, timestamp: u64| crate::agent::types::AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: crate::agent::types::generate_message_id(),
             role: crate::agent::MessageRole::Assistant,
             content: content.to_string(),

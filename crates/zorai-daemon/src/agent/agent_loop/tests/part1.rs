@@ -65,6 +65,8 @@ async fn repair_tool_call_sequence_updates_persisted_history() {
                 messages: vec![
                     AgentMessage::user("start", 1),
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: "assistant-tool-turn".to_string(),
                         role: MessageRole::Assistant,
                         content: "checking".to_string(),
@@ -115,6 +117,8 @@ async fn repair_tool_call_sequence_updates_persisted_history() {
                         feedback: None,
                     },
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: "tool-result-2013".to_string(),
                         role: MessageRole::Tool,
                         content: "partial".to_string(),

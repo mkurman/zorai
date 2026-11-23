@@ -2200,3 +2200,54 @@ async fn validation_still_fails_for_a_rejected_key() {
         .expect_err("a rejected key must fail validation");
     assert!(err.to_string().contains("401"));
 }
+
+async fn reasoning_tokens_from_done(body: &'static str, responses: bool) -> Option<u64> {
+    let (response, server) = responses_sse_test_response(body).await;
+    let (tx, mut rx) = mpsc::channel(8);
+    if responses {
+        parse_openai_responses_sse(response, zorai_shared::providers::PROVIDER_ID_OPENAI, &tx)
+            .await
+            .expect("parse should succeed");
+    } else {
+        parse_openai_sse(response, &tx)
+            .await
+            .expect("parse should succeed");
+    }
+    drop(tx);
+    let mut found = None;
+    while let Some(chunk) = rx.recv().await {
+        if let CompletionChunk::Done {
+            reasoning_tokens, ..
+        } = chunk.expect("chunk")
+        {
+            found = Some(reasoning_tokens);
+        }
+    }
+    server.await.expect("server task");
+    found.expect("expected terminal done chunk")
+}
+
+#[tokio::test]
+async fn openai_reasoning_token_counts_reach_the_turn_so_the_operator_sees_how_much_was_thought() {
+    let responses = reasoning_tokens_from_done(
+        concat!(
+            "data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_r\"}}\n",
+            "data: {\"type\":\"response.output_text.delta\",\"delta\":\"hi\"}\n",
+            "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_r\",\"object\":\"response\",\"status\":\"completed\",\"output\":[],\"usage\":{\"input_tokens\":5,\"output_tokens\":300,\"output_tokens_details\":{\"reasoning_tokens\":256}},\"error\":null}}\n"
+        ),
+        true,
+    )
+    .await;
+    let chat = reasoning_tokens_from_done(
+        concat!(
+            "data: {\"id\":\"c1\",\"model\":\"m\",\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n",
+            "data: {\"id\":\"c1\",\"model\":\"m\",\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":5,\"completion_tokens\":300,\"completion_tokens_details\":{\"reasoning_tokens\":128}}}\n",
+            "data: [DONE]\n"
+        ),
+        false,
+    )
+    .await;
+
+    assert_eq!(responses, Some(256));
+    assert_eq!(chat, Some(128));
+}

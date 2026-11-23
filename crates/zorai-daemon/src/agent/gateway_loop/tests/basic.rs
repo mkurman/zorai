@@ -225,6 +225,8 @@ fn gateway_channel_key_normalizes_platform_label_casing() {
 fn gateway_auto_send_ignores_historic_send_tools_from_prior_turns() {
     let messages = vec![
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "user-1".to_string(),
             role: MessageRole::User,
             content: "old question".to_string(),
@@ -258,6 +260,8 @@ fn gateway_auto_send_ignores_historic_send_tools_from_prior_turns() {
             feedback: None,
         },
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "assistant-1".to_string(),
             role: MessageRole::Assistant,
             content: "old answer".to_string(),
@@ -291,6 +295,8 @@ fn gateway_auto_send_ignores_historic_send_tools_from_prior_turns() {
             feedback: None,
         },
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "tool-1".to_string(),
             role: MessageRole::Tool,
             content: "Discord message sent".to_string(),
@@ -325,6 +331,8 @@ fn gateway_auto_send_ignores_historic_send_tools_from_prior_turns() {
         },
         AgentMessage::user("What model are you bro?", 4),
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "assistant-2".to_string(),
             role: MessageRole::Assistant,
             content: "I am running gpt-test.".to_string(),
@@ -374,6 +382,8 @@ fn gateway_auto_send_keeps_latest_assistant_message_pending_after_earlier_send_t
     let messages = vec![
         AgentMessage::user("Can you check this?", 1),
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "assistant-1".to_string(),
             role: MessageRole::Assistant,
             content: "On it, give me a moment...".to_string(),
@@ -407,6 +417,8 @@ fn gateway_auto_send_keeps_latest_assistant_message_pending_after_earlier_send_t
             feedback: None,
         },
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "tool-1".to_string(),
             role: MessageRole::Tool,
             content: "Discord message sent".to_string(),
@@ -443,6 +455,8 @@ fn gateway_auto_send_keeps_latest_assistant_message_pending_after_earlier_send_t
             feedback: None,
         },
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "assistant-2".to_string(),
             role: MessageRole::Assistant,
             content: "I found the issue. The release notes need one more line.".to_string(),
@@ -492,6 +506,8 @@ fn gateway_auto_send_treats_tool_call_only_assistant_messages_as_latest_activity
     let messages = vec![
         AgentMessage::user("Can you post a quick update?", 1),
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "assistant-1".to_string(),
             role: MessageRole::Assistant,
             content: "On it.".to_string(),
@@ -525,6 +541,8 @@ fn gateway_auto_send_treats_tool_call_only_assistant_messages_as_latest_activity
             feedback: None,
         },
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "assistant-2".to_string(),
             role: MessageRole::Assistant,
             content: String::new(),

@@ -157,6 +157,8 @@ async fn post_compaction_prompt_rebuild_refreshes_memory_summary_and_injection_s
                 messages: vec![
                     crate::agent::types::AgentMessage::user("First request", 1),
                     crate::agent::types::AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: "assistant-1".to_string(),
                         role: MessageRole::Assistant,
                         content: "Observed earlier state".to_string(),
@@ -3078,6 +3080,8 @@ async fn persisted_mesh_next_step_can_downgrade_legacy_strong_gate_to_advisory()
     seed_engine
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "seed-message-1".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1,
@@ -3209,6 +3213,8 @@ async fn persisted_mesh_requires_approval_blocks_non_discovery_tool() {
     seed_engine
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "seed-message-1".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1,
@@ -3327,6 +3333,8 @@ async fn reading_skill_does_not_clear_mesh_approval_requirement() {
     seed_engine
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "seed-message-1".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1,
@@ -3427,6 +3435,8 @@ async fn substantive_follow_up_does_not_downgrade_hydrated_mesh_approval_require
     seed_engine
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "seed-message-1".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1,
@@ -3612,6 +3622,8 @@ async fn substantive_follow_up_preserves_hydrated_advisory_mesh_next_step() {
     seed_engine
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "seed-message-1".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1,
@@ -3764,6 +3776,8 @@ async fn terse_follow_up_still_emits_hydrated_mesh_guidance_without_fresh_prefli
     seed_engine
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "seed-message-1".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1,
@@ -3893,6 +3907,8 @@ async fn approval_id_survives_substantive_follow_up_and_can_be_resolved() {
     seed_engine
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "seed-message-1".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1,
@@ -4007,6 +4023,8 @@ async fn hydrated_legacy_name_only_skill_identifier_becomes_compliant_after_read
     seed_engine
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "seed-message-1".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1,

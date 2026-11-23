@@ -260,6 +260,7 @@ export function createThreadActions(
           totalTokens: nextTotalTokens,
           reasoning: boundOptionalRendererText(meta?.reasoning ?? lastMessage.reasoning),
           reasoningTokens: meta?.reasoningTokens ?? lastMessage.reasoningTokens,
+          thinkingMs: meta?.thinkingMs ?? lastMessage.thinkingMs,
           audioTokens: meta?.audioTokens ?? lastMessage.audioTokens,
           videoTokens: meta?.videoTokens ?? lastMessage.videoTokens,
           cost: meta?.cost ?? lastMessage.cost,

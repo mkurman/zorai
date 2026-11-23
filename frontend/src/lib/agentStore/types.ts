@@ -284,6 +284,7 @@ export interface AgentMessage {
   totalTokens: number;
   reasoning?: string;
   reasoningTokens?: number;
+  thinkingMs?: number;
   audioTokens?: number;
   videoTokens?: number;
   cost?: number;

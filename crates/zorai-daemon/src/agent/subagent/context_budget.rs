@@ -393,6 +393,8 @@ mod tests {
         tool_calls: Option<Vec<ToolCall>>,
     ) -> AgentMessage {
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: crate::agent::types::generate_message_id(),
             role: MessageRole::Assistant,
             content: content.to_string(),

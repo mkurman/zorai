@@ -22,6 +22,8 @@ fn sample_thread() -> AgentDbThread {
 
 fn sample_message(id: &str, content: &str) -> AgentDbMessage {
     AgentDbMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: id.to_string(),
         thread_id: "thread-1".to_string(),
         created_at: 100,
@@ -533,5 +535,24 @@ async fn claim_embedding_jobs_retries_transient_database_locks() -> Result<()> {
     assert_eq!(jobs[0].source_id, "msg-locked");
 
     fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn reasoning_tokens_and_thinking_time_survive_a_reload_of_the_thread() -> Result<()> {
+    let (store, _root) = make_test_store().await?;
+    store.create_thread(&sample_thread()).await?;
+    let mut message = sample_message("msg-think", "answer");
+    message.role = "assistant".to_string();
+    message.reasoning_tokens = Some(1996);
+    message.thinking_ms = Some(128_000);
+    store.add_message(&message).await?;
+
+    let reloaded = store.list_messages("thread-1", None).await?;
+    let limited = store.list_messages("thread-1", Some(5)).await?;
+
+    assert_eq!(reloaded[0].reasoning_tokens, Some(1996));
+    assert_eq!(reloaded[0].thinking_ms, Some(128_000));
+    assert_eq!(limited[0].reasoning_tokens, Some(1996));
     Ok(())
 }

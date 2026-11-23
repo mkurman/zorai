@@ -166,6 +166,8 @@ async fn message_feedback_resolves_stale_id_by_absolute_index() {
         engine
             .history
             .add_message(&zorai_protocol::AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: id.to_string(),
                 thread_id: thread_id.to_string(),
                 created_at,

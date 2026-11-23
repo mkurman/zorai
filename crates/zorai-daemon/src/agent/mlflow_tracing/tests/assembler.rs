@@ -26,6 +26,8 @@ fn context(thread: &str) -> TurnObservationContext {
 
 fn done(thread: &str, id: &str) -> AgentEvent {
     AgentEvent::Done {
+        reasoning_tokens: None,
+        thinking_ms: None,
         thread_id: thread.into(),
         input_tokens: 10,
         output_tokens: 4,
@@ -194,6 +196,8 @@ fn configured_span_limit_is_hard() {
 
 fn done_without_usage(thread: &str, id: &str) -> AgentEvent {
     AgentEvent::Done {
+        reasoning_tokens: None,
+        thinking_ms: None,
         thread_id: thread.into(),
         input_tokens: 0,
         output_tokens: 0,

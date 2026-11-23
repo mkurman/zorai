@@ -824,6 +824,8 @@ impl AgentEngine {
             if let Some(thread) = threads.get_mut(&thread_id) {
                 thread.updated_at = now_millis();
                 thread.messages.push(AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: generate_message_id(),
                     role: MessageRole::System,
                     content: format!(

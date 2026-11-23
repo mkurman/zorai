@@ -27,6 +27,8 @@ pub(super) fn agent_message_from_db(msg: zorai_protocol::AgentDbMessage) -> Opti
     let metadata = parse_message_metadata(msg.metadata_json.as_deref());
 
     Some(AgentMessage {
+        reasoning_tokens: msg.reasoning_tokens.map(|value| value.max(0) as u64),
+        thinking_ms: msg.thinking_ms.map(|value| value.max(0) as u64),
         id: msg.id.clone(),
         role,
         content: msg.content,
@@ -493,6 +495,8 @@ impl AgentEngine {
                     .and_then(|json| serde_json::from_str(json).ok());
                 let metadata = parse_message_metadata(msg.metadata_json.as_deref());
                 Some(AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: msg.id.clone(),
                     role,
                     content: msg.content.clone(),

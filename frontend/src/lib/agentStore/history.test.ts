@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildHydratedRemoteMessage,
   buildHydratedRemoteThread,
   isGatewayAgentThread,
   isInternalAgentThread,
@@ -235,5 +236,21 @@ describe("buildHydratedRemoteThread", () => {
 
     expect(hydrated?.thread.updatedAt).toBe(seconds * 1000);
     expect(hydrated?.thread.createdAt).toBe(seconds * 1000);
+  });
+});
+
+describe("buildHydratedRemoteMessage", () => {
+  it("keeps the daemon's reasoning token count and thinking time when a thread is reopened", () => {
+    const message = buildHydratedRemoteMessage("t1", {
+      id: "m1",
+      role: "assistant",
+      content: "",
+      reasoning: "\u001fgemini-thought:sig",
+      reasoning_tokens: 1996,
+      thinking_ms: 128000,
+    } as Parameters<typeof buildHydratedRemoteMessage>[1]);
+
+    expect(message.reasoningTokens).toBe(1996);
+    expect(message.thinkingMs).toBe(128000);
   });
 });

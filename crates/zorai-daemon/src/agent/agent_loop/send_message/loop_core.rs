@@ -313,6 +313,7 @@ impl<'a> SendMessageRunner<'a> {
 
         let llm_started_at = Instant::now();
         let mut first_token_at: Option<Instant> = None;
+        let mut answer_started_at: Option<Instant> = None;
         let effective_transport_for_turn = prepared_request.transport;
         let provider_is_anthropic = provider_uses_anthropic_api(
             &self.config,
@@ -443,6 +444,7 @@ impl<'a> SendMessageRunner<'a> {
                                     prepared_request,
                                     llm_started_at,
                                     first_token_at,
+                                    answer_started_at,
                                     effective_transport_for_turn,
                                     accumulated_content,
                                     accumulated_reasoning,
@@ -469,6 +471,9 @@ impl<'a> SendMessageRunner<'a> {
                                     || reasoning.as_ref().map(|s| !s.is_empty()).unwrap_or(false))
                             {
                                 first_token_at = Some(Instant::now());
+                            }
+                            if answer_started_at.is_none() && !content.is_empty() {
+                                answer_started_at = Some(Instant::now());
                             }
                             if !content.is_empty() {
                                 self.assistant_output_visible = true;
@@ -642,6 +647,7 @@ impl<'a> SendMessageRunner<'a> {
                                         prepared_request,
                                         llm_started_at,
                                         first_token_at,
+                                        answer_started_at,
                                         effective_transport_for_turn,
                                         accumulated_content,
                                         accumulated_reasoning,
@@ -741,6 +747,7 @@ impl<'a> SendMessageRunner<'a> {
                                             prepared_request,
                                             llm_started_at,
                                             first_token_at,
+                                            answer_started_at,
                                             effective_transport_for_turn,
                                             accumulated_content,
                                             accumulated_reasoning,
@@ -760,6 +767,7 @@ impl<'a> SendMessageRunner<'a> {
                                             prepared_request,
                                             llm_started_at,
                                             first_token_at,
+                                            answer_started_at,
                                             effective_transport_for_turn,
                                             accumulated_content,
                                             accumulated_reasoning,
@@ -997,6 +1005,7 @@ impl<'a> SendMessageRunner<'a> {
                                             prepared_request,
                                             llm_started_at,
                                             first_token_at,
+                                            answer_started_at,
                                             effective_transport_for_turn,
                                             accumulated_content,
                                             accumulated_reasoning,
@@ -1052,6 +1061,7 @@ impl<'a> SendMessageRunner<'a> {
                                             prepared_request,
                                             llm_started_at,
                                             first_token_at,
+                                            answer_started_at,
                                             effective_transport_for_turn,
                                             accumulated_content,
                                             accumulated_reasoning,
@@ -1105,6 +1115,7 @@ impl<'a> SendMessageRunner<'a> {
             prepared_request,
             llm_started_at,
             first_token_at,
+            answer_started_at,
             effective_transport_for_turn,
             accumulated_content,
             accumulated_reasoning,

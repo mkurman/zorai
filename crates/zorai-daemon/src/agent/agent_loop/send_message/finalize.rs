@@ -9,6 +9,7 @@ impl<'a> SendMessageRunner<'a> {
             prepared_request: _prepared_request,
             llm_started_at,
             first_token_at,
+            answer_started_at,
             effective_transport_for_turn,
             accumulated_content,
             accumulated_reasoning,
@@ -16,9 +17,31 @@ impl<'a> SendMessageRunner<'a> {
             stream_timed_out: _stream_timed_out,
             retry_loop: _retry_loop,
         } = iteration;
+        self.reasoning_usage = match &final_chunk {
+            Some(CompletionChunk::Done {
+                reasoning,
+                reasoning_tokens,
+                ..
+            })
+            | Some(CompletionChunk::ToolCalls {
+                reasoning,
+                reasoning_tokens,
+                ..
+            }) => MessageReasoningUsage::measure(
+                reasoning
+                    .as_deref()
+                    .or(Some(accumulated_reasoning.as_str())),
+                *reasoning_tokens,
+                answer_started_at
+                    .unwrap_or_else(Instant::now)
+                    .saturating_duration_since(llm_started_at),
+            ),
+            _ => MessageReasoningUsage::default(),
+        };
 
         match final_chunk {
             Some(CompletionChunk::Done {
+                reasoning_tokens: _,
                 content,
                 reasoning,
                 input_tokens,
@@ -64,6 +87,7 @@ impl<'a> SendMessageRunner<'a> {
                 .await
             }
             Some(CompletionChunk::ToolCalls {
+                reasoning_tokens: _,
                 tool_calls,
                 content,
                 reasoning,
@@ -141,6 +165,8 @@ impl<'a> SendMessageRunner<'a> {
                     );
                 }
                 let _ = self.engine.event_tx.send(AgentEvent::Done {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     thread_id: self.tid.clone(),
                     input_tokens: 0,
                     output_tokens: 0,
@@ -231,6 +257,7 @@ impl<'a> SendMessageRunner<'a> {
                 upstream_message.clone(),
                 provider_final_result.clone(),
                 turn_cost,
+                self.reasoning_usage,
             )
             .await;
         if self.report_back_phase.is_some() {

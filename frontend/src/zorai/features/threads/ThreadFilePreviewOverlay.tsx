@@ -17,6 +17,8 @@ import { DataTable } from "@/components/data-viewers/DataTable";
 import { MermaidDiagram, MermaidEditor } from "@/components/data-viewers/MermaidDiagram";
 import { parseTabular, tabularFormatForPath } from "@/components/data-viewers/tabularData";
 import { ViewModeToggle } from "@/components/data-viewers/ViewModeToggle";
+import { buildEmbedDocument } from "@/components/data-viewers/htmlEmbedDocument";
+import { useSettingsStore } from "@/lib/settingsStore";
 import { EngineDataTable } from "@/components/data-viewers/EngineDataTable";
 import { dataEngineAvailable, isEngineDataPath, isEngineOnlyDataPath } from "@/components/data-viewers/dataQuery";
 import { CodeFileIcon, CodeFolderChevron } from "@/zorai/features/code/CodeFileIcon";
@@ -38,6 +40,7 @@ const VIDEO_PREVIEW_PATTERN = /\.(mp4|webm|mov|m4v)$/i;
 const AUDIO_PREVIEW_PATTERN = /\.(mp3|wav|ogg|oga|opus|m4a|aac|flac|weba)$/i;
 const MARKDOWN_PREVIEW_PATTERN = /\.(md|markdown|mdx)$/i;
 const MERMAID_PREVIEW_PATTERN = /\.(mmd|mermaid)$/i;
+const HTML_PREVIEW_PATTERN = /\.html?$/i;
 const TRUNCATION_SUFFIX = "\n\n[Preview truncated]";
 const BINARY_NOTICE = "Binary file preview is not available.";
 const MISSING_NOTICE = "This file does not exist. It may have been moved or deleted, or it lives on another machine.";
@@ -51,6 +54,10 @@ const MERMAID_MODES = [
   { id: "preview", label: "Diagram" },
   { id: "raw", label: "Source" },
   { id: "edit", label: "Edit" },
+] as const;
+const HTML_MODES = [
+  { id: "preview", label: "Preview" },
+  { id: "raw", label: "Code" },
 ] as const;
 const TABLE_MODES = [
   { id: "preview", label: "Table" },
@@ -245,12 +252,19 @@ export function ThreadFilePreviewOverlay() {
   );
 }
 
-function PreviewSectionView({ section }: { section: PreviewSection }) {
+export function PreviewSectionView({ section }: { section: PreviewSection }) {
   const path = section.path ?? "";
   const isFile = section.kind === "file-preview" && section.text !== BINARY_NOTICE && section.text !== MISSING_NOTICE;
   const content = section.truncated ? section.text.slice(0, -TRUNCATION_SUFFIX.length) : section.text;
   const isMarkdown = isFile && MARKDOWN_PREVIEW_PATTERN.test(path);
   const isMermaid = isFile && MERMAID_PREVIEW_PATTERN.test(path);
+  const embedsAllowed = useSettingsStore((state) => state.settings.allowInteractiveEmbeds !== false);
+  const isHtml = isFile && HTML_PREVIEW_PATTERN.test(path) && embedsAllowed && !section.truncated;
+  const htmlDocument = useMemo(() => {
+    if (!isHtml) return null;
+    const directory = path.replace(/\\/g, "/").split("/").slice(0, -1).join("/");
+    return buildEmbedDocument(content, directory ? `${mediaUrlForPath(directory)}/` : null);
+  }, [content, isHtml, path]);
   const tabularFormat = isFile ? tabularFormatForPath(path) : null;
   const table = useMemo(
     () => (tabularFormat ? parseTabular(content, tabularFormat, section.truncated) : null),
@@ -260,7 +274,7 @@ function PreviewSectionView({ section }: { section: PreviewSection }) {
   const [mode, setMode] = useState<"preview" | "raw" | "edit">("preview");
   const [savedSource, setSavedSource] = useState<string | null>(null);
   const mermaidSource = savedSource ?? content;
-  const modes = isMermaid ? MERMAID_MODES : table || useEngine ? TABLE_MODES : isMarkdown ? MARKDOWN_MODES : null;
+  const modes = isMermaid ? MERMAID_MODES : table || useEngine ? TABLE_MODES : isMarkdown ? MARKDOWN_MODES : isHtml ? HTML_MODES : null;
 
   return (
     <article className="zorai-file-preview-overlay__section">
@@ -280,6 +294,8 @@ function PreviewSectionView({ section }: { section: PreviewSection }) {
         <div className="zorai-file-preview-overlay__markdown">
           <MarkdownContent content={section.text} />
         </div>
+      ) : htmlDocument && mode === "preview" ? (
+        <iframe className="zorai-file-preview-overlay__html" title={path.split("/").pop() || "HTML preview"} sandbox="allow-scripts" srcDoc={htmlDocument} />
       ) : isMermaid && mode === "preview" ? (
         <MermaidDiagram source={mermaidSource} fileName={path.split("/").pop()?.replace(/\.[^.]+$/, "") || "diagram"} />
       ) : isMermaid && mode === "edit" ? (

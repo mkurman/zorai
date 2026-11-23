@@ -497,6 +497,7 @@ pub enum CompletionChunk {
         cache_creation_input_tokens: Option<u64>,
         cache_read_input_tokens: Option<u64>,
         server_tool_use: Option<CompletionServerToolUsage>,
+        reasoning_tokens: Option<u64>,
     },
     Done {
         content: String,
@@ -518,6 +519,7 @@ pub enum CompletionChunk {
         upstream_message: Option<CompletionUpstreamMessage>,
         provider_final_result: Option<CompletionProviderFinalResult>,
         upstream_thread_id: Option<String>,
+        reasoning_tokens: Option<u64>,
     },
     TransportFallback {
         from: ApiTransport,

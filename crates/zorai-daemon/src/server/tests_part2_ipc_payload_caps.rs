@@ -226,6 +226,8 @@ async fn get_agent_thread_reads_bounded_message_tail_from_db() {
         conn.agent
             .history
             .add_message(&zorai_protocol::AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: format!("message-{index}"),
                 thread_id: thread_id.to_string(),
                 created_at: index,
@@ -303,6 +305,8 @@ async fn list_agent_messages_without_limit_reads_bounded_message_tail_from_db() 
         conn.agent
             .history
             .add_message(&zorai_protocol::AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: format!("listed-message-{index}"),
                 thread_id: thread_id.to_string(),
                 created_at: index,

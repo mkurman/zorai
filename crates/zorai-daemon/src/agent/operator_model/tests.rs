@@ -2536,6 +2536,8 @@ async fn emergent_protocols_summary_visible_for_pending_proposals_and_registry_e
     let build_messages = |thread_id: &str| {
         vec![
             AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: "m1".to_string(),
                 thread_id: thread_id.to_string(),
                 created_at: 1,
@@ -2552,6 +2554,8 @@ async fn emergent_protocols_summary_visible_for_pending_proposals_and_registry_e
                 metadata_json: None,
             },
             AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: "m2".to_string(),
                 thread_id: thread_id.to_string(),
                 created_at: 2,
@@ -2568,6 +2572,8 @@ async fn emergent_protocols_summary_visible_for_pending_proposals_and_registry_e
                 metadata_json: None,
             },
             AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: "m3".to_string(),
                 thread_id: thread_id.to_string(),
                 created_at: 3,
@@ -2584,6 +2590,8 @@ async fn emergent_protocols_summary_visible_for_pending_proposals_and_registry_e
                 metadata_json: None,
             },
             AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: "m4".to_string(),
                 thread_id: thread_id.to_string(),
                 created_at: 4,
@@ -2600,6 +2608,8 @@ async fn emergent_protocols_summary_visible_for_pending_proposals_and_registry_e
                 metadata_json: None,
             },
             AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: "m5".to_string(),
                 thread_id: thread_id.to_string(),
                 created_at: 5,

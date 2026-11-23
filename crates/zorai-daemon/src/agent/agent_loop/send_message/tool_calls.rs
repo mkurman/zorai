@@ -606,6 +606,8 @@ impl<'a> SendMessageRunner<'a> {
         if let Some(thread) = threads.get_mut(&self.tid) {
             self.assistant_output_visible = true;
             thread.messages.push(AgentMessage {
+                reasoning_tokens: self.reasoning_usage.tokens,
+                thinking_ms: self.reasoning_usage.thinking_ms,
                 id: generate_message_id(),
                 role: MessageRole::Assistant,
                 content: msg_content,
@@ -662,6 +664,8 @@ impl<'a> SendMessageRunner<'a> {
         if let Some(thread) = threads.get_mut(&self.tid) {
             self.tool_side_effect_committed = true;
             thread.messages.push(AgentMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: persisted_message_id,
                 role: MessageRole::Tool,
                 content,

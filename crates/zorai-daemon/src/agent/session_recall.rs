@@ -407,6 +407,8 @@ mod tests {
             .await?;
         manager
             .add_agent_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: "recall-message-1".to_string(),
                 thread_id: "recall-thread-1".to_string(),
                 created_at: 1500,

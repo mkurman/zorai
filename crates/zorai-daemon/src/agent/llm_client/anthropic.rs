@@ -584,6 +584,7 @@ pub(crate) async fn parse_anthropic_sse(
                             .collect();
                         let _ = tx
                             .send(Ok(CompletionChunk::ToolCalls {
+                                reasoning_tokens: None,
                                 tool_calls,
                                 content: if total_content.is_empty() {
                                     None
@@ -607,6 +608,7 @@ pub(crate) async fn parse_anthropic_sse(
                     } else {
                         let _ = tx
                             .send(Ok(CompletionChunk::Done {
+                                reasoning_tokens: None,
                                 content: total_content.clone(),
                                 reasoning: final_reasoning,
                                 input_tokens: usage.input_tokens,
@@ -634,6 +636,7 @@ pub(crate) async fn parse_anthropic_sse(
     let final_upstream_message = upstream_message.build(&stop_metadata);
     let _ = tx
         .send(Ok(CompletionChunk::Done {
+            reasoning_tokens: None,
             content: total_content,
             reasoning: (!total_reasoning.is_empty()).then_some(total_reasoning),
             input_tokens: usage.input_tokens,

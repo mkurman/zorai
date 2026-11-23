@@ -30,6 +30,8 @@ async fn agent_statistics_query_returns_daemon_snapshot_payload() {
     conn.agent
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "statistics-query-message".to_string(),
             thread_id: thread_id.to_string(),
             created_at: now_ms - 1_000,

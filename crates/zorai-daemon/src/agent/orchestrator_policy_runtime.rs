@@ -156,6 +156,8 @@ impl AgentEngine {
             let mut threads = self.threads.write().await;
             if let Some(thread) = threads.get_mut(thread_id) {
                 thread.messages.push(AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: generate_message_id(),
                     role: MessageRole::System,
                     content,

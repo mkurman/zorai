@@ -267,6 +267,8 @@ impl ConciergeEngine {
         if let Some(thread) = threads_guard.get_mut(CONCIERGE_THREAD_ID) {
             thread.messages.clear();
             thread.messages.push(AgentMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: generate_message_id(),
                 role: MessageRole::Assistant,
                 content: content.to_string(),

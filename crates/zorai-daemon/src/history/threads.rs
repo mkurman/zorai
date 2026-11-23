@@ -33,6 +33,8 @@ mod tests {
 
     fn message(id: &str, content: &str) -> AgentDbMessage {
         AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: id.to_string(),
             thread_id: "thread-1".to_string(),
             created_at: 100,
@@ -186,8 +188,8 @@ impl HistoryStore {
             }
             txn.execute(
                 "INSERT OR REPLACE INTO agent_messages \
-                 (id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json, deleted_at) \
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, NULL)",
+                 (id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json, reasoning_tokens, thinking_ms, deleted_at) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, NULL)",
                 db::db_params![
                     message.id.clone(),
                     message.thread_id.clone(),
@@ -203,6 +205,8 @@ impl HistoryStore {
                     message.reasoning.clone(),
                     message.tool_calls_json.clone(),
                     message.metadata_json.clone(),
+                    message.reasoning_tokens,
+                    message.thinking_ms,
                 ],
             )
             .await?;
@@ -411,8 +415,8 @@ impl HistoryStore {
         for message in messages {
             txn.execute(
                 "INSERT OR REPLACE INTO agent_messages \
-                 (id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json, deleted_at) \
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, NULL)",
+                 (id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json, reasoning_tokens, thinking_ms, deleted_at) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, NULL)",
                 db::db_params![
                     message.id.clone(),
                     message.thread_id.clone(),
@@ -428,6 +432,8 @@ impl HistoryStore {
                     message.reasoning.clone(),
                     message.tool_calls_json.clone(),
                     message.metadata_json.clone(),
+                    message.reasoning_tokens,
+                    message.thinking_ms,
                 ],
             )
             .await?;
@@ -1424,8 +1430,8 @@ impl HistoryStore {
         let mut txn = self.conn_db.transaction().await?;
         txn.execute(
             "INSERT OR REPLACE INTO agent_messages \
-             (id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json, deleted_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, NULL)",
+             (id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, metadata_json, reasoning_tokens, thinking_ms, deleted_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, NULL)",
             db::db_params![
                 message.id.clone(),
                 message.thread_id.clone(),
@@ -1441,6 +1447,8 @@ impl HistoryStore {
                 message.reasoning.clone(),
                 message.tool_calls_json.clone(),
                 message.metadata_json.clone(),
+                message.reasoning_tokens,
+                message.thinking_ms,
             ],
         )
         .await?;
@@ -1688,7 +1696,7 @@ impl HistoryStore {
         let messages = if let Some(limit) = limit {
             let limit = limit.max(1) as i64;
             let sql = format!(
-                "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json \
+                "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json, reasoning_tokens, thinking_ms \
                  FROM agent_messages WHERE thread_id = ?1{deleted_filter} ORDER BY created_at DESC, rowid DESC LIMIT ?2",
             );
             let rows = self
@@ -1703,7 +1711,7 @@ impl HistoryStore {
             messages
         } else {
             let sql = format!(
-                "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json \
+                "SELECT id, thread_id, created_at, role, content, provider, model, input_tokens, output_tokens, total_tokens, cost_usd, reasoning, tool_calls_json, CASE WHEN metadata_json IS NULL OR json_valid(metadata_json) = 0 THEN metadata_json ELSE json_remove(metadata_json, '$.provider_final_result.response_json', '$.provider_final_result.tool_calls', '$.providerFinalResult.response_json', '$.providerFinalResult.responseJson', '$.providerFinalResult.tool_calls', '$.providerFinalResult.toolCalls') END AS metadata_json, reasoning_tokens, thinking_ms \
                  FROM agent_messages WHERE thread_id = ?1{deleted_filter} ORDER BY created_at ASC, rowid ASC",
             );
             let rows = self
@@ -2171,6 +2179,8 @@ impl HistoryStore {
                 Ok((
                     row.get::<i64>(0)?.max(0) as usize,
                     AgentDbMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: row.get(1)?,
                         thread_id: row.get(2)?,
                         created_at: row.get(3)?,

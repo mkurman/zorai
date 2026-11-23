@@ -20,6 +20,8 @@ fn push(runtime: &MlflowTracingRuntime, thread: &str, content: &str, timestamp_m
 
 fn done(thread: &str) -> AgentEvent {
     AgentEvent::Done {
+        reasoning_tokens: None,
+        thinking_ms: None,
         thread_id: thread.into(),
         input_tokens: 1,
         output_tokens: 1,

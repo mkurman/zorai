@@ -68,6 +68,8 @@ impl AgentEngine {
             content: reply.clone(),
         });
         let _ = self.event_tx.send(AgentEvent::Done {
+            reasoning_tokens: None,
+            thinking_ms: None,
             thread_id: tid,
             input_tokens: 0,
             output_tokens: 0,

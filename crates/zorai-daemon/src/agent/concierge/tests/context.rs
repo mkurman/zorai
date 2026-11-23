@@ -671,6 +671,8 @@ async fn recent_persisted_threads_skip_heartbeats_whose_title_was_rewritten() {
             .unwrap();
         history
             .add_message(&zorai_protocol::AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: format!("{id}-msg"),
                 thread_id: id.to_string(),
                 created_at: updated_at,

@@ -89,6 +89,8 @@ export type RemoteAgentMessageRecord = {
   cost?: number | null;
   cost_usd?: number | null;
   reasoning?: string | null;
+  reasoning_tokens?: number | null;
+  thinking_ms?: number | null;
   timestamp?: number | null;
   message_kind?: "normal" | "compaction_artifact";
   compaction_strategy?: "heuristic" | "weles" | "custom_model" | null;
@@ -333,6 +335,8 @@ export function buildHydratedRemoteMessage(
       ? message.cost_usd
       : undefined,
     reasoning: typeof message.reasoning === "string" ? boundRendererText(message.reasoning) : undefined,
+    reasoningTokens: typeof message.reasoning_tokens === "number" ? message.reasoning_tokens : undefined,
+    thinkingMs: typeof message.thinking_ms === "number" ? message.thinking_ms : undefined,
     isCompactionSummary: isCompactionArtifact,
     messageKind: isCompactionArtifact ? "compaction_artifact" : (message.message_kind ?? "normal"),
     compactionStrategy: message.compaction_strategy ?? undefined,
@@ -662,6 +666,7 @@ export function serializeMessage(message: AgentMessage): AgentDbMessageRecord {
       responseId: message.responseId ?? null,
       providerFinalResult: message.providerFinalResult ?? null,
       reasoningTokens: message.reasoningTokens ?? null,
+      thinkingMs: message.thinkingMs ?? null,
       audioTokens: message.audioTokens ?? null,
       videoTokens: message.videoTokens ?? null,
       authorAgentId: message.authorAgentId ?? null,
@@ -789,6 +794,7 @@ export function deserializeMessage(message: AgentDbMessageRecord): AgentMessage 
     totalTokens: message.total_tokens ?? 0,
     reasoning: typeof message.reasoning === "string" ? boundRendererText(message.reasoning) : undefined,
     reasoningTokens: (metadata.reasoningTokens as number) ?? undefined,
+    thinkingMs: (metadata.thinkingMs as number) ?? undefined,
     audioTokens: (metadata.audioTokens as number) ?? undefined,
     videoTokens: (metadata.videoTokens as number) ?? undefined,
     cost: (metadata.cost as number) ?? undefined,

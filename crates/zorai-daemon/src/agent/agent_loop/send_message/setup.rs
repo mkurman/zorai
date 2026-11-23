@@ -1593,6 +1593,7 @@ impl<'a> SendMessageRunner<'a> {
             tools_before_report_back: None,
             subagent_report: None,
             needs_turn_done: false,
+            reasoning_usage: MessageReasoningUsage::default(),
             policy_aborted_retry: false,
             previous_tool_signature: None,
             previous_tool_outcome: None,

@@ -23,6 +23,7 @@ pub(crate) struct GeminiStreamAssembler {
     tool_calls: Vec<ToolCall>,
     input_tokens: u64,
     output_tokens: u64,
+    thought_tokens: Option<u64>,
     cache_read_input_tokens: u64,
     response_id: Option<String>,
     status: String,
@@ -220,6 +221,12 @@ impl GeminiStreamAssembler {
             {
                 self.output_tokens = output;
             }
+            if let Some(thoughts) = usage
+                .get("total_thought_tokens")
+                .and_then(|value| value.as_u64())
+            {
+                self.thought_tokens = Some(thoughts);
+            }
             if let Some(cached) = cached_input_tokens(usage) {
                 self.cache_read_input_tokens = cached;
             }
@@ -304,6 +311,7 @@ impl GeminiStreamAssembler {
         let reasoning = reasoning_for_storage(&self.summary, &self.signature);
         if self.tool_calls.is_empty() {
             CompletionChunk::Done {
+                reasoning_tokens: self.thought_tokens,
                 content: self.content.clone(),
                 reasoning,
                 input_tokens: self.input_tokens,
@@ -327,6 +335,7 @@ impl GeminiStreamAssembler {
             }
         } else {
             CompletionChunk::ToolCalls {
+                reasoning_tokens: self.thought_tokens,
                 tool_calls: self.tool_calls.clone(),
                 content: Some(self.content.clone()),
                 reasoning,

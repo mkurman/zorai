@@ -18,7 +18,18 @@ vi.mock("@/lib/agentWorkContext", () => ({
 
 vi.mock("@/components/WorkspaceCodeEditor", () => ({ MonacoReadOnlyView: () => null }));
 
-import { loadFilePreviewSection, mediaKindForPath, mediaUrlForPath } from "./ThreadFilePreviewOverlay";
+const settingsState = vi.hoisted(() => ({ settings: { allowInteractiveEmbeds: true } }));
+
+vi.mock("@/lib/settingsStore", () => {
+  const useSettingsStore = (selector: (state: typeof settingsState) => unknown) => selector(settingsState);
+  useSettingsStore.getState = () => settingsState;
+  useSettingsStore.subscribe = () => () => {};
+  return { useSettingsStore };
+});
+
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { loadFilePreviewSection, mediaKindForPath, mediaUrlForPath, PreviewSectionView } from "./ThreadFilePreviewOverlay";
 
 describe("loadFilePreviewSection", () => {
   beforeEach(() => {
@@ -132,5 +143,29 @@ describe("media previews", () => {
     expect(mediaKindForPath("/x/clip.mov")).toBe("video");
     expect(mediaKindForPath("/x/voice.flac")).toBe("audio");
     expect(mediaKindForPath("/x/notes.md")).toBeNull();
+  });
+});
+
+describe("HTML file preview", () => {
+  const page = { title: "File preview", kind: "file-preview" as const, text: "<h1>KV cache</h1>", path: "/home/u/docs/scaling.html" };
+  const render = (section: Parameters<typeof PreviewSectionView>[0]["section"]) => renderToStaticMarkup(createElement(PreviewSectionView, { section }));
+
+  it("shows an agent-made page rendered in a sandbox, with its source one click away", () => {
+    const html = render(page);
+
+    expect(html).toContain("<iframe");
+    expect(html).toContain('sandbox="allow-scripts"');
+    expect(html).toContain("Code");
+  });
+
+  it("falls back to source when the page is truncated or interactive embeds are turned off", () => {
+    expect(render({ ...page, truncated: true, text: `${page.text}\n\n[Preview truncated]` })).not.toContain("<iframe");
+
+    settingsState.settings.allowInteractiveEmbeds = false;
+    try {
+      expect(render(page)).not.toContain("<iframe");
+    } finally {
+      settingsState.settings.allowInteractiveEmbeds = true;
+    }
   });
 });

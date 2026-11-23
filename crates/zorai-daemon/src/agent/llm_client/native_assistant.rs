@@ -255,6 +255,7 @@ pub(crate) async fn run_native_assistant(
                 .await?;
                 let _ = tx
                     .send(Ok(CompletionChunk::Done {
+                        reasoning_tokens: None,
                         content,
                         reasoning: None,
                         input_tokens,

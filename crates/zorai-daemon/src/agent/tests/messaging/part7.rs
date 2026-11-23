@@ -826,6 +826,8 @@ async fn participant_observer_runs_after_thread_owner_assistant_message() {
             messages: vec![
                 AgentMessage::user("Keep going", 1),
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: "owner-assistant-tail".to_string(),
                     role: MessageRole::Assistant,
                     content: "I will continue with the next implementation step.".to_string(),
@@ -945,6 +947,8 @@ async fn participant_observer_skips_cycle_when_latest_visible_message_is_partici
             messages: vec![
                 AgentMessage::user("Keep going", 1),
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: "participant-assistant-tail".to_string(),
                     role: MessageRole::Assistant,
                     content: "I checked that claim already.".to_string(),
@@ -1210,6 +1214,8 @@ async fn participant_prompt_excludes_tool_messages() {
             messages: vec![
                 AgentMessage::user("hello", 1),
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: "tool-message-1".to_string(),
                     role: MessageRole::Tool,
                     content: "tool output that should stay hidden".to_string(),
@@ -1243,6 +1249,8 @@ async fn participant_prompt_excludes_tool_messages() {
                     feedback: None,
                 },
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: "assistant-message-1".to_string(),
                     role: MessageRole::Assistant,
                     content: "assistant reply".to_string(),
@@ -1323,6 +1331,8 @@ async fn participant_prompt_compacts_older_visible_messages() {
             messages: vec![
                 AgentMessage::user("old user detail that should compact away", 1),
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: "assistant-old-1".to_string(),
                     role: MessageRole::Assistant,
                     content: "older assistant detail that should compact away".to_string(),
@@ -1409,6 +1419,8 @@ async fn participant_prompt_applies_bounded_snapshot_cap_under_large_context_bud
             ));
         } else {
             messages.push(AgentMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: format!("assistant-{index:02}"),
                 role: MessageRole::Assistant,
                 content: format!("visible-assistant-{index:02}"),
@@ -1500,6 +1512,8 @@ async fn participant_prompt_requires_continuing_after_latest_assistant_message_u
                     1,
                 ),
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: "assistant-latest-action-plan".to_string(),
                     role: MessageRole::Assistant,
                     content: "I will inspect recovery.rs next, then patch the daemon flow."

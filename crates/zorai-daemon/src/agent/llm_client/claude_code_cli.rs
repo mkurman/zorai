@@ -378,6 +378,7 @@ pub(crate) async fn run_claude_code_cli(
 
     let _ = tx
         .send(Ok(CompletionChunk::Done {
+            reasoning_tokens: None,
             content,
             reasoning: None,
             input_tokens: input_tokens

@@ -285,6 +285,8 @@ impl ExternalAgentRunner {
         }
 
         let _ = self.event_tx.send(AgentEvent::Done {
+            reasoning_tokens: None,
+            thinking_ms: None,
             thread_id: thread_id.to_string(),
             input_tokens: parsed.input_tokens,
             output_tokens: parsed.output_tokens,

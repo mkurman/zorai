@@ -34,6 +34,8 @@ async fn seed_message(engine: &AgentEngine, id: &str, thread_id: &str, role: &st
     engine
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: id.to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1,

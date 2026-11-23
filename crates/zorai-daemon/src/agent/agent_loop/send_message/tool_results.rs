@@ -575,6 +575,8 @@ impl<'a> SendMessageRunner<'a> {
                     }
                 }
                 thread.messages.push(AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: persisted_message_id,
                     role: MessageRole::Tool,
                     content: tool_result_content,
@@ -790,6 +792,8 @@ impl<'a> SendMessageRunner<'a> {
                 self.handoff_restart = Some(HandoffRestartRequest { llm_user_content });
             }
             let _ = self.engine.event_tx.send(AgentEvent::Done {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 thread_id: self.tid.clone(),
                 input_tokens: 0,
                 output_tokens: 0,

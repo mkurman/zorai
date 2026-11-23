@@ -75,6 +75,10 @@ pub enum AgentEvent {
         /// daemon has assigned a row (e.g. fatal error mid-stream).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         message_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reasoning_tokens: Option<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        thinking_ms: Option<u64>,
     },
     Error {
         thread_id: String,

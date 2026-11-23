@@ -156,6 +156,8 @@ fn agent_db_message_for_fork(
     let input_tokens = nonzero_i64(message.input_tokens);
     let output_tokens = nonzero_i64(message.output_tokens);
     AgentDbMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: fork_message_id(fork_thread_id, index),
         thread_id: fork_thread_id.to_string(),
         created_at: message.timestamp as i64,

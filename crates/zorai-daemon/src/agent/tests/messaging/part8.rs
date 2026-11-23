@@ -79,6 +79,8 @@ async fn request_thread_auto_response_suggestion_queues_for_requested_participan
             messages: vec![
                 AgentMessage::user("keep going", 1),
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: generate_message_id(),
                     role: MessageRole::Assistant,
                     content: "I finished the current slice and the next likely step is validating the migration.".to_string(),
@@ -341,6 +343,8 @@ async fn participant_auto_response_send_posts_visible_message_then_continues_thr
             messages: vec![
                 AgentMessage::user("hello", 1),
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: generate_message_id(),
                     role: MessageRole::Assistant,
                     content: "Main agent reply".to_string(),
@@ -1222,6 +1226,8 @@ async fn due_auto_response_is_not_sent_implicitly_after_restart() {
             messages: vec![
                 AgentMessage::user("keep momentum", 1),
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: generate_message_id(),
                     role: MessageRole::Assistant,
                     content: "I finished the patch and the next step is verifying the diff."
@@ -1346,6 +1352,8 @@ async fn due_auto_response_does_not_background_send_when_thread_becomes_idle() {
             messages: vec![
                 AgentMessage::user("keep momentum", 1),
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: generate_message_id(),
                     role: MessageRole::Assistant,
                     content: "I finished the patch and the next step is verifying the diff."
@@ -1471,6 +1479,8 @@ async fn hydrate_trims_persisted_participant_playground_threads_to_recent_tail()
     );
     let playground_messages = (0..120)
         .map(|index| AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: generate_message_id(),
             role: MessageRole::Assistant,
             content: format!("scratch reply {index}"),
@@ -2245,6 +2255,8 @@ async fn hydrate_runs_participant_observers_for_restored_main_agent_tail() {
             messages: vec![
                 AgentMessage::user("hello", now - 1_000),
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: generate_message_id(),
                     role: MessageRole::Assistant,
                     content: "Main agent reply before restart.".to_string(),
@@ -2435,6 +2447,8 @@ async fn hydrate_returns_before_background_participant_observer_restore_finishes
             messages: vec![
                 AgentMessage::user("hello", now - 1_000),
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: generate_message_id(),
                     role: MessageRole::Assistant,
                     content: "Main agent reply before restart.".to_string(),
@@ -2577,6 +2591,8 @@ async fn hydrate_does_not_rerun_participant_observers_for_already_reviewed_messa
             messages: vec![
                 AgentMessage::user("hello", 1),
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: generate_message_id(),
                     role: MessageRole::Assistant,
                     content: "Main agent reply before restart.".to_string(),
@@ -2664,6 +2680,8 @@ async fn hydrate_keeps_stale_participant_threads_lazy_during_observer_restore() 
             messages: vec![
                 AgentMessage::user("old request", old_timestamp),
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: generate_message_id(),
                     role: MessageRole::Assistant,
                     content: "Old participant reply.".to_string(),

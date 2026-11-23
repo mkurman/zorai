@@ -143,7 +143,7 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
       } : undefined}
     >
       {reasoning ? (
-        <ThreadReasoningBlock content={reasoning} streaming={Boolean(message.isStreaming)} />
+        <ThreadReasoningBlock content={reasoning} streaming={Boolean(message.isStreaming)} durationMs={message.thinkingMs} tokens={message.reasoningTokens} />
       ) : null}
       {tiles.length > 0 ? <AttachmentTiles items={tiles} /> : null}
       {shouldRenderContent ? (
@@ -355,8 +355,18 @@ function formatThoughtDuration(startedAt: number, now: number): string {
   return formatActivityElapsed(now - startedAt);
 }
 
-export function ThreadReasoningBlock({ content, streaming }: { content: string; streaming: boolean }) {
+export function ThreadReasoningBlock({ content, streaming, durationMs, tokens }: { content: string; streaming: boolean; durationMs?: number; tokens?: number }) {
   const [open, setOpen] = useState(false);
+
+  if (!content.trim()) {
+    return (
+      <div className="zorai-message__reasoning" data-streaming={streaming ? "true" : undefined}>
+        <span className="zorai-message__reasoning-toggle zorai-message__reasoning-toggle--static">
+          <ThreadReasoningChrome streaming={streaming} content={content} durationMs={durationMs} tokens={tokens} />
+        </span>
+      </div>
+    );
+  }
 
   return (
     <details
@@ -366,7 +376,7 @@ export function ThreadReasoningBlock({ content, streaming }: { content: string; 
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <summary className="zorai-message__reasoning-toggle">
-        <ThreadReasoningChrome streaming={streaming} content={content} />
+        <ThreadReasoningChrome streaming={streaming} content={content} durationMs={durationMs} tokens={tokens} />
       </summary>
       {open ? (
         <div>
@@ -380,9 +390,13 @@ export function ThreadReasoningBlock({ content, streaming }: { content: string; 
 const ThreadReasoningChrome = memo(function ThreadReasoningChrome({
   content,
   streaming,
+  durationMs,
+  tokens,
 }: {
   content: string;
   streaming: boolean;
+  durationMs?: number;
+  tokens?: number;
 }) {
   const [startedAt] = useState(() => Date.now());
   const [now, setNow] = useState(() => Date.now());
@@ -395,11 +409,13 @@ const ThreadReasoningChrome = memo(function ThreadReasoningChrome({
 
   const durationText = streaming
     ? formatThoughtDuration(startedAt, now)
-    : formatStaticThoughtDuration(content);
-  const preview = activityPreview(content);
+    : durationMs !== undefined ? formatActivityElapsed(durationMs) : formatStaticThoughtDuration(content);
+  const preview = streaming ? activityPreview(content) : "";
   const label = preview
     ? (durationText ? `${preview} · ${durationText}` : preview)
-    : `Thought for ${durationText || "a moment"}`;
+    : streaming
+      ? (durationText ? `Thinking · ${durationText}` : "Thinking")
+      : `Thought for ${durationText || "a moment"}${tokens ? ` · ${tokens.toLocaleString()} tokens` : ""}`;
 
   return (
     <>
@@ -415,7 +431,7 @@ const ThreadReasoningChrome = memo(function ThreadReasoningChrome({
     </>
   );
 }, (prev, next) => {
-  if (prev.streaming !== next.streaming) return false;
+  if (prev.streaming !== next.streaming || prev.durationMs !== next.durationMs || prev.tokens !== next.tokens) return false;
   if (prev.streaming && next.streaming) return activityPreview(prev.content) === activityPreview(next.content);
   return prev.content === next.content;
 });

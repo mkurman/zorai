@@ -27,6 +27,8 @@ async fn seed_statistics_messages(
     let hour_ms = 60 * 60 * 1000;
     let messages = vec![
         AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "msg-old".to_string(),
             thread_id: thread_id.to_string(),
             created_at: now_ms - 35 * day_ms,
@@ -43,6 +45,8 @@ async fn seed_statistics_messages(
             metadata_json: None,
         },
         AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "msg-openai-a".to_string(),
             thread_id: thread_id.to_string(),
             created_at: now_ms - 2 * day_ms,
@@ -59,6 +63,8 @@ async fn seed_statistics_messages(
             metadata_json: None,
         },
         AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "msg-openai-b".to_string(),
             thread_id: thread_id.to_string(),
             created_at: now_ms - 2 * day_ms + hour_ms,
@@ -75,6 +81,8 @@ async fn seed_statistics_messages(
             metadata_json: None,
         },
         AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "msg-claude-a".to_string(),
             thread_id: thread_id.to_string(),
             created_at: now_ms - hour_ms,
@@ -91,6 +99,8 @@ async fn seed_statistics_messages(
             metadata_json: None,
         },
         AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "msg-claude-b".to_string(),
             thread_id: thread_id.to_string(),
             created_at: now_ms - 20 * day_ms,
@@ -107,6 +117,8 @@ async fn seed_statistics_messages(
             metadata_json: None,
         },
         AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "msg-gemini".to_string(),
             thread_id: thread_id.to_string(),
             created_at: now_ms - 10 * day_ms,
@@ -123,6 +135,8 @@ async fn seed_statistics_messages(
             metadata_json: None,
         },
         AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "msg-o3".to_string(),
             thread_id: thread_id.to_string(),
             created_at: now_ms - 3 * day_ms,
@@ -315,6 +329,8 @@ async fn agent_statistics_sessions_are_sql_paginated_and_skip_deleted_threads_an
             .await?;
         store
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: format!("message-{thread_id}"),
                 thread_id: thread_id.to_string(),
                 created_at: now_ms - 3_000 + index as i64 * 1_000,
@@ -352,6 +368,8 @@ async fn agent_statistics_sessions_are_sql_paginated_and_skip_deleted_threads_an
         .await?;
     store
         .add_message(&AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "message-invalid-date".to_string(),
             thread_id: "session-invalid-date".to_string(),
             created_at: 0,
@@ -433,6 +451,8 @@ async fn agent_statistics_content_counts_stored_text_separately_from_resent_cont
                    reasoning: Option<&str>,
                    input: Option<i64>,
                    age_ms: i64| AgentDbMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: id.to_string(),
         thread_id: thread_id.to_string(),
         created_at: now_ms - age_ms,

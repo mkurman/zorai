@@ -210,6 +210,7 @@ pub(crate) async fn run_cursor_cli(
     };
     let _ = tx
         .send(Ok(CompletionChunk::Done {
+            reasoning_tokens: None,
             content,
             reasoning: None,
             input_tokens: 0,

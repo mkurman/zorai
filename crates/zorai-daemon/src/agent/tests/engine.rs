@@ -263,6 +263,8 @@ async fn seed_thread_context_does_not_replace_lazy_hydrated_history() {
         .seed_thread_context(
             Some(thread_id),
             &[zorai_protocol::AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: "partial-context-1".to_string(),
                 thread_id: thread_id.to_string(),
                 created_at: 3_000,
@@ -433,6 +435,8 @@ async fn hydrate_restores_thread_token_totals_from_persisted_history() {
     let (engine, temp_dir) = make_test_engine(AgentConfig::default()).await;
     let thread_id = "thread-hydrate-token-totals";
     let assistant = AgentMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: crate::agent::types::generate_message_id(),
         role: MessageRole::Assistant,
         content: "done".to_string(),

@@ -2446,6 +2446,8 @@ async fn anticipatory_tick_surfaces_stale_context_foresight_when_hydration_lags_
     engine
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "stale-user-1".to_string(),
             thread_id: "thread-stale-context".to_string(),
             created_at: (now_millis() - 2_000) as i64,
@@ -2466,6 +2468,8 @@ async fn anticipatory_tick_surfaces_stale_context_foresight_when_hydration_lags_
     engine
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "stale-assistant-1".to_string(),
             thread_id: "thread-stale-context".to_string(),
             created_at: (now_millis() - 1_000) as i64,
