@@ -487,6 +487,8 @@ fn anthropic_drops_incomplete_tool_result_batches() {
 fn messages_to_api_format_keeps_reused_tool_ids_across_turns() {
     let messages = vec![
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: String::new(),
             role: MessageRole::Assistant,
             content: "first".to_string(),
@@ -527,6 +529,8 @@ fn messages_to_api_format_keeps_reused_tool_ids_across_turns() {
             feedback: None,
         },
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: String::new(),
             role: MessageRole::Tool,
             content: "ok 1".to_string(),
@@ -561,6 +565,8 @@ fn messages_to_api_format_keeps_reused_tool_ids_across_turns() {
         },
         AgentMessage::user("next", 3),
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: String::new(),
             role: MessageRole::Assistant,
             content: "second".to_string(),
@@ -601,6 +607,8 @@ fn messages_to_api_format_keeps_reused_tool_ids_across_turns() {
             feedback: None,
         },
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: String::new(),
             role: MessageRole::Tool,
             content: "ok 2".to_string(),

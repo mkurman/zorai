@@ -36,6 +36,8 @@ async fn thread_with_reply(
 
 fn done(thread_id: &str, message_id: &str) -> AgentEvent {
     AgentEvent::Done {
+        reasoning_tokens: None,
+        thinking_ms: None,
         thread_id: thread_id.to_string(),
         input_tokens: 0,
         output_tokens: 0,

@@ -2112,6 +2112,8 @@ async fn persist_generated_image_for_thread(
             ));
         }
         thread.messages.push(AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: super::super::types::generate_message_id(),
             role: MessageRole::Assistant,
             content: assistant_content,

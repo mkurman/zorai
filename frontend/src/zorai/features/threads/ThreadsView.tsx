@@ -25,7 +25,7 @@ import { CodeThreadRuntimeSwitcher } from "../code/CodeThreadRuntimeSwitcher";
 import { ThreadCompactSessionBar } from "./ThreadCompactSessionBar";
 import { ThreadActivityRow } from "./ThreadActivityRow";
 import { ThreadTurnActivityList } from "./ThreadTurnActivityList";
-import { groupTurnActivity } from "./threadTurnActivity";
+import { groupTurnActivity, liveModelThinking } from "./threadTurnActivity";
 import { classifySystemNotice, classifyThreadActivityMessage } from "./threadActivityModel";
 import { endThreadCompaction, messageTimeMs, useThreadCompaction } from "./threadCompactionStatus";
 import { isCompactionArtifactMessage } from "@/components/agent-chat-panel/chat-view/compactionArtifact";
@@ -121,12 +121,22 @@ export function ThreadsView({
   const messageActionsRef = useRef<ThreadMessageActions | null>(null);
   const viewMountedAtRef = useRef(Date.now());
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const retryStatus = useThreadRetryStatus(
+    runtime.activeThread?.daemonThreadId,
+    runtime.activeThread?.id,
+  );
+  const compactionStatus = useThreadCompaction(runtime.activeThread?.daemonThreadId ?? runtime.activeThread?.id);
+  const liveThinking = runtime.isStreamingResponse && !retryStatus && !compactionStatus
+    ? liveModelThinking(runtime.messages)
+    : null;
+  const liveThinkingStartedAt = liveThinking && !liveThinking.reasoning ? liveThinking.startedAt : null;
   const displayItems = useMemo(
     () => groupTurnActivity(
       buildDisplayItems(runtime.messages),
       (message) => Boolean(classifyThreadActivityMessage(message) ?? classifySystemNotice(message)),
+      liveThinkingStartedAt,
     ),
-    [runtime.messages],
+    [runtime.messages, liveThinkingStartedAt],
   );
   const threadEnds = useMemo(() => latestThreadEnds(runtime.messages), [runtime.messages]);
   const latestUserMessage = threadEnds.latestUserMessage;
@@ -149,11 +159,6 @@ export function ThreadsView({
     runtime.retryStreamNow(runtime.activeThreadId);
   }, [latestUserMessage, runtime.retryStreamNow, runtime.activeThreadId]);
   const speech = useThreadSpeech(runtime.messages);
-  const retryStatus = useThreadRetryStatus(
-    runtime.activeThread?.daemonThreadId,
-    runtime.activeThread?.id,
-  );
-  const compactionStatus = useThreadCompaction(runtime.activeThread?.daemonThreadId ?? runtime.activeThread?.id);
   useEffect(() => {
     if (!compactionStatus) return;
     const arrived = runtime.messages.some((message) => (

@@ -72,6 +72,8 @@ async fn persisted_assistant_messages_reload_upstream_message_metadata() {
                 messages: vec![
                     AgentMessage::user("hello", 1),
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: "assistant-upstream-message".to_string(),
                         role: MessageRole::Assistant,
                         content: "Hello from Claude.".to_string(),

@@ -201,6 +201,8 @@ pub(super) fn map_counterfactual_evaluation_row(
 
 pub(super) fn map_agent_message(row: &rusqlite::Row<'_>) -> rusqlite::Result<AgentDbMessage> {
     Ok(AgentDbMessage {
+        reasoning_tokens: row.get::<_, Option<i64>>(14).ok().flatten(),
+        thinking_ms: row.get::<_, Option<i64>>(15).ok().flatten(),
         id: row.get(0)?,
         thread_id: row.get(1)?,
         created_at: row.get(2)?,
@@ -237,6 +239,8 @@ pub(super) fn map_agent_thread_db(row: &super::db::Row) -> anyhow::Result<AgentD
 
 pub(super) fn map_agent_message_db(row: &super::db::Row) -> anyhow::Result<AgentDbMessage> {
     Ok(AgentDbMessage {
+        reasoning_tokens: row.get::<Option<i64>>(14).ok().flatten(),
+        thinking_ms: row.get::<Option<i64>>(15).ok().flatten(),
         id: row.get(0)?,
         thread_id: row.get(1)?,
         created_at: row.get(2)?,

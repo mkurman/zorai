@@ -131,6 +131,20 @@ fn bridge_event_from_daemon_message(message: &DaemonMessage) -> Option<serde_jso
                 "revision": snapshot.revision,
             }
         })),
+        DaemonMessage::OperationAccepted {
+            operation_id,
+            kind,
+            dedup,
+            revision,
+        } => Some(serde_json::json!({
+            "type": "operation-accepted",
+            "data": {
+                "operation_id": operation_id,
+                "kind": kind,
+                "dedup": dedup,
+                "revision": revision,
+            }
+        })),
         DaemonMessage::AgentGeneratedTools { tools_json } => Some(serde_json::json!({
             "type": "generated-tools",
             "data": serde_json::from_str::<serde_json::Value>(tools_json).unwrap_or_default(),
@@ -1163,6 +1177,20 @@ mod tests {
                 }
             })
         );
+    }
+
+    #[test]
+    fn accepted_operations_reach_the_gui_so_it_can_tell_a_saved_change_from_a_rejected_one() {
+        let event = bridge_event_from_daemon_message(&DaemonMessage::OperationAccepted {
+            operation_id: "op-2".to_string(),
+            kind: "set_provider_model".to_string(),
+            dedup: None,
+            revision: 3,
+        })
+        .expect("operation accepted should translate");
+
+        assert_eq!(event["type"], "operation-accepted");
+        assert_eq!(event["data"]["kind"], "set_provider_model");
     }
 
     #[test]

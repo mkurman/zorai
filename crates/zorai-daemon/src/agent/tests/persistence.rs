@@ -495,6 +495,8 @@ async fn hydrate_does_not_wait_for_non_playground_thread_message_hydration() {
         metadata_json: None,
     };
     let message_row = zorai_protocol::AgentDbMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: "msg-hydrate-lazy".to_string(),
         thread_id: thread_id.to_string(),
         created_at: 2_000,

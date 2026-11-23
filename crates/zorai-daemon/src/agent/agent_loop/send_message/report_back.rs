@@ -101,6 +101,8 @@ impl<'a> SendMessageRunner<'a> {
         self.needs_turn_done = false;
         self.turn_done_emitted = true;
         let _ = self.engine.event_tx.send(AgentEvent::Done {
+            reasoning_tokens: self.reasoning_usage.tokens,
+            thinking_ms: self.reasoning_usage.thinking_ms,
             thread_id: self.tid.clone(),
             input_tokens,
             output_tokens,

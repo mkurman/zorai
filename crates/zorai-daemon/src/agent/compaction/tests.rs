@@ -45,6 +45,8 @@ fn sample_message(content: &str) -> AgentMessage {
 
 fn sample_tool_message(tool_name: &str, content: &str, timestamp: u64) -> AgentMessage {
     AgentMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: format!("tool-{timestamp}"),
         role: MessageRole::Tool,
         content: content.to_string(),
@@ -1124,6 +1126,8 @@ fn heuristic_compaction_summary_uses_checkpoint_schema() {
                 1,
             ),
             AgentMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: "assistant-1".to_string(),
                 role: MessageRole::Assistant,
                 content: "Verified HTML and CSS. Status: checking responsive layout next."
@@ -1158,6 +1162,8 @@ fn heuristic_compaction_summary_uses_checkpoint_schema() {
                 feedback: None,
             },
             AgentMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: "tool-1".to_string(),
                 role: MessageRole::Tool,
                 content: "styles.css read complete".to_string(),
@@ -1216,6 +1222,8 @@ fn llm_compaction_fallback_keeps_recent_question_context_for_short_user_replies(
     }
 
     messages.push(AgentMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: "assistant-question".to_string(),
         role: MessageRole::Assistant,
         content: "Pick the implementation approach: 1. Preserve recent dialogue context 2. Keep current summary format"
@@ -1251,6 +1259,8 @@ fn llm_compaction_fallback_keeps_recent_question_context_for_short_user_replies(
     });
     messages.push(AgentMessage::user("1", 31));
     messages.push(AgentMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: "assistant-tool-call".to_string(),
         role: MessageRole::Assistant,
         content: String::new(),
@@ -1291,6 +1301,8 @@ fn llm_compaction_fallback_keeps_recent_question_context_for_short_user_replies(
         feedback: None,
     });
     messages.push(AgentMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: "tool-read".to_string(),
         role: MessageRole::Tool,
         content: "Full file contents that should not be passed verbatim to the compactor"
@@ -1393,6 +1405,8 @@ fn github_copilot_tool_follow_up_disables_previous_response_continuity() {
     let thread = sample_thread(vec![
         AgentMessage::user("first question", 1),
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "assistant-1".to_string(),
             role: MessageRole::Assistant,
             content: "I'll inspect that".to_string(),
@@ -1433,6 +1447,8 @@ fn github_copilot_tool_follow_up_disables_previous_response_continuity() {
             feedback: None,
         },
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "tool-1".to_string(),
             role: MessageRole::Tool,
             content: "file list".to_string(),
@@ -1500,6 +1516,8 @@ fn native_assistant_transport_falls_back_to_compacted_message_stack_when_compact
         ..sample_thread(vec![
             AgentMessage::user("earlier request", 1),
             AgentMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: "assistant-1".to_string(),
                 role: MessageRole::Assistant,
                 content: "Earlier assistant state that should be compacted".to_string(),
@@ -1581,6 +1599,8 @@ fn github_copilot_responses_request_does_not_use_previous_response_id_for_plain_
     let thread = sample_thread(vec![
         AgentMessage::user("first question", 1),
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "assistant-1".to_string(),
             role: MessageRole::Assistant,
             content: "Initial answer".to_string(),
@@ -1663,6 +1683,8 @@ fn chatgpt_subscription_responses_request_uses_local_thread_id_instead_of_previo
     let thread = sample_thread(vec![
         AgentMessage::user("first question", 1),
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "assistant-1".to_string(),
             role: MessageRole::Assistant,
             content: "Initial answer".to_string(),
@@ -1746,6 +1768,8 @@ fn openai_responses_request_keeps_previous_response_id_when_compaction_artifact_
     let thread = sample_thread(vec![
         AgentMessage::user("older request", 1),
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "compaction-1".to_string(),
             role: MessageRole::Assistant,
             content: "rule based".to_string(),
@@ -1780,6 +1804,8 @@ fn openai_responses_request_keeps_previous_response_id_when_compaction_artifact_
         },
         AgentMessage::user("latest request", 3),
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "assistant-1".to_string(),
             role: MessageRole::Assistant,
             content: "Latest answer".to_string(),
@@ -1913,6 +1939,8 @@ fn reused_user_turn_is_injected_when_responses_continuation_only_has_weles_notic
     let thread = sample_thread(vec![
         AgentMessage::user("finish the refactor", 1),
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "assistant-1".to_string(),
             role: MessageRole::Assistant,
             content: "I started the refactor but stopped early.".to_string(),
@@ -1986,6 +2014,8 @@ fn reused_user_message_is_injected_for_chat_completions_when_continuation_has_no
 
     let thread = sample_thread(vec![
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "assistant-1".to_string(),
             role: MessageRole::Assistant,
             content: String::new(),
@@ -2026,6 +2056,8 @@ fn reused_user_message_is_injected_for_chat_completions_when_continuation_has_no
             feedback: None,
         },
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "tool-1".to_string(),
             role: MessageRole::Tool,
             content: "[]".to_string(),
@@ -2099,6 +2131,8 @@ fn reused_user_message_is_appended_when_history_already_has_a_user_turn() {
 
     let thread = sample_thread(vec![
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "user-1".to_string(),
             role: MessageRole::User,
             content: "original request".to_string(),
@@ -2132,6 +2166,8 @@ fn reused_user_message_is_appended_when_history_already_has_a_user_turn() {
             feedback: None,
         },
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "assistant-1".to_string(),
             role: MessageRole::Assistant,
             content: String::new(),
@@ -2172,6 +2208,8 @@ fn reused_user_message_is_appended_when_history_already_has_a_user_turn() {
             feedback: None,
         },
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "tool-1".to_string(),
             role: MessageRole::Tool,
             content: "[]".to_string(),
@@ -2205,6 +2243,8 @@ fn reused_user_message_is_appended_when_history_already_has_a_user_turn() {
             feedback: None,
         },
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "assistant-2".to_string(),
             role: MessageRole::Assistant,
             content: "Listed the files.".to_string(),
@@ -2384,6 +2424,8 @@ fn agent_config_roundtrip_preserves_nested_compaction_provider_settings() {
 #[test]
 fn compaction_artifact_message_roundtrip_preserves_runtime_metadata() {
     let message = AgentMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: "compaction-1".to_string(),
         role: MessageRole::Assistant,
         content:
@@ -2451,6 +2493,8 @@ fn compaction_candidate_ignores_messages_before_latest_artifact() {
         sample_message("older one"),
         sample_message("older two"),
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "compaction-1".to_string(),
             role: MessageRole::Assistant,
             content: "rule based".to_string(),
@@ -2881,6 +2925,8 @@ async fn coding_compaction_payload_prefers_structural_digest_and_offload_refs() 
                     1,
                 ),
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: "tool-older".to_string(),
                     role: MessageRole::Tool,
                     content: "Tool result offloaded".to_string(),
@@ -3026,6 +3072,8 @@ async fn coding_compaction_payload_renders_offload_refs_from_metadata_fields() {
                     1,
                 ),
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: "tool-older".to_string(),
                     role: MessageRole::Tool,
                     content: "Tool result offloaded".to_string(),
@@ -3099,6 +3147,8 @@ fn coding_signals_without_structural_state_still_use_conversational_compaction()
     let mode = determine_rule_based_compaction_mode(
         None,
         &[AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "tool-result".to_string(),
             role: MessageRole::Tool,
             content: "cargo test failed in crates/zorai-daemon/src/agent/compaction.rs".to_string(),
@@ -3165,6 +3215,8 @@ fn stale_structural_state_without_recent_coding_signals_uses_conversational_comp
         &[
             AgentMessage::user("Please summarize our next meeting agenda.", 1),
             AgentMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: "assistant-summary".to_string(),
                 role: MessageRole::Assistant,
                 content: "We already covered the budget update and owner list.".to_string(),
@@ -3223,6 +3275,8 @@ async fn conversational_compaction_still_uses_checkpoint_summary_path() {
             sample_thread(vec![
                 AgentMessage::user("Help me summarize the meeting decisions.", 1),
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: "assistant-older".to_string(),
                     role: MessageRole::Assistant,
                     content: "We already covered the budget and timeline updates.".to_string(),
@@ -3358,6 +3412,8 @@ async fn internal_dm_thread_uses_checkpoint_compaction_even_with_structural_stat
             sample_thread(vec![
                 AgentMessage::user("Review the recent governance exchange.", 1),
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: "tool-older".to_string(),
                     role: MessageRole::Tool,
                     content: "Tool result offloaded".to_string(),
@@ -3477,6 +3533,8 @@ async fn coding_compaction_falls_back_to_checkpoint_summary_when_structured_asse
             sample_thread(vec![
                 AgentMessage::user("Fix the parser implementation.", 1),
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: "tool-older".to_string(),
                     role: MessageRole::Tool,
                     content: "Tool result offloaded".to_string(),
@@ -3686,6 +3744,8 @@ fn compaction_candidate_keeps_unanswered_tool_turn_out_of_summary_boundary() {
     let messages = vec![
         AgentMessage::user("older", 1),
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "assistant-tool-call".to_string(),
             role: MessageRole::Assistant,
             content: String::new(),
@@ -3788,6 +3848,8 @@ fn prepare_llm_request_drops_hidden_tool_turn_after_compaction_artifact() {
     let thread = sample_thread(vec![
         AgentMessage::user("older", 1),
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "assistant-tool-call".to_string(),
             role: MessageRole::Assistant,
             content: String::new(),
@@ -3828,6 +3890,8 @@ fn prepare_llm_request_drops_hidden_tool_turn_after_compaction_artifact() {
             feedback: None,
         },
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "compaction-1".to_string(),
             role: MessageRole::Assistant,
             content: "rule based".to_string(),
@@ -3861,6 +3925,8 @@ fn prepare_llm_request_drops_hidden_tool_turn_after_compaction_artifact() {
             feedback: None,
         },
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "tool-read".to_string(),
             role: MessageRole::Tool,
             content: "file contents".to_string(),
@@ -3920,6 +3986,8 @@ fn prepare_llm_request_never_reintroduces_pre_artifact_messages() {
     let thread = sample_thread(vec![
         AgentMessage::user("old user message must stay stored only", 1),
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "old-assistant-tool-call".to_string(),
             role: MessageRole::Assistant,
             content: "old assistant message must stay stored only".to_string(),
@@ -3960,6 +4028,8 @@ fn prepare_llm_request_never_reintroduces_pre_artifact_messages() {
             feedback: None,
         },
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "compaction-1".to_string(),
             role: MessageRole::Assistant,
             content: "Pre-compaction context: ~330,000 / 400,000 tokens".to_string(),
@@ -3993,6 +4063,8 @@ fn prepare_llm_request_never_reintroduces_pre_artifact_messages() {
             feedback: None,
         },
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "orphan-tool-after-compaction".to_string(),
             role: MessageRole::Tool,
             content: "old tool result must not force the old assistant back into live context"
@@ -4119,6 +4191,8 @@ async fn coding_compaction_payload_includes_memory_graph_neighbors() {
             sample_thread(vec![
                 AgentMessage::user("Update the parser and keep code context compact.", 1),
                 AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: "tool-older".to_string(),
                     role: MessageRole::Tool,
                     content: "Tool result offloaded".to_string(),

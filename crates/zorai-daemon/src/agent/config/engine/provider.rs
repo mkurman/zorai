@@ -111,8 +111,15 @@ impl AgentEngine {
         model: &str,
     ) -> Result<AgentConfig> {
         let current = self.get_config().await;
+        let mut validation_config = current.clone();
+        if let Ok(resolved) =
+            provider_resolution::resolve_provider_config_for(&current, provider_id, Some(model))
+        {
+            validation_config.api_key = resolved.api_key;
+            validation_config.auth_source = resolved.auth_source;
+        }
         let selection = provider_resolution::resolve_provider_model_switch(
-            &current,
+            &validation_config,
             provider_id,
             model,
             false,

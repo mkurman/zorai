@@ -167,7 +167,8 @@ impl HistoryStore {
             .query(
                 "SELECT outcome_json
              FROM causal_traces
-             WHERE json_extract(selected_json, '$.option_type') = ?1
+             WHERE json_valid(selected_json)
+               AND json_extract(selected_json, '$.option_type') = ?1
              ORDER BY created_at DESC
              LIMIT ?2",
                 db::db_params![option_type, limit as i64],
@@ -186,7 +187,8 @@ impl HistoryStore {
             .query(
                 "SELECT trace_family, selected_json, causal_factors_json, outcome_json, created_at
              FROM causal_traces
-             WHERE json_extract(selected_json, '$.option_type') = ?1
+             WHERE json_valid(selected_json)
+               AND json_extract(selected_json, '$.option_type') = ?1
              ORDER BY created_at DESC
              LIMIT ?2",
                 db::db_params![option_type, limit as i64],

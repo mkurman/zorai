@@ -568,6 +568,8 @@ async fn concierge_welcome_skips_onboarding_when_hydrated_history_exists() {
     conn.agent
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "persisted-user".to_string(),
             thread_id: "persisted-thread".to_string(),
             created_at: now - 10_000,
@@ -588,6 +590,8 @@ async fn concierge_welcome_skips_onboarding_when_hydrated_history_exists() {
     conn.agent
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "persisted-assistant".to_string(),
             thread_id: "persisted-thread".to_string(),
             created_at: now - 5_000,
@@ -688,6 +692,8 @@ async fn concierge_welcome_uses_persisted_history_without_preloading_messages() 
     conn.agent
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "persisted-user".to_string(),
             thread_id: "persisted-thread".to_string(),
             created_at: now - 10_000,
@@ -708,6 +714,8 @@ async fn concierge_welcome_uses_persisted_history_without_preloading_messages() 
     conn.agent
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "persisted-assistant".to_string(),
             thread_id: "persisted-thread".to_string(),
             created_at: now - 5_000,

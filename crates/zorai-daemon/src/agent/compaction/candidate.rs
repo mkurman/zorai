@@ -26,6 +26,8 @@ pub(crate) fn compact_messages_for_request(
             has_summary = true;
             let summary_payload = summary.clone();
             compacted.push(AgentMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: generate_message_id(),
                 role: MessageRole::Assistant,
                 content: summary,

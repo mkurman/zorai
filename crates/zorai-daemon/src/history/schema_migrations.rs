@@ -798,6 +798,8 @@ pub(super) async fn apply_schema_migrations<E: super::db::DbExecutor + ?Sized>(
     ensure_column(&mut *exec, "agent_threads", "deleted_at", "INTEGER").await?;
     ensure_column(&mut *exec, "agent_messages", "cost_usd", "REAL").await?;
     ensure_column(&mut *exec, "agent_messages", "deleted_at", "INTEGER").await?;
+    ensure_column(&mut *exec, "agent_messages", "reasoning_tokens", "INTEGER").await?;
+    ensure_column(&mut *exec, "agent_messages", "thinking_ms", "INTEGER").await?;
     exec.execute(
         "CREATE INDEX IF NOT EXISTS idx_messages_thread_deleted_created ON agent_messages(thread_id, deleted_at, created_at, id)", super::db::Params::None).await?;
     ensure_column(&mut *exec, "agent_tasks", "scheduled_at", "INTEGER").await?;
@@ -1321,6 +1323,13 @@ pub(super) async fn apply_schema_migrations<E: super::db::DbExecutor + ?Sized>(
                 updated_at DESC
             )
             WHERE session_json IS NOT NULL AND json_valid(session_json);
+
+        CREATE INDEX IF NOT EXISTS idx_causal_traces_option_type
+            ON causal_traces(
+                json_extract(selected_json, '$.option_type'),
+                created_at DESC
+            )
+            WHERE json_valid(selected_json);
 
         -- `mark_missing_semantic_documents_removed` filters by
         --   source_kind = ? AND root_path = ? AND deleted_at IS NULL

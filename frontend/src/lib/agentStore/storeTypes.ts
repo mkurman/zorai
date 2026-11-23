@@ -92,7 +92,7 @@ export interface AgentState {
     threadId: string,
     content: string,
     streaming?: boolean,
-    meta?: Partial<Pick<AgentMessage, "inputTokens" | "outputTokens" | "totalTokens" | "reasoning" | "reasoningTokens" | "audioTokens" | "videoTokens" | "cost" | "tps" | "toolCalls" | "provider" | "model" | "api_transport" | "responseId" | "providerFinalResult">>,
+    meta?: Partial<Pick<AgentMessage, "inputTokens" | "outputTokens" | "totalTokens" | "reasoning" | "reasoningTokens" | "thinkingMs" | "audioTokens" | "videoTokens" | "cost" | "tps" | "toolCalls" | "provider" | "model" | "api_transport" | "responseId" | "providerFinalResult">>,
   ) => void;
   getThreadMessages: (threadId: string) => AgentMessage[];
   deleteMessage: (threadId: string, messageId: string) => void;

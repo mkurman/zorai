@@ -366,6 +366,8 @@ export function useDaemonAgentEvents({
               cost: typeof event.cost === "number" ? event.cost : undefined,
               tps: typeof event.tps === "number" ? event.tps : undefined,
               reasoning: event.reasoning || last.reasoning || undefined,
+              reasoningTokens: typeof event.reasoning_tokens === "number" ? event.reasoning_tokens : undefined,
+              thinkingMs: typeof event.thinking_ms === "number" ? event.thinking_ms : undefined,
             });
           }
           // The daemon now surfaces the persisted assistant `agent_messages.id`

@@ -359,6 +359,8 @@ async fn collect_stalled_turn_observations_skips_active_tool_turns() {
                 agent_name: None,
                 title: "Active tool turn".to_string(),
                 messages: vec![AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: "assistant-tool".to_string(),
                     role: MessageRole::Assistant,
                     content: String::new(),
@@ -432,6 +434,8 @@ async fn collect_stalled_turn_observations_skips_idle_stream_with_unanswered_too
                 messages: vec![
                     AgentMessage::user("Run the long command.", now.saturating_sub(120_000)),
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: "assistant-bash-tool".to_string(),
                         role: MessageRole::Assistant,
                         content: String::new(),
@@ -527,6 +531,8 @@ async fn collect_stalled_turn_observations_detects_promise_without_action() {
                 messages: vec![
                     AgentMessage::user("Design the page", now.saturating_sub(61_000)),
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: "assistant-stall".to_string(),
                         role: MessageRole::Assistant,
                         content: "Working. Let me draft the redesigned content now.".to_string(),
@@ -628,6 +634,8 @@ async fn supervise_stalled_turns_retries_with_internal_ping_and_continue() {
                 messages: vec![
                     AgentMessage::user("Make the redesign", now.saturating_sub(61_000)),
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: "assistant-recovery".to_string(),
                         role: MessageRole::Assistant,
                         content: "Excellent. Let me start drafting the redesigned landing page."
@@ -751,6 +759,8 @@ async fn supervise_stalled_turns_retries_system_seeded_thread_without_user_messa
                 messages: vec![
                     seed,
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: "assistant-recovery-system-seed".to_string(),
                         role: MessageRole::Assistant,
                         content: "Excellent. Let me start drafting the redesigned landing page."
@@ -1208,6 +1218,8 @@ async fn supervise_stalled_turns_escalates_after_third_retry_window() {
                 messages: vec![
                     AgentMessage::user("Do the work", now.saturating_sub(121_000)),
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: "assistant-escalate".to_string(),
                         role: MessageRole::Assistant,
                         content: "Working. Let me draft the redesigned content now.".to_string(),
@@ -1872,6 +1884,8 @@ async fn collect_stalled_turn_observations_treats_reasoning_only_assistant_turn_
                 messages: vec![
                     AgentMessage::user("Check the issue.", now.saturating_sub(600_000)),
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: "assistant-reasoning-only".to_string(),
                         role: MessageRole::Assistant,
                         content: String::new(),
@@ -2011,6 +2025,8 @@ async fn collect_stalled_turn_observations_detects_primary_thread_empty_after_to
     tool_message.tool_name = Some("write_file".to_string());
 
     let assistant_with_tool_call = AgentMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: "assistant-tool-call".to_string(),
         role: MessageRole::Assistant,
         content: String::new(),
@@ -2052,6 +2068,8 @@ async fn collect_stalled_turn_observations_detects_primary_thread_empty_after_to
     };
 
     let empty_assistant_after_tool_result = AgentMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: "assistant-empty-after-tool".to_string(),
         role: MessageRole::Assistant,
         content: String::new(),
@@ -2140,6 +2158,8 @@ async fn collect_stalled_turn_observations_detects_stall_behind_background_compl
     tool_message.tool_name = Some("write_file".to_string());
 
     let assistant_with_tool_call = AgentMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: "assistant-tool-call".to_string(),
         role: MessageRole::Assistant,
         content: String::new(),
@@ -2259,6 +2279,8 @@ async fn collect_stalled_turn_observations_detects_subagent_stuck_on_empty_first
                 messages: vec![
                     AgentMessage::user("Check the issue.", now.saturating_sub(started_ago_ms)),
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: "assistant-empty-first-turn".to_string(),
                         role: MessageRole::Assistant,
                         content: String::new(),
@@ -2823,6 +2845,8 @@ async fn supervise_stalled_turns_recovers_subagent_stuck_on_empty_first_turn() {
                         now.saturating_sub(started_ago_ms),
                     ),
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: "assistant-empty-first-turn-recovery".to_string(),
                         role: MessageRole::Assistant,
                         content: String::new(),

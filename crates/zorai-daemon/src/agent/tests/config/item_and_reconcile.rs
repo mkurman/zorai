@@ -25,6 +25,58 @@ async fn set_provider_model_json_updates_provider_and_model_atomically() {
 }
 
 #[tokio::test]
+async fn svarog_model_change_is_saved_when_the_provider_keeps_its_own_credentials() {
+    let root = tempdir().unwrap();
+    let manager = SessionManager::new_test(root.path()).await;
+    let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
+
+    let mut config = engine.get_config().await;
+    config.provider = PROVIDER_ID_OPENAI.to_string();
+    config.model = "gpt-5.4".to_string();
+    config.api_key = String::new();
+    config.auth_source = AuthSource::ApiKey;
+    config.providers.insert(
+        PROVIDER_ID_OPENAI.to_string(),
+        ProviderConfig {
+            base_url: "https://api.openai.com/v1".to_string(),
+            model: "gpt-5.4".to_string(),
+            api_key: "openai-key".to_string(),
+            assistant_id: String::new(),
+            auth_source: AuthSource::ApiKey,
+            api_transport: ApiTransport::Responses,
+            reasoning_effort: String::new(),
+            context_window_tokens: 128_000,
+            response_schema: None,
+            stop_sequences: None,
+            temperature: None,
+            top_p: None,
+            top_k: None,
+            metadata: None,
+            service_tier: None,
+            container: None,
+            inference_geo: None,
+            cache_control: None,
+            max_tokens: None,
+            anthropic_tool_choice: None,
+            output_effort: None,
+            openrouter_provider_order: Vec::new(),
+            openrouter_provider_ignore: Vec::new(),
+            openrouter_allow_fallbacks: None,
+            openrouter_response_cache_enabled: false,
+            huggingface_provider: None,
+        },
+    );
+    engine.set_config(config).await;
+
+    engine
+        .set_provider_model_json(PROVIDER_ID_OPENAI, "gpt-5.4-mini")
+        .await
+        .expect("switching Svarog's model must use the provider's stored credentials");
+
+    assert_eq!(engine.get_config().await.model, "gpt-5.4-mini");
+}
+
+#[tokio::test]
 async fn set_provider_model_json_restores_canonical_base_url_for_predefined_provider() {
     let root = tempdir().unwrap();
     let manager = SessionManager::new_test(root.path()).await;

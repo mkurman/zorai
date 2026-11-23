@@ -221,6 +221,8 @@ pub(crate) async fn startup_readiness_blocks_history_requests_until_hydrate_fini
         .expect("persist thread row");
     history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "persisted-message".to_string(),
             thread_id: "persisted-thread".to_string(),
             created_at: 1_010,

@@ -316,6 +316,31 @@ pub struct AgentMessage {
     pub timestamp: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub feedback: Option<zorai_protocol::Reaction>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_tokens: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thinking_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct MessageReasoningUsage {
+    pub tokens: Option<u64>,
+    pub thinking_ms: Option<u64>,
+}
+
+impl MessageReasoningUsage {
+    pub fn measure(
+        reasoning: Option<&str>,
+        tokens: Option<u64>,
+        thinking: std::time::Duration,
+    ) -> Self {
+        let tokens = tokens.filter(|count| *count > 0);
+        let reasoned = tokens.is_some() || reasoning.is_some_and(|text| !text.trim().is_empty());
+        Self {
+            tokens,
+            thinking_ms: reasoned.then(|| thinking.as_millis() as u64),
+        }
+    }
 }
 
 pub fn generate_message_id() -> String {
@@ -404,6 +429,8 @@ pub fn content_blocks_text_projection(blocks: &[AgentContentBlock]) -> String {
 impl AgentMessage {
     pub fn user(content: impl Into<String>, now: u64) -> Self {
         Self {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: generate_message_id(),
             role: MessageRole::User,
             content: content.into(),
@@ -579,4 +606,31 @@ pub struct ToolFunctionDef {
     pub name: String,
     pub description: String,
     pub parameters: serde_json::Value,
+}
+
+#[cfg(test)]
+mod reasoning_usage_tests {
+    use super::MessageReasoningUsage;
+    use std::time::Duration;
+
+    #[test]
+    fn thinking_time_is_recorded_only_when_the_model_actually_reasoned() {
+        let waited = Duration::from_millis(128_000);
+
+        let hidden =
+            MessageReasoningUsage::measure(Some("\u{1f}gemini-thought:sig"), Some(1996), waited);
+        assert_eq!(
+            hidden,
+            MessageReasoningUsage {
+                tokens: Some(1996),
+                thinking_ms: Some(128_000)
+            }
+        );
+
+        let counted_only = MessageReasoningUsage::measure(None, Some(512), waited);
+        assert_eq!(counted_only.thinking_ms, Some(128_000));
+
+        let plain_reply = MessageReasoningUsage::measure(Some("   "), Some(0), waited);
+        assert_eq!(plain_reply, MessageReasoningUsage::default());
+    }
 }

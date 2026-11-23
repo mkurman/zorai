@@ -204,6 +204,7 @@ impl AgentEngine {
             None,
             None,
             None,
+            MessageReasoningUsage::default(),
         )
         .await
     }
@@ -222,6 +223,7 @@ impl AgentEngine {
         upstream_message: Option<CompletionUpstreamMessage>,
         provider_final_result: Option<CompletionProviderFinalResult>,
         cost: Option<f64>,
+        reasoning_usage: MessageReasoningUsage,
     ) -> Option<String> {
         let (author_agent_id, author_agent_name) =
             self.assistant_author_identity_for_thread(thread_id).await;
@@ -229,6 +231,8 @@ impl AgentEngine {
         let inserted_id = if let Some(thread) = threads.get_mut(thread_id) {
             let id = generate_message_id();
             thread.messages.push(AgentMessage {
+                reasoning_tokens: reasoning_usage.tokens,
+                thinking_ms: reasoning_usage.thinking_ms,
                 id: id.clone(),
                 role: MessageRole::Assistant,
                 content: content.into(),
@@ -291,6 +295,8 @@ impl AgentEngine {
             content: format!("Error: {message}"),
         });
         let _ = self.event_tx.send(AgentEvent::Done {
+            reasoning_tokens: None,
+            thinking_ms: None,
             thread_id: thread_id.to_string(),
             input_tokens: 0,
             output_tokens: 0,

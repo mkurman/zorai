@@ -865,6 +865,8 @@ mod tests {
 
         history
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: format!("{thread_id}-m1"),
                 thread_id: thread_id.to_string(),
                 created_at: message_created_at,
@@ -929,6 +931,8 @@ mod tests {
     fn extract_candidates_uses_real_message_ranges_for_repeated_support() {
         let messages = vec![
             AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: "m1".into(),
                 thread_id: "thread-1".into(),
                 created_at: 1,
@@ -945,6 +949,8 @@ mod tests {
                 metadata_json: None,
             },
             AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: "m2".into(),
                 thread_id: "thread-1".into(),
                 created_at: 2,
@@ -961,6 +967,8 @@ mod tests {
                 metadata_json: None,
             },
             AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: "m3".into(),
                 thread_id: "thread-1".into(),
                 created_at: 3,
@@ -990,6 +998,8 @@ mod tests {
     fn extract_candidates_marks_last_user_turn_as_last_turn() {
         let messages = vec![
             AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: "m1".into(),
                 thread_id: "thread-1".into(),
                 created_at: 1,
@@ -1006,6 +1016,8 @@ mod tests {
                 metadata_json: None,
             },
             AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: "m2".into(),
                 thread_id: "thread-1".into(),
                 created_at: 2,
@@ -1482,6 +1494,8 @@ mod tests {
 
         history
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: "same-ts-newer-id-m2".into(),
                 thread_id: "same-ts-newer-id".into(),
                 created_at: 8_000_i64,
@@ -1634,6 +1648,8 @@ mod tests {
 
         history
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: message_id.clone(),
                 thread_id: thread_id.to_string(),
                 created_at,

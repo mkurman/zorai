@@ -272,3 +272,25 @@ fn tool_result_images_follow_the_function_result_as_user_input_for_gemini() {
     assert_eq!(input[1]["type"], "user_input");
     assert_eq!(input[1]["content"][1]["type"], "image");
 }
+
+#[test]
+fn hidden_gemini_thinking_still_reports_how_many_tokens_it_spent() {
+    let mut assembler = GeminiStreamAssembler::default();
+    assembler
+        .ingest_interaction(&serde_json::json!({
+            "id": "v1_think",
+            "status": "requires_action",
+            "usage": {"total_input_tokens": 7, "total_output_tokens": 23, "total_thought_tokens": 49},
+            "steps": [
+                {"type": "thought", "signature": "sig-3"},
+                {"type": "function_call", "id": "call_x", "name": "python", "arguments": {}}
+            ]
+        }))
+        .expect("ingest");
+    match assembler.finish().expect("finish").last() {
+        Some(CompletionChunk::ToolCalls {
+            reasoning_tokens, ..
+        }) => assert_eq!(*reasoning_tokens, Some(49)),
+        other => panic!("expected tool calls, got {other:?}"),
+    }
+}

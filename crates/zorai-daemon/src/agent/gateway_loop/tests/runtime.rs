@@ -266,6 +266,8 @@ async fn gateway_auto_send_thread_response_emits_gateway_request_for_latest_assi
             .get_mut(&thread_id)
             .expect("gateway thread should exist");
         thread.messages.push(AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "assistant-latest".to_string(),
             role: MessageRole::Assistant,
             content: "Intermittent update from the agent".to_string(),

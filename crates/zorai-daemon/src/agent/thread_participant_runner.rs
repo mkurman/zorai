@@ -942,6 +942,8 @@ impl AgentEngine {
             .get_mut(thread_id)
             .ok_or_else(|| anyhow::anyhow!("thread not found: {thread_id}"))?;
         thread.messages.push(AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: generate_message_id(),
             role: MessageRole::System,
             content: content.to_string(),

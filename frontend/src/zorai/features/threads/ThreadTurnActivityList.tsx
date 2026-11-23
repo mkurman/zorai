@@ -17,7 +17,7 @@ import { visibleGeminiReasoning } from "@/lib/geminiThought";
 import { ThreadActivityRow } from "./ThreadActivityRow";
 import { classifySystemNotice, classifyThreadActivityMessage } from "./threadActivityModel";
 import { ThreadReasoningBlock } from "./NativeThreadMessageBubble";
-import type { TurnActivityEntry } from "./threadTurnActivity";
+import { providerHidReasoning, type TurnActivityEntry } from "./threadTurnActivity";
 import { usePresence } from "@/hooks/usePresence";
 import { finishedTurnSummary } from "./turnActivitySummary";
 import { useToolRevealStore } from "@/components/agent-chat-panel/chat-view/toolRevealStore";
@@ -99,6 +99,7 @@ function turnActivityEntryTitle(entry: TurnActivityEntry): string {
     return group ? toolGroupTitle(group) : "Tools";
   }
   if (entry.kind === "reasoning") {
+    if (providerHidReasoning(entry.message)) return "Thought";
     return activityPreview(visibleGeminiReasoning(entry.message.reasoning)) || "Thinking";
   }
   const activity = classifyThreadActivityMessage(entry.message) ?? classifySystemNotice(entry.message);
@@ -193,6 +194,8 @@ export const ThreadTurnActivityList = memo(function ThreadTurnActivityList({
                   key={entry.key}
                   content={visibleGeminiReasoning(entry.message.reasoning)}
                   streaming={Boolean(entry.message.isStreaming)}
+                  durationMs={entry.message.thinkingMs ?? entry.thoughtMs}
+                  tokens={entry.message.reasoningTokens}
                 />
               );
             }

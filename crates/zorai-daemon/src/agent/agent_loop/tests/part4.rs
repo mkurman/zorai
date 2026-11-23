@@ -200,6 +200,8 @@ async fn auto_compaction_forces_connection_close_on_next_llm_request() {
                 messages: vec![
                     crate::agent::types::AgentMessage::user("First request", 1),
                     crate::agent::types::AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: "assistant-1".to_string(),
                         role: MessageRole::Assistant,
                         content: "Observed earlier state".to_string(),

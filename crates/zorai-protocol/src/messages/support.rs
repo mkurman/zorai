@@ -629,6 +629,10 @@ pub struct AgentDbMessage {
     pub reasoning: Option<String>,
     pub tool_calls_json: Option<String>,
     pub metadata_json: Option<String>,
+    #[serde(default)]
+    pub reasoning_tokens: Option<i64>,
+    #[serde(default)]
+    pub thinking_ms: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

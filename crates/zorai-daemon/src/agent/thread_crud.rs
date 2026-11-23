@@ -445,6 +445,8 @@ impl AgentEngine {
                 return false;
             };
             thread.messages.push(AgentMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: generate_message_id(),
                 role: MessageRole::System,
                 content,

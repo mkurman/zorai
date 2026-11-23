@@ -17,6 +17,8 @@ use zorai_shared::providers::{
 fn messages_to_api_format_normalizes_empty_tool_ids() {
     let messages = vec![
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: String::new(),
             role: MessageRole::Assistant,
             content: String::new(),
@@ -57,6 +59,8 @@ fn messages_to_api_format_normalizes_empty_tool_ids() {
             feedback: None,
         },
         AgentMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: String::new(),
             role: MessageRole::Tool,
             content: "ok".to_string(),

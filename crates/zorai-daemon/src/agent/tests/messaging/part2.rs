@@ -31,6 +31,8 @@ async fn delete_thread_messages_drops_incomplete_assistant_tool_turn_after_tool_
                 messages: vec![
                     AgentMessage::user("start", 1),
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: "assistant-tool-turn".to_string(),
                         role: MessageRole::Assistant,
                         content: "checking".to_string(),
@@ -81,6 +83,8 @@ async fn delete_thread_messages_drops_incomplete_assistant_tool_turn_after_tool_
                         feedback: None,
                     },
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: tool_result_a_id.clone(),
                         role: MessageRole::Tool,
                         content: "result a".to_string(),
@@ -114,6 +118,8 @@ async fn delete_thread_messages_drops_incomplete_assistant_tool_turn_after_tool_
                         feedback: None,
                     },
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: tool_result_b_id.clone(),
                         role: MessageRole::Tool,
                         content: "result b".to_string(),
@@ -203,6 +209,8 @@ async fn delete_thread_messages_emits_thread_reload_event_after_reconciliation()
                 messages: vec![
                     AgentMessage::user("first", 1),
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: assistant_id.clone(),
                         role: MessageRole::Assistant,
                         content: "answer".to_string(),

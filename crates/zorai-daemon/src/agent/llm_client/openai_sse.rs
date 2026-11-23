@@ -13,6 +13,7 @@ pub(crate) async fn parse_openai_sse(
     let mut output_tokens: u64 = 0;
     let mut cache_read_input_tokens: Option<u64> = None;
     let mut cost_usd: Option<f64> = None;
+    let mut reasoning_tokens: Option<u64> = None;
     let mut response_id: Option<String> = None;
     let mut response_model: Option<String> = None;
     let mut finish_reason: Option<String> = None;
@@ -56,6 +57,7 @@ pub(crate) async fn parse_openai_sse(
                     );
                     let _ = tx
                         .send(Ok(CompletionChunk::ToolCalls {
+                            reasoning_tokens,
                             tool_calls,
                             content: if total_content.is_empty() {
                                 None
@@ -105,6 +107,7 @@ pub(crate) async fn parse_openai_sse(
                     );
                     let _ = tx
                         .send(Ok(CompletionChunk::Done {
+                            reasoning_tokens,
                             content: total_content.clone(),
                             reasoning: if total_reasoning.is_empty() {
                                 None
@@ -163,6 +166,10 @@ pub(crate) async fn parse_openai_sse(
                 cache_read_input_tokens =
                     openai_usage_cache_read(usage).or(cache_read_input_tokens);
                 cost_usd = usage.get("cost").and_then(|v| v.as_f64()).or(cost_usd);
+                reasoning_tokens = usage
+                    .pointer("/completion_tokens_details/reasoning_tokens")
+                    .and_then(|v| v.as_u64())
+                    .or(reasoning_tokens);
             }
 
             let delta = match parsed.pointer("/choices/0/delta") {
@@ -224,6 +231,7 @@ pub(crate) async fn parse_openai_sse(
         let tool_calls = drain_tool_calls(&mut pending_tool_calls);
         let _ = tx
             .send(Ok(CompletionChunk::ToolCalls {
+                reasoning_tokens,
                 tool_calls,
                 content: if total_content.is_empty() {
                     None
@@ -256,6 +264,7 @@ pub(crate) async fn parse_openai_sse(
     } else {
         let _ = tx
             .send(Ok(CompletionChunk::Done {
+                reasoning_tokens,
                 content: total_content,
                 reasoning: if total_reasoning.is_empty() {
                     None
@@ -419,6 +428,10 @@ async fn emit_openai_responses_terminal_chunk(
     output_tokens: u64,
 ) {
     let cache_read_input_tokens = openai_responses_cache_read(response.as_ref());
+    let reasoning_tokens = response
+        .as_ref()
+        .and_then(|response| response.usage.output_tokens_details.as_ref())
+        .and_then(|details| details.reasoning_tokens);
     let content = non_empty_owned(total_content);
     let reasoning = non_empty_owned(total_reasoning);
 
@@ -436,6 +449,7 @@ async fn emit_openai_responses_terminal_chunk(
         ));
         let _ = tx
             .send(Ok(CompletionChunk::ToolCalls {
+                reasoning_tokens,
                 tool_calls,
                 content,
                 reasoning,
@@ -472,6 +486,7 @@ async fn emit_openai_responses_terminal_chunk(
     ));
     let _ = tx
         .send(Ok(CompletionChunk::Done {
+            reasoning_tokens,
             content: total_content.to_owned(),
             reasoning,
             input_tokens,

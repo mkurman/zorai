@@ -244,6 +244,8 @@ async fn search_does_not_index_capability_documents_without_vector_embeddings() 
         .map_err(|e| anyhow::anyhow!("create thread: {e}"))?;
     store
         .add_message(&AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "msg-tool-failure".to_string(),
             thread_id: "thread-search".to_string(),
             created_at: 1_717_200_000,

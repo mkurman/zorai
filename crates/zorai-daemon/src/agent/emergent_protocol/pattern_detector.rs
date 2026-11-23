@@ -123,6 +123,8 @@ mod tests {
 
     fn msg(id: &str, created_at: i64, role: &str, content: &str) -> AgentDbMessage {
         AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: id.to_string(),
             thread_id: "thread-1".to_string(),
             created_at,

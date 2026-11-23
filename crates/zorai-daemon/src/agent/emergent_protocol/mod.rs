@@ -781,6 +781,8 @@ mod tests {
         content: &str,
     ) -> AgentDbMessage {
         AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: id.to_string(),
             thread_id: thread_id.to_string(),
             created_at,
@@ -820,6 +822,8 @@ mod tests {
             .collect::<Vec<_>>();
 
         AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: id.to_string(),
             thread_id: thread_id.to_string(),
             created_at,

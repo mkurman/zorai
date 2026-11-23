@@ -123,6 +123,8 @@ async fn persisted_assistant_messages_reload_provider_final_result_metadata() {
                 messages: vec![
                     AgentMessage::user("hello", 1),
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: "assistant-provider-final-result".to_string(),
                         role: MessageRole::Assistant,
                         content: "Hello from Responses.".to_string(),

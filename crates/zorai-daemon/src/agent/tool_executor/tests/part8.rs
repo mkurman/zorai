@@ -3838,6 +3838,8 @@ async fn fetch_gateway_history_returns_paged_window_metadata() {
         engine
             .history
             .add_message(&zorai_protocol::AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: format!("message-{index}"),
                 thread_id: thread_id.to_string(),
                 created_at: index + 1,

@@ -180,6 +180,8 @@ async fn openai_context_window_stream_error_forces_compaction_and_retries_withou
             messages: vec![
                 crate::agent::types::AgentMessage::user("Older user context", 1),
                 crate::agent::types::AgentMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: "assistant-older-context".to_string(),
                     role: MessageRole::Assistant,
                     content: "Older assistant context".to_string(),

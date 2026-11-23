@@ -294,6 +294,8 @@ async fn flush_exports_while_event_queue_stays_ready() {
         content: "Hello".into(),
     });
     let _ = tx.send(AgentEvent::Done {
+        reasoning_tokens: None,
+        thinking_ms: None,
         thread_id: "work".into(),
         input_tokens: 10,
         output_tokens: 4,

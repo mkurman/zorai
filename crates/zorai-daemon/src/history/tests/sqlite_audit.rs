@@ -418,6 +418,8 @@ async fn thread_delegate_payload_context_selects_title_and_recent_messages_only(
     for index in 0..10 {
         store
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: format!("delegate-message-{index}"),
                 thread_id: thread_id.to_string(),
                 created_at: 1100 + index,
@@ -528,6 +530,8 @@ async fn has_non_heartbeat_user_message_after_uses_sql_exists() -> Result<()> {
     ] {
         store
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: id.to_string(),
                 thread_id: thread_id.to_string(),
                 created_at,
@@ -614,6 +618,8 @@ async fn latest_thread_id_by_message_timestamp_uses_persisted_messages() -> Resu
     ] {
         store
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: id.to_string(),
                 thread_id: thread_id.to_string(),
                 created_at,
@@ -760,6 +766,8 @@ async fn list_threads_filtered_hides_threads_that_start_with_a_hidden_persona_pr
         for (position, content) in messages.iter().enumerate() {
             store
                 .add_message(&AgentDbMessage {
+                    reasoning_tokens: None,
+                    thinking_ms: None,
                     id: format!("{thread_id}-{position}"),
                     thread_id: thread_id.to_string(),
                     created_at: 2 + position as i64,
@@ -819,6 +827,8 @@ async fn thread_has_message_substring_checks_live_message_rows_in_sql() -> Resul
 
     store
         .add_message(&AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "marker-hidden".to_string(),
             thread_id: "thread-hidden-marker".to_string(),
             created_at: 2,
@@ -837,6 +847,8 @@ async fn thread_has_message_substring_checks_live_message_rows_in_sql() -> Resul
         .await?;
     store
         .add_message(&AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "marker-deleted".to_string(),
             thread_id: "thread-visible-marker".to_string(),
             created_at: 2,
@@ -933,6 +945,8 @@ async fn latest_non_empty_message_content_for_thread_ids_uses_sql_projection() -
     ] {
         store
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: id.to_string(),
                 thread_id: thread_id.to_string(),
                 created_at,
@@ -1012,6 +1026,8 @@ async fn latest_recovery_prompt_content_falls_back_to_system_seed() -> Result<()
         .await?;
     store
         .add_message(&AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "goal-system-seed".to_string(),
             thread_id: "thread-goal-system-seed".to_string(),
             created_at: 1000,
@@ -1102,6 +1118,8 @@ async fn gateway_approval_ids_for_thread_extracts_ids_in_sql_order() -> Result<(
     ] {
         store
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: id.to_string(),
                 thread_id: thread_id.to_string(),
                 created_at,
@@ -1266,6 +1284,8 @@ async fn gateway_turn_auto_send_projection_uses_latest_turn_sql() -> Result<()> 
     ] {
         store
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: id.to_string(),
                 thread_id: thread_id.to_string(),
                 created_at,
@@ -1360,6 +1380,8 @@ async fn thread_message_count_counts_visible_messages_in_sql() -> Result<()> {
     ] {
         store
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: id.to_string(),
                 thread_id: "thread-message-count".to_string(),
                 created_at,
@@ -1452,6 +1474,8 @@ async fn thread_ids_with_unanswered_tool_calls_filters_requested_threads_in_sql(
     ] {
         store
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: format!("{thread_id}-assistant"),
                 thread_id: thread_id.to_string(),
                 created_at,
@@ -1474,6 +1498,8 @@ async fn thread_ids_with_unanswered_tool_calls_filters_requested_threads_in_sql(
 
     store
         .add_message(&AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "thread-answered-fast-tool".to_string(),
             thread_id: "thread-answered-fast".to_string(),
             created_at: 2010,
@@ -1549,6 +1575,8 @@ async fn thread_has_unanswered_tool_calls_uses_sql_window() -> Result<()> {
 
     store
         .add_message(&AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "tool-user".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1000,
@@ -1567,6 +1595,8 @@ async fn thread_has_unanswered_tool_calls_uses_sql_window() -> Result<()> {
         .await?;
     store
         .add_message(&AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "tool-assistant".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1010,
@@ -1588,6 +1618,8 @@ async fn thread_has_unanswered_tool_calls_uses_sql_window() -> Result<()> {
         .await?;
     store
         .add_message(&AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "tool-result-a".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1020,
@@ -1628,6 +1660,8 @@ async fn thread_has_unanswered_tool_calls_uses_sql_window() -> Result<()> {
 
     store
         .add_message(&AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "tool-result-b".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1030,
@@ -1652,6 +1686,8 @@ async fn thread_has_unanswered_tool_calls_uses_sql_window() -> Result<()> {
 
     store
         .add_message(&AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "late-assistant".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1040,
@@ -1673,6 +1709,8 @@ async fn thread_has_unanswered_tool_calls_uses_sql_window() -> Result<()> {
         .await?;
     store
         .add_message(&AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "late-user-boundary".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1050,
@@ -1691,6 +1729,8 @@ async fn thread_has_unanswered_tool_calls_uses_sql_window() -> Result<()> {
         .await?;
     store
         .add_message(&AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "late-tool-result".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1060,
@@ -1944,6 +1984,8 @@ async fn agent_message_cost_round_trips_through_history() -> Result<()> {
         .await?;
     store
         .add_message(&AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "m-cost".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1010,
@@ -1986,6 +2028,8 @@ async fn replace_thread_snapshot_replaces_messages_without_losing_thread_row() -
         metadata_json: None,
     };
     let old_message = AgentDbMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: "old-message".to_string(),
         thread_id: thread_id.to_string(),
         created_at: 1001,
@@ -2013,6 +2057,8 @@ async fn replace_thread_snapshot_replaces_messages_without_losing_thread_row() -
         ..thread.clone()
     };
     let new_message = AgentDbMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: "new-message".to_string(),
         thread_id: thread_id.to_string(),
         created_at: 2001,
@@ -2067,6 +2113,8 @@ async fn replace_thread_snapshot_removes_pruned_messages_from_sqlite_search() ->
         metadata_json: None,
     };
     let old_message = AgentDbMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: "old-search-message".to_string(),
         thread_id: thread_id.to_string(),
         created_at: 1001,
@@ -2093,6 +2141,8 @@ async fn replace_thread_snapshot_removes_pruned_messages_from_sqlite_search() ->
         ..thread
     };
     let new_message = AgentDbMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: "new-search-message".to_string(),
         thread_id: thread_id.to_string(),
         created_at: 2001,
@@ -2151,6 +2201,8 @@ async fn replace_thread_snapshot_does_not_regress_to_stale_snapshot() -> Result<
     };
     let older_messages = vec![
         AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "m1".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 110,
@@ -2167,6 +2219,8 @@ async fn replace_thread_snapshot_does_not_regress_to_stale_snapshot() -> Result<
             metadata_json: None,
         },
         AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "m2".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 120,
@@ -2195,6 +2249,8 @@ async fn replace_thread_snapshot_does_not_regress_to_stale_snapshot() -> Result<
     };
     let mut newer_messages = older_messages.clone();
     newer_messages.push(AgentDbMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: "m3".to_string(),
         thread_id: thread_id.to_string(),
         created_at: 210,
@@ -2211,6 +2267,8 @@ async fn replace_thread_snapshot_does_not_regress_to_stale_snapshot() -> Result<
         metadata_json: None,
     });
     newer_messages.push(AgentDbMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: "m4".to_string(),
         thread_id: thread_id.to_string(),
         created_at: 220,
@@ -2283,6 +2341,8 @@ async fn reconcile_thread_snapshot_updates_changed_messages_without_pruning_miss
     };
     let initial_messages = vec![
         AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "m1".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 110,
@@ -2299,6 +2359,8 @@ async fn reconcile_thread_snapshot_updates_changed_messages_without_pruning_miss
             metadata_json: Some("{\"v\":1}".to_string()),
         },
         AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "m2".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 120,
@@ -2330,6 +2392,8 @@ async fn reconcile_thread_snapshot_updates_changed_messages_without_pruning_miss
     let updated_messages = vec![
         initial_messages[0].clone(),
         AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "m2".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 120,
@@ -2421,6 +2485,8 @@ async fn reconcile_thread_snapshot_keeps_existing_prefix_for_new_suffix_snapshot
     };
     let initial_messages = vec![
         AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "m1".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 110,
@@ -2437,6 +2503,8 @@ async fn reconcile_thread_snapshot_keeps_existing_prefix_for_new_suffix_snapshot
             metadata_json: None,
         },
         AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "m2".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 120,
@@ -2464,6 +2532,8 @@ async fn reconcile_thread_snapshot_keeps_existing_prefix_for_new_suffix_snapshot
         ..base_thread
     };
     let suffix_messages = vec![AgentDbMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: "m3".to_string(),
         thread_id: thread_id.to_string(),
         created_at: 310,
@@ -2531,6 +2601,8 @@ async fn delete_messages_soft_deletes_and_restore_makes_visible_again() -> Resul
     ] {
         store
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: id.to_string(),
                 thread_id: thread_id.to_string(),
                 created_at,
@@ -2683,6 +2755,8 @@ async fn gui_pagination_counts_contiguous_tool_rows_as_one_slot() -> Result<()> 
         };
         store
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: id.to_string(),
                 thread_id: thread_id.to_string(),
                 created_at: index as i64 + 1,
@@ -2752,6 +2826,8 @@ async fn list_messages_with_limit_returns_latest_messages_in_chronological_order
     for index in 0..8 {
         store
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: format!("msg-{index}"),
                 thread_id: thread_id.to_string(),
                 created_at: 1_000 + index,
@@ -2812,6 +2888,8 @@ async fn latest_assistant_message_selects_newest_non_empty_assistant_row() -> Re
     ] {
         store
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: id.to_string(),
                 thread_id: thread_id.to_string(),
                 created_at,
@@ -2886,6 +2964,8 @@ async fn latest_participant_assistant_message_selects_author_metadata_in_sql() -
     ] {
         store
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: id.to_string(),
                 thread_id: thread_id.to_string(),
                 created_at,
@@ -2961,6 +3041,8 @@ async fn latest_visible_main_assistant_message_timestamp_selects_latest_visible_
     ] {
         store
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: id.to_string(),
                 thread_id: thread_id.to_string(),
                 created_at,
@@ -2988,6 +3070,8 @@ async fn latest_visible_main_assistant_message_timestamp_selects_latest_visible_
 
     store
         .add_message(&AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "main-newest".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1_500,
@@ -3045,6 +3129,8 @@ async fn thread_user_pacing_counts_recent_user_rows_and_averages_last_gaps_in_sq
     ] {
         store
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: id.to_string(),
                 thread_id: thread_id.to_string(),
                 created_at,
@@ -3097,6 +3183,8 @@ async fn visible_continuation_obsolete_predicate_filters_progress_in_sql() -> Re
 
     store
         .add_message(&AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "tool-after-queue".to_string(),
             thread_id: thread_id.to_string(),
             created_at: queued_at + 10,
@@ -3116,6 +3204,8 @@ async fn visible_continuation_obsolete_predicate_filters_progress_in_sql() -> Re
 
     store
         .add_message(&AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "other-assistant-after-queue".to_string(),
             thread_id: thread_id.to_string(),
             created_at: queued_at + 20,
@@ -3146,6 +3236,8 @@ async fn visible_continuation_obsolete_predicate_filters_progress_in_sql() -> Re
 
     store
         .add_message(&AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "target-assistant-after-queue".to_string(),
             thread_id: thread_id.to_string(),
             created_at: queued_at + 30,
@@ -3249,6 +3341,8 @@ async fn list_active_context_window_starts_at_latest_compaction_artifact() -> Re
         });
         store
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: format!("m{index}"),
                 thread_id: thread_id.to_string(),
                 created_at: index,
@@ -3311,6 +3405,8 @@ async fn thread_message_token_totals_sum_visible_message_token_columns() -> Resu
     ] {
         store
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: id.to_string(),
                 thread_id: thread_id.to_string(),
                 created_at: 1,
@@ -3365,6 +3461,8 @@ async fn thread_message_cost_total_sums_all_visible_costed_rows() -> Result<()> 
     for (id, cost_usd) in [("m1", Some(0.12)), ("m2", None), ("m3", Some(0.03))] {
         store
             .add_message(&AgentDbMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: id.to_string(),
                 thread_id: thread_id.to_string(),
                 created_at: 1,
@@ -3493,6 +3591,38 @@ async fn init_schema_migrates_legacy_causal_traces_before_family_index() -> Resu
         vec!["trace_family".to_string(), "created_at".to_string()]
     );
 
+    fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn recent_causal_traces_lookup_uses_an_index_so_each_message_does_not_scan_every_trace(
+) -> Result<()> {
+    let (store, root) = make_test_store().await?;
+    let plan = store
+        .conn
+        .call(|conn| {
+            let mut stmt = conn.prepare(
+                "EXPLAIN QUERY PLAN
+                 SELECT trace_family, selected_json, causal_factors_json, outcome_json, created_at
+                 FROM causal_traces
+                 WHERE json_valid(selected_json)
+                   AND json_extract(selected_json, '$.option_type') = ?1
+                 ORDER BY created_at DESC
+                 LIMIT ?2",
+            )?;
+            let rows = stmt.query_map(rusqlite::params!["read_file", 48], |row| {
+                row.get::<_, String>(3)
+            })?;
+            Ok(rows.collect::<std::result::Result<Vec<_>, _>>()?.join("\n"))
+        })
+        .await
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    assert!(
+        plan.contains("idx_causal_traces_option_type") && !plan.contains("TEMP B-TREE"),
+        "expected an index lookup without a sort, got: {plan}"
+    );
     fs::remove_dir_all(root)?;
     Ok(())
 }

@@ -151,6 +151,8 @@ impl AgentEngine {
 
         Ok((
             AgentMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: generate_message_id(),
                 role: MessageRole::Assistant,
                 content: visible_content,

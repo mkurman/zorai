@@ -1028,6 +1028,8 @@ async fn handoff_activation_clears_thread_continuation_state_for_new_responder_s
                 messages: vec![
                     AgentMessage::user("first", 1),
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: "assistant-anchor".to_string(),
                         role: MessageRole::Assistant,
                         content: "answer".to_string(),
@@ -1333,6 +1335,8 @@ async fn delete_thread_messages_rehydrates_and_clears_invalid_continuation() {
                 messages: vec![
                     AgentMessage::user("first", 1),
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: assistant_id.clone(),
                         role: MessageRole::Assistant,
                         content: "answer".to_string(),
@@ -1440,6 +1444,8 @@ async fn delete_thread_messages_removes_orphaned_tool_results_during_rebuild() {
                 messages: vec![
                     AgentMessage::user("start", 1),
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: assistant_id.clone(),
                         role: MessageRole::Assistant,
                         content: "checking".to_string(),
@@ -1492,6 +1498,8 @@ async fn delete_thread_messages_removes_orphaned_tool_results_during_rebuild() {
                         feedback: None,
                     },
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: tool_a_id.clone(),
                         role: MessageRole::Tool,
                         content: "partial".to_string(),
@@ -1525,6 +1533,8 @@ async fn delete_thread_messages_removes_orphaned_tool_results_during_rebuild() {
                         feedback: None,
                     },
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: tool_b_id.clone(),
                         role: MessageRole::Tool,
                         content: "done".to_string(),
@@ -1558,6 +1568,8 @@ async fn delete_thread_messages_removes_orphaned_tool_results_during_rebuild() {
                         feedback: None,
                     },
                     AgentMessage {
+                        reasoning_tokens: None,
+                        thinking_ms: None,
                         id: "assistant-final".to_string(),
                         role: MessageRole::Assistant,
                         content: "final answer".to_string(),
@@ -1669,6 +1681,8 @@ async fn thread_metadata_round_trips_latest_skill_discovery_state() {
     seed_engine
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "seed-message-1".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1,
@@ -1756,6 +1770,8 @@ async fn thread_metadata_hydrate_compacts_large_latest_skill_discovery_query() {
     seed_engine
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "seed-message-large-query".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1,
@@ -1853,6 +1869,8 @@ async fn thread_metadata_round_trips_memory_injection_state() {
     seed_engine
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "seed-memory-message-1".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1,
@@ -1945,6 +1963,8 @@ async fn get_or_create_thread_restores_memory_injection_state_from_db_metadata()
     seed_engine
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "seed-memory-restore-message-1".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 1,
@@ -2005,6 +2025,8 @@ async fn hydrated_thread_message_preserves_cost() {
     seed_engine
         .history
         .add_message(&zorai_protocol::AgentDbMessage {
+            reasoning_tokens: None,
+            thinking_ms: None,
             id: "msg-cost".to_string(),
             thread_id: thread_id.to_string(),
             created_at: 100,

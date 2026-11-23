@@ -208,3 +208,24 @@ test("bridge stdout keeps a thread payload split across chunks", () => {
   assert.deepEqual(second.lines, [payload]);
   assert.equal(second.buffer, "");
 });
+
+test("a rejected model change reaches the settings screen as an error instead of looking saved", async () => {
+  const { runtime, spawned } = createRuntimeHarness();
+  const isProviderModelAccepted = (event) => event?.data?.kind === "set_provider_model";
+  const ask = () => runtime.sendAgentQuery(
+    { type: "set-provider-model", provider_id: "openai", model: "gpt-6.2-sol" },
+    ["operation-accepted", "error"],
+    5000,
+    { matchEvent: isProviderModelAccepted },
+  );
+
+  const rejected = ask();
+  spawned[0].emitStdout(`${JSON.stringify({ type: "operation-accepted", data: { kind: "config_set_item" } })}\n`);
+  spawned[0].emitStdout(`${JSON.stringify({ type: "error", message: "Invalid provider/model selection: API key is required" })}\n`);
+  await assert.rejects(rejected, /API key is required/);
+
+  const accepted = ask();
+  await Promise.resolve();
+  spawned[0].emitStdout(`${JSON.stringify({ type: "operation-accepted", data: { kind: "set_provider_model" } })}\n`);
+  assert.equal((await accepted).kind, "set_provider_model");
+});

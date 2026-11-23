@@ -36,6 +36,8 @@ fn concierge_thread(messages: Vec<AgentMessage>) -> AgentThread {
 
 fn assistant_message(content: &str, timestamp: u64) -> AgentMessage {
     AgentMessage {
+        reasoning_tokens: None,
+        thinking_ms: None,
         id: format!("assistant-{timestamp}"),
         role: MessageRole::Assistant,
         content: content.to_string(),

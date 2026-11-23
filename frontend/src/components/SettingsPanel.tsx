@@ -3,6 +3,7 @@ import { getBridge } from "@/lib/bridge";
 import { useWorkspaceStore } from "../lib/workspaceStore";
 import { useSettingsStore } from "../lib/settingsStore";
 import { useAgentStore } from "../lib/agentStore";
+import { useToastStore } from "../lib/toastStore";
 import { useAgentMissionStore } from "../lib/agentMissionStore";
 import {
   buildDaemonAgentConfig,
@@ -130,18 +131,32 @@ export function SettingsPanel({ style, className }: SettingsPanelProps = {}) {
       ? changes.filter(({ keyPath }) => keyPath !== "/provider" && keyPath !== "/model" && keyPath !== "/base_url")
       : changes;
     const syncConfig = async () => {
+      let switchError: string | null = null;
       if (canSwitchProviderModel) {
-        await bridge.agentSetProviderModel?.(nextConfig.provider, nextConfig.model);
+        const result = await bridge.agentSetProviderModel?.(nextConfig.provider, nextConfig.model);
+        if (result?.ok === false) {
+          switchError = result.error || "The daemon rejected the provider/model change.";
+        }
       }
       if (remainingChanges.length > 0) {
         await Promise.all(
           remainingChanges.map(({ keyPath, value }) => bridge.agentSetConfigItem?.(keyPath, value)),
         );
       }
+      return switchError;
     };
-    void syncConfig().then(() => {
-      lastDaemonConfigJsonRef.current = nextConfigJson;
-      markAgentSettingsSynced();
+    void syncConfig().then(async (switchError) => {
+      if (!switchError) {
+        lastDaemonConfigJsonRef.current = nextConfigJson;
+        markAgentSettingsSynced();
+        return;
+      }
+      useToastStore.getState().pushToast(`Model change not saved: ${switchError}`, "error");
+      if (await useAgentStore.getState().refreshAgentSettingsFromDaemon()) {
+        lastDaemonConfigJsonRef.current = JSON.stringify(
+          buildDaemonAgentConfig(useAgentStore.getState().agentSettings, settings),
+        );
+      }
     }).catch(() => { });
   }, [
     open,

@@ -558,6 +558,8 @@ impl AgentEngine {
                 });
             thread.agent_name = Some(canonical_agent_name(to_agent_id).to_string());
             thread.messages.push(AgentMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: generate_message_id(),
                 role: MessageRole::System,
                 content: handoff_context_message(
@@ -775,6 +777,8 @@ impl AgentEngine {
                 .ok_or_else(|| anyhow::anyhow!("thread {thread_id} disappeared during handoff"))?;
             thread.agent_name = Some(to_agent_name);
             thread.messages.push(AgentMessage {
+                reasoning_tokens: None,
+                thinking_ms: None,
                 id: generate_message_id(),
                 role: MessageRole::System,
                 content: thread_handoff_system_message(&event),
