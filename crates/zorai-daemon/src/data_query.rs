@@ -9,6 +9,8 @@ const MAX_PAGE_ROWS: u64 = 1_000;
 const DEFAULT_PAGE_ROWS: u64 = 200;
 const MAX_SPREADSHEET_ROWS: usize = 1_000_000;
 const QUERY_TIMEOUT: Duration = Duration::from_secs(30);
+const EXPORT_TIMEOUT: Duration = Duration::from_secs(300);
+const MAX_XLSX_ROWS: u64 = 1_048_575;
 const MEMORY_LIMIT: &str = "1GB";
 
 #[derive(Debug, Clone, Deserialize)]
@@ -30,6 +32,10 @@ pub struct DataQueryRequest {
     pub sort_direction: Option<String>,
     #[serde(default)]
     pub search: Option<String>,
+    #[serde(default)]
+    pub export_format: Option<String>,
+    #[serde(default)]
+    pub output_path: Option<String>,
 }
 
 fn default_op() -> String {
@@ -98,9 +104,14 @@ pub async fn run_data_query(request: DataQueryRequest) -> DataQueryResponse {
     let request_id = request.request_id.clone();
     let path = request.path.clone();
     let op = request.op.clone();
+    let timeout = if op == "export" {
+        EXPORT_TIMEOUT
+    } else {
+        QUERY_TIMEOUT
+    };
     let (connection_tx, connection_rx) = std::sync::mpsc::channel();
     let task = tokio::task::spawn_blocking(move || execute(request, connection_tx));
-    let outcome = tokio::time::timeout(QUERY_TIMEOUT, task).await;
+    let outcome = tokio::time::timeout(timeout, task).await;
     let result = match outcome {
         Ok(Ok(result)) => result,
         Ok(Err(join_error)) => Err(anyhow::anyhow!("data query task failed: {join_error}")),
@@ -111,7 +122,7 @@ pub async fn run_data_query(request: DataQueryRequest) -> DataQueryResponse {
             }
             Err(anyhow::anyhow!(
                 "data query timed out after {}s",
-                QUERY_TIMEOUT.as_secs()
+                timeout.as_secs()
             ))
         }
     };
@@ -156,6 +167,7 @@ fn execute(
     };
 
     let columns = describe(&connection, &source)?;
+    let mut output = path.display().to_string();
     let (columns, total_rows, offset, rows) = match request.op.as_str() {
         "page" => {
             let filter = search_filter(&columns, request.search.as_deref());
@@ -183,14 +195,36 @@ fn execute(
             let total_rows = rows.len() as u64;
             (summary_columns, total_rows, 0, rows)
         }
-        other => bail!("unsupported data query op '{other}' (use page or summarize)"),
+        "export" => {
+            let target = resolve_export_target(request.output_path.as_deref(), &path)?;
+            let filter = search_filter(&columns, request.search.as_deref());
+            let order = order_clause(&columns, &request)?;
+            let sql = format!(
+                "SELECT COLUMNS(*)::VARCHAR FROM {source} AS src_rel{} {order}",
+                filter.sql
+            );
+            let written = match request.export_format.as_deref() {
+                Some("csv") => export_csv(&connection, &sql, &filter.params, &columns, &target)?,
+                Some("xlsx") => {
+                    let total = count_rows(&connection, &source, &filter)?;
+                    if total > MAX_XLSX_ROWS {
+                        bail!("{total} rows exceed the Excel sheet limit of {MAX_XLSX_ROWS}; export as CSV instead");
+                    }
+                    export_xlsx(&connection, &sql, &filter.params, &columns, &target)?
+                }
+                other => bail!("unsupported export format {other:?} (use csv or xlsx)"),
+            };
+            output = target.display().to_string();
+            (columns, written, 0, Vec::new())
+        }
+        other => bail!("unsupported data query op '{other}' (use page, summarize or export)"),
     };
 
     Ok(DataQueryResponse {
         request_id: None,
         ok: true,
         error: None,
-        path: path.display().to_string(),
+        path: output,
         op: request.op,
         format: format.label().to_string(),
         sheets,
@@ -217,6 +251,125 @@ fn resolve_local_file(raw: &str) -> Result<PathBuf> {
         bail!("{} is not a file", canonical.display());
     }
     Ok(canonical)
+}
+
+fn resolve_export_target(raw: Option<&str>, source: &Path) -> Result<PathBuf> {
+    let trimmed = raw.map(str::trim).unwrap_or_default();
+    if trimmed.is_empty() {
+        bail!("export requires an output path");
+    }
+    let target = PathBuf::from(trimmed);
+    if !target.is_absolute() {
+        bail!("export output path must be absolute");
+    }
+    if std::fs::canonicalize(&target).ok().as_deref() == Some(source) {
+        bail!("export would overwrite the file being read");
+    }
+    Ok(target)
+}
+
+fn csv_field(value: &str) -> String {
+    if value.contains([',', '"', '\n', '\r']) {
+        format!("\"{}\"", value.replace('"', "\"\""))
+    } else {
+        value.to_string()
+    }
+}
+
+fn export_csv(
+    connection: &Connection,
+    sql: &str,
+    params: &[String],
+    columns: &[DataColumn],
+    target: &Path,
+) -> Result<u64> {
+    use std::io::Write;
+
+    let file = std::fs::File::create(target)
+        .with_context(|| format!("cannot create {}", target.display()))?;
+    let mut writer = std::io::BufWriter::new(file);
+    let header = columns
+        .iter()
+        .map(|column| csv_field(&column.name))
+        .collect::<Vec<_>>();
+    writeln!(writer, "{}", header.join(","))?;
+    let mut statement = connection.prepare(sql)?;
+    let mut rows = statement.query(duckdb::params_from_iter(params.iter()))?;
+    let mut written = 0;
+    while let Some(row) = rows.next()? {
+        let mut fields = Vec::with_capacity(columns.len());
+        for index in 0..columns.len() {
+            let cell: Option<String> = row.get(index)?;
+            fields.push(cell.as_deref().map(csv_field).unwrap_or_default());
+        }
+        writeln!(writer, "{}", fields.join(","))?;
+        written += 1;
+    }
+    writer.flush()?;
+    Ok(written)
+}
+
+fn is_numeric_type(data_type: &str) -> bool {
+    let upper = data_type.to_ascii_uppercase();
+    [
+        "TINYINT",
+        "SMALLINT",
+        "INTEGER",
+        "BIGINT",
+        "HUGEINT",
+        "UTINYINT",
+        "USMALLINT",
+        "UINTEGER",
+        "UBIGINT",
+        "FLOAT",
+        "DOUBLE",
+        "DECIMAL",
+    ]
+    .iter()
+    .any(|name| upper.starts_with(name))
+}
+
+fn export_xlsx(
+    connection: &Connection,
+    sql: &str,
+    params: &[String],
+    columns: &[DataColumn],
+    target: &Path,
+) -> Result<u64> {
+    let mut workbook = rust_xlsxwriter::Workbook::new();
+    let sheet = workbook.add_worksheet();
+    let bold = rust_xlsxwriter::Format::new().set_bold();
+    for (index, column) in columns.iter().enumerate() {
+        sheet.write_string_with_format(0, index as u16, &column.name, &bold)?;
+    }
+    let numeric = columns
+        .iter()
+        .map(|column| is_numeric_type(&column.data_type))
+        .collect::<Vec<_>>();
+    let mut statement = connection.prepare(sql)?;
+    let mut rows = statement.query(duckdb::params_from_iter(params.iter()))?;
+    let mut written: u64 = 0;
+    while let Some(row) = rows.next()? {
+        let line = (written + 1) as u32;
+        for index in 0..columns.len() {
+            let Some(cell) = row.get::<_, Option<String>>(index)? else {
+                continue;
+            };
+            match cell.parse::<f64>() {
+                Ok(number) if numeric[index] && number.is_finite() => {
+                    sheet.write_number(line, index as u16, number)?;
+                }
+                _ => {
+                    sheet.write_string(line, index as u16, &cell)?;
+                }
+            }
+        }
+        written += 1;
+    }
+    workbook
+        .save(target)
+        .with_context(|| format!("cannot write {}", target.display()))?;
+    Ok(written)
 }
 
 fn open_connection() -> Result<Connection> {

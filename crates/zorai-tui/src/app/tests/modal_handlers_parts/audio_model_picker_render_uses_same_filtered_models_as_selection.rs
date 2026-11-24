@@ -487,3 +487,42 @@ fn subagent_custom_model_entry_does_not_mutate_primary_model() {
     );
     assert_eq!(model.config.model, "gpt-5.4");
 }
+
+#[test]
+fn subagent_model_typed_by_id_takes_the_catalog_context_window() {
+    let (mut model, _daemon_rx) = make_model();
+    let mut editor = crate::state::subagents::SubAgentEditorState::new(
+        None,
+        1,
+        PROVIDER_ID_OPENAI.to_string(),
+        "gpt-5.4".to_string(),
+    );
+    editor.context_window_tokens = Some(1_000);
+    model.subagents.editor = Some(editor);
+    let expected = providers::resolve_context_window_for_provider_auth(
+        PROVIDER_ID_OPENAI,
+        "api_key",
+        "gpt-5.4-mini",
+        "",
+    );
+    assert!(
+        expected.is_some(),
+        "test needs a catalog model with a known window"
+    );
+
+    model
+        .settings
+        .start_editing("subagent_model", "gpt-5.4-mini");
+    model.handle_key_modal(
+        KeyCode::Enter,
+        KeyModifiers::NONE,
+        modal::ModalKind::Settings,
+    );
+
+    let editor = model.subagents.editor.as_ref().unwrap();
+    assert_eq!(editor.model, "gpt-5.4-mini");
+    assert_eq!(
+        editor.context_window_tokens, expected,
+        "the previous model's window must not carry over to the new model"
+    );
+}

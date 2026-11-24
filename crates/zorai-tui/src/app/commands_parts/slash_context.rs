@@ -80,6 +80,71 @@ impl TuiModel {
         self.status_line = "Context window unchanged".to_string();
     }
 
+    pub(crate) fn known_model_context_window(
+        &self,
+        provider_id: &str,
+        model_id: &str,
+        picked: Option<u32>,
+    ) -> Option<u32> {
+        let model_id = model_id.trim();
+        picked
+            .filter(|tokens| *tokens > 0)
+            .or_else(|| {
+                if self.model_picker_provider_id.as_deref() != Some(provider_id) {
+                    return None;
+                }
+                self.config
+                    .fetched_models()
+                    .iter()
+                    .find(|entry| entry.id == model_id)
+                    .and_then(|entry| entry.context_window)
+                    .filter(|tokens| *tokens > 0)
+            })
+            .or_else(|| {
+                let auth_source = if provider_id == self.config.provider {
+                    self.config.auth_source.as_str()
+                } else {
+                    "api_key"
+                };
+                providers::resolve_context_window_for_provider_auth(
+                    provider_id,
+                    auth_source,
+                    model_id,
+                    "",
+                )
+            })
+    }
+
+    pub(crate) fn apply_target_agent_model_context_window(
+        &mut self,
+        target_agent_id: &str,
+        tokens: u32,
+    ) {
+        let tokens = tokens.clamp(MIN_CONTEXT_WINDOW_TOKENS, MAX_CONTEXT_WINDOW_TOKENS);
+        self.send_daemon_command(DaemonCommand::SetTargetAgentContextWindow {
+            target_agent_id: target_agent_id.to_string(),
+            context_window_tokens: tokens,
+        });
+        apply_target_agent_context_window_locally(self, target_agent_id, tokens);
+    }
+
+    pub(crate) fn send_svarog_context_window_to_daemon(&mut self, tokens: u32) {
+        if let Ok(value_json) = serde_json::to_string(&serde_json::json!(tokens)) {
+            self.send_daemon_command(DaemonCommand::SetConfigItem {
+                key_path: "/context_window_tokens".to_string(),
+                value_json: value_json.clone(),
+            });
+            self.send_daemon_command(DaemonCommand::SetConfigItem {
+                key_path: format!("/providers/{}/context_window_tokens", self.config.provider),
+                value_json: value_json.clone(),
+            });
+            self.send_daemon_command(DaemonCommand::SetConfigItem {
+                key_path: format!("/{}/context_window_tokens", self.config.provider),
+                value_json,
+            });
+        }
+    }
+
     pub(crate) fn apply_active_thread_context_window(&mut self, tokens: u32) {
         let tokens = tokens.clamp(MIN_CONTEXT_WINDOW_TOKENS, MAX_CONTEXT_WINDOW_TOKENS);
         if let Some(pending) = self.active_thread_target_agent_config() {

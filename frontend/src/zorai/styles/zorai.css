@@ -10949,3 +10949,207 @@ button.zorai-composer-context-chip { cursor: pointer; }
 .zorai-html-embed__fullscreen .zorai-html-embed__frame { flex: 1; min-height: 70vh; }
 .zorai-html-embed__notice { padding: 10px 12px; color: var(--zorai-muted); font-size: var(--text-sm); }
 .zorai-html-embed__code { max-height: 360px; margin: 0; overflow: auto; padding: 10px 12px; color: var(--text-secondary); font: var(--text-xs)/1.5 var(--font-mono); white-space: pre; }
+
+.zorai-engine-table__page-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.zorai-engine-table__page-size-input {
+  width: 64px;
+  background: var(--zorai-bg-surface);
+  color: var(--zorai-text);
+  border: 1px solid var(--zorai-border);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: var(--text-xs);
+}
+
+.zorai-engine-table__export {
+  position: relative;
+}
+
+.zorai-engine-table__export-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  display: grid;
+  min-width: 190px;
+  padding: 4px;
+  background: var(--zorai-bg-surface);
+  border: 1px solid var(--zorai-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.zorai-engine-table__export-menu button {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--zorai-text);
+  font-size: var(--text-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.zorai-engine-table__export-menu button:hover {
+  background: var(--zorai-bg-active);
+}
+
+.zorai-engine-table__export-menu span {
+  color: var(--zorai-muted);
+}
+
+.zorai-subagents__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.zorai-subagents__search {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.zorai-subagents__count {
+  margin-left: auto;
+  color: var(--zorai-muted);
+  font-size: var(--text-xs);
+}
+
+.zorai-subagent-table {
+  display: grid;
+  border: 1px solid var(--zorai-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.zorai-subagent-table__row {
+  display: grid;
+  grid-template-columns: 10px minmax(120px, 1.1fr) minmax(160px, 2fr) minmax(80px, 0.8fr) 64px 44px 64px;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-top: 1px solid var(--zorai-border);
+  font-size: var(--text-sm);
+  transition: background var(--zorai-transition);
+}
+
+.zorai-subagent-table__row:first-child {
+  border-top: 0;
+}
+
+.zorai-subagent-table__row:not(.zorai-subagent-table__row--head):hover {
+  background: color-mix(in srgb, var(--zorai-bg-active) 55%, var(--zorai-bg));
+}
+
+.zorai-subagent-table__row--head {
+  min-height: 32px;
+  background: color-mix(in srgb, var(--zorai-bg-active) 35%, transparent);
+  color: var(--zorai-muted);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.zorai-subagent-table__row .zorai-subagent-card__status {
+  margin-top: 0;
+}
+
+.zorai-subagent-table__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.zorai-subagent-table__name strong {
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zorai-subagent-table__row.is-disabled .zorai-subagent-table__name strong,
+.zorai-subagent-table__row.is-disabled .zorai-subagent-table__model {
+  color: var(--zorai-muted);
+}
+
+.zorai-subagent-table__model {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zorai-subagent-table__role {
+  overflow: hidden;
+  color: var(--zorai-accent);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zorai-subagent-table__muted {
+  color: var(--zorai-muted);
+  font-size: var(--text-xs);
+}
+
+.zorai-subagent-table__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.zorai-subagent-table__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--zorai-muted);
+  cursor: pointer;
+}
+
+.zorai-subagent-table__icon:hover {
+  border-color: var(--zorai-border);
+  color: var(--zorai-text);
+}
+
+.zorai-subagent-table__icon--danger:hover {
+  color: var(--danger);
+}
+
+.zorai-subagent-table__icon svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (max-width: 720px) {
+  .zorai-subagent-table__row {
+    grid-template-columns: 10px minmax(0, 1fr) 44px 64px;
+  }
+
+  .zorai-subagent-table__model,
+  .zorai-subagent-table__role,
+  .zorai-subagent-table__row > :nth-child(3),
+  .zorai-subagent-table__row > :nth-child(4),
+  .zorai-subagent-table__row > :nth-child(5) {
+    display: none;
+  }
+}

@@ -691,7 +691,7 @@ export function ThreadComposer({
                 event.target.value = "";
               }}
             />
-            {visibleItemIds(COMPOSER_TOOL_IDS, composerLayout).map((id) => composerTools[id])}
+            {visibleItemIds(COMPOSER_TOOL_IDS, composerLayout).filter((id) => id !== "voice").map((id) => composerTools[id])}
             {pluginComposerCommands.map(({ plugin, command }) => (
               <button key={`${plugin.name}/${command.id}`} type="button" className="zorai-composer-plugin-button" title={`${plugin.name}: ${command.title}`} onClick={() => runPluginCommand(plugin, command)}>
                 {command.title}
@@ -738,6 +738,7 @@ export function ThreadComposer({
               {runtime.activeThread && !composerLayout.hidden.includes("effort") ? <ThreadEffortGauge key={runtime.activeThread.id} thread={runtime.activeThread} /> : null}
             </div>
             {composerLayout.hidden.includes("context") ? null : <ComposerContextCircle key={runtime.activeThread?.id ?? "none"} thread={runtime.activeThread ?? null} messages={runtime.messages} />}
+            {visibleItemIds(COMPOSER_TOOL_IDS, composerLayout).includes("voice") ? composerTools.voice : null}
             {queue.editingId ? (
               <>
                 <button

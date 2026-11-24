@@ -426,6 +426,7 @@ const bridgeApi = {
     agentGetGitDiff: (repoPath, filePath) => ipcRenderer.invoke('agent-get-git-diff', repoPath, filePath),
     agentGetFilePreview: (filePath, maxBytes) => ipcRenderer.invoke('agent-get-file-preview', filePath, maxBytes),
     agentDataQuery: (request) => ipcRenderer.invoke('agent-data-query', request),
+    agentDataExport: (request, suggestedName) => ipcRenderer.invoke('agent-data-export', request, suggestedName),
     agentStartGoalRun: (payload) => ipcRenderer.invoke('agent-start-goal-run', payload),
     agentListGoalRuns: () => ipcRenderer.invoke('agent-list-goal-runs'),
     agentGetGoalRun: (goalRunId) => ipcRenderer.invoke('agent-get-goal-run', goalRunId),

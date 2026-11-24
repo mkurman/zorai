@@ -212,7 +212,7 @@ function ModelPanel() {
             onChange={(value, customModelName, details) => updateProviderConfig({
               model: value,
               custom_model_name: customModelName && customModelName !== value ? customModelName : "",
-              context_window_tokens: details?.predefinedModel?.contextWindow || details?.fetchedModel?.contextWindow || activeProviderConfig.context_window_tokens,
+              context_window_tokens: details?.contextWindow || activeProviderConfig.context_window_tokens,
             })}
             base_url={String(activeProviderConfig.base_url ?? "")}
             api_key={String(activeProviderConfig.api_key ?? "")}
@@ -1387,7 +1387,7 @@ function CompactionPanel() {
                 customName={customCompactionProviderConfig.custom_model_name}
                 onChange={(value, _customName, details) => updateCompactionCustom({
                   model: value,
-                  context_window_tokens: details?.predefinedModel?.contextWindow || details?.fetchedModel?.contextWindow || compaction.custom_model.context_window_tokens,
+                  context_window_tokens: details?.contextWindow || compaction.custom_model.context_window_tokens,
                 })}
                 base_url={compaction.custom_model.base_url}
                 api_key={compaction.custom_model.api_key}

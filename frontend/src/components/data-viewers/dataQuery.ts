@@ -1,7 +1,7 @@
 import { getBridge } from "@/lib/bridge";
 
 export type DataQueryRequest = {
-  op: "page" | "summarize";
+  op: "page" | "summarize" | "export";
   path: string;
   sheet?: string | null;
   offset?: number;
@@ -9,6 +9,7 @@ export type DataQueryRequest = {
   sort_column?: string | null;
   sort_direction?: "asc" | "desc" | null;
   search?: string | null;
+  export_format?: "csv" | "xlsx";
 };
 
 export type DataQueryColumn = { name: string; data_type: string };
@@ -71,5 +72,16 @@ export async function runDataQuery(request: DataQueryRequest): Promise<DataQuery
   requestCounter += 1;
   const requestId = `dq-${Date.now()}-${requestCounter}`;
   const raw = await bridge.agentDataQuery({ ...request, request_id: requestId });
+  return readDataQueryResponse(raw);
+}
+
+export async function exportDataQuery(request: DataQueryRequest, suggestedName: string): Promise<DataQueryResponse | null> {
+  const bridge = getBridge();
+  if (!bridge?.agentDataExport) {
+    return readDataQueryResponse({ ok: false, error: "Export requires the daemon bridge." });
+  }
+  requestCounter += 1;
+  const raw = await bridge.agentDataExport({ ...request, op: "export", request_id: `dx-${Date.now()}-${requestCounter}` }, suggestedName);
+  if (raw && typeof raw === "object" && (raw as { canceled?: unknown }).canceled === true) return null;
   return readDataQueryResponse(raw);
 }

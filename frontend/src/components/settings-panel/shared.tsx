@@ -270,11 +270,24 @@ export const smallBtnStyle: CSSProperties = {
     padding: "4px 8px",
 };
 
+export function modelSelectionDetails(
+    models: Array<{ id: string; contextWindow: number; predefinedModel?: ModelDefinition; fetchedModel?: FetchedRemoteModel }>,
+    id: string,
+): { predefinedModel?: ModelDefinition; fetchedModel?: FetchedRemoteModel; contextWindow?: number } | undefined {
+    const known = models.find((model) => model.id === id.trim() && (model.predefinedModel || model.fetchedModel));
+    if (!known) return undefined;
+    return {
+        predefinedModel: known.predefinedModel,
+        fetchedModel: known.fetchedModel,
+        contextWindow: known.contextWindow > 0 ? known.contextWindow : undefined,
+    };
+}
+
 export function ModelSelector({ providerId, value, customName, onChange, disabled, base_url, api_key, auth_source, modelOptions, remoteModelFilter, fetchOutputModalities }: {
     providerId: AgentProviderId;
     value: string;
     customName?: string;
-    onChange: (value: string, name?: string, details?: { predefinedModel?: ModelDefinition; fetchedModel?: FetchedRemoteModel }) => void;
+    onChange: (value: string, name?: string, details?: { predefinedModel?: ModelDefinition; fetchedModel?: FetchedRemoteModel; contextWindow?: number }) => void;
     disabled?: boolean;
     base_url?: string;
     api_key?: string;
@@ -348,6 +361,8 @@ export function ModelSelector({ providerId, value, customName, onChange, disable
             }
         return merged;
     }, [predefinedModels, fetchedModels, remoteModelFilter, value, customName]);
+
+    const knownModelDetails = (id: string) => modelSelectionDetails(allModels, id);
 
     const filteredModels = useMemo(() => {
         if (!search) return allModels;
@@ -475,7 +490,7 @@ export function ModelSelector({ providerId, value, customName, onChange, disable
                         onClick={() => {
                             const nextId = customModelId.trim();
                             if (!nextId) return;
-                            onChange(nextId, custom_model_name.trim() || nextId);
+                            onChange(nextId, custom_model_name.trim() || nextId, knownModelDetails(nextId));
                             setUseCustom(false);
                             setIsOpen(false);
                             setSearch("");
@@ -569,10 +584,7 @@ export function ModelSelector({ providerId, value, customName, onChange, disable
                             <div
                                 key={model.id}
                                 onClick={() => {
-                                    onChange(model.id, model.name, {
-                                        predefinedModel: model.predefinedModel,
-                                        fetchedModel: model.fetchedModel,
-                                    });
+                                    onChange(model.id, model.name, modelSelectionDetails([model], model.id) ?? {});
                                     setIsOpen(false);
                                     setSearch("");
                                 }}
@@ -635,7 +647,7 @@ export function ModelSelector({ providerId, value, customName, onChange, disable
                         <div
                             onClick={() => {
                                 if (search) {
-                                    onChange(search, search);
+                                    onChange(search, search, knownModelDetails(search));
                                     setIsOpen(false);
                                     setSearch("");
                                 } else {

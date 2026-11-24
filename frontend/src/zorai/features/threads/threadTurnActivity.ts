@@ -50,19 +50,14 @@ export function liveModelThinking(messages: AgentMessage[]): LiveModelThinking |
     const thinkingOnly = last.isStreaming && !last.content?.trim() && !(last.toolCalls?.length);
     if (!thinkingOnly) return null;
     const previous = messages[messages.length - 2];
+    const reasoning = visibleGeminiReasoning(last.reasoning);
+    if (!reasoning && previous?.role === "tool") return null;
     return {
       startedAt: previous?.createdAt ?? last.createdAt,
-      reasoning: visibleGeminiReasoning(last.reasoning),
+      reasoning,
     };
   }
-  if (last.role !== "tool") return null;
-  let index = messages.length - 1;
-  while (index >= 0 && messages[index].role === "tool") {
-    const status = messages[index].toolStatus;
-    if (status !== "done" && status !== "error") return null;
-    index -= 1;
-  }
-  return { startedAt: last.createdAt, reasoning: "" };
+  return null;
 }
 
 export function groupTurnActivity(

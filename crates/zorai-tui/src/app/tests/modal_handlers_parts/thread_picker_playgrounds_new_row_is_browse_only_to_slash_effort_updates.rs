@@ -819,3 +819,37 @@ fn settings_rarog_provider_edits_rarog_not_active_thread_owner() {
         );
     }
 }
+
+#[test]
+fn target_agent_model_picker_pushes_the_picked_model_context_window_to_the_daemon() {
+    let (mut model, mut daemon_rx) = make_model();
+    seed_active_weles_thread(&mut model);
+    model.start_new_thread_view_for_agent(Some("weles"));
+    assert!(model.execute_slash_command_line("/model"));
+    model
+        .config
+        .reduce(crate::state::config::ConfigAction::ModelsFetched(vec![
+            crate::state::config::FetchedModel {
+                id: "gpt-5.4-long".to_string(),
+                name: Some("GPT-5.4 long".to_string()),
+                context_window: Some(777_000),
+                pricing: None,
+                metadata: None,
+            },
+        ]));
+    while daemon_rx.try_recv().is_ok() {}
+    navigate_model_picker_to(&mut model, "gpt-5.4-long");
+
+    model.handle_key_modal(
+        KeyCode::Enter,
+        KeyModifiers::NONE,
+        modal::ModalKind::ModelPicker,
+    );
+
+    let commands = collect_daemon_commands(&mut daemon_rx);
+    assert!(commands.iter().any(|command| matches!(
+        command,
+        DaemonCommand::SetTargetAgentContextWindow { context_window_tokens, .. }
+            if *context_window_tokens == 777_000
+    )));
+}

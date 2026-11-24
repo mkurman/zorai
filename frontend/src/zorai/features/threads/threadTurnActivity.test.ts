@@ -146,14 +146,17 @@ describe("liveModelThinking", () => {
     ])).toBeNull();
   });
 
-  it("waits for the model again after tools finish, but not while a tool is still running", () => {
+  it("does not invent thinking between tool calls; only real reasoning shows mid-turn", () => {
+    const user = message("u1", "user", "go", { createdAt: 100 });
     const done = message("t1", "tool", "ok", { createdAt: 200, toolStatus: "done" });
-    const running = message("t2", "tool", "", { createdAt: 210, toolStatus: "executing" });
-    const finished = message("t3", "tool", "ok", { createdAt: 220, toolStatus: "done" });
 
-    expect(liveModelThinking([done])?.startedAt).toBe(200);
-    expect(liveModelThinking([done, running, finished])).toBeNull();
-    expect(liveModelThinking([done, finished])?.startedAt).toBe(220);
+    expect(liveModelThinking([user, done])).toBeNull();
+    expect(liveModelThinking([user, done, message("a2", "assistant", "", { createdAt: 250, isStreaming: true })])).toBeNull();
+    expect(liveModelThinking([
+      user,
+      done,
+      message("a2", "assistant", "", { createdAt: 250, isStreaming: true, reasoning: "checking the output" }),
+    ])).toEqual({ startedAt: 200, reasoning: "checking the output" });
   });
 
   it("shows the model's silent wait as a live Thinking step inside the turn's tool-call group", () => {
