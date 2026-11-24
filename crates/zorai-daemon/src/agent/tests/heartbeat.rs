@@ -708,6 +708,7 @@ async fn structured_heartbeat_keeps_consolidation_carryover_quiet_by_default() {
     config.providers.insert(
         "custom-weles".to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: spawn_recording_heartbeat_server(recorded_bodies.clone()).await,
             model: "weles-model".to_string(),
             api_key: "test-key".to_string(),
@@ -970,6 +971,7 @@ async fn structured_heartbeat_synthesis_uses_weles_model_without_tools_or_agent_
     config.providers.insert(
         "custom-weles".to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: spawn_recording_heartbeat_server(recorded_bodies.clone()).await,
             model: "weles-model".to_string(),
             api_key: "test-key".to_string(),

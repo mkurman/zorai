@@ -65,7 +65,9 @@ import { handleZoraiAppCommand } from "../../shell/zoraiAppCommands";
 import { useShellLayoutStore } from "../../shell/shellLayoutStore";
 import { threadDeletionTarget } from "./threadFilterModel";
 import { quoteForComposer, threadHeaderMenuItems, wantsNativeContextMenu } from "./threadContextMenus";
-import { writeComposerDraftInput } from "./composerDraftStore";
+import { readComposerDraftInput, writeComposerDraftInput } from "./composerDraftStore";
+import { splitMessageAttachments } from "./messageAttachments";
+import { messagesFromRewindPoint, rewindIsUndoable, useThreadRewindStore } from "./threadRewind";
 import { splitCandidateFor } from "./openThreadTarget";
 
 export { ThreadsRail } from "./ThreadsRail";
@@ -326,6 +328,7 @@ export function ThreadsView({
   });
 
   const activeTint = useTintStore((state) => (runtime.activeThread ? threadTint(state.threads, runtime.activeThread) : undefined));
+  const rewind = useThreadRewindStore((state) => state.rewind);
 
   if (showConversationSkeleton && !runtime.activeThread) {
     return <ThreadConversationSkeleton />;
@@ -386,11 +389,33 @@ export function ThreadsView({
     endProgrammaticThreadHistoryScroll();
   };
   const activeThreadIdForActions = runtime.activeThread?.id;
+  const canUndoRewind = rewindIsUndoable(rewind, activeThreadIdForActions, runtime.messages);
+  const undoRewind = () => {
+    if (!rewind) return;
+    runtime.restoreMessages(rewind.threadId, rewind.messages);
+    writeComposerDraftInput(rewind.draftBefore);
+    useThreadRewindStore.getState().setRewind(null);
+  };
   messageActionsRef.current = {
     speak: (message) => { void speech.speakMessage(message); },
     feedback: (threadId, messageId, reaction) => runtime.submitMessageFeedback(activeThreadIdForActions ?? threadId, messageId, reaction),
     regenerate: regenerateAssistantMessage,
     fork: (messageId) => runtime.forkThread(messageId),
+    rewind: (messageId) => {
+      if (!activeThreadIdForActions || runtime.isStreamingResponse) return;
+      const removed = messagesFromRewindPoint(runtime.messages, messageId);
+      const first = removed[0];
+      if (!first) return;
+      useThreadRewindStore.getState().setRewind({
+        threadId: activeThreadIdForActions,
+        anchorId: runtime.messages[runtime.messages.indexOf(first) - 1]?.id ?? null,
+        messages: removed,
+        draftBefore: readComposerDraftInput(),
+      });
+      runtime.rewindMessages(activeThreadIdForActions, removed.map((message) => message.id));
+      if (first.role === "user") writeComposerDraftInput(splitMessageAttachments(first.content, first.contentBlocks).displayText);
+      runtime.inputRef.current?.focus();
+    },
     deleteMessage: (threadId, messageId) => runtime.deleteMessage(activeThreadIdForActions ?? threadId, messageId),
     retry: retryLastMessage,
     pin: async (threadId, messageId) => {
@@ -523,6 +548,7 @@ export function ThreadsView({
                 speaking={speech.speakingMessageId === message.id}
                 speechLoading={speech.loadingMessageId === message.id}
                 speechQueued={speech.queuedMessageIds.includes(message.id)}
+                canRewind={message.role === "user" && !runtime.isStreamingResponse}
                 offerRetry={shouldOfferMessageRetry(
                   message,
                   latestAssistantMessageId,
@@ -543,6 +569,12 @@ export function ThreadsView({
         ) : null}
         </ThreadMessageActionsProvider>
         )}
+        {canUndoRewind ? (
+          <div className="zorai-thread-rewind-marker">
+            <span>Rewound here</span>
+            <button type="button" onClick={undoRewind}>Undo rewind</button>
+          </div>
+        ) : null}
         {retryStatus ? (
           <ThreadRetryStatusBanner
             status={retryStatus}

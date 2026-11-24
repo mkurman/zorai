@@ -37,6 +37,7 @@ async fn anthropic_batch_results_parse_typed_document_source_and_citations() {
         &reqwest::Client::new(),
         "anthropic",
         &ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}"),
             model: "claude-sonnet-4-6".to_string(),
             api_key: "test-key".to_string(),

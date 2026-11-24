@@ -3,6 +3,7 @@ use super::*;
 fn anthropic_request_defaults_to_top_level_ephemeral_cache_control() {
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.anthropic.com".to_string(),
         model: "claude-sonnet-4-6".to_string(),
         api_key: "secret".to_string(),
@@ -63,6 +64,7 @@ fn anthropic_request_defaults_to_top_level_ephemeral_cache_control() {
 fn anthropic_request_pins_system_prefix_with_long_lived_cache_breakpoint_for_claude() {
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.anthropic.com".to_string(),
         model: "claude-sonnet-4-6".to_string(),
         api_key: "secret".to_string(),
@@ -128,6 +130,7 @@ fn anthropic_request_pins_system_prefix_with_long_lived_cache_breakpoint_for_cla
 fn anthropic_request_keeps_string_system_for_non_claude_providers() {
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://example.com".to_string(),
         model: "some-other-model".to_string(),
         api_key: "secret".to_string(),
@@ -187,6 +190,7 @@ fn anthropic_request_keeps_string_system_for_non_claude_providers() {
 fn anthropic_request_includes_sampling_and_stop_sequence_fields_when_configured() {
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.anthropic.com".to_string(),
         model: "claude-sonnet-4-6".to_string(),
         api_key: "secret".to_string(),
@@ -249,6 +253,7 @@ fn anthropic_request_includes_sampling_and_stop_sequence_fields_when_configured(
 fn anthropic_request_includes_metadata_and_routing_fields_when_configured() {
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.anthropic.com".to_string(),
         model: "claude-sonnet-4-6".to_string(),
         api_key: "secret".to_string(),
@@ -313,6 +318,7 @@ fn anthropic_request_includes_metadata_and_routing_fields_when_configured() {
 fn anthropic_request_includes_top_level_cache_control_when_configured() {
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.anthropic.com".to_string(),
         model: "claude-sonnet-4-6".to_string(),
         api_key: "secret".to_string(),
@@ -376,6 +382,7 @@ fn anthropic_request_includes_top_level_cache_control_when_configured() {
 fn anthropic_request_uses_configured_max_tokens() {
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.anthropic.com".to_string(),
         model: "claude-sonnet-4-6".to_string(),
         api_key: "secret".to_string(),
@@ -435,6 +442,7 @@ fn anthropic_request_uses_configured_max_tokens() {
 fn anthropic_request_uses_configured_tool_choice_override() {
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.anthropic.com".to_string(),
         model: "claude-sonnet-4-6".to_string(),
         api_key: "secret".to_string(),
@@ -506,6 +514,7 @@ fn anthropic_request_uses_configured_tool_choice_override() {
 fn anthropic_request_includes_output_effort_when_configured() {
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.anthropic.com".to_string(),
         model: "claude-sonnet-4-6".to_string(),
         api_key: "secret".to_string(),
@@ -571,6 +580,7 @@ fn anthropic_request_includes_output_effort_when_configured() {
 fn anthropic_request_includes_output_effort_without_schema() {
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.anthropic.com".to_string(),
         model: "claude-sonnet-4-6".to_string(),
         api_key: "secret".to_string(),

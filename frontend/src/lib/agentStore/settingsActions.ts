@@ -81,6 +81,9 @@ function normalizeConciergeConfig(
     auto_cleanup_on_navigate: typeof value.auto_cleanup_on_navigate === "boolean"
       ? value.auto_cleanup_on_navigate
       : fallback.auto_cleanup_on_navigate,
+    generation_settings: value.generation_settings && typeof value.generation_settings === "object"
+      ? value.generation_settings
+      : null,
   };
 }
 

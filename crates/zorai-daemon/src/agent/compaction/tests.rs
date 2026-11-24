@@ -10,6 +10,7 @@ use zorai_shared::providers::{
 
 fn sample_provider_config() -> ProviderConfig {
     ProviderConfig {
+        presence_penalty: None,
         base_url: "https://example.invalid".to_string(),
         model: "test-model".to_string(),
         api_key: String::new(),
@@ -1374,6 +1375,7 @@ fn github_copilot_tool_follow_up_disables_previous_response_continuity() {
     config.provider = PROVIDER_ID_GITHUB_COPILOT.to_string();
 
     let provider = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.githubcopilot.com".to_string(),
         model: "gpt-5.4".to_string(),
         api_key: String::new(),
@@ -1568,6 +1570,7 @@ fn github_copilot_responses_request_does_not_use_previous_response_id_for_plain_
     config.provider = PROVIDER_ID_GITHUB_COPILOT.to_string();
 
     let provider = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.githubcopilot.com".to_string(),
         model: "gpt-5.4".to_string(),
         api_key: String::new(),
@@ -1652,6 +1655,7 @@ fn chatgpt_subscription_responses_request_uses_local_thread_id_instead_of_previo
     config.provider = PROVIDER_ID_OPENAI.to_string();
 
     let provider = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.openai.com/v1".to_string(),
         model: "gpt-5.4".to_string(),
         api_key: String::new(),
@@ -1737,6 +1741,7 @@ fn openai_responses_request_keeps_previous_response_id_when_compaction_artifact_
     config.provider = PROVIDER_ID_OPENAI.to_string();
 
     let provider = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.openai.com/v1".to_string(),
         model: "gpt-5.4".to_string(),
         api_key: String::new(),
@@ -1902,6 +1907,7 @@ fn reused_user_turn_is_injected_when_responses_continuation_only_has_weles_notic
     config.provider = PROVIDER_ID_OPENAI.to_string();
 
     let provider = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.openai.com/v1".to_string(),
         model: "gpt-5.4".to_string(),
         api_key: String::new(),

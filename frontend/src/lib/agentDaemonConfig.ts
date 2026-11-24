@@ -175,6 +175,7 @@ export function buildDaemonAgentConfig(
     api_transport: normalizeApiTransport(providerKey, providerConfig?.api_transport),
     auth_source: authSource,
     reasoning_effort: agentSettings.reasoning_effort || "high",
+    generation_settings: agentSettings.generation_settings ?? null,
     system_prompt: agentSettings.system_prompt,
     agent_aliases: agentSettings.agent_aliases,
     model_modalities: agentSettings.model_modalities,

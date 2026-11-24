@@ -251,6 +251,8 @@ export function ThreadSessionTabs({ includeSession, onLastSessionClosed, onNewSe
       : pickedIds.length >= 2
         ? splitLayoutsFor(pickedIds.length).map((option) => ({ key: option.layout, label: option.label, onSelect: () => showSplit(pickedIds, clickedId, option.layout) }))
         : [{ key: "hint", label: "Ctrl+click tabs to pick threads to show together", disabled: true }];
+    items.unshift({ key: "close-tab", label: "Close tab", onSelect: () => closeTab(clickedId) });
+    items[1] = { ...items[1], separatorBefore: true };
     if (selectedIds.size > 0) items.push({ key: "clear-selection", label: "Clear selection", separatorBefore: true, onSelect: () => setSelectedIds(new Set()) });
     if (splitRoot) items.push({ key: "close-split", label: "Close split view", separatorBefore: selectedIds.size === 0, onSelect: () => useThreadSplitStore.getState().clear() });
     return items;

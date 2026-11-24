@@ -195,6 +195,7 @@ async fn spawn_subagent_rejects_other_protected_subagents_from_normal_lookup() {
 
     engine
         .set_sub_agent(SubAgentDefinition {
+            generation_settings: None,
             base_url: None,
             claude_permission_mode: None,
             id: "sentinel_builtin".to_string(),
@@ -476,6 +477,7 @@ async fn budget_exhausted_subagent_can_be_cancelled_to_free_its_slot_for_a_fresh
 
     engine
         .set_sub_agent(SubAgentDefinition {
+            generation_settings: None,
             base_url: None,
             claude_permission_mode: None,
             id: "muse_contest".to_string(),

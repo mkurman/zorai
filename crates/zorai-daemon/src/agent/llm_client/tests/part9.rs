@@ -36,6 +36,7 @@ async fn anthropic_batch_results_parse_extended_usage_fields() {
         &reqwest::Client::new(),
         "anthropic",
         &ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}"),
             model: "claude-sonnet-4-6".to_string(),
             api_key: "test-key".to_string(),
@@ -139,6 +140,7 @@ async fn anthropic_batch_results_parse_tool_use_content_blocks() {
         &reqwest::Client::new(),
         "anthropic",
         &ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}"),
             model: "claude-sonnet-4-6".to_string(),
             api_key: "test-key".to_string(),
@@ -238,6 +240,7 @@ async fn anthropic_batch_results_parse_thinking_content_blocks() {
         &reqwest::Client::new(),
         "anthropic",
         &ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}"),
             model: "claude-sonnet-4-6".to_string(),
             api_key: "test-key".to_string(),
@@ -324,6 +327,7 @@ async fn anthropic_batch_results_parse_web_fetch_content_blocks() {
         &reqwest::Client::new(),
         "anthropic",
         &ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}"),
             model: "claude-sonnet-4-6".to_string(),
             api_key: "test-key".to_string(),

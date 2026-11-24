@@ -36,6 +36,7 @@ async fn anthropic_batch_results_parse_document_content_blocks() {
         &reqwest::Client::new(),
         "anthropic",
         &ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}"),
             model: "claude-sonnet-4-6".to_string(),
             api_key: "test-key".to_string(),
@@ -130,6 +131,7 @@ async fn anthropic_batch_results_parse_tool_result_content_blocks() {
         &reqwest::Client::new(),
         "anthropic",
         &ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}"),
             model: "claude-sonnet-4-6".to_string(),
             api_key: "test-key".to_string(),
@@ -221,6 +223,7 @@ async fn anthropic_batch_results_parse_nested_tool_result_content_blocks() {
         &reqwest::Client::new(),
         "anthropic",
         &ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}"),
             model: "claude-sonnet-4-6".to_string(),
             api_key: "test-key".to_string(),
@@ -306,6 +309,7 @@ async fn anthropic_batch_results_parse_web_search_result_content_blocks() {
         &reqwest::Client::new(),
         "anthropic",
         &ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}"),
             model: "claude-sonnet-4-6".to_string(),
             api_key: "test-key".to_string(),
@@ -390,6 +394,7 @@ async fn anthropic_batch_results_parse_file_backed_content_blocks() {
         &reqwest::Client::new(),
         "anthropic",
         &ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}"),
             model: "claude-sonnet-4-6".to_string(),
             api_key: "test-key".to_string(),
@@ -470,6 +475,7 @@ async fn anthropic_batch_results_parse_tool_reference_content_blocks() {
         &reqwest::Client::new(),
         "anthropic",
         &ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}"),
             model: "claude-sonnet-4-6".to_string(),
             api_key: "test-key".to_string(),

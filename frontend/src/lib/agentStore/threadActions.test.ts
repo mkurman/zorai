@@ -280,6 +280,28 @@ describe("agentStore deleteMessage", () => {
   });
 });
 
+describe("agentStore restoreMessages", () => {
+  it("puts rewound messages back after the ones that stayed, so undoing a rewind returns the thread to how it was", () => {
+    const local = makeThread("local-1");
+    local.messageCount = 3;
+    resetStoreState([local], "local-1", []);
+    const message = (id: string, createdAt: number, role: "user" | "assistant") => ({
+      id, threadId: "local-1", createdAt, role, content: id,
+      inputTokens: 0, outputTokens: 0, totalTokens: 0, isCompactionSummary: false,
+    });
+    const all = [message("m1", 1, "user"), message("m2", 2, "assistant"), message("m3", 3, "user")];
+    useAgentStore.setState({ messages: { "local-1": all } } as any);
+
+    useAgentStore.getState().deleteMessage("local-1", "m2");
+    useAgentStore.getState().deleteMessage("local-1", "m3");
+    useAgentStore.getState().restoreMessages("local-1", all.slice(1));
+    useAgentStore.getState().restoreMessages("local-1", all.slice(1));
+
+    expect(useAgentStore.getState().messages["local-1"]?.map((entry) => entry.id)).toEqual(["m1", "m2", "m3"]);
+    expect(useAgentStore.getState().threads.find((thread) => thread.id === "local-1")?.messageCount).toBe(3);
+  });
+});
+
 describe("agentStore updateLastAssistantMessage while streaming", () => {
   it("keeps the thread list stable for flushes that do not change the thread, so thread filters are not recomputed per delta", () => {
     const local = makeThread("local-stream");

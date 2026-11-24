@@ -344,7 +344,35 @@ pub(crate) fn build_openai_chat_completions_body(
     }
 
     apply_openrouter_provider_routing(provider, config, &mut body);
+    apply_chat_completions_generation_settings(provider, config, &mut body);
     Ok(body)
+}
+
+fn apply_chat_completions_generation_settings(
+    provider: &str,
+    config: &ProviderConfig,
+    body: &mut serde_json::Value,
+) {
+    if let Some(temperature) = config.temperature {
+        body["temperature"] = serde_json::json!(temperature);
+    }
+    if let Some(top_p) = config
+        .top_p
+        .filter(|_| provider != zorai_shared::providers::PROVIDER_ID_LIQUID)
+    {
+        body["top_p"] = serde_json::json!(top_p);
+    }
+    if let Some(presence_penalty) = config.presence_penalty {
+        body["presence_penalty"] = serde_json::json!(presence_penalty);
+    }
+    let rejects_top_k = matches!(
+        provider,
+        zorai_shared::providers::PROVIDER_ID_OPENAI
+            | zorai_shared::providers::PROVIDER_ID_AZURE_OPENAI
+    );
+    if let Some(top_k) = config.top_k.filter(|_| !rejects_top_k) {
+        body["top_k"] = serde_json::json!(top_k);
+    }
 }
 
 /// DeepSeek thinking models require the prior turn's `reasoning_content` to be

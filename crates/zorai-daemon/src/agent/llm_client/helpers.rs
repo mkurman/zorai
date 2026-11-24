@@ -510,6 +510,7 @@ pub async fn validate_provider_connection(
     {
         let client = reqwest::Client::new();
         let config = ProviderConfig {
+            presence_penalty: None,
             base_url: resolved_base_url,
             model: def.default_model.to_string(),
             api_key: String::new(),

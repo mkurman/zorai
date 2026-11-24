@@ -451,6 +451,7 @@ async fn send_refinement_llm_call_uses_weles_provider_when_running_under_weles_s
     config.providers.insert(
         "custom-weles".to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: spawn_recording_openai_server(recorded_bodies.clone()).await,
             model: "weles-model".to_string(),
             api_key: "test-key".to_string(),

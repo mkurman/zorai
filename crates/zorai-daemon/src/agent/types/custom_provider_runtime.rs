@@ -15,6 +15,7 @@ pub fn custom_provider_config(id: &str) -> Option<ProviderConfig> {
         .iter()
         .find(|metadata| metadata.id == id)?;
     Some(ProviderConfig {
+        presence_penalty: None,
         base_url: definition.default_base_url.to_string(),
         model: definition.default_model.to_string(),
         api_key: metadata.api_key.to_string(),

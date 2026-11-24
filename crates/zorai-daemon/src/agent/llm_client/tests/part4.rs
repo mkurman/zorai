@@ -17,6 +17,7 @@ fn retry_delay_caps_at_one_minute() {
 fn minimax_anthropic_requests_keep_connection_close_without_extra_transport_headers() {
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.minimax.io/anthropic".to_string(),
         model: "MiniMax-M1".to_string(),
         api_key: "secret".to_string(),
@@ -97,6 +98,7 @@ fn minimax_anthropic_requests_keep_connection_close_without_extra_transport_head
 fn anthropic_request_sets_tool_choice_auto_when_tools_are_present() {
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.anthropic.com".to_string(),
         model: "claude-sonnet-4-6".to_string(),
         api_key: "secret".to_string(),
@@ -174,6 +176,7 @@ fn github_copilot_provider_does_not_support_native_assistant_transport() {
 fn anthropic_request_fingerprint_is_stable_for_identical_requests() {
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.minimax.io/anthropic".to_string(),
         model: "MiniMax-M2.7".to_string(),
         api_key: "secret".to_string(),
@@ -252,6 +255,7 @@ fn anthropic_request_fingerprint_is_stable_for_identical_requests() {
 fn anthropic_request_fingerprint_changes_when_payload_changes() {
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.minimax.io/anthropic".to_string(),
         model: "MiniMax-M2.7".to_string(),
         api_key: "secret".to_string(),
@@ -324,6 +328,7 @@ fn anthropic_request_fingerprint_changes_when_payload_changes() {
 #[test]
 fn minimax_attempt_target_uses_anthropic_messages_endpoint() {
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.minimax.io/anthropic".to_string(),
         model: "MiniMax-M1".to_string(),
         api_key: "secret".to_string(),
@@ -475,6 +480,7 @@ async fn minimax_anthropic_retry_recovers_after_malformed_http_response() {
         &reqwest::Client::new(),
         "minimax-coding-plan",
         &ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}/anthropic"),
             model: "MiniMax-M1".to_string(),
             api_key: "test-key".to_string(),
@@ -607,6 +613,7 @@ async fn minimax_send_path_never_falls_back_to_chat_completions() {
         &reqwest::Client::new(),
         "minimax-coding-plan",
         &ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}/anthropic"),
             model: "MiniMax-M1".to_string(),
             api_key: "test-key".to_string(),

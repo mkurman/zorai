@@ -4664,6 +4664,7 @@ async fn list_agents_returns_effective_runtime_targets() {
     config.builtin_sub_agents.weles.model = Some("claude-sonnet-4-20250514".to_string());
     config.builtin_sub_agents.weles.reasoning_effort = Some("medium".to_string());
     config.sub_agents.push(crate::agent::SubAgentDefinition {
+        generation_settings: None,
         base_url: None,
         claude_permission_mode: None,
         id: "reviewer".to_string(),
@@ -4928,6 +4929,7 @@ async fn switch_model_updates_targeted_agent_settings_from_svarog_scope() {
     config.providers.insert(
         zorai_shared::providers::PROVIDER_ID_GROQ.to_string(),
         crate::agent::types::ProviderConfig {
+            presence_penalty: None,
             base_url: String::new(),
             model: String::new(),
             api_key: "groq-key".to_string(),
@@ -4957,6 +4959,7 @@ async fn switch_model_updates_targeted_agent_settings_from_svarog_scope() {
         },
     );
     config.sub_agents.push(crate::agent::SubAgentDefinition {
+        generation_settings: None,
         base_url: None,
         claude_permission_mode: None,
         id: "reviewer".to_string(),
@@ -5248,6 +5251,7 @@ async fn spawn_subagent_derives_budget_from_effective_subagent_provider_window()
     config.providers.insert(
         zorai_shared::providers::PROVIDER_ID_GROQ.to_string(),
         crate::agent::types::ProviderConfig {
+            presence_penalty: None,
             base_url: String::new(),
             model: "llama-3.3-70b-versatile".to_string(),
             api_key: "groq-key".to_string(),
@@ -5277,6 +5281,7 @@ async fn spawn_subagent_derives_budget_from_effective_subagent_provider_window()
         },
     );
     config.sub_agents.push(crate::agent::SubAgentDefinition {
+        generation_settings: None,
         base_url: None,
         claude_permission_mode: None,
         id: "reviewer".to_string(),
@@ -5344,6 +5349,7 @@ async fn spawn_subagent_reserved_thread_detail_includes_execution_profile_metada
     config.providers.insert(
         zorai_shared::providers::PROVIDER_ID_GROQ.to_string(),
         crate::agent::types::ProviderConfig {
+            presence_penalty: None,
             base_url: String::new(),
             model: "llama-3.3-70b-versatile".to_string(),
             api_key: "groq-key".to_string(),
@@ -5373,6 +5379,7 @@ async fn spawn_subagent_reserved_thread_detail_includes_execution_profile_metada
         },
     );
     config.sub_agents.push(crate::agent::SubAgentDefinition {
+        generation_settings: None,
         base_url: None,
         claude_permission_mode: None,
         id: "design-reviewer".to_string(),
@@ -7313,6 +7320,7 @@ async fn approved_thread_handoff_activation_updates_stack_and_thread_identity() 
         .set_thread_execution_profile(
             thread_id,
             Some(crate::agent::types::ThreadExecutionProfile {
+                generation_settings: None,
                 provider: Some("previous-provider".to_string()),
                 model: Some("previous-model".to_string()),
                 reasoning_effort: Some("high".to_string()),

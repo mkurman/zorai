@@ -13,6 +13,7 @@ import type {
   AgentThread,
   AgentTodoItem,
   ApiTransportMode,
+  GenerationSettings,
   ProviderAuthState,
   SubAgentDefinition,
 } from "./types";
@@ -33,6 +34,7 @@ export interface ConciergeConfig {
   huggingface_provider?: string | null;
   auto_cleanup_on_navigate: boolean;
   system_prompt?: string | null;
+  generation_settings?: GenerationSettings | null;
 }
 
 export interface ConciergeWelcomeAction {
@@ -96,6 +98,7 @@ export interface AgentState {
   ) => void;
   getThreadMessages: (threadId: string) => AgentMessage[];
   deleteMessage: (threadId: string, messageId: string) => void;
+  restoreMessages: (threadId: string, messages: AgentMessage[]) => void;
   setThreadTodos: (threadId: string, todos: AgentTodoItem[]) => void;
   getThreadTodos: (threadId: string) => AgentTodoItem[];
   setThreadDaemonId: (threadId: string, daemonThreadId: string | null) => void;

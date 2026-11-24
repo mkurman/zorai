@@ -834,6 +834,7 @@ async fn direct_weles_handoff_turn_uses_weles_provider_override_for_new_request_
     config.providers.insert(
         PROVIDER_ID_CUSTOM.to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}/v1"),
             model: "gpt-4o-mini".to_string(),
             api_key: "test-key".to_string(),
@@ -970,6 +971,7 @@ async fn new_targeted_weles_thread_uses_weles_runtime_provider_and_model() {
     config.providers.insert(
         "custom-weles".to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: spawn_recording_request_server(recorded_requests.clone()).await,
             model: "weles-model".to_string(),
             api_key: "test-key".to_string(),
@@ -1048,6 +1050,7 @@ async fn new_targeted_custom_subagent_thread_persists_assistant_author_identity(
     config.max_retries = 0;
     config.max_tool_loops = 1;
     config.sub_agents.push(SubAgentDefinition {
+        generation_settings: None,
         base_url: None,
         claude_permission_mode: None,
         id: "coder".to_string(),
@@ -1171,6 +1174,7 @@ async fn new_targeted_rarog_thread_uses_concierge_runtime_provider_and_model() {
     config.providers.insert(
         PROVIDER_ID_CUSTOM.to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}/v1"),
             model: "rarog-model".to_string(),
             api_key: "test-key".to_string(),
@@ -1302,6 +1306,7 @@ async fn new_targeted_rarog_thread_prefers_concierge_model_override_over_stored_
     config.providers.insert(
         PROVIDER_ID_CUSTOM.to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}/v1"),
             model: "MiniMax-M2.5".to_string(),
             api_key: "test-key".to_string(),
@@ -1646,6 +1651,7 @@ async fn successful_handoff_restarts_same_turn_under_requested_agent_with_summar
     config.providers.insert(
         "custom-main".to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}/v1"),
             model: "main-model".to_string(),
             api_key: "test-key".to_string(),
@@ -1677,6 +1683,7 @@ async fn successful_handoff_restarts_same_turn_under_requested_agent_with_summar
     config.providers.insert(
         "custom-weles".to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}/v1"),
             model: "weles-model".to_string(),
             api_key: "test-key".to_string(),
@@ -1840,6 +1847,7 @@ async fn direct_rarog_handoff_turn_uses_real_concierge_runtime_config() {
     config.providers.insert(
         "custom".to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}/v1"),
             model: "gpt-4o-mini".to_string(),
             api_key: "test-key".to_string(),
@@ -1973,6 +1981,7 @@ async fn transport_incompatibility_does_not_mutate_persisted_config_and_emits_no
     config.providers.insert(
         "custom".to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: config.base_url.clone(),
             model: config.model.clone(),
             api_key: config.api_key.clone(),
@@ -2114,6 +2123,7 @@ async fn auto_retry_wait_escalates_to_fresh_runner_after_repeated_waits() {
     config.providers.insert(
         "custom".to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: config.base_url.clone(),
             model: config.model.clone(),
             api_key: config.api_key.clone(),
@@ -2320,6 +2330,7 @@ async fn retry_stream_now_resumes_active_waiting_stream() {
     config.providers.insert(
         "custom".to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: config.base_url.clone(),
             model: config.model.clone(),
             api_key: config.api_key.clone(),
@@ -4489,6 +4500,7 @@ async fn concierge_chat_runs_only_safe_lookup_tools_and_answers_from_their_resul
     config.providers.insert(
         PROVIDER_ID_CUSTOM.to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}/v1"),
             model: "concierge-model".to_string(),
             api_key: "test-key".to_string(),

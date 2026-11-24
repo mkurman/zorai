@@ -16,6 +16,7 @@ async fn provider_auth_states_respect_codex_helper_state() {
     config.providers.insert(
         zorai_shared::providers::PROVIDER_ID_OPENAI.to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: "https://api.openai.com/v1".to_string(),
             model: "gpt-5.4".to_string(),
             api_key: String::new(),
@@ -95,6 +96,7 @@ async fn provider_auth_states_use_codex_cli_auth_when_storage_is_empty() {
     config.providers.insert(
         zorai_shared::providers::PROVIDER_ID_OPENAI.to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: "https://api.openai.com/v1".to_string(),
             model: "gpt-5.4".to_string(),
             api_key: String::new(),

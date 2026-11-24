@@ -14,6 +14,7 @@ import type {
   AgentProviderId,
   ApiTransportMode,
   AuthSource,
+  GenerationSettings,
   Modality,
 } from "./types.ts";
 import { EMPTY_AGENT_ALIASES, normalizeAgentAliases, PRIMARY_AGENT_NAME, type AgentAliases } from "../agentNames.ts";
@@ -190,6 +191,7 @@ export interface AgentSettings {
   enable_honcho_memory: boolean;
   desktop_notifications: boolean;
   claude_permission_mode: ClaudePermissionMode;
+  generation_settings: GenerationSettings | null;
   enable_file_operations_tool: boolean;
   enable_system_info_tool: boolean;
   enable_gateway_messaging_tool: boolean;
@@ -379,6 +381,7 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   enable_honcho_memory: false,
   desktop_notifications: true,
   claude_permission_mode: "",
+  generation_settings: null,
   enable_file_operations_tool: true,
   enable_system_info_tool: true,
   enable_gateway_messaging_tool: true,
@@ -776,6 +779,7 @@ export type DiskAgentSettings = Partial<AgentSettings> & {
   enable_honcho_memory?: boolean;
   desktop_notifications?: boolean;
   claude_permission_mode?: string | null;
+  generation_settings?: GenerationSettings | null;
   tier?: {
     user_override?: string | null;
   };
@@ -1181,6 +1185,7 @@ export function normalizeAgentSettingsFromSource(source: DiskAgentSettings): Age
     enable_honcho_memory: source.enable_honcho_memory ?? DEFAULT_AGENT_SETTINGS.enable_honcho_memory,
     desktop_notifications: source.desktop_notifications ?? DEFAULT_AGENT_SETTINGS.desktop_notifications,
     claude_permission_mode: normalizeClaudePermissionMode(source.claude_permission_mode),
+    generation_settings: source.generation_settings ?? null,
     enable_file_operations_tool: source.tools?.file_operations ?? DEFAULT_AGENT_SETTINGS.enable_file_operations_tool,
     enable_system_info_tool: source.tools?.system_info ?? DEFAULT_AGENT_SETTINGS.enable_system_info_tool,
     enable_gateway_messaging_tool: source.tools?.gateway_messaging ?? DEFAULT_AGENT_SETTINGS.enable_gateway_messaging_tool,

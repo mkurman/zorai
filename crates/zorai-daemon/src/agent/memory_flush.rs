@@ -306,6 +306,7 @@ mod tests {
 
     fn sample_provider_config() -> ProviderConfig {
         ProviderConfig {
+            presence_penalty: None,
             base_url: "https://example.invalid".to_string(),
             model: "test-model".to_string(),
             api_key: String::new(),

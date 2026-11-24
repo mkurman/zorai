@@ -38,6 +38,7 @@ async fn svarog_model_change_is_saved_when_the_provider_keeps_its_own_credential
     config.providers.insert(
         PROVIDER_ID_OPENAI.to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: "https://api.openai.com/v1".to_string(),
             model: "gpt-5.4".to_string(),
             api_key: "openai-key".to_string(),
@@ -346,6 +347,7 @@ async fn prepare_agent_reasoning_effort_json_updates_main_and_active_provider() 
     config.providers.insert(
         PROVIDER_ID_OPENAI.to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: "https://api.openai.com/v1".to_string(),
             model: "gpt-5.4".to_string(),
             api_key: "openai-key".to_string(),
@@ -440,6 +442,7 @@ async fn prepare_agent_context_window_json_updates_main_and_active_provider() {
     config.providers.insert(
         PROVIDER_ID_OPENAI.to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: "https://api.openai.com/v1".to_string(),
             model: "gpt-5.4".to_string(),
             api_key: "openai-key".to_string(),
@@ -600,6 +603,7 @@ async fn prepare_agent_provider_model_json_accepts_openrouter_fetched_models() {
     config.providers.insert(
         PROVIDER_ID_OPENROUTER.to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: "https://openrouter.ai/api/v1".to_string(),
             model: "meta/muse-spark-1.2-contributor".to_string(),
             api_key: "openrouter-key".to_string(),
@@ -662,6 +666,7 @@ async fn prepare_agent_provider_model_json_accepts_custom_subagent_models() {
     config.providers.insert(
         PROVIDER_ID_ANTHROPIC.to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: "https://api.anthropic.com".to_string(),
             model: "claude-sonnet-4-6".to_string(),
             api_key: "anthropic-key".to_string(),

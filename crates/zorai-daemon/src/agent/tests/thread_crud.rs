@@ -760,6 +760,7 @@ async fn list_threads_filtered_matches_user_defined_subagent_agent_name() {
     let manager = SessionManager::new_test(root.path()).await;
     let mut config = AgentConfig::default();
     config.sub_agents.push(SubAgentDefinition {
+        generation_settings: None,
         base_url: None,
         claude_permission_mode: None,
         id: "dola".to_string(),
@@ -847,6 +848,7 @@ async fn list_threads_filtered_matches_registry_id_without_collapsing_to_main() 
     let manager = SessionManager::new_test(root.path()).await;
     let mut config = AgentConfig::default();
     config.sub_agents.push(SubAgentDefinition {
+        generation_settings: None,
         base_url: None,
         claude_permission_mode: None,
         id: "subagent-1777065727944".to_string(),
@@ -2794,6 +2796,7 @@ async fn agent_thread_detail_json_skips_compaction_artifact_when_deriving_profil
     engine.thread_execution_profiles.write().await.insert(
         thread_id.to_string(),
         crate::agent::types::ThreadExecutionProfile {
+            generation_settings: None,
             provider: Some("github-copilot".to_string()),
             model: Some("gpt-5.5".to_string()),
             reasoning_effort: None,
@@ -2836,6 +2839,7 @@ async fn sync_thread_execution_profiles_for_agent_updates_owned_threads() {
     engine.thread_execution_profiles.write().await.insert(
         thread_id.to_string(),
         crate::agent::types::ThreadExecutionProfile {
+            generation_settings: None,
             provider: Some("openai".to_string()),
             model: Some("gpt-5.4".to_string()),
             reasoning_effort: Some("medium".to_string()),
@@ -2886,6 +2890,7 @@ async fn set_sub_agent_syncs_owned_thread_execution_profiles() {
     engine.thread_execution_profiles.write().await.insert(
         thread_id.to_string(),
         crate::agent::types::ThreadExecutionProfile {
+            generation_settings: None,
             provider: Some("ollama".to_string()),
             model: Some("glm-5.3:cloud".to_string()),
             reasoning_effort: None,
@@ -2895,6 +2900,7 @@ async fn set_sub_agent_syncs_owned_thread_execution_profiles() {
 
     engine
         .set_sub_agent(crate::agent::types::SubAgentDefinition {
+            generation_settings: None,
             id: subagent_id.to_string(),
             name: "Reviewer".to_string(),
             provider: "z.ai-coding-plan".to_string(),
@@ -2966,6 +2972,7 @@ async fn set_sub_agent_syncs_owned_thread_execution_profiles_for_rod_builtin_per
     engine.thread_execution_profiles.write().await.insert(
         thread_id.to_string(),
         crate::agent::types::ThreadExecutionProfile {
+            generation_settings: None,
             provider: Some("ollama".to_string()),
             model: Some("glm-5.3:cloud".to_string()),
             reasoning_effort: None,
@@ -2975,6 +2982,7 @@ async fn set_sub_agent_syncs_owned_thread_execution_profiles_for_rod_builtin_per
 
     engine
         .set_sub_agent(crate::agent::types::SubAgentDefinition {
+            generation_settings: None,
             id: "rod".to_string(),
             name: "Rod".to_string(),
             provider: "z.ai-coding-plan".to_string(),
@@ -3071,6 +3079,7 @@ async fn paged_thread_reload_keeps_a_live_model_change() {
     engine.thread_execution_profiles.write().await.insert(
         thread_id.to_string(),
         crate::agent::types::ThreadExecutionProfile {
+            generation_settings: None,
             provider: Some("openrouter".to_string()),
             model: Some("deepseek/deepseek-flash-latest".to_string()),
             reasoning_effort: Some("high".to_string()),
@@ -3143,6 +3152,7 @@ async fn commit_thread_execution_profile_if_unchanged_skips_newer_user_selection
     let engine = AgentEngine::new_test(manager, AgentConfig::default(), root.path()).await;
     let thread_id = "thread-runtime-switch";
     let original = crate::agent::types::ThreadExecutionProfile {
+        generation_settings: None,
         provider: Some("ollama".to_string()),
         model: Some("glm-5.3:cloud".to_string()),
         reasoning_effort: Some("high".to_string()),
@@ -3156,6 +3166,7 @@ async fn commit_thread_execution_profile_if_unchanged_skips_newer_user_selection
     engine.thread_execution_profiles.write().await.insert(
         thread_id.to_string(),
         crate::agent::types::ThreadExecutionProfile {
+            generation_settings: None,
             provider: Some("z.ai-coding-plan".to_string()),
             model: Some("glm-5.3".to_string()),
             reasoning_effort: Some("high".to_string()),
@@ -3168,6 +3179,7 @@ async fn commit_thread_execution_profile_if_unchanged_skips_newer_user_selection
             thread_id,
             Some(&original),
             crate::agent::types::ThreadExecutionProfile {
+                generation_settings: None,
                 provider: Some("ollama".to_string()),
                 model: Some("glm-5.3:cloud".to_string()),
                 reasoning_effort: Some("high".to_string()),

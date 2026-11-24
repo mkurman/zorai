@@ -102,6 +102,18 @@ test("db-delete-message forwards delete-agent-messages with the given thread id"
   }]);
 });
 
+test("rewinding and undoing it soft-delete and restore the same daemon messages, so the undo brings back exactly what the rewind took out", async () => {
+  const { ackCommands, handlers } = createHarness();
+
+  assert.equal(await handlers.get("db-rewind-messages")({}, "daemon-thread-1", ["message-3", "message-4"]), true);
+  assert.equal(await handlers.get("db-restore-messages")({}, "daemon-thread-1", ["message-3", "message-4"]), true);
+
+  assert.deepEqual(ackCommands, [
+    { type: "delete-agent-messages", thread_id: "daemon-thread-1", message_ids: ["message-3", "message-4"] },
+    { type: "restore-agent-messages", thread_id: "daemon-thread-1", message_ids: ["message-3", "message-4"] },
+  ]);
+});
+
 test("db-list-transcript-index converts daemon transcript entries for renderer stores", async () => {
   const { handlers, queryCommands, setQueryResult } = createHarness();
   setQueryResult([{

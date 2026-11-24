@@ -28,6 +28,7 @@ type ThreadActionKeys =
   | "updateLastAssistantMessage"
   | "getThreadMessages"
   | "deleteMessage"
+  | "restoreMessages"
   | "setThreadTodos"
   | "getThreadTodos"
   | "setThreadDaemonId"
@@ -334,6 +335,20 @@ export function createThreadActions(
           threads: state.threads.map((thread) =>
             thread.id === threadId
               ? { ...thread, messageCount: Math.max(0, thread.messageCount - 1), updatedAt: Date.now() }
+              : thread),
+        };
+      });
+    },
+    restoreMessages: (threadId, restored) => {
+      set((state) => {
+        const restoredIds = new Set(restored.map((message) => message.id));
+        const existing = (state.messages[threadId] ?? []).filter((message) => !restoredIds.has(message.id));
+        const added = restored.length - ((state.messages[threadId]?.length ?? 0) - existing.length);
+        return {
+          messages: { ...state.messages, [threadId]: [...existing, ...restored] },
+          threads: state.threads.map((thread) =>
+            thread.id === threadId
+              ? { ...thread, messageCount: thread.messageCount + added, updatedAt: Date.now() }
               : thread),
         };
       });

@@ -925,6 +925,7 @@ pub(crate) async fn dispatch_part6(
                 .or_insert_with(|| {
                     let def = crate::agent::types::get_provider_definition(&provider_id);
                     crate::agent::types::ProviderConfig {
+                        presence_penalty: None,
                         base_url: if base_url.is_empty() {
                             def.map(|d| d.default_base_url.to_string())
                                 .unwrap_or_default()

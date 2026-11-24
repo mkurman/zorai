@@ -141,7 +141,14 @@ pub(crate) fn build_openai_responses_body(
         previous_response_id,
         codex_auth,
     );
-    serde_json::to_value(request).expect("responses request should serialize")
+    let mut body = serde_json::to_value(request).expect("responses request should serialize");
+    if let Some(temperature) = config.temperature {
+        body["temperature"] = serde_json::json!(temperature);
+    }
+    if let Some(top_p) = config.top_p {
+        body["top_p"] = serde_json::json!(top_p);
+    }
+    body
 }
 
 pub(crate) fn build_openai_responses_request(

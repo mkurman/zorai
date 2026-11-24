@@ -1,9 +1,12 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ModelSelector } from "@/components/settings-panel/shared";
+import { GenerationSettingsControls } from "@/components/settings-panel/GenerationSettingsControls";
 import { useAgentStore } from "@/lib/agentStore";
-import type { AgentProviderId, AgentThread } from "@/lib/agentStore";
+import type { AgentProviderId, AgentThread, GenerationSettings } from "@/lib/agentStore";
 import {
   applyThreadContextWindow,
+  applyThreadGenerationSettings,
+  loadThreadGenerationSettings,
   applyThreadProviderModel,
   applyThreadReasoningEffort,
   modelForThreadProviderChange,
@@ -16,9 +19,23 @@ export function ThreadRuntimeBar({ thread }: { thread: AgentThread }) {
   const agentSettings = useAgentStore((state) => state.agentSettings);
   const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
   const subAgents = useAgentStore((state) => state.subAgents);
+  const refreshProviderAuthStates = useAgentStore((state) => state.refreshProviderAuthStates);
+  useAgentStore((state) => state.providerAuthStates);
+  useEffect(() => {
+    void refreshProviderAuthStates();
+  }, [refreshProviderAuthStates]);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const pendingApplyRef = useRef<(() => Promise<void>) | null>(null);
+  const [generation, setGeneration] = useState<GenerationSettings | null>(null);
+  useEffect(() => {
+    let active = true;
+    setGeneration(null);
+    void loadThreadGenerationSettings(thread).then((settings) => {
+      if (active) setGeneration(settings);
+    });
+    return () => { active = false; };
+  }, [thread.id, thread.daemonThreadId]);
   const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig);
   const providers = useMemo(() => threadProviderIds(profile.provider), [agentSettings, profile.provider]);
   const ownerId = profile.ownerId;
@@ -29,6 +46,7 @@ export function ThreadRuntimeBar({ thread }: { thread: AgentThread }) {
     context_window_tokens?: number | null;
     base_url?: string;
     api_key?: string;
+    api_transport?: string;
     auth_source?: "api_key" | "chatgpt_subscription" | "github_copilot";
   } | undefined;
   const model = profile.model;
@@ -124,6 +142,20 @@ export function ThreadRuntimeBar({ thread }: { thread: AgentThread }) {
           }}
         />
       </label>
+      <GenerationSettingsControls
+        stacked
+        providerId={providerId}
+        model={model}
+        transport={providerConfig?.api_transport}
+        baseUrl={providerConfig?.base_url}
+        value={generation}
+        toggleLabel="Thread generation settings"
+        toggleDescription="Override sampling for this thread only. Off uses the agent's settings; empty fields use the provider default."
+        onChange={(next) => {
+          setGeneration(next);
+          void run(() => applyThreadGenerationSettings(thread, next));
+        }}
+      />
     </div>
   );
 }

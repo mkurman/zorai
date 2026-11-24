@@ -112,6 +112,7 @@ async fn transport_incompatibility_responses_does_not_fallback_to_chat_completio
 #[test]
 fn github_copilot_continued_responses_request_omits_orphaned_tool_outputs() {
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.githubcopilot.com".to_string(),
         model: "gpt-5.4".to_string(),
         api_key: String::new(),
@@ -347,6 +348,7 @@ async fn openrouter_chat_request_sends_response_cache_header_only_when_enabled()
 #[test]
 fn github_copilot_full_responses_request_omits_orphaned_function_calls() {
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.githubcopilot.com".to_string(),
         model: "gpt-5.4".to_string(),
         api_key: String::new(),
@@ -430,6 +432,7 @@ fn github_copilot_full_responses_request_omits_orphaned_function_calls() {
 #[test]
 fn github_copilot_full_responses_request_omits_orphaned_tool_outputs() {
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.githubcopilot.com".to_string(),
         model: "gpt-5.4".to_string(),
         api_key: String::new(),
@@ -496,6 +499,7 @@ fn github_copilot_full_responses_request_omits_orphaned_tool_outputs() {
 #[test]
 fn github_copilot_full_responses_request_preserves_function_call_history() {
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.githubcopilot.com".to_string(),
         model: "gpt-5.4".to_string(),
         api_key: String::new(),
@@ -2250,4 +2254,115 @@ async fn openai_reasoning_token_counts_reach_the_turn_so_the_operator_sees_how_m
 
     assert_eq!(responses, Some(256));
     assert_eq!(chat, Some(128));
+}
+
+fn generation_test_message() -> ApiMessage {
+    ApiMessage {
+        role: "user".to_string(),
+        content: ApiContent::Text("hello".to_string()),
+        reasoning: None,
+        tool_call_id: None,
+        name: None,
+        tool_calls: None,
+    }
+}
+
+fn generation_test_config() -> ProviderConfig {
+    let mut config = responses_test_config(
+        "https://openrouter.ai/api/v1".to_string(),
+        AuthSource::ApiKey,
+    );
+    config.apply_generation_settings(Some(&crate::agent::types::GenerationSettings {
+        temperature: Some(0.3),
+        top_k: Some(40),
+        top_p: Some(0.9),
+        presence_penalty: Some(0.5),
+    }));
+    config
+}
+
+#[test]
+fn custom_generation_settings_reach_openai_compatible_chat_requests() {
+    let body = super::build_openai_chat_completions_body(
+        zorai_shared::providers::PROVIDER_ID_OPENROUTER,
+        &generation_test_config(),
+        "system prompt",
+        &[generation_test_message()],
+        &[],
+    )
+    .expect("body should build");
+
+    assert_eq!(body["temperature"], 0.3);
+    assert_eq!(body["top_k"], 40);
+    assert_eq!(body["top_p"], 0.9);
+    assert_eq!(body["presence_penalty"], 0.5);
+}
+
+#[test]
+fn openai_chat_requests_leave_out_top_k_because_the_api_rejects_it() {
+    let body = super::build_openai_chat_completions_body(
+        zorai_shared::providers::PROVIDER_ID_OPENAI,
+        &generation_test_config(),
+        "system prompt",
+        &[generation_test_message()],
+        &[],
+    )
+    .expect("body should build");
+
+    assert!(body.get("top_k").is_none());
+    assert_eq!(body["temperature"], 0.3);
+    assert_eq!(body["presence_penalty"], 0.5);
+}
+
+#[test]
+fn agents_without_custom_generation_settings_send_provider_defaults() {
+    let config = responses_test_config(
+        "https://openrouter.ai/api/v1".to_string(),
+        AuthSource::ApiKey,
+    );
+    let body = super::build_openai_chat_completions_body(
+        zorai_shared::providers::PROVIDER_ID_OPENROUTER,
+        &config,
+        "system prompt",
+        &[generation_test_message()],
+        &[],
+    )
+    .expect("body should build");
+
+    for key in ["temperature", "top_k", "top_p", "presence_penalty"] {
+        assert!(
+            body.get(key).is_none(),
+            "{key} should be left to the provider"
+        );
+    }
+}
+
+#[test]
+fn responses_requests_carry_only_the_sampling_fields_that_api_accepts() {
+    let body = super::build_openai_responses_body(
+        zorai_shared::providers::PROVIDER_ID_OPENAI,
+        &generation_test_config(),
+        "system prompt",
+        &[generation_test_message()],
+        &[],
+        None,
+        false,
+    );
+
+    assert_eq!(body["temperature"], 0.3);
+    assert_eq!(body["top_p"], 0.9);
+    assert!(body.get("top_k").is_none());
+    assert!(body.get("presence_penalty").is_none());
+}
+
+#[test]
+fn gemini_requests_keep_thinking_summaries_when_sampling_is_customised() {
+    let mut body = serde_json::json!({ "generation_config": { "thinking_summaries": "auto" } });
+
+    super::apply_gemini_generation_settings(&generation_test_config(), &mut body);
+
+    assert_eq!(body["generation_config"]["thinking_summaries"], "auto");
+    assert_eq!(body["generation_config"]["temperature"], 0.3);
+    assert_eq!(body["generation_config"]["top_p"], 0.9);
+    assert!(body["generation_config"].get("top_k").is_none());
 }

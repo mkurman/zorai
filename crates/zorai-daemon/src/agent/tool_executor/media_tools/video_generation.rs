@@ -859,6 +859,7 @@ mod tests {
 
     fn mock_provider_config(base_url: String) -> crate::agent::types::ProviderConfig {
         crate::agent::types::ProviderConfig {
+            presence_penalty: None,
             base_url,
             model: "chat-model".to_string(),
             api_key: "sk-video".to_string(),
