@@ -53,6 +53,7 @@ async fn anthropic_create_message_batch_posts_requests_and_parses_batch() {
     });
 
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: format!("http://{addr}"),
         model: "claude-sonnet-4-6".to_string(),
         api_key: "test-key".to_string(),
@@ -223,6 +224,7 @@ async fn anthropic_batch_list_and_lifecycle_endpoints_use_documented_paths() {
 
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: format!("http://{addr}"),
         model: "claude-sonnet-4-6".to_string(),
         api_key: "test-key".to_string(),
@@ -355,6 +357,7 @@ async fn anthropic_batch_results_parse_jsonl_lines() {
         &reqwest::Client::new(),
         "anthropic",
         &ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}"),
             model: "claude-sonnet-4-6".to_string(),
             api_key: "test-key".to_string(),

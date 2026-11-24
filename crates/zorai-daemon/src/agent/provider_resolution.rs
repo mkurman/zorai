@@ -210,6 +210,7 @@ pub(super) fn resolve_provider_config_for(
     Ok(finalize_resolved_provider(
         provider_id,
         ProviderConfig {
+            presence_penalty: None,
             base_url,
             model,
             api_key: config.api_key.clone(),
@@ -502,6 +503,7 @@ providers:
         config.providers.insert(
             PROVIDER_ID_ALIBABA_CODING_PLAN.to_string(),
             ProviderConfig {
+                presence_penalty: None,
                 base_url: String::new(),
                 model: String::new(),
                 api_key: "dashscope-key".to_string(),
@@ -557,6 +559,7 @@ providers:
         config.providers.insert(
             PROVIDER_ID_XIAOMI_MIMO_TOKEN_PLAN.to_string(),
             ProviderConfig {
+                presence_penalty: None,
                 base_url: String::new(),
                 model: "mimo-v2.5-pro".to_string(),
                 api_key: "mimo-key".to_string(),
@@ -607,6 +610,7 @@ providers:
         config.providers.insert(
             zorai_shared::providers::PROVIDER_ID_DEEPSEEK.to_string(),
             ProviderConfig {
+                presence_penalty: None,
                 base_url: "https://proxy.example.com/v1".to_string(),
                 model: "deepseek-v4-pro".to_string(),
                 api_key: "deepseek-key".to_string(),
@@ -653,6 +657,7 @@ providers:
         config.providers.insert(
             PROVIDER_ID_XIAOMI_MIMO_TOKEN_PLAN.to_string(),
             ProviderConfig {
+                presence_penalty: None,
                 base_url: "https://mimo-proxy.example.com/anthropic".to_string(),
                 model: "mimo-v2.5-pro".to_string(),
                 api_key: "mimo-key".to_string(),
@@ -705,6 +710,7 @@ providers:
         config.providers.insert(
             PROVIDER_ID_ALIBABA_CODING_PLAN.to_string(),
             ProviderConfig {
+                presence_penalty: None,
                 base_url: String::new(),
                 model: "MiniMax-M2.5".to_string(),
                 api_key: "dashscope-key".to_string(),
@@ -762,6 +768,7 @@ providers:
         config.providers.insert(
             PROVIDER_ID_GROQ.to_string(),
             ProviderConfig {
+                presence_penalty: None,
                 base_url: String::new(),
                 model: String::new(),
                 api_key: "groq-key".to_string(),
@@ -809,6 +816,7 @@ providers:
         config.providers.insert(
             PROVIDER_ID_OPENAI.to_string(),
             ProviderConfig {
+                presence_penalty: None,
                 base_url: "https://stale.invalid/v1".to_string(),
                 model: "gpt-5.4".to_string(),
                 api_key: "stored-key".to_string(),
@@ -858,6 +866,7 @@ providers:
         config.providers.insert(
             PROVIDER_ID_OPENAI.to_string(),
             ProviderConfig {
+                presence_penalty: None,
                 base_url: "https://api.openai.com/v1".to_string(),
                 model: "gpt-5.4".to_string(),
                 api_key: String::new(),
@@ -906,6 +915,7 @@ providers:
         config.providers.insert(
             PROVIDER_ID_AZURE_OPENAI.to_string(),
             ProviderConfig {
+                presence_penalty: None,
                 base_url: "https://my-resource.openai.azure.com/openai/v1".to_string(),
                 model: "my-deployment".to_string(),
                 api_key: "azure-key".to_string(),
@@ -955,6 +965,7 @@ providers:
         config.providers.insert(
             PROVIDER_ID_GITHUB_COPILOT.to_string(),
             ProviderConfig {
+                presence_penalty: None,
                 base_url: "https://api.githubcopilot.com".to_string(),
                 model: "gemini-3.1-pro-preview".to_string(),
                 api_key: String::new(),

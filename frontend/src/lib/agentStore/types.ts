@@ -189,6 +189,13 @@ export interface ProviderAuthState {
   base_url: string;
 }
 
+export interface GenerationSettings {
+  temperature?: number | null;
+  top_k?: number | null;
+  top_p?: number | null;
+  presence_penalty?: number | null;
+}
+
 export interface SubAgentDefinition {
   id: string;
   name: string;
@@ -218,6 +225,7 @@ export interface SubAgentDefinition {
   openrouter_provider_order?: string[];
   openrouter_provider_ignore?: string[];
   openrouter_allow_fallbacks?: boolean | null;
+  generation_settings?: GenerationSettings | null;
   created_at: number;
 }
 

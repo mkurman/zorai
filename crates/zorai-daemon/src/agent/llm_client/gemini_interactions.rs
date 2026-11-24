@@ -51,6 +51,21 @@ pub(crate) fn build_gemini_interaction_body(
     body
 }
 
+pub(crate) fn apply_gemini_generation_settings(config: &ProviderConfig, body: &mut serde_json::Value) {
+    if config.temperature.is_none() && config.top_p.is_none() {
+        return;
+    }
+    if !body["generation_config"].is_object() {
+        body["generation_config"] = serde_json::json!({});
+    }
+    if let Some(temperature) = config.temperature {
+        body["generation_config"]["temperature"] = serde_json::json!(temperature);
+    }
+    if let Some(top_p) = config.top_p {
+        body["generation_config"]["top_p"] = serde_json::json!(top_p);
+    }
+}
+
 pub(crate) async fn run_gemini(
     client: &reqwest::Client,
     provider: &str,
@@ -62,7 +77,7 @@ pub(crate) async fn run_gemini(
     tx: &mpsc::Sender<Result<CompletionChunk>>,
 ) -> Result<()> {
     let url = gemini_interactions_url(&config.base_url, true);
-    let body = build_gemini_interaction_body(
+    let mut body = build_gemini_interaction_body(
         &config.model,
         system_prompt,
         messages,
@@ -70,6 +85,7 @@ pub(crate) async fn run_gemini(
         true,
         previous_interaction_id,
     );
+    apply_gemini_generation_settings(config, &mut body);
     let auth_method = get_provider_definition(provider)
         .map(|definition| definition.auth_method)
         .unwrap_or(AuthMethod::XGoogApiKey);

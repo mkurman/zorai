@@ -396,6 +396,7 @@ async fn gateway_subagent_turn_owns_thread_titles_it_and_auto_replies() {
     config.max_retries = 0;
     config.max_tool_loops = 1;
     config.sub_agents.push(SubAgentDefinition {
+        generation_settings: None,
         base_url: None,
         id: "subagent-glmus".to_string(),
         name: "Glmus".to_string(),

@@ -162,6 +162,22 @@ function registerDbIpcHandlers(ipcMain, runtime) {
             return false;
         }
     });
+    ipcMain.handle('db-rewind-messages', async (_event, threadId, messageIds) => {
+        try {
+            await sendDbAckCommand({ type: 'delete-agent-messages', thread_id: threadId, message_ids: messageIds });
+            return true;
+        } catch {
+            return false;
+        }
+    });
+    ipcMain.handle('db-restore-messages', async (_event, threadId, messageIds) => {
+        try {
+            await sendDbAckCommand({ type: 'restore-agent-messages', thread_id: threadId, message_ids: messageIds });
+            return true;
+        } catch {
+            return false;
+        }
+    });
     ipcMain.handle('db-list-messages', async (_event, threadId, limit) => {
         try {
             const result = await sendDbQuery({

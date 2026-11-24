@@ -30,6 +30,7 @@ impl Drop for EnvGuard {
 
 pub(super) fn test_user_sub_agent(id: &str, name: &str) -> SubAgentDefinition {
     SubAgentDefinition {
+        generation_settings: None,
         base_url: None,
         id: id.to_string(),
         name: name.to_string(),

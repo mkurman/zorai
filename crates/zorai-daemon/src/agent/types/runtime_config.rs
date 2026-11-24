@@ -198,6 +198,7 @@ pub(crate) fn default_offload_tool_result_threshold_bytes() -> usize {
 impl Default for AgentConfig {
     fn default() -> Self {
         Self {
+            generation_settings: None,
             enabled: false,
             provider: default_provider(),
             base_url: String::new(),
@@ -341,6 +342,8 @@ pub struct ProviderConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub top_k: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub presence_penalty: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<AnthropicRequestMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service_tier: Option<String>,
@@ -366,6 +369,30 @@ pub struct ProviderConfig {
     pub openrouter_response_cache_enabled: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub huggingface_provider: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct GenerationSettings {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top_k: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top_p: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub presence_penalty: Option<f64>,
+}
+
+impl ProviderConfig {
+    pub fn apply_generation_settings(&mut self, settings: Option<&GenerationSettings>) {
+        let Some(settings) = settings else {
+            return;
+        };
+        self.temperature = settings.temperature;
+        self.top_k = settings.top_k;
+        self.top_p = settings.top_p;
+        self.presence_penalty = settings.presence_penalty;
+    }
 }
 
 /// A named sub-agent definition that the orchestration engine can dispatch work to.
@@ -419,6 +446,8 @@ pub struct SubAgentDefinition {
     pub openrouter_allow_fallbacks: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub huggingface_provider: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generation_settings: Option<GenerationSettings>,
     #[serde(default)]
     pub created_at: u64,
 }
@@ -552,6 +581,8 @@ pub struct ConciergeConfig {
     pub auto_cleanup_on_navigate: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub system_prompt: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generation_settings: Option<GenerationSettings>,
 }
 
 impl Default for ConciergeConfig {
@@ -571,6 +602,7 @@ impl Default for ConciergeConfig {
             huggingface_provider: None,
             auto_cleanup_on_navigate: true,
             system_prompt: None,
+            generation_settings: None,
         }
     }
 }

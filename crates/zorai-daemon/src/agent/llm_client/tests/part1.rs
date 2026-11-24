@@ -264,6 +264,7 @@ pub(super) async fn spawn_responses_error_server(
 
 pub(super) fn responses_test_config(base_url: String, auth_source: AuthSource) -> ProviderConfig {
     ProviderConfig {
+        presence_penalty: None,
         base_url,
         model: "gpt-4.1".to_string(),
         api_key: "test-key".to_string(),
@@ -387,6 +388,7 @@ async fn anthropic_count_tokens_uses_count_tokens_endpoint_and_parses_input_toke
         &reqwest::Client::new(),
         "anthropic",
         &ProviderConfig {
+            presence_penalty: None,
             base_url: format!("http://{addr}"),
             model: "claude-sonnet-4-6".to_string(),
             api_key: "test-key".to_string(),

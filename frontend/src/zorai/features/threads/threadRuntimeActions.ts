@@ -1,6 +1,6 @@
 import { getDefaultModelForProvider, getProviderDefinitions } from "@/lib/agentStore/providers";
 import { useAgentStore } from "@/lib/agentStore";
-import type { AgentProviderId, AgentThread } from "@/lib/agentStore";
+import type { AgentProviderId, AgentThread, GenerationSettings } from "@/lib/agentStore";
 import { MANAGED_SECURITY_LEVELS } from "@/lib/agentStore/settings";
 import { getBridge } from "@/lib/bridge";
 import {
@@ -154,6 +154,21 @@ export async function applyThreadReasoningEffort(thread: AgentThread, effort: st
     restoreThreadRuntimeOverlay(thread.id, previous);
     throw error;
   }
+}
+
+export async function loadThreadGenerationSettings(thread: AgentThread): Promise<GenerationSettings | null> {
+  const daemonThreadId = resolveDaemonThreadIdForRuntime(thread);
+  if (!daemonThreadId) return null;
+  const existing = await getBridge()?.agentGetThreadExecutionProfile?.(daemonThreadId).catch(() => null) as
+    | { profile?: { generation_settings?: GenerationSettings | null } | null }
+    | null
+    | undefined;
+  const settings = existing?.profile?.generation_settings;
+  return settings && typeof settings === "object" ? settings : null;
+}
+
+export async function applyThreadGenerationSettings(thread: AgentThread, settings: GenerationSettings | null): Promise<void> {
+  await patchDaemonThreadExecutionProfile(thread, { generation_settings: settings });
 }
 
 export async function applyThreadContextWindow(thread: AgentThread, tokens: number): Promise<void> {

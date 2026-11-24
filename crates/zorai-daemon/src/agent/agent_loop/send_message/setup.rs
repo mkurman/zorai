@@ -25,6 +25,7 @@ struct DirectThreadResponderConfig {
     openrouter_provider_order: Vec<String>,
     openrouter_provider_ignore: Vec<String>,
     openrouter_allow_fallbacks: Option<bool>,
+    generation_settings: Option<GenerationSettings>,
     system_prompt: String,
     persona_prompt: String,
     tool_filter: Option<crate::agent::subagent::tool_filter::ToolFilter>,
@@ -246,6 +247,7 @@ fn build_direct_thread_responder_config(
             openrouter_provider_order: Vec::new(),
             openrouter_provider_ignore: Vec::new(),
             openrouter_allow_fallbacks: None,
+            generation_settings: config.generation_settings.clone(),
             system_prompt: config.system_prompt.clone(),
             persona_prompt: String::new(),
             tool_filter: None,
@@ -274,6 +276,7 @@ fn build_direct_thread_responder_config(
             openrouter_provider_order: config.concierge.openrouter_provider_order.clone(),
             openrouter_provider_ignore: config.concierge.openrouter_provider_ignore.clone(),
             openrouter_allow_fallbacks: config.concierge.openrouter_allow_fallbacks,
+            generation_settings: config.concierge.generation_settings.clone(),
             system_prompt: crate::agent::concierge::concierge_system_prompt(&config.concierge),
             persona_prompt: String::new(),
             tool_filter: None,
@@ -385,6 +388,9 @@ fn build_direct_thread_responder_config(
             .or_else(|| {
                 builtin_persona_overrides.and_then(|overrides| overrides.openrouter_allow_fallbacks)
             }),
+        generation_settings: matched_def
+            .as_ref()
+            .and_then(|def| def.generation_settings.clone()),
         system_prompt: matched_def
             .as_ref()
             .and_then(|def| def.system_prompt.clone())
@@ -756,11 +762,11 @@ impl<'a> SendMessageRunner<'a> {
             })
             .unwrap_or(config.provider.as_str())
             .to_string();
-        let provider_config = match if let Some((
+        let mut provider_config = match if let Some((
             ref sub_provider,
             ref sub_model,
             _,
-            _,
+            ref sub_def_id,
             sub_transport,
             sub_context_window_tokens,
             ref sub_huggingface_provider,
@@ -786,6 +792,12 @@ impl<'a> SendMessageRunner<'a> {
             if let Some(reasoning_effort) = task_execution_profile_reasoning.as_ref() {
                 pc.reasoning_effort = reasoning_effort.clone();
             }
+            pc.apply_generation_settings(sub_def_id.as_ref().and_then(|def_id| {
+                sub_agents
+                    .iter()
+                    .find(|def| def.id == *def_id)
+                    .and_then(|def| def.generation_settings.as_ref())
+            }));
             if let Some(context_window_tokens) = thread_execution_profile
                 .as_ref()
                 .and_then(|profile| profile.context_window_tokens)
@@ -839,9 +851,13 @@ impl<'a> SendMessageRunner<'a> {
                 &responder.openrouter_provider_ignore,
                 responder.openrouter_allow_fallbacks,
             );
+            pc.apply_generation_settings(responder.generation_settings.as_ref());
             Ok(pc)
         } else {
-            engine.resolve_provider_config(&config)
+            engine.resolve_provider_config(&config).map(|mut pc| {
+                pc.apply_generation_settings(config.generation_settings.as_ref());
+                pc
+            })
         } {
             Ok(provider_config) => provider_config,
             Err(error) => {
@@ -866,6 +882,11 @@ impl<'a> SendMessageRunner<'a> {
                 return Err(error);
             }
         };
+        provider_config.apply_generation_settings(
+            thread_execution_profile
+                .as_ref()
+                .and_then(|profile| profile.generation_settings.as_ref()),
+        );
         config.provider = active_provider_id.clone();
         config.base_url = provider_config.base_url.clone();
         config.model = provider_config.model.clone();
@@ -1522,6 +1543,7 @@ impl<'a> SendMessageRunner<'a> {
                 &tid,
                 thread_execution_profile.as_ref(),
                 ThreadExecutionProfile {
+                    generation_settings: None,
                     provider: Some(active_provider_id.clone()),
                     model: (!provider_config.model.trim().is_empty())
                         .then(|| provider_config.model.clone()),
@@ -1939,6 +1961,7 @@ mod tests {
         config.providers.insert(
             "weles-provider".to_string(),
             ProviderConfig {
+                presence_penalty: None,
                 base_url: "http://127.0.0.1:1/v1".to_string(),
                 model: "weles-model".to_string(),
                 api_key: "test-key".to_string(),
@@ -2035,6 +2058,7 @@ mod tests {
         config.providers.insert(
             "task-provider".to_string(),
             ProviderConfig {
+                presence_penalty: None,
                 base_url: String::new(),
                 model: "provider-default".to_string(),
                 api_key: "task-key".to_string(),
@@ -2136,6 +2160,7 @@ mod tests {
 
     fn spawnable_researcher() -> SubAgentDefinition {
         SubAgentDefinition {
+            generation_settings: None,
             base_url: None,
             claude_permission_mode: None,
             id: "researcher".to_string(),
@@ -2406,6 +2431,7 @@ mod tests {
         let mut config = AgentConfig::default();
         config.system_prompt = "Main system prompt".to_string();
         let sub_agents = vec![SubAgentDefinition {
+            generation_settings: None,
             base_url: None,
             claude_permission_mode: None,
             id: "dola".to_string(),
@@ -2451,11 +2477,83 @@ mod tests {
     }
 
     #[test]
+    fn thread_generation_settings_override_the_agent_and_switching_them_off_falls_back_to_it() {
+        let config = AgentConfig::default();
+        let agent = GenerationSettings {
+            temperature: Some(1.0),
+            top_p: Some(0.95),
+            ..GenerationSettings::default()
+        };
+        let thread_profile: ThreadExecutionProfile = serde_json::from_value(serde_json::json!({
+            "model": "gpt-5.4-mini",
+            "generation_settings": { "temperature": 0.1 }
+        }))
+        .expect("profile from the GUI should parse");
+        let inheriting_profile: ThreadExecutionProfile =
+            serde_json::from_value(serde_json::json!({ "model": "gpt-5.4-mini" }))
+                .expect("profile without overrides should parse");
+
+        let base = resolve_provider_config_for(&config, "openai", Some("gpt-5.4-mini"))
+            .expect("openai should resolve");
+        let mut overridden = base.clone();
+        overridden.apply_generation_settings(Some(&agent));
+        overridden.apply_generation_settings(thread_profile.generation_settings.as_ref());
+        let mut inherited = base;
+        inherited.apply_generation_settings(Some(&agent));
+        inherited.apply_generation_settings(inheriting_profile.generation_settings.as_ref());
+
+        assert_eq!(overridden.temperature, Some(0.1));
+        assert_eq!(overridden.top_p, None);
+        assert_eq!(inherited.temperature, Some(1.0));
+        assert_eq!(inherited.top_p, Some(0.95));
+    }
+
+    #[test]
+    fn each_agent_samples_with_its_own_generation_settings_not_svarogs() {
+        let mut config = AgentConfig::default();
+        config.generation_settings = Some(GenerationSettings {
+            temperature: Some(1.2),
+            ..GenerationSettings::default()
+        });
+        let sub_agents: Vec<SubAgentDefinition> = serde_json::from_value(serde_json::json!([{
+            "id": "dola",
+            "name": "Dola",
+            "provider": "openai",
+            "model": "gpt-5.4-mini",
+            "generation_settings": { "temperature": 0.2, "top_p": 0.8 }
+        }, {
+            "id": "mokosz",
+            "name": "Mokosz",
+            "provider": "openai",
+            "model": "gpt-5.4-mini"
+        }]))
+        .expect("sub-agent definitions should parse");
+
+        let dola = build_direct_thread_responder_config(&config, "dola", &sub_agents, None)
+            .expect("config build should succeed")
+            .expect("dola should respond directly");
+        let mokosz = build_direct_thread_responder_config(&config, "mokosz", &sub_agents, None)
+            .expect("config build should succeed")
+            .expect("mokosz should respond directly");
+
+        let mut provider_config = ProviderConfig {
+            temperature: Some(0.7),
+            ..resolve_provider_config_for(&config, "openai", Some("gpt-5.4-mini"))
+                .expect("openai should resolve")
+        };
+        provider_config.apply_generation_settings(dola.generation_settings.as_ref());
+        assert_eq!(provider_config.temperature, Some(0.2));
+        assert_eq!(provider_config.top_p, Some(0.8));
+        assert_eq!(mokosz.generation_settings, None);
+    }
+
+    #[test]
     fn subagent_responder_uses_explicit_thread_execution_profile() {
         let mut config = AgentConfig::default();
         config.provider = "openai".to_string();
         config.model = "gpt-main".to_string();
         let sub_agents = vec![SubAgentDefinition {
+            generation_settings: None,
             id: "kimus".to_string(),
             name: "Kimus".to_string(),
             provider: "alibaba-token-plan".to_string(),
@@ -2485,6 +2583,7 @@ mod tests {
             created_at: 1,
         }];
         let profile = ThreadExecutionProfile {
+            generation_settings: None,
             provider: Some("ollama".to_string()),
             model: Some("kimi-k3:cloud".to_string()),
             reasoning_effort: Some("high".to_string()),
@@ -2511,6 +2610,7 @@ mod tests {
         config.model = "meta/muse-spark-1.2-contributor".to_string();
         config.system_prompt = "Svarog system prompt".to_string();
         let profile = ThreadExecutionProfile {
+            generation_settings: None,
             provider: Some("openai".to_string()),
             model: Some("gpt-5.6-sol".to_string()),
             reasoning_effort: Some("high".to_string()),
@@ -2592,6 +2692,7 @@ mod tests {
             .set_thread_execution_profile(
                 thread_id,
                 Some(ThreadExecutionProfile {
+                    generation_settings: None,
                     provider: Some("openai".to_string()),
                     model: Some("gpt-5.4-mini".to_string()),
                     reasoning_effort: Some("high".to_string()),
@@ -2800,6 +2901,7 @@ mod tests {
             .set_thread_execution_profile(
                 thread_id,
                 Some(ThreadExecutionProfile {
+                    generation_settings: None,
                     provider: Some("openai".to_string()),
                     model: Some("gpt-5.4-mini".to_string()),
                     reasoning_effort: Some("high".to_string()),
@@ -3093,6 +3195,7 @@ mod tests {
         config.base_url = "http://127.0.0.1:1/v1".to_string();
         config.api_key = "test-key".to_string();
         config.sub_agents.push(SubAgentDefinition {
+            generation_settings: None,
             base_url: None,
             claude_permission_mode: None,
             id: "qa".to_string(),
@@ -3633,6 +3736,7 @@ mod tests {
         config.providers.insert(
             "alibaba-coding-plan".to_string(),
             ProviderConfig {
+                presence_penalty: None,
                 base_url: String::new(),
                 model: "qwen3.6-plus".to_string(),
                 api_key: "dashscope-key".to_string(),

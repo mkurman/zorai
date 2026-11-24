@@ -527,6 +527,7 @@ async fn get_or_create_thread_with_target_preserves_user_defined_subagent_identi
     let manager = SessionManager::new_test(root.path()).await;
     let mut config = AgentConfig::default();
     config.sub_agents.push(SubAgentDefinition {
+        generation_settings: None,
         base_url: None,
         claude_permission_mode: None,
         id: "dola".to_string(),
@@ -1163,6 +1164,7 @@ async fn handoff_activation_emits_thread_reload_event_for_visible_thread() {
 
 fn configured_user_subagent(id: &str, name: &str, enabled: bool) -> SubAgentDefinition {
     SubAgentDefinition {
+        generation_settings: None,
         base_url: None,
         claude_permission_mode: None,
         id: id.to_string(),

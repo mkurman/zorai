@@ -1155,6 +1155,7 @@ fn github_copilot_stored_auth_adds_bearer_header_to_requests() {
 
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://models.github.ai".to_string(),
         model: "openai/gpt-4.1".to_string(),
         api_key: String::new(),
@@ -1232,6 +1233,7 @@ fn github_copilot_requests_include_copilot_headers() {
 
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.githubcopilot.com".to_string(),
         model: "gpt-4.1".to_string(),
         api_key: String::new(),
@@ -1317,6 +1319,7 @@ fn github_copilot_internal_requests_use_agent_initiator() {
 
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.githubcopilot.com".to_string(),
         model: "gpt-4.1".to_string(),
         api_key: String::new(),
@@ -1366,6 +1369,7 @@ fn github_copilot_internal_requests_use_agent_initiator() {
 fn kimi_coding_plan_requests_include_sdk_headers() {
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.kimi.com/coding/v1".to_string(),
         model: "kimi-for-coding".to_string(),
         api_key: "test-key".to_string(),
@@ -1437,6 +1441,7 @@ fn kimi_coding_plan_requests_include_sdk_headers() {
 fn openrouter_requests_include_app_attribution_headers() {
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://openrouter.ai/api/v1".to_string(),
         model: "arcee-ai/trinity-large-thinking".to_string(),
         api_key: "openrouter-key".to_string(),
@@ -1501,6 +1506,7 @@ fn openrouter_requests_include_app_attribution_headers() {
 fn opencode_go_requests_include_session_affinity_headers() {
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://opencode.ai/zen/go/v1".to_string(),
         model: "glm-5.1".to_string(),
         api_key: "opencode-go-key".to_string(),
@@ -1587,6 +1593,7 @@ fn opencode_go_requests_include_session_affinity_headers() {
 #[test]
 fn github_copilot_responses_request_includes_reasoning_summary() {
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.githubcopilot.com".to_string(),
         model: "gpt-5.4".to_string(),
         api_key: String::new(),
@@ -1639,6 +1646,7 @@ fn github_copilot_responses_request_includes_reasoning_summary() {
 #[test]
 fn responses_request_sets_tool_choice_when_tools_are_present() {
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.openai.com".to_string(),
         model: "gpt-5.4".to_string(),
         api_key: String::new(),
@@ -1703,6 +1711,7 @@ fn responses_request_sets_tool_choice_when_tools_are_present() {
 #[test]
 fn build_openai_responses_request_omits_previous_response_id_for_chatgpt_subscription() {
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.openai.com/v1".to_string(),
         model: "gpt-5.4".to_string(),
         api_key: String::new(),
@@ -1818,6 +1827,7 @@ fn build_openai_responses_request_omits_previous_response_id_for_chatgpt_subscri
 fn anthropic_request_maps_response_schema_to_output_config_json_schema() {
     let client = reqwest::Client::new();
     let config = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.anthropic.com".to_string(),
         model: "claude-sonnet-4-6".to_string(),
         api_key: String::new(),

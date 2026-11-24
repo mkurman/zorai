@@ -14,6 +14,7 @@ async fn merge_config_patch_preserves_existing_provider_state() {
     config.providers.insert(
         PROVIDER_ID_OPENAI.to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: "https://api.openai.com/v1".to_string(),
             model: "gpt-5.4".to_string(),
             api_key: "openai-key".to_string(),
@@ -45,6 +46,7 @@ async fn merge_config_patch_preserves_existing_provider_state() {
     config.providers.insert(
         "groq".to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: "https://api.groq.com/openai/v1".to_string(),
             model: "llama-3.3-70b-versatile".to_string(),
             api_key: "groq-key".to_string(),

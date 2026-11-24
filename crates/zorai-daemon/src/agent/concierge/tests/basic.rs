@@ -174,6 +174,7 @@ fn resolve_concierge_provider_uses_shared_resolution_path() {
     config.providers.insert(
         zorai_shared::providers::PROVIDER_ID_ALIBABA_CODING_PLAN.to_string(),
         ProviderConfig {
+            presence_penalty: None,
             base_url: String::new(),
             model: String::new(),
             api_key: "dashscope-key".to_string(),
@@ -234,6 +235,7 @@ fn resolve_concierge_provider_defaults_reasoning_effort_to_off() {
 #[test]
 fn concierge_fast_profile_preserves_selected_reasoning_without_touching_model() {
     let base = ProviderConfig {
+        presence_penalty: None,
         base_url: "https://api.openai.com/v1".to_string(),
         model: "gpt-5.4-mini".to_string(),
         api_key: "secret".to_string(),

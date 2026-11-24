@@ -435,6 +435,7 @@ fn project_task_runs_prefers_thread_profile_then_task_override_then_subagent() {
     profiles.insert(
         "thread-profiled".to_string(),
         ThreadExecutionProfile {
+            generation_settings: None,
             provider: Some("github-copilot".to_string()),
             model: Some("gpt-5.5".to_string()),
             reasoning_effort: Some("high".to_string()),

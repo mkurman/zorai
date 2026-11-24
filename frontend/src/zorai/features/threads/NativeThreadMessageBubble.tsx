@@ -34,6 +34,7 @@ export type ThreadMessageActions = {
   feedback: (threadId: string, messageId: string, reaction: "up" | "down" | null) => void | Promise<void>;
   regenerate: (messageId: string) => void;
   fork: (messageId: string) => void | Promise<void>;
+  rewind: (messageId: string) => void;
   deleteMessage: (threadId: string, messageId: string) => void;
   retry: () => void;
   pin: (threadId: string, messageId: string) => void | Promise<void>;
@@ -80,6 +81,7 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
   onFork,
   onDelete,
   offerRetry = false,
+  canRewind = false,
 }: {
   message: AgentMessage;
   threadAgentName?: string;
@@ -96,6 +98,7 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
   onFork?: () => void | Promise<void>;
   onDelete?: () => void;
   offerRetry?: boolean;
+  canRewind?: boolean;
 }) {
   const actionsRef = useContext(ThreadMessageActionsContext);
   const sharedActions = Boolean(actionsRef);
@@ -198,6 +201,17 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
             }}
           >
             <MessageActionIcon kind={copied ? "copied" : "copy"} />
+          </button>
+        ) : null}
+        {sharedActions && canRewind ? (
+          <button
+            type="button"
+            className="zorai-ghost-button zorai-message-action"
+            title="Rewind to here: takes this message and everything after it out of the thread"
+            aria-label="Rewind to here"
+            onClick={() => actionsRef?.current?.rewind(message.id)}
+          >
+            <MessageActionIcon kind="rewind" />
           </button>
         ) : null}
         {(sharedActions || onFork) && !message.isStreaming ? (
@@ -472,7 +486,7 @@ function formatStaticThoughtDuration(content: string): string {
   return `${minutes}m ${seconds % 60}s`;
 }
 
-function MessageActionIcon({ kind, filled = false, animated = false }: { kind: "speak" | "pin" | "copy" | "copied" | "thumb-up" | "thumb-down" | "regenerate" | "fork" | "delete"; filled?: boolean; animated?: boolean }) {
+function MessageActionIcon({ kind, filled = false, animated = false }: { kind: "speak" | "pin" | "copy" | "copied" | "thumb-up" | "thumb-down" | "regenerate" | "rewind" | "fork" | "delete"; filled?: boolean; animated?: boolean }) {
   if (kind === "speak") {
     return (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -526,6 +540,14 @@ function MessageActionIcon({ kind, filled = false, animated = false }: { kind: "
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M21 12a9 9 0 1 1-2.64-6.36" />
         <path d="M21 3v6h-6" />
+      </svg>
+    );
+  }
+  if (kind === "rewind") {
+    return (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M3 12a9 9 0 1 0 2.64-6.36" />
+        <path d="M3 3v6h6" />
       </svg>
     );
   }

@@ -425,6 +425,7 @@ pub(crate) fn resolve_concierge_provider(config: &AgentConfig) -> Result<Provide
         .clone()
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| "off".to_string());
+    resolved.apply_generation_settings(config.concierge.generation_settings.as_ref());
     if provider_id == zorai_shared::providers::PROVIDER_ID_OPENROUTER {
         if !config.concierge.openrouter_provider_order.is_empty() {
             resolved.openrouter_provider_order = config.concierge.openrouter_provider_order.clone();

@@ -29,7 +29,7 @@ import { useNotificationStore } from "@/lib/notificationStore";
 import { useSnippetStore } from "@/lib/snippetStore";
 import { useTranscriptStore } from "@/lib/transcriptStore";
 import { useWorkspaceStore } from "@/lib/workspaceStore";
-import type { AgentThread, AgentTodoItem } from "@/lib/agentStore";
+import type { AgentMessage, AgentThread, AgentTodoItem } from "@/lib/agentStore";
 import { isGatewayAgentThread, isInternalAgentThread } from "@/lib/agentStore";
 import { fetchGoalRuns, type GoalRun } from "@/lib/goalRuns";
 import type { Workspace } from "@/lib/types";
@@ -411,6 +411,7 @@ export function useAgentChatPanelProviderValue(): {
   }, [storeGoBackThread]);
   const addMessage = useAgentStore((state) => state.addMessage);
   const deleteMessageFromStore = useAgentStore((state) => state.deleteMessage);
+  const restoreMessagesToStore = useAgentStore((state) => state.restoreMessages);
   const updateLastAssistantMessage = useAgentStore((state) => state.updateLastAssistantMessage);
   const setThreadTodos = useAgentStore((state) => state.setThreadTodos);
   const setThreadDaemonId = useAgentStore((state) => state.setThreadDaemonId);
@@ -1217,6 +1218,34 @@ export function useAgentChatPanelProviderValue(): {
     void getAgentDbApi()?.dbDeleteMessage?.(daemonThreadId, messageId);
   }, [activeThreadId, agentSettings.agent_backend, deleteMessageFromStore]);
 
+  const rewindMessages = useCallback((threadId: string, messageIds: string[]) => {
+    const daemonThreadId = resolveDaemonOwnedThreadId({
+      threads: useAgentStore.getState().threads,
+      threadId,
+      activeThreadId,
+      activeDaemonThreadId: daemonThreadIdRef.current,
+    });
+    messageIds.forEach((messageId) => deleteMessageFromStore(threadId, messageId));
+    if (!shouldUseDaemonRuntime(agentSettings.agent_backend) || !daemonThreadId) {
+      return;
+    }
+    void getAgentDbApi()?.dbRewindMessages?.(daemonThreadId, messageIds);
+  }, [activeThreadId, agentSettings.agent_backend, deleteMessageFromStore]);
+
+  const restoreMessages = useCallback((threadId: string, messages: AgentMessage[]) => {
+    const daemonThreadId = resolveDaemonOwnedThreadId({
+      threads: useAgentStore.getState().threads,
+      threadId,
+      activeThreadId,
+      activeDaemonThreadId: daemonThreadIdRef.current,
+    });
+    restoreMessagesToStore(threadId, messages);
+    if (!shouldUseDaemonRuntime(agentSettings.agent_backend) || !daemonThreadId) {
+      return;
+    }
+    void getAgentDbApi()?.dbRestoreMessages?.(daemonThreadId, messages.map((message) => message.id));
+  }, [activeThreadId, agentSettings.agent_backend, restoreMessagesToStore]);
+
   const pinMessageForCompaction = useCallback(async (threadId: string, messageId: string) => {
     const thread = useAgentStore.getState().threads.find((entry) => entry.id === threadId);
     const daemonThreadId = thread?.daemonThreadId ?? (threadId === activeThreadId ? daemonThreadIdRef.current : null);
@@ -1427,6 +1456,8 @@ export function useAgentChatPanelProviderValue(): {
     sendParticipantSuggestion,
     dismissParticipantSuggestion,
     deleteMessage,
+    rewindMessages,
+    restoreMessages,
     forkThread,
     exportThread,
     pinMessageForCompaction,
@@ -1462,6 +1493,8 @@ export function useAgentChatPanelProviderValue(): {
     startGoalRunFromPrompt,
     daemonTodosByThread,
     deleteMessage,
+    rewindMessages,
+    restoreMessages,
     forkThread,
     exportThread,
     deleteThread,

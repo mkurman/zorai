@@ -608,6 +608,7 @@ mod tests {
             serde_json::json!({ "generation": { "provider": provider_id, "model": model } }),
         );
         let provider = crate::agent::types::ProviderConfig {
+            presence_penalty: None,
             base_url,
             model: "chat-model".to_string(),
             api_key: "sk-music".to_string(),

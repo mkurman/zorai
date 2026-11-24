@@ -2810,6 +2810,7 @@ mod media_tools_tests {
 
     fn test_provider_config(model: &str) -> crate::agent::types::ProviderConfig {
         crate::agent::types::ProviderConfig {
+            presence_penalty: None,
             base_url: "https://token-plan-ams.xiaomimimo.com/v1".to_string(),
             model: model.to_string(),
             api_key: "sk-mimo".to_string(),
@@ -3473,6 +3474,7 @@ mod media_tools_tests {
         config.providers.insert(
             "custom".to_string(),
             crate::agent::types::ProviderConfig {
+                presence_penalty: None,
                 base_url: "https://audio.example/v1".to_string(),
                 model: "fallback-model".to_string(),
                 api_key: "sk-audio".to_string(),
@@ -3535,6 +3537,7 @@ mod media_tools_tests {
         config.providers.insert(
             "custom".to_string(),
             crate::agent::types::ProviderConfig {
+                presence_penalty: None,
                 base_url: "https://audio.example/v1".to_string(),
                 model: "fallback-model".to_string(),
                 api_key: "sk-audio".to_string(),
@@ -3598,6 +3601,7 @@ mod media_tools_tests {
         config.providers.insert(
             "custom".to_string(),
             crate::agent::types::ProviderConfig {
+                presence_penalty: None,
                 base_url: "https://images.example/v1".to_string(),
                 model: "fallback-model".to_string(),
                 api_key: "sk-image".to_string(),
@@ -3660,6 +3664,7 @@ mod media_tools_tests {
         config.providers.insert(
             "custom".to_string(),
             crate::agent::types::ProviderConfig {
+                presence_penalty: None,
                 base_url: "https://vision.example/v1".to_string(),
                 model: "fallback-model".to_string(),
                 api_key: "sk-vision".to_string(),
@@ -3843,6 +3848,7 @@ mod media_tools_tests {
     #[test]
     fn build_openrouter_image_generation_body_maps_size_into_image_config() {
         let provider_config = crate::agent::types::ProviderConfig {
+            presence_penalty: None,
             base_url: "https://openrouter.ai/api/v1".to_string(),
             model: "google/gemini-3-pro-image-preview".to_string(),
             api_key: "sk-openrouter".to_string(),

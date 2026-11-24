@@ -54,6 +54,7 @@ impl AgentEngine {
     pub(crate) async fn goal_launch_assignment_snapshot(&self) -> Vec<GoalAgentAssignment> {
         let config = self.config.read().await;
         let resolved = resolve_active_provider_config(&config).unwrap_or_else(|_| ProviderConfig {
+            presence_penalty: None,
             base_url: config.base_url.clone(),
             model: config.model.clone(),
             api_key: config.api_key.clone(),

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAgentStore, type AgentThread } from "@/lib/agentStore";
 import { clearThreadRuntimeOverlay } from "@/lib/agentStore/threadProfileMerge";
-import { applyThreadProviderModel, threadProviderIds } from "./threadRuntimeActions";
+import { applyThreadGenerationSettings, applyThreadProviderModel, loadThreadGenerationSettings, threadProviderIds } from "./threadRuntimeActions";
 import { hydrateProviderDefinitionsFromCatalog } from "@/lib/agentStore/providers";
 
 const agentGetThreadExecutionProfile = vi.fn();
@@ -54,6 +54,30 @@ describe("thread runtime actions", () => {
       threads: [thread("thread-a", "daemon-a"), thread("thread-b", "daemon-b")],
       activeThreadId: "thread-a",
     } as any);
+  });
+
+  it("stores thread sampling in that thread's profile without dropping the model or effort pinned to it", async () => {
+    agentGetThreadExecutionProfile.mockResolvedValue({ profile: { provider: "openrouter", model: "m1", reasoning_effort: "high" } });
+    const selected = useAgentStore.getState().threads[0];
+
+    await applyThreadGenerationSettings(selected, { temperature: 0.2 });
+    await applyThreadGenerationSettings(selected, null);
+
+    expect(agentSetThreadExecutionProfile).toHaveBeenNthCalledWith(1, "daemon-a", {
+      provider: "openrouter",
+      model: "m1",
+      reasoning_effort: "high",
+      generation_settings: { temperature: 0.2 },
+    });
+    expect(agentSetThreadExecutionProfile).toHaveBeenNthCalledWith(2, "daemon-a", expect.objectContaining({ generation_settings: null, model: "m1" }));
+  });
+
+  it("reads back a thread's sampling override, and treats a missing one as inheriting the agent", async () => {
+    const selected = useAgentStore.getState().threads[0];
+    agentGetThreadExecutionProfile.mockResolvedValue({ profile: { generation_settings: { top_p: 0.8 } } });
+    expect(await loadThreadGenerationSettings(selected)).toEqual({ top_p: 0.8 });
+    agentGetThreadExecutionProfile.mockResolvedValue({ profile: { reasoning_effort: "high" } });
+    expect(await loadThreadGenerationSettings(selected)).toBeNull();
   });
 
   it("changes provider and model only on the selected thread profile", async () => {

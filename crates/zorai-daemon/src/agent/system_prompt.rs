@@ -1033,6 +1033,7 @@ mod tests {
     async fn subagent_prompt_omits_spawn_guidance_and_registry_to_prevent_recursive_spawning() {
         let root = tempfile::tempdir().expect("tempdir should succeed");
         let spawnable = SubAgentDefinition {
+            generation_settings: None,
             base_url: None,
             claude_permission_mode: None,
             id: "researcher".to_string(),

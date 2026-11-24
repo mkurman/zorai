@@ -32,6 +32,7 @@ fn provider_config(
     auth_source: AuthSource,
 ) -> ProviderConfig {
     ProviderConfig {
+        presence_penalty: None,
         base_url: base_url.to_string(),
         model: model.to_string(),
         api_key: api_key.to_string(),
@@ -308,6 +309,7 @@ async fn seed_thread_context_does_not_replace_lazy_hydrated_history() {
 async fn hydrate_restores_user_defined_subagent_thread_identity() {
     let mut config = AgentConfig::default();
     config.sub_agents.push(SubAgentDefinition {
+        generation_settings: None,
         base_url: None,
         claude_permission_mode: None,
         id: "dola".to_string(),

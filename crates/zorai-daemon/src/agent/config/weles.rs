@@ -133,6 +133,7 @@ pub(in crate::agent) fn build_effective_weles_definition(
     let system_prompt =
         resolve_main_agent_default(overrides.system_prompt.take(), &config.system_prompt);
     SubAgentDefinition {
+        generation_settings: None,
         base_url: None,
         id: WELES_BUILTIN_ID.to_string(),
         name: WELES_BUILTIN_NAME.to_string(),

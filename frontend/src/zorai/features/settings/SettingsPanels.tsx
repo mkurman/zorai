@@ -9,6 +9,7 @@ import { SetupWizard } from "@/components/SetupWizard";
 import { useAgentMissionStore } from "@/lib/agentMissionStore";
 import { previewApproval, type PreviewApprovalKind } from "./developerTools";
 import { OpenRouterProviderRoutingControls } from "@/components/settings-panel/OpenRouterProviderRoutingControls";
+import { GenerationSettingsControls, generationSettingFields } from "@/components/settings-panel/GenerationSettingsControls";
 import { SubAgentsTab } from "@/components/settings-panel/SubAgentsTab";
 import { ModelSelector } from "@/components/settings-panel/shared";
 import {
@@ -253,6 +254,18 @@ function ModelPanel() {
             config={{ ...activeProviderConfig, model: String(activeProviderConfig.model ?? "") }}
             baseUrl={String(activeProviderConfig.base_url ?? "")}
             onChange={(next) => updateProviderConfig(next)}
+          />
+        </Panel>
+      ) : null}
+      {generationSettingFields(activeProvider, String(activeProviderConfig.model ?? ""), transportValue, String(activeProviderConfig.base_url ?? "")).length > 0 ? (
+        <Panel section="Svarog" title="Generation">
+          <GenerationSettingsControls
+            providerId={activeProvider}
+            model={String(activeProviderConfig.model ?? "")}
+            transport={transportValue}
+            baseUrl={String(activeProviderConfig.base_url ?? "")}
+            value={agentSettings.generation_settings}
+            onChange={(next) => updateAgentSetting("generation_settings", next)}
           />
         </Panel>
       ) : null}
@@ -577,6 +590,8 @@ function ConciergePanel() {
   }));
   const detailLevels = Array.from(new Set([config.detail_level, "proactive_triage", "brief", "standard", "detailed"].filter(Boolean)));
   const patchConfig = (patch: Record<string, unknown>) => void updateConfig({ ...config, ...patch });
+  const rarogModel = config.model ?? String(agentSettings[effectiveProvider]?.model ?? "");
+  const rarogTransport = config.api_transport ?? agentSettings[effectiveProvider]?.api_transport;
 
   useEffect(() => {
     void refreshProviderAuthStates();
@@ -645,6 +660,18 @@ function ConciergePanel() {
             config={{ ...config, model: config.model ?? "" }}
             baseUrl={config.base_url ?? ""}
             onChange={({ model: _model, ...routing }) => patchConfig(routing)}
+          />
+        </Panel>
+      ) : null}
+      {generationSettingFields(effectiveProvider, rarogModel, rarogTransport, config.base_url ?? "").length > 0 ? (
+        <Panel section="Rarog" title="Generation">
+          <GenerationSettingsControls
+            providerId={effectiveProvider}
+            model={rarogModel}
+            transport={rarogTransport}
+            baseUrl={config.base_url ?? ""}
+            value={config.generation_settings}
+            onChange={(next) => patchConfig({ generation_settings: next })}
           />
         </Panel>
       ) : null}

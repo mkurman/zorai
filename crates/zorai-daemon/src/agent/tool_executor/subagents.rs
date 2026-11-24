@@ -892,6 +892,7 @@ pub(crate) async fn execute_spawn_subagent(
         .clone()
         .or_else(|| Some(default_provider_id));
     let reserved_thread_profile = ThreadExecutionProfile {
+        generation_settings: None,
         provider: reserved_thread_provider,
         model: Some(effective_provider_config.model.clone()),
         reasoning_effort: (!effective_provider_config.reasoning_effort.trim().is_empty())

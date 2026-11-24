@@ -24,6 +24,7 @@ async fn make_test_engine(config: AgentConfig) -> (Arc<AgentEngine>, TempDir) {
 
 fn provider_config(base_url: &str, model: &str, api_key: &str) -> ProviderConfig {
     ProviderConfig {
+        presence_penalty: None,
         base_url: base_url.to_string(),
         model: model.to_string(),
         api_key: api_key.to_string(),

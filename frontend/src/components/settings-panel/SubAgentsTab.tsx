@@ -1,11 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useAgentStore, getSupportedApiTransports } from "../../lib/agentStore";
-import type { SubAgentDefinition, AgentProviderId } from "../../lib/agentStore";
+import type { SubAgentDefinition, AgentProviderId, GenerationSettings } from "../../lib/agentStore";
 import { getSubAgentCapabilities } from "../../lib/agentStore/providerActions";
 import { selectableProviderAuthStates } from "./agentTabHelpers";
 import { ModelSelector } from "./shared";
 import { SUB_AGENT_ROLE_PRESETS, findSubAgentRolePreset } from "./subAgentRolePresets";
 import { OpenRouterProviderRoutingControls } from "./OpenRouterProviderRoutingControls";
+import { GenerationSettingsControls } from "./GenerationSettingsControls";
 import { displayAgentName } from "../../lib/agentNames";
 import { PreferredSkillsEditor } from "../../zorai/features/skills/PreferredSkillsEditor";
 import { preferredSkillScopeId } from "../../zorai/features/skills/skillLibrary";
@@ -31,6 +32,7 @@ type SubAgentForm = {
     openrouter_provider_order: string[];
     openrouter_provider_ignore: string[];
     openrouter_allow_fallbacks: boolean | null;
+    generation_settings: GenerationSettings | null;
 };
 
 const emptyForm: SubAgentForm = {
@@ -51,6 +53,7 @@ const emptyForm: SubAgentForm = {
     openrouter_provider_order: [],
     openrouter_provider_ignore: [],
     openrouter_allow_fallbacks: null,
+    generation_settings: null,
 };
 
 export function SubAgentsTab() {
@@ -90,6 +93,7 @@ export function SubAgentsTab() {
             max_duration_secs: form.max_duration_secs ? Number(form.max_duration_secs) : undefined,
             reasoning_effort: form.reasoning_effort || undefined,
             api_transport: form.api_transport ? (form.api_transport as SubAgentDefinition["api_transport"]) : undefined,
+            generation_settings: form.generation_settings,
             ...(form.provider === "openrouter"
                 ? {
                     openrouter_provider_order: form.openrouter_provider_order,
@@ -134,6 +138,7 @@ export function SubAgentsTab() {
             openrouter_provider_order: sa.openrouter_provider_order ?? [],
             openrouter_provider_ignore: sa.openrouter_provider_ignore ?? [],
             openrouter_allow_fallbacks: sa.openrouter_allow_fallbacks ?? null,
+            generation_settings: sa.generation_settings ?? null,
         });
         setEditingId(sa.id);
         setShowForm(true);
@@ -355,6 +360,15 @@ export function SubAgentsTab() {
                                 openrouter_provider_ignore: next.openrouter_provider_ignore ?? [],
                                 openrouter_allow_fallbacks: next.openrouter_allow_fallbacks ?? null,
                             })}
+                        />
+                    ) : null}
+                    {editingId !== WELES_BUILTIN_SUBAGENT_ID ? (
+                        <GenerationSettingsControls
+                            providerId={form.provider}
+                            model={form.model}
+                            transport={form.api_transport || undefined}
+                            value={form.generation_settings}
+                            onChange={(next) => setForm({ ...form, generation_settings: next })}
                         />
                     ) : null}
                     <Field label="Role">
