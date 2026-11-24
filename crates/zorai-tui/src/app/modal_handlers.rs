@@ -490,6 +490,14 @@ impl TuiModel {
                                     model_id,
                                     pending.reasoning_effort.as_deref(),
                                 );
+                                if let Some(context_window) =
+                                    self.known_model_context_window(&pending.provider_id, model_id, None)
+                                {
+                                    self.apply_target_agent_model_context_window(
+                                        &pending.target_agent_id,
+                                        context_window,
+                                    );
+                                }
                                 self.status_line =
                                     format!("{} model: {}", pending.target_agent_name, model_id);
                             }
@@ -722,8 +730,17 @@ impl TuiModel {
                                 }
                             }
                             "subagent_model" => {
+                                let provider_id = self
+                                    .subagents
+                                    .editor
+                                    .as_ref()
+                                    .map(|editor| editor.provider.clone())
+                                    .unwrap_or_default();
+                                let context_window =
+                                    self.known_model_context_window(&provider_id, value.trim(), None);
                                 if let Some(editor) = self.subagents.editor.as_mut() {
                                     editor.model = value.trim().to_string();
+                                    editor.context_window_tokens = context_window;
                                 }
                             }
                             "subagent_base_url" => {

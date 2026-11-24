@@ -783,6 +783,7 @@ declare global {
         agentGetGitDiff?: (repoPath: string, filePath?: string | null) => Promise<{ repo_path: string; file_path?: string | null; diff: string } | string | unknown>;
         agentGetFilePreview?: (path: string, maxBytes?: number | null) => Promise<{ path: string; content: string; truncated: boolean; is_text: boolean } | null | unknown>;
         agentDataQuery?: (request: Record<string, unknown>) => Promise<unknown>;
+        agentDataExport?: (request: Record<string, unknown>, suggestedName: string) => Promise<unknown>;
         agentStartGoalRun?: (payload: { goal: string; title?: string | null; sessionId?: string | null; priority?: string | null; threadId?: string | null; targetAgentId?: string | null; clientRequestId?: string | null; requiresApproval?: boolean; launchAssignments?: Array<{ role_id: string; enabled: boolean; provider: string; model: string; reasoning_effort?: string | null; inherit_from_main: boolean }> }) => Promise<ZoraiGoalRun | unknown>;
         agentListGoalRuns?: () => Promise<ZoraiGoalRun[] | unknown>;
         agentGetGoalRun?: (goalRunId: string) => Promise<ZoraiGoalRun | unknown>;

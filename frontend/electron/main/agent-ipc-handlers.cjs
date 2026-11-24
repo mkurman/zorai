@@ -68,7 +68,7 @@ function normalizeGoalLaunchAssignments(value) {
 
 function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
     const { sendAgentCommand, sendAgentQuery } = runtime;
-    const { logToFile, openAICodexAuthHandlers, saveTempAudioCapture } = options;
+    const { logToFile, openAICodexAuthHandlers, saveTempAudioCapture, chooseDataExportPath } = options;
 
     ipcMain.handle('agent-send-message', async (_event, threadId, content, sessionId, contextMessages, contentBlocksJson, targetAgentId, workspaceContext) => {
         try {
@@ -365,6 +365,15 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
         }
     });
     ipcMain.handle('agent-get-git-diff', async (_event, repoPath, filePath) => { try { return await sendAgentQuery({ type: 'get-git-diff', repo_path: repoPath, file_path: typeof filePath === 'string' && filePath.trim() ? filePath.trim() : null }, 'git-diff'); } catch { return { repo_path: repoPath, file_path: filePath ?? null, diff: '' }; } });
+    ipcMain.handle('agent-data-export', async (event, request, suggestedName) => {
+        try {
+            const outputPath = await chooseDataExportPath?.(event, suggestedName, request?.export_format);
+            if (!outputPath) return { ok: false, canceled: true, error: null };
+            return await sendAgentQuery({ type: 'data-query', request: { ...request, op: 'export', output_path: outputPath } }, 'data-query-result', 310000);
+        } catch (error) {
+            return { ok: false, error: error instanceof Error ? error.message : String(error) };
+        }
+    });
     ipcMain.handle('agent-data-query', async (_event, request) => { try { return await sendAgentQuery({ type: 'data-query', request }, 'data-query-result', 35000); } catch (error) { return { ok: false, error: error instanceof Error ? error.message : String(error), request_id: request?.request_id ?? null }; } });
     ipcMain.handle('agent-get-file-preview', async (_event, filePath, maxBytes) => { try { return await sendAgentQuery({ type: 'get-file-preview', path: filePath, max_bytes: Number.isFinite(maxBytes) ? Math.max(1024, Math.trunc(maxBytes)) : null }, 'file-preview'); } catch { return { path: filePath, content: '', truncated: false, is_text: false }; } });
     ipcMain.handle('agent-start-goal-run', async (_event, payload) => { try { return await sendAgentQuery({ type: 'start-goal-run', goal: payload?.goal, title: typeof payload?.title === 'string' && payload.title.trim() ? payload.title.trim() : null, thread_id: typeof payload?.threadId === 'string' && payload.threadId.trim() ? payload.threadId.trim() : null, session_id: typeof payload?.sessionId === 'string' && payload.sessionId.trim() ? payload.sessionId.trim() : null, priority: typeof payload?.priority === 'string' && payload.priority.trim() ? payload.priority.trim() : null, client_request_id: typeof payload?.clientRequestId === 'string' && payload.clientRequestId.trim() ? payload.clientRequestId.trim() : null, launch_assignments: normalizeGoalLaunchAssignments(payload?.launchAssignments), target_agent_id: typeof payload?.targetAgentId === 'string' && payload.targetAgentId.trim() ? payload.targetAgentId.trim() : null, requires_approval: payload?.requiresApproval !== false }, 'goal-run-started'); } catch (err) { return { ok: false, error: err?.message || String(err) }; } });

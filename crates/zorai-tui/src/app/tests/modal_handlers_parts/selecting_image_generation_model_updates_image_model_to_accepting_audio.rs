@@ -630,3 +630,42 @@ fn accepting_audio_model_stt_reuse_updates_stt_model() {
         )
     }));
 }
+
+#[test]
+fn selecting_svarog_model_sends_its_known_context_window_instead_of_the_default() {
+    let (mut model, mut daemon_rx) = make_model();
+    model.config.model.clear();
+    model
+        .config
+        .reduce(config::ConfigAction::ModelsFetched(vec![
+            crate::state::config::FetchedModel {
+                id: "gpt-4.1-long".to_string(),
+                name: Some("GPT 4.1 Long".to_string()),
+                context_window: Some(1_047_576),
+                pricing: None,
+                metadata: None,
+            },
+        ]));
+    model.settings_picker_target = Some(SettingsPickerTarget::Model);
+    model
+        .modal
+        .reduce(modal::ModalAction::Push(modal::ModalKind::ModelPicker));
+    navigate_model_picker_to(&mut model, "gpt-4.1-long");
+
+    model.handle_key_modal(
+        KeyCode::Enter,
+        KeyModifiers::NONE,
+        modal::ModalKind::ModelPicker,
+    );
+
+    assert_eq!(model.config.context_window_tokens, 1_047_576);
+    let commands = collect_daemon_commands(&mut daemon_rx);
+    assert!(
+        commands.iter().any(|command| matches!(
+            command,
+            DaemonCommand::SetConfigItem { key_path, value_json }
+                if key_path == "/context_window_tokens" && value_json == "1047576"
+        )),
+        "the daemon only knows its built-in catalog, so the picked window must be sent"
+    );
+}

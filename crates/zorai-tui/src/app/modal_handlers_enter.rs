@@ -877,13 +877,18 @@ pub(super) fn handle_modal_enter(model: &mut TuiModel, kind: modal::ModalKind) {
                 model.status_line = "No models available. Set model in /settings".to_string();
             } else if let Some(model_entry) = models.get(cursor) {
                 let model_id = model_entry.id.clone();
-                let model_context_window = model_entry.context_window;
+                let picked_context_window = model_entry.context_window;
                 let mut follow_up_confirm = None;
                 match model
                     .settings_picker_target
                     .unwrap_or(SettingsPickerTarget::Model)
                 {
                     SettingsPickerTarget::Model => {
+                        let model_context_window = model.known_model_context_window(
+                            &model.config.provider.clone(),
+                            &model_id,
+                            picked_context_window,
+                        );
                         model
                             .config
                             .reduce(config::ConfigAction::SetModel(model_id.clone()));
@@ -909,6 +914,8 @@ pub(super) fn handle_modal_enter(model: &mut TuiModel, kind: modal::ModalKind) {
                             model.config.context_window_tokens =
                                 model_context_window.unwrap_or(256_000);
                         }
+                        let context_window_to_send = model.config.context_window_tokens;
+                        model.send_svarog_context_window_to_daemon(context_window_to_send);
                         let previous_transport = model.config.api_transport.clone();
                         model.config.api_transport = model.provider_transport_snapshot(
                             &model.config.provider,
@@ -1087,7 +1094,11 @@ pub(super) fn handle_modal_enter(model: &mut TuiModel, kind: modal::ModalKind) {
                     }
                     SettingsPickerTarget::CompactionCustomModel => {
                         model.config.compaction_custom_model = model_id.clone();
-                        if let Some(context_window) = model_context_window {
+                        if let Some(context_window) = model.known_model_context_window(
+                            &model.config.compaction_custom_provider.clone(),
+                            &model_id,
+                            picked_context_window,
+                        ) {
                             model.config.compaction_custom_context_window_tokens = context_window;
                         }
                         model.normalize_compaction_custom_transport();
@@ -1095,6 +1106,17 @@ pub(super) fn handle_modal_enter(model: &mut TuiModel, kind: modal::ModalKind) {
                         model.sync_config_to_daemon();
                     }
                     SettingsPickerTarget::SubAgentModel => {
+                        let provider_id = model
+                            .subagents
+                            .editor
+                            .as_ref()
+                            .map(|editor| editor.provider.clone())
+                            .unwrap_or_default();
+                        let model_context_window = model.known_model_context_window(
+                            &provider_id,
+                            &model_id,
+                            picked_context_window,
+                        );
                         if let Some(editor) = model.subagents.editor.as_mut() {
                             editor.model = model_id.clone();
                             editor.context_window_tokens = model_context_window;
@@ -1122,10 +1144,15 @@ pub(super) fn handle_modal_enter(model: &mut TuiModel, kind: modal::ModalKind) {
                             &model_id,
                             pending.reasoning_effort.as_deref(),
                         );
-                        if let Some(context_window) = model_context_window {
-                            if let Some(thread) = model.chat.active_thread_mut() {
-                                thread.profile_context_window_tokens = Some(context_window);
-                            }
+                        if let Some(context_window) = model.known_model_context_window(
+                            &pending.provider_id,
+                            &model_id,
+                            picked_context_window,
+                        ) {
+                            model.apply_target_agent_model_context_window(
+                                &pending.target_agent_id,
+                                context_window,
+                            );
                         }
                         model.status_line =
                             format!("{} model: {}", pending.target_agent_name, model_id);

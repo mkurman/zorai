@@ -106,7 +106,7 @@ export function ThreadRuntimeBar({ thread }: { thread: AgentThread }) {
             api_key={providerConfig?.api_key}
             auth_source={providerConfig?.auth_source}
             onChange={(nextModel, _name, details) => {
-              const nextContextWindow = details?.predefinedModel?.contextWindow || details?.fetchedModel?.contextWindow;
+              const nextContextWindow = details?.contextWindow;
               void run(() => applyThreadProviderModel(thread, providerId, nextModel, nextContextWindow));
             }}
           />

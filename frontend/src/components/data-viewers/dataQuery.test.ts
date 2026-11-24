@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({ bridge: {} as Record<string, unknown> }));
 
 vi.mock("@/lib/bridge", () => ({ getBridge: () => mocks.bridge }));
 
-import { isEngineDataPath, isEngineOnlyDataPath, readDataQueryResponse, runDataQuery } from "./dataQuery";
+import { exportDataQuery, isEngineDataPath, isEngineOnlyDataPath, readDataQueryResponse, runDataQuery } from "./dataQuery";
 
 describe("data engine client", () => {
   beforeEach(() => {
@@ -44,5 +44,30 @@ describe("data engine client", () => {
     expect(isEngineOnlyDataPath("/d/rows.csv")).toBe(false);
     expect(isEngineDataPath("/d/rows.csv")).toBe(true);
     expect(isEngineDataPath("/d/config.json")).toBe(false);
+  });
+});
+
+describe("data export", () => {
+  beforeEach(() => {
+    mocks.bridge = {};
+  });
+
+  it("asks the daemon to export the whole filtered file, not the page on screen", async () => {
+    const agentDataExport = vi.fn(async () => ({ ok: true, path: "/home/u/Downloads/a.csv", total_rows: 5000 }));
+    mocks.bridge = { agentDataExport };
+
+    const result = await exportDataQuery({ op: "export", path: "/d/a.parquet", search: "x", export_format: "csv" }, "a-filtered");
+
+    const [request, name] = agentDataExport.mock.calls[0] as unknown as [Record<string, unknown>, string];
+    expect(request).toMatchObject({ op: "export", search: "x", export_format: "csv" });
+    expect(request.limit).toBeUndefined();
+    expect(name).toBe("a-filtered");
+    expect(result?.total_rows).toBe(5000);
+  });
+
+  it("treats a cancelled save dialog as no-op instead of an error toast", async () => {
+    mocks.bridge = { agentDataExport: vi.fn(async () => ({ ok: false, canceled: true, error: null })) };
+
+    expect(await exportDataQuery({ op: "export", path: "/d/a.csv", export_format: "xlsx" }, "a")).toBeNull();
   });
 });

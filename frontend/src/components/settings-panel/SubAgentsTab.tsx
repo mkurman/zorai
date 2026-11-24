@@ -11,6 +11,14 @@ import { displayAgentName } from "../../lib/agentNames";
 import { PreferredSkillsEditor } from "../../zorai/features/skills/PreferredSkillsEditor";
 import { preferredSkillScopeId } from "../../zorai/features/skills/skillLibrary";
 import { PromptEditor } from "@/zorai/features/settings/PromptEditor";
+import { ViewModeToggle } from "../data-viewers/ViewModeToggle";
+import { filterSubAgents, type SubAgentStatusFilter } from "./subAgentFilter";
+
+const STATUS_FILTERS = [
+    { id: "all", label: "All" },
+    { id: "enabled", label: "Enabled" },
+    { id: "disabled", label: "Disabled" },
+] as const;
 
 const WELES_BUILTIN_SUBAGENT_ID = "weles_builtin";
 
@@ -68,6 +76,8 @@ export function SubAgentsTab() {
     const updateAgentSetting = useAgentStore((s) => s.updateAgentSetting);
 
     const [showForm, setShowForm] = useState(false);
+    const [query, setQuery] = useState("");
+    const [statusFilter, setStatusFilter] = useState<SubAgentStatusFilter>("all");
     const [editingId, setEditingId] = useState<string | null>(null);
     const [form, setForm] = useState<SubAgentForm>(emptyForm);
     const selectableProviders = selectableProviderAuthStates(providerAuthStates);
@@ -175,6 +185,8 @@ export function SubAgentsTab() {
     };
 
     const title = showForm ? (editingId ? "Edit Sub-Agent" : "Add Sub-Agent") : "Sub-Agent Registry";
+    const agentDisplayName = (sa: SubAgentDefinition) => sa.id === WELES_BUILTIN_SUBAGENT_ID ? displayAgentName(sa.name, agentAliases) : sa.name;
+    const visibleSubAgents = filterSubAgents(subAgents, query, statusFilter, providerName, agentDisplayName);
 
     return (
         <section className="zorai-subagents">
@@ -205,61 +217,83 @@ export function SubAgentsTab() {
             ) : null}
 
             {!showForm && subAgents.length > 0 && (
-                <div className="zorai-subagents__list">
-                    {subAgents.map((sa) => {
-                        const capabilities = getSubAgentCapabilities(sa);
-                        return (
-                            <article
-                                key={sa.id}
-                                className={["zorai-subagent-card", sa.enabled ? "is-enabled" : "is-disabled"].join(" ")}
-                            >
-                                <div className="zorai-subagent-card__row">
-                                    <div className="zorai-subagent-card__identity">
-                                        <span
-                                            className={["zorai-subagent-card__status", sa.enabled ? "is-enabled" : ""].filter(Boolean).join(" ")}
-                                            aria-hidden
-                                        />
-                                        <div className="zorai-subagent-card__copy">
-                                            <strong>{sa.id === WELES_BUILTIN_SUBAGENT_ID ? displayAgentName(sa.name, agentAliases) : sa.name}</strong>
-                                            <div className="zorai-subagent-card__meta">
-                                                {capabilities.isProtected && (
-                                                    <span className="zorai-subagent-card__pill zorai-subagent-card__pill--warning">Built-in</span>
-                                                )}
-                                                <span className="zorai-subagent-card__pill">
-                                                    {providerName(sa.provider)} / {sa.model}
-                                                </span>
-                                                {sa.reasoning_effort && (
-                                                    <span className="zorai-subagent-card__pill">effort: {sa.reasoning_effort}</span>
-                                                )}
-                                                {sa.role && (
-                                                    <span className="zorai-subagent-card__pill zorai-subagent-card__pill--accent">{sa.role}</span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="zorai-subagent-card__actions">
-                                        {capabilities.canToggle && (
-                                            <button type="button" className="zorai-ghost-button" onClick={() => handleToggle(sa)}>
-                                                {sa.enabled ? "Disable" : "Enable"}
+                <>
+                    <div className="zorai-subagents__toolbar">
+                        <input
+                            className="zorai-input zorai-subagents__search"
+                            type="search"
+                            placeholder="Search name, provider, model, role…"
+                            aria-label="Search sub-agents"
+                            value={query}
+                            onChange={(event) => setQuery(event.target.value)}
+                        />
+                        <ViewModeToggle modes={STATUS_FILTERS} value={statusFilter} onChange={setStatusFilter} label="Status" />
+                        <span className="zorai-subagents__count">{visibleSubAgents.length} of {subAgents.length}</span>
+                    </div>
+                    {visibleSubAgents.length === 0 ? (
+                        <p className="zorai-subagents__empty">No sub-agents match.</p>
+                    ) : (
+                        <div className="zorai-subagent-table" role="table" aria-label="Sub-agents">
+                            <div className="zorai-subagent-table__row zorai-subagent-table__row--head" role="row">
+                                <span role="columnheader" />
+                                <span role="columnheader">Name</span>
+                                <span role="columnheader">Provider / Model</span>
+                                <span role="columnheader">Role</span>
+                                <span role="columnheader">Effort</span>
+                                <span role="columnheader">On</span>
+                                <span role="columnheader" />
+                            </div>
+                            {visibleSubAgents.map((sa) => {
+                                const capabilities = getSubAgentCapabilities(sa);
+                                const modelLabel = `${providerName(sa.provider)} / ${sa.model}`;
+                                return (
+                                    <div
+                                        key={sa.id}
+                                        role="row"
+                                        className={["zorai-subagent-table__row", sa.enabled ? "is-enabled" : "is-disabled"].join(" ")}
+                                    >
+                                        <span role="cell" className={["zorai-subagent-card__status", sa.enabled ? "is-enabled" : ""].filter(Boolean).join(" ")} aria-label={sa.enabled ? "Enabled" : "Disabled"} />
+                                        <span role="cell" className="zorai-subagent-table__name">
+                                            <strong title={agentDisplayName(sa)}>{agentDisplayName(sa)}</strong>
+                                            {capabilities.isProtected ? (
+                                                <span className="zorai-subagent-card__pill zorai-subagent-card__pill--warning" title={capabilities.protectedReason ?? undefined}>Built-in</span>
+                                            ) : null}
+                                        </span>
+                                        <span role="cell" className="zorai-subagent-table__model" title={modelLabel}>{modelLabel}</span>
+                                        <span role="cell" className="zorai-subagent-table__role">{sa.role || "—"}</span>
+                                        <span role="cell" className="zorai-subagent-table__muted">{sa.reasoning_effort || "—"}</span>
+                                        <span role="cell">
+                                            {capabilities.canToggle ? (
+                                                <button
+                                                    type="button"
+                                                    className={["zorai-switch", sa.enabled ? "zorai-switch--on" : ""].filter(Boolean).join(" ")}
+                                                    aria-pressed={sa.enabled}
+                                                    aria-label={`${sa.enabled ? "Disable" : "Enable"} ${agentDisplayName(sa)}`}
+                                                    title={sa.enabled ? "Disable" : "Enable"}
+                                                    onClick={() => void handleToggle(sa)}
+                                                >
+                                                    <span />
+                                                </button>
+                                            ) : <span className="zorai-subagent-table__muted">—</span>}
+                                        </span>
+                                        <span role="cell" className="zorai-subagent-table__actions">
+                                            <button type="button" className="zorai-subagent-table__icon" title="Edit" aria-label={`Edit ${agentDisplayName(sa)}`} onClick={() => handleEdit(sa)}>
+                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4" /></svg>
                                             </button>
-                                        )}
-                                        <button type="button" className="zorai-ghost-button" onClick={() => handleEdit(sa)}>
-                                            Edit
-                                        </button>
-                                        {capabilities.canDelete && (
-                                            <button type="button" className="zorai-ghost-button zorai-subagents__danger" onClick={() => handleDelete(sa.id)}>
-                                                Delete
-                                            </button>
-                                        )}
+                                            {capabilities.canDelete ? (
+                                                <button type="button" className="zorai-subagent-table__icon zorai-subagent-table__icon--danger" title="Delete" aria-label={`Delete ${agentDisplayName(sa)}`} onClick={() => {
+                                                    if (window.confirm(`Delete sub-agent "${agentDisplayName(sa)}"? This cannot be undone.`)) void handleDelete(sa.id);
+                                                }}>
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13" /></svg>
+                                                </button>
+                                            ) : null}
+                                        </span>
                                     </div>
-                                </div>
-                                {capabilities.isProtected && capabilities.protectedReason && (
-                                    <p className="zorai-subagent-card__note">{capabilities.protectedReason}</p>
-                                )}
-                            </article>
-                        );
-                    })}
-                </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </>
             )}
 
             {showForm ? (
@@ -300,7 +334,11 @@ export function SubAgentsTab() {
                             <ModelSelector
                                 providerId={form.provider as AgentProviderId}
                                 value={form.model}
-                                onChange={(model) => setForm({ ...form, model })}
+                                onChange={(model, _name, details) => setForm({
+                                    ...form,
+                                    model,
+                                    context_window_tokens: details?.contextWindow ? String(details.contextWindow) : form.context_window_tokens,
+                                })}
                                 allowProviderAuthFetch={Boolean(providerAuthStates.find((p) => p.provider_id === form.provider)?.authenticated)}
                             />
                         ) : (

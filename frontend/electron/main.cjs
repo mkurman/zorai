@@ -707,6 +707,16 @@ function registerIpcHandlers() {
         logToFile,
         openAICodexAuthHandlers,
         saveTempAudioCapture: (payload) => saveTempAudioCapture(payload, { ttlMs: VISION_SCREENSHOT_TTL_MS }),
+        async chooseDataExportPath(event, suggestedName, format) {
+            const extension = format === 'xlsx' ? 'xlsx' : 'csv';
+            const base = String(suggestedName || 'data').replace(/[\\/:*?"<>|]+/g, '-').trim() || 'data';
+            const { canceled, filePath } = await dialog.showSaveDialog(BrowserWindow.fromWebContents(event.sender), {
+                title: 'Export Data',
+                defaultPath: path.join(app.getPath('downloads'), `${base}.${extension}`),
+                filters: [extension === 'xlsx' ? { name: 'Excel', extensions: ['xlsx'] } : { name: 'CSV', extensions: ['csv'] }],
+            });
+            return canceled || !filePath ? null : filePath;
+        },
     });
     sendAgentCommandFn = sendAgentCommand;
 }

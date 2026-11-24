@@ -11,6 +11,8 @@ fn request(path: &Path, op: &str) -> DataQueryRequest {
         sort_column: None,
         sort_direction: None,
         search: None,
+        export_format: None,
+        output_path: None,
     }
 }
 
@@ -145,4 +147,83 @@ async fn failures_are_reported_with_the_request_id_instead_of_dropped() {
     req.sort_column = Some("score; DROP TABLE x".to_string());
     let response = run_data_query(req).await;
     assert!(!response.ok, "sort columns must be validated against the schema");
+}
+
+#[tokio::test]
+async fn export_writes_every_matching_row_not_just_the_visible_page() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = write_parquet(dir.path());
+    let target = dir.path().join("out.csv");
+    let mut req = request(&path, "export");
+    req.export_format = Some("csv".to_string());
+    req.output_path = Some(target.display().to_string());
+    req.search = Some("case-4".to_string());
+    req.sort_column = Some("id".to_string());
+    req.sort_direction = Some("desc".to_string());
+
+    let response = run_data_query(req).await;
+
+    assert!(response.ok, "{:?}", response.error);
+    assert_eq!(response.total_rows, 111, "search applies to the export, paging does not");
+    let text = std::fs::read_to_string(&target).unwrap();
+    let lines = text.lines().collect::<Vec<_>>();
+    assert_eq!(lines.len(), 112);
+    assert_eq!(lines[0], "id,label,score");
+    assert_eq!(lines[1], "499,case-499,748.5", "the export keeps the operator's sort");
+}
+
+#[tokio::test]
+async fn csv_export_quotes_cells_that_would_break_columns() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("notes.jsonl");
+    std::fs::write(&path, "{\"note\":\"a, \\\"b\\\"\"}\n").unwrap();
+    let target = dir.path().join("notes.csv");
+    let mut req = request(&path, "export");
+    req.export_format = Some("csv".to_string());
+    req.output_path = Some(target.display().to_string());
+
+    let response = run_data_query(req).await;
+
+    assert!(response.ok, "{:?}", response.error);
+    assert_eq!(
+        std::fs::read_to_string(&target).unwrap(),
+        "note\n\"a, \"\"b\"\"\"\n"
+    );
+}
+
+#[tokio::test]
+async fn xlsx_export_keeps_numbers_as_numbers_so_excel_can_sum_them() {
+    use calamine::{open_workbook_auto, Data, Reader};
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = write_parquet(dir.path());
+    let target = dir.path().join("out.xlsx");
+    let mut req = request(&path, "export");
+    req.export_format = Some("xlsx".to_string());
+    req.output_path = Some(target.display().to_string());
+
+    let response = run_data_query(req).await;
+
+    assert!(response.ok, "{:?}", response.error);
+    assert_eq!(response.total_rows, 500);
+    let mut workbook = open_workbook_auto(&target).unwrap();
+    let range = workbook.worksheet_range("Sheet1").unwrap();
+    assert_eq!(range.height(), 501);
+    assert_eq!(range.get((1, 2)), Some(&Data::Float(0.0)));
+    assert_eq!(range.get((1, 1)), Some(&Data::String("case-0".to_string())));
+}
+
+#[tokio::test]
+async fn export_refuses_to_overwrite_the_source_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("data.csv");
+    std::fs::write(&path, "a\n1\n").unwrap();
+    let mut req = request(&path, "export");
+    req.export_format = Some("csv".to_string());
+    req.output_path = Some(path.display().to_string());
+
+    let response = run_data_query(req).await;
+
+    assert!(!response.ok);
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "a\n1\n");
 }
