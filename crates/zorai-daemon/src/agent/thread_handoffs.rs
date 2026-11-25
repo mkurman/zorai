@@ -324,6 +324,14 @@ fn resolve_thread_handoff_agent(alias: &str) -> Option<(String, String)> {
         MOKOSH_AGENT_ID => Some((MOKOSH_AGENT_ID.to_string(), MOKOSH_AGENT_NAME.to_string())),
         DAZHBOG_AGENT_ID => Some((DAZHBOG_AGENT_ID.to_string(), DAZHBOG_AGENT_NAME.to_string())),
         ROD_AGENT_ID => Some((ROD_AGENT_ID.to_string(), ROD_AGENT_NAME.to_string())),
+        LESZY_AGENT_ID => Some((LESZY_AGENT_ID.to_string(), LESZY_AGENT_NAME.to_string())),
+        KIKIMORA_AGENT_ID => Some((
+            KIKIMORA_AGENT_ID.to_string(),
+            KIKIMORA_AGENT_NAME.to_string(),
+        )),
+        BANNIK_AGENT_ID => Some((BANNIK_AGENT_ID.to_string(), BANNIK_AGENT_NAME.to_string())),
+        OVINNIK_AGENT_ID => Some((OVINNIK_AGENT_ID.to_string(), OVINNIK_AGENT_NAME.to_string())),
+        DZIAD_AGENT_ID => Some((DZIAD_AGENT_ID.to_string(), DZIAD_AGENT_NAME.to_string())),
         WELES_AGENT_ID | "veles" => {
             Some((WELES_AGENT_ID.to_string(), WELES_AGENT_NAME.to_string()))
         }

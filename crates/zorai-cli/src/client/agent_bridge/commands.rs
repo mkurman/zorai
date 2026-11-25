@@ -220,6 +220,8 @@ where
             after,
             diagnostics,
             instruction,
+            request_id,
+            reasoning,
         } => {
             framed
                 .send(ClientMessage::AgentGenerateCodeFix {
@@ -230,6 +232,25 @@ where
                     after,
                     diagnostics,
                     instruction,
+                    request_id,
+                    reasoning,
+                })
+                .await?;
+        }
+        AgentBridgeCommand::CodeComplete {
+            request_id,
+            path,
+            language,
+            prefix,
+            suffix,
+        } => {
+            framed
+                .send(ClientMessage::AgentCodeComplete {
+                    request_id,
+                    path,
+                    language,
+                    prefix,
+                    suffix,
                 })
                 .await?;
         }

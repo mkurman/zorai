@@ -396,6 +396,10 @@ impl TuiModel {
                             "concierge_base_url" => {
                                 self.concierge.base_url = value.trim().to_string();
                             }
+                            "leszy_provider"
+                            | "leszy_model"
+                            | "leszy_base_url"
+                            | "leszy_system_prompt" => self.set_leszy_config_item(&field, &value),
                             "compaction_weles_model" => {
                                 self.config.compaction_weles_model = value.trim().to_string()
                             }
@@ -1206,6 +1210,12 @@ impl TuiModel {
                         return false;
                     }
                 }
+                SettingsTab::Weles if self.subagents.editor.is_some() => {
+                    if self.handle_subagent_settings_key(code) {
+                        self.sync_settings_modal_scroll_to_selection();
+                        return false;
+                    }
+                }
                 SettingsTab::Plugins => {
                     if self.handle_plugins_settings_key(code) {
                         self.sync_settings_modal_scroll_to_selection();
@@ -1227,7 +1237,7 @@ impl TuiModel {
                     let next_tab = all[next_idx];
                     self.settings.reduce(SettingsAction::SwitchTab(next_tab));
                     self.settings_modal_scroll = 0;
-                    if matches!(next_tab, SettingsTab::SubAgents) {
+                    if matches!(next_tab, SettingsTab::SubAgents | SettingsTab::Weles) {
                         self.send_daemon_command(DaemonCommand::ListSubAgents);
                     } else if matches!(next_tab, SettingsTab::Concierge) {
                         self.send_daemon_command(DaemonCommand::GetConciergeConfig);
@@ -1252,7 +1262,7 @@ impl TuiModel {
                     let prev_tab = all[prev_idx];
                     self.settings.reduce(SettingsAction::SwitchTab(prev_tab));
                     self.settings_modal_scroll = 0;
-                    if matches!(prev_tab, SettingsTab::SubAgents) {
+                    if matches!(prev_tab, SettingsTab::SubAgents | SettingsTab::Weles) {
                         self.send_daemon_command(DaemonCommand::ListSubAgents);
                     } else if matches!(prev_tab, SettingsTab::Concierge) {
                         self.send_daemon_command(DaemonCommand::GetConciergeConfig);

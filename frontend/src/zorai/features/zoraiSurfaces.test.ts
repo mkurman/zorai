@@ -134,12 +134,14 @@ describe("Zorai feature surfaces", () => {
 
   it("reserves editor hierarchy when no document is selected", () => {
     const workbenchSource = readFeature("../../components/WorkspaceWorkbench.tsx");
+    const statusBarSource = readFeature("./code/CodeStatusBar.tsx");
     const codeSource = readFeature("./code/CodeView.tsx");
 
     expect(workbenchSource).toContain('className="zorai-workspace-breadcrumbs zorai-workspace-breadcrumbs--empty"');
     expect(workbenchSource).toContain("No file selected");
-    expect(workbenchSource).toContain('className="zorai-workspace-statusbar"');
-    expect(workbenchSource).toContain("Ready · Select a file from Explorer");
+    expect(workbenchSource).toContain("<CodeStatusBar");
+    expect(statusBarSource).toContain('className="zorai-workspace-statusbar"');
+    expect(statusBarSource).toContain("Ready · Select a file from Explorer");
     expect(codeSource).not.toContain("export function CodeAgentPane");
   });
 

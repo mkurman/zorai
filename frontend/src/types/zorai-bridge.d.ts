@@ -756,10 +756,11 @@ declare global {
         workspaceLspStatus?: (rootPath: string, language: string) => Promise<{ root: string; language: string; configured: boolean; available: boolean; command: string | null; server: string | null }>;
         workspaceLspOpen?: (rootPath: string, relativePath: string, language: string, content: string, version: number) => Promise<{ available: boolean; reason?: string; root?: string; server?: string; missing?: boolean; command?: string; document?: { path: string; version: number } }>;
         workspaceLspChange?: (rootPath: string, relativePath: string, language: string, content: string, version: number) => Promise<unknown>;
-        workspaceLspRequest?: (rootPath: string, relativePath: string, language: string, method: "hover" | "definition" | "references" | "completion" | "rename" | "codeAction" | "formatting" | "documentSymbol", position: { line: number; character: number }, extra?: Record<string, unknown>) => Promise<{ available: boolean; reason?: string; result?: unknown }>;
+        workspaceLspRequest?: (rootPath: string, relativePath: string, language: string, method: "hover" | "definition" | "references" | "completion" | "rename" | "codeAction" | "formatting" | "documentSymbol" | "workspaceSymbol", position: { line: number; character: number }, extra?: Record<string, unknown>) => Promise<{ available: boolean; reason?: string; result?: unknown }>;
         workspaceLspClose?: (rootPath: string, relativePath: string, language: string) => Promise<boolean>;
         workspaceLspUnsubscribe?: (rootPath: string, language: string) => Promise<boolean>;
         workspaceLspServers?: () => Promise<ZoraiLanguageServerStatus[]>;
+        workspaceLspLog?: () => Promise<Array<{ at: number; server: string; root: string; level: "info" | "warning" | "error" | "stderr"; text: string }>>;
         workspaceLspInstall?: (id: string) => Promise<{ ok: boolean; output: string; installedCommand?: string | null }>;
         onWorkspaceLspDiagnostics?: (cb: (payload: ZoraiLspDiagnosticsPayload) => void) => (() => void) | void;
         workspaceTestsDiscover?: (rootPath: string, options?: { maxTests?: number }) => Promise<{ root: string; frameworks: Array<{ id: string; label: string; command: string }>; tests: ZoraiWorkspaceTest[]; truncated: boolean }>;
@@ -907,7 +908,8 @@ declare global {
         agentGetMemoryFiles?: (agentId: string) => Promise<unknown>;
         agentSaveMemoryFile?: (agentId: string, target: "soul" | "memory" | "user", content: string) => Promise<unknown>;
         agentGenerateCommitMessage?: (diff: string, recentSubjects: string[]) => Promise<{ message: string; error?: string | null }>;
-        agentGenerateCodeFix?: (request: { path: string; language: string; before: string; target: string; after: string; diagnostics: string[]; instruction?: string }) => Promise<{ replacement: string; error?: string | null }>;
+        agentGenerateCodeFix?: (request: { path: string; language: string; before: string; target: string; after: string; diagnostics: string[]; instruction?: string; requestId?: string; reasoning?: boolean }) => Promise<{ replacement: string; error?: string | null }>;
+        agentCodeComplete?: (request: { requestId: string; path: string; language: string; prefix: string; suffix: string }) => Promise<{ completion: string; error?: string | null }>;
         agentCancelOperation?: (id: string) => Promise<{ ok?: boolean; error?: string } | unknown>;
         agentDismissParticipantSuggestion?: (payload: {
             threadId: string;

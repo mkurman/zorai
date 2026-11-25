@@ -40,7 +40,9 @@ pub(crate) fn single_line_edit_layout(
         | SettingsTab::Compaction
         | SettingsTab::Execution
         | SettingsTab::Safety
-        | SettingsTab::Storage => None,
+        | SettingsTab::Storage
+        | SettingsTab::Leszy
+        | SettingsTab::Weles => None,
         SettingsTab::Mlflow => match field {
             "mlflow_tracking_uri" => Some((11, 20)),
             "mlflow_experiment_name" => Some((12, 20)),
@@ -142,7 +144,9 @@ pub(crate) fn settings_row_hit(
         | SettingsTab::Compaction
         | SettingsTab::Execution
         | SettingsTab::Safety
-        | SettingsTab::Storage => None,
+        | SettingsTab::Storage
+        | SettingsTab::Leszy
+        | SettingsTab::Weles => None,
         SettingsTab::Mlflow => row
             .checked_sub(4)
             .filter(|idx| *idx < 13)
@@ -219,7 +223,7 @@ pub(crate) fn settings_row_hit(
             hit.map(|idx| (idx + extras, None))
         }
         SettingsTab::SubAgents => {
-            let list_len = subagents.entries.len();
+            let list_len = subagents.list_entries().len();
             if list_len > 0 && (4..4 + list_len).contains(&row) {
                 Some((0, Some(row - 4)))
             } else {

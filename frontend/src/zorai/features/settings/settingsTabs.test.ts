@@ -22,7 +22,7 @@ describe("Zorai settings tabs", () => {
 
   it("orders the sidebar from agents to system settings", () => {
     expect(zoraiSettingsTabsByGroup().map((group) => [group.title, group.tabs.map((tab) => tab.title)])).toEqual([
-      ["Agents", ["Providers", "Svarog", "Rarog", "Sub-agents"]],
+      ["Agents", ["Providers", "Svarog", "Rarog", "Leszy", "Weles", "Sub-agents"]],
       ["Capabilities", ["Tools", "Skills", "Web", "Multimedia", "Memory"]],
       ["Automation", ["Heartbeat", "Proactivity", "Workflows", "Gateway"]],
       ["Runtime", ["Chat", "Compaction", "Execution", "Safety", "MLflow"]],

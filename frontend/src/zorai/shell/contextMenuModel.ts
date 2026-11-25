@@ -19,7 +19,7 @@ export const CODE_EDITOR_MENU_GROUPS: EditorMenuAction[][] = [
     { id: "edit.formatDocument", label: "Format Document" },
   ],
   [
-    { id: "zorai.rarog.fix", label: "Fix with Rarog" },
+    { id: "zorai.rarog.fix", label: "Fix with Leszy", shortcut: "Ctrl+I" },
     { id: "zorai.chat.add", label: "Add to Chat" },
   ],
 ];

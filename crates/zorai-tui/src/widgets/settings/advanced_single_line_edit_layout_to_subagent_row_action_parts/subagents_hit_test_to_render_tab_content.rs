@@ -17,10 +17,10 @@ pub(crate) fn subagents_hit_test(
     mouse: Position,
 ) -> Option<SettingsHitTarget> {
     let row = mouse.y.saturating_sub(content_area.y) as usize + scroll;
-    let list_len = subagents.entries.len();
+    let list_len = subagents.list_entries().len();
     if list_len > 0 && (4..4 + list_len).contains(&row) {
         let index = row - 4;
-        if let Some(entry) = subagents.entries.get(index) {
+        if let Some(entry) = subagents.list_entries().get(index).copied() {
             let (edit_start, delete_start, toggle_start, _, toggle_end) =
                 subagent_row_action_offsets(content_area, entry);
             if mouse.x >= edit_start && mouse.x < delete_start.saturating_sub(1) {
@@ -61,6 +61,9 @@ pub(crate) fn render_tab_content<'a>(
     plugin_settings: &PluginSettingsState,
     theme: &ThemeTokens,
 ) -> Vec<Line<'a>> {
+    if settings.active_tab() == SettingsTab::Weles && subagents.editor.is_some() {
+        return render_subagents_tab(content_width, settings, subagents, theme);
+    }
     if let Some(page) = crate::state::settings_registry::settings_page_spec(settings.active_tab()) {
         let mut lines = render_settings_page(page, settings, config, theme);
         if settings.active_tab() == SettingsTab::Memory {
@@ -82,7 +85,9 @@ pub(crate) fn render_tab_content<'a>(
         | SettingsTab::Compaction
         | SettingsTab::Execution
         | SettingsTab::Safety
-        | SettingsTab::Storage => Vec::new(),
+        | SettingsTab::Storage
+        | SettingsTab::Leszy
+        | SettingsTab::Weles => Vec::new(),
         SettingsTab::Mlflow => render_mlflow_tab(settings, config, theme),
         SettingsTab::Gateway => render_gateway_tab(settings, config, modal, theme),
         SettingsTab::Auth => render_auth_tab(content_width, auth, config, theme),

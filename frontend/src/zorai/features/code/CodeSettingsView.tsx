@@ -2,21 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { CODE_COMMANDS, displayCodeBinding } from "./codeCommands";
 import { useCodeEditorSettingsStore, type CodeEditorSettings } from "./codeEditorSettingsStore";
 import { useLanguageServerStore } from "./codeLanguageServers";
+import { CODE_SETTINGS_TABS, type CodeSettingsTab } from "./codeSettingsTabs";
 import { AppConfirmDialog } from "@/components/AppConfirmDialog";
 import { CodeIconButton } from "./CodeIconButton";
 
 type SettingKey = keyof CodeEditorSettings;
-
-export const CODE_SETTINGS_TABS = [
-  { id: "editor", label: "Editor" },
-  { id: "files", label: "Files" },
-  { id: "appearance", label: "Appearance" },
-  { id: "language-servers", label: "Language Servers" },
-  { id: "shortcuts", label: "Shortcuts" },
-  { id: "performance", label: "Performance" },
-] as const;
-
-export type CodeSettingsTab = (typeof CODE_SETTINGS_TABS)[number]["id"];
 
 export function CodeSettingsView({ tab: controlledTab, onTabChange }: { tab?: CodeSettingsTab; onTabChange?: (tab: CodeSettingsTab) => void } = {}) {
   const [localTab, setLocalTab] = useState<CodeSettingsTab>("editor");
@@ -58,6 +48,7 @@ export function CodeSettingsView({ tab: controlledTab, onTabChange }: { tab?: Co
       <ToggleSetting label="Insert spaces" checked={settings.insertSpaces} onChange={(value) => set("insertSpaces", value)} />
       <ToggleSetting label="Format on paste" checked={settings.formatOnPaste} onChange={(value) => set("formatOnPaste", value)} />
       <ToggleSetting label="Format on type" checked={settings.formatOnType} onChange={(value) => set("formatOnType", value)} />
+      <ToggleSetting label="Format on save" checked={settings.formatOnSave} onChange={(value) => set("formatOnSave", value)} />
     </SettingSection> : null}
     {tab === "files" ? <SettingSection title="Files and Auto Save" description="Dirty files always use Save / Don't Save / Cancel when closed.">
       <SelectSetting label="Auto save" value={settings.autoSave} options={["off", "after_delay", "editor_focus_lost", "code_window_focus_lost"]} onChange={(value) => set("autoSave", value as CodeEditorSettings["autoSave"])} />

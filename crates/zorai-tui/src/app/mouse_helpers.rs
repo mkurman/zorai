@@ -1012,7 +1012,7 @@ impl TuiModel {
                             }
                             self.settings.reduce(SettingsAction::SwitchTab(tab));
                             self.settings_modal_scroll = 0;
-                            if matches!(tab, SettingsTab::SubAgents) {
+                            if matches!(tab, SettingsTab::SubAgents | SettingsTab::Weles) {
                                 self.send_daemon_command(DaemonCommand::ListSubAgents);
                             } else if matches!(tab, SettingsTab::Concierge) {
                                 self.send_daemon_command(DaemonCommand::GetConciergeConfig);

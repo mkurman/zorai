@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import type { FitAddon } from "@xterm/addon-fit";
 import type { SearchAddon } from "@xterm/addon-search";
 import type { SerializeAddon } from "@xterm/addon-serialize";
@@ -23,6 +23,8 @@ import { useTerminalTranscript } from "./terminal-pane/useTerminalTranscript";
 import { encodeTextToBase64, findPaneLocationValue } from "./terminal-pane/utils";
 import "@xterm/xterm/css/xterm.css";
 import { TerminalFindBar } from "./terminal-pane/TerminalFindBar";
+import { TerminalInlineCommandPrompt } from "@/zorai/features/terminal/TerminalInlineCommandPrompt";
+import { recentTerminalOutput } from "@/zorai/features/terminal/terminalInlineCommand";
 
 interface TerminalPaneProps {
   paneId: string;
@@ -30,6 +32,7 @@ interface TerminalPaneProps {
   hideHeader?: boolean;
   cwd?: string;
   hideSharedCursor?: boolean;
+  shell?: string;
 }
 
 type DaemonState = "checking" | "reachable" | "unavailable";
@@ -40,7 +43,7 @@ type ContextMenuState = {
   y: number;
 };
 
-export function TerminalPane({ paneId, sessionId, hideHeader, cwd, hideSharedCursor }: TerminalPaneProps) {
+export function TerminalPane({ paneId, sessionId, hideHeader, cwd, hideSharedCursor, shell }: TerminalPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -64,6 +67,7 @@ export function TerminalPane({ paneId, sessionId, hideHeader, cwd, hideSharedCur
   const closePane = useWorkspaceStore((state) => state.closePane);
   const toggleZoom = useWorkspaceStore((state) => state.toggleZoom);
   const [findOpen, setFindOpen] = useState(false);
+  const [commandPromptOpen, setCommandPromptOpen] = useState(false);
   const setPaneSessionId = useWorkspaceStore((state) => state.setPaneSessionId);
   const setPaneName = useWorkspaceStore((state) => state.setPaneName);
   const setCanvasPanelStatus = useWorkspaceStore((state) => state.setCanvasPanelStatus);
@@ -107,7 +111,8 @@ export function TerminalPane({ paneId, sessionId, hideHeader, cwd, hideSharedCur
   );
   const paneWorkspaceCwd = paneLocationCwd ?? cwd;
 
-  const settings = useSettingsStore((state) => state.settings);
+  const globalSettings = useSettingsStore((state) => state.settings);
+  const settings = useMemo(() => (shell ? { ...globalSettings, defaultShell: shell } : globalSettings), [globalSettings, shell]);
   const addCommandLogEntry = useCommandLogStore((state) => state.addEntry);
   const completeLatestPendingEntry = useCommandLogStore((state) => state.completeLatestPendingEntry);
   const addTranscript = useTranscriptStore((state) => state.addTranscript);
@@ -325,6 +330,11 @@ export function TerminalPane({ paneId, sessionId, hideHeader, cwd, hideSharedCur
           event.stopPropagation();
           setFindOpen(true);
         }
+        if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "i") {
+          event.preventDefault();
+          event.stopPropagation();
+          setCommandPromptOpen(true);
+        }
       }}
       tabIndex={-1}
       style={{
@@ -349,6 +359,19 @@ export function TerminalPane({ paneId, sessionId, hideHeader, cwd, hideSharedCur
 
       <div ref={containerRef} style={{ width: "100%", height: hideHeader ? "100%" : "calc(100% - 36px)" }} />
       {hideSharedCursor ? null : <SharedCursor mode={sharedCursorMode} />}
+      {commandPromptOpen ? (
+        <TerminalInlineCommandPrompt
+          cwd={paneWorkspaceCwd}
+          shell={settings.defaultShell}
+          getRecentOutput={() => recentTerminalOutput(termRef.current)}
+          onInsert={(command, run) => {
+            setCommandPromptOpen(false);
+            void sendTextInput(command, run ? { execute: true, managed: false } : { bracketed: true });
+            termRef.current?.focus();
+          }}
+          onClose={() => { setCommandPromptOpen(false); termRef.current?.focus(); }}
+        />
+      ) : null}
       {findOpen ? <TerminalFindBar searchAddonRef={searchAddonRef} onClose={() => { setFindOpen(false); termRef.current?.focus(); }} /> : null}
 
       <TerminalContextMenu

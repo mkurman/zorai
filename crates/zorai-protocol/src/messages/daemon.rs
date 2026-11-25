@@ -220,4 +220,6 @@ pub enum DaemonMessage {
     AgentUiColors { colors_json: String },
     AgentMemoryFiles { result_json: String },
     AgentCodeFixGenerated { replacement: String, #[serde(default)] error: Option<String> },
+    AgentCodeFixDelta { request_id: String, text: String, #[serde(default)] reasoning: bool },
+    AgentCodeCompletion { request_id: String, completion: String, #[serde(default)] error: Option<String> },
 }

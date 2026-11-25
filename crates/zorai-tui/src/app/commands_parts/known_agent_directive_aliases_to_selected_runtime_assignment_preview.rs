@@ -17,6 +17,10 @@ impl TuiModel {
             "mokosh".to_string(),
             "dazhbog".to_string(),
             "rod".to_string(),
+            "kikimora".to_string(),
+            "bannik".to_string(),
+            "ovinnik".to_string(),
+            "dziad".to_string(),
         ];
         for entry in &self.subagents.entries {
             aliases.push(entry.id.clone());
@@ -52,6 +56,10 @@ impl TuiModel {
                 | "mokosh"
                 | "dazhbog"
                 | "rod"
+                | "kikimora"
+                | "bannik"
+                | "ovinnik"
+                | "dziad"
         )
     }
 
@@ -68,6 +76,10 @@ impl TuiModel {
             "mokosh" => "mokosh",
             "dazhbog" => "dazhbog",
             "rod" => "rod",
+            "kikimora" => "kikimora",
+            "bannik" => "bannik",
+            "ovinnik" => "ovinnik",
+            "dziad" => "dziad",
             _ => return true,
         };
         let Some(entry) = raw
@@ -162,6 +174,10 @@ impl TuiModel {
                 | "mokosh"
                 | "dazhbog"
                 | "rod"
+                | "kikimora"
+                | "bannik"
+                | "ovinnik"
+                | "dziad"
         ) && !self.builtin_persona_configured(agent_id);
         if is_unconfigured_builtin {
             self.open_builtin_persona_setup_flow(

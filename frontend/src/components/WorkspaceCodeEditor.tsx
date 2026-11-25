@@ -2,8 +2,11 @@ import { Component, Suspense, lazy, useEffect, useRef, useState, type ErrorInfo,
 import { createPortal } from "react-dom";
 import { getBridge } from "@/lib/bridge";
 import { RarogFixPrompt } from "@/zorai/features/code/RarogFixPrompt";
+import { createInlineDiffSession, streamingPreviewText, type InlineDiffSession } from "@/zorai/features/code/codeInlineEdit";
+import { registerInlineCompletions, setInlineCompletionsEnabled } from "@/zorai/features/code/codeInlineCompletions";
 import { applyMonacoGuiTheme, readGuiMonoFontFamily, resolveMonacoFontFamily, subscribeMonacoGuiTheme, ZORAI_MONACO_THEME } from "@/lib/monacoGuiTheme";
 import { monaco } from "@/lib/monacoEnvironment";
+import { BUILT_IN_SERVICE_BY_LANGUAGE, suppressBuiltInLanguageService } from "@/lib/monacoBuiltInSuppression";
 import type { OnMount } from "@monaco-editor/react";
 import { useCodeEditorSettingsStore, type CodeEditorSettings } from "@/zorai/features/code/codeEditorSettingsStore";
 import { formatCodeText, prettierParserForLanguage } from "@/zorai/features/code/codeFormatter";
@@ -19,37 +22,6 @@ const MonacoDiffEditor = lazy(() => import("@monaco-editor/react").then((module)
 function useMonacoGuiTheme() {
   applyMonacoGuiTheme(monaco);
   useEffect(() => subscribeMonacoGuiTheme(monaco), []);
-}
-
-type BuiltInLanguageService = "typescript" | "html" | "css";
-const BUILT_IN_SERVICE_BY_LANGUAGE: Record<string, BuiltInLanguageService> = { typescript: "typescript", javascript: "typescript", html: "html", css: "css", scss: "css", less: "css" };
-const builtInServiceSuppressions: Record<BuiltInLanguageService, number> = { typescript: 0, html: 0, css: 0 };
-
-function setBuiltInLanguageService(monacoApi: Parameters<OnMount>[1], service: BuiltInLanguageService, enabled: boolean) {
-  if (service === "typescript") {
-    const modeConfiguration = {
-      completionItems: enabled, hovers: enabled, documentSymbols: enabled, definitions: enabled, references: enabled,
-      documentHighlights: true, rename: enabled, diagnostics: enabled, documentRangeFormattingEdits: enabled,
-      signatureHelp: true, onTypeFormattingEdits: enabled, codeActions: enabled, inlayHints: enabled,
-    };
-    monacoApi.languages.typescript.typescriptDefaults.setModeConfiguration(modeConfiguration);
-    monacoApi.languages.typescript.javascriptDefaults.setModeConfiguration(modeConfiguration);
-  } else if (service === "html") {
-    monacoApi.languages.html.htmlDefaults.setModeConfiguration({
-      completionItems: enabled, hovers: enabled, documentSymbols: enabled, links: enabled, documentHighlights: true,
-      rename: enabled, colors: true, foldingRanges: true, diagnostics: enabled, selectionRanges: true,
-      documentFormattingEdits: enabled, documentRangeFormattingEdits: enabled,
-    });
-  } else {
-    const modeConfiguration = {
-      completionItems: enabled, hovers: enabled, documentSymbols: enabled, definitions: enabled, references: enabled,
-      documentHighlights: true, rename: enabled, colors: true, foldingRanges: true, diagnostics: enabled,
-      selectionRanges: true, documentFormattingEdits: enabled, documentRangeFormattingEdits: enabled,
-    };
-    monacoApi.languages.css.cssDefaults.setModeConfiguration(modeConfiguration);
-    monacoApi.languages.css.scssDefaults.setModeConfiguration(modeConfiguration);
-    monacoApi.languages.css.lessDefaults.setModeConfiguration(modeConfiguration);
-  }
 }
 
 async function ensureWorkspaceMonacoModel(monacoApi: Parameters<OnMount>[1], root: string, relativePath: string) {
@@ -127,12 +99,14 @@ export function WorkspaceCodeEditor({
   const [mountedEditor, setMountedEditor] = useState<Parameters<OnMount>[0] | null>(null);
   const lspCallbacksRef = useRef({ onNavigateLocation, onApplyWorkspaceEdit, onAddToChat, onCodeFixError, onClose, path, language, workspaceRoot });
   lspCallbacksRef.current = { onNavigateLocation, onApplyWorkspaceEdit, onAddToChat, onCodeFixError, onClose, path, language, workspaceRoot };
-  const [fixPrompt, setFixPrompt] = useState<{ id: number; startLine: number; endLine: number; diagnostics: number; busy: boolean; error: string | null } | null>(null);
+  const [fixPrompt, setFixPrompt] = useState<{ id: number; startLine: number; endLine: number; diagnostics: number; busy: boolean; error: string | null; reviewing?: boolean; thinking?: string } | null>(null);
+  const inlineDiffRef = useRef<InlineDiffSession | null>(null);
   const [fixPromptHost, setFixPromptHost] = useState<HTMLElement | null>(null);
   const fixRequestRef = useRef(0);
   const fixPromptId = fixPrompt?.id;
   const fixPromptStart = fixPrompt?.startLine ?? 0;
   const fixPromptEnd = fixPrompt?.endLine ?? 0;
+  const fixPromptReviewing = Boolean(fixPrompt?.reviewing);
   useEffect(() => {
     const editor = mountedEditor;
     const monaco = monacoRef.current;
@@ -163,7 +137,7 @@ export function WorkspaceCodeEditor({
     });
     resize.observe(host);
     const layoutListener = editor.onDidLayoutChange(layout);
-    const target = editor.createDecorationsCollection([{ range: new monaco.Range(fixPromptStart, 1, fixPromptEnd, 1), options: { isWholeLine: true, className: "zorai-rarog-fix-target" } }]);
+    const target = editor.createDecorationsCollection(fixPromptReviewing ? [] : [{ range: new monaco.Range(fixPromptStart, 1, fixPromptEnd, 1), options: { isWholeLine: true, className: "zorai-rarog-fix-target" } }]);
     setFixPromptHost(host);
     return () => {
       resize.disconnect();
@@ -173,36 +147,91 @@ export function WorkspaceCodeEditor({
       editor.removeOverlayWidget(overlay);
       setFixPromptHost(null);
     };
-  }, [mountedEditor, fixPromptId, fixPromptStart, fixPromptEnd]);
-  useEffect(() => { setFixPrompt(null); }, [path]);
+  }, [mountedEditor, fixPromptId, fixPromptStart, fixPromptEnd, fixPromptReviewing]);
+  useEffect(() => {
+    inlineDiffRef.current?.reject();
+    inlineDiffRef.current = null;
+    setFixPrompt(null);
+  }, [path]);
   const closeFixPrompt = () => {
     fixRequestRef.current += 1;
+    inlineDiffRef.current?.reject();
+    inlineDiffRef.current = null;
     setFixPrompt(null);
     mountedEditor?.focus();
   };
-  const runRarogFix = async (instruction: string) => {
+  const acceptInlineEdit = () => {
+    const session = inlineDiffRef.current;
+    const editor = mountedEditor;
+    const monaco = monacoRef.current;
+    if (!session || !editor || !monaco) return;
+    const { startLine, endLine } = session.accept();
+    inlineDiffRef.current = null;
+    setFixPrompt(null);
+    const model = editor.getModel();
+    if (model) editor.setSelection(new monaco.Range(startLine, 1, endLine, model.getLineMaxColumn(endLine)));
+    editor.focus();
+  };
+  const runRarogFix = async (instruction: string, reasoning = true) => {
     const editor = mountedEditor;
     const monaco = monacoRef.current;
     const model = editor?.getModel();
     const bridge = getBridge();
     if (!editor || !monaco || !model || !fixPrompt) return;
     if (!bridge?.agentGenerateCodeFix) {
-      setFixPrompt({ ...fixPrompt, error: "Rarog quick fix needs the Zorai desktop app with an updated daemon." });
+      setFixPrompt({ ...fixPrompt, error: "Leszy quick fix needs the Zorai desktop app with an updated daemon." });
       return;
     }
     const request = ++fixRequestRef.current;
-    const { startLine, endLine } = fixPrompt;
+    const session = inlineDiffRef.current;
+    const { startLine, endLine } = session ? session.range() : fixPrompt;
     const lastLine = model.getLineCount();
     const targetRange = new monaco.Range(startLine, 1, endLine, model.getLineMaxColumn(endLine));
     const target = model.getValueInRange(targetRange);
+    if (!target.trim() && !instruction.trim()) {
+      setFixPrompt((current) => current && { ...current, error: "This line is empty. Describe what Leszy should write here." });
+      return;
+    }
     const diagnostics = monaco.editor.getModelMarkers({ resource: model.uri })
       .filter((marker) => marker.endLineNumber >= startLine && marker.startLineNumber <= endLine)
       .map((marker) => `line ${marker.startLineNumber}: ${marker.message}${marker.code ? ` (${typeof marker.code === "string" ? marker.code : marker.code.value})` : ""}`);
-    setFixPrompt((current) => current && { ...current, busy: true, error: null });
+    setFixPrompt((current) => current && { ...current, busy: true, error: null, thinking: "" });
     const pending = editor.createDecorationsCollection([{ range: targetRange, options: { isWholeLine: true, className: "zorai-rarog-fix-pending" } }]);
-    const fail = (error: string) => { if (request === fixRequestRef.current) setFixPrompt((current) => current && { ...current, busy: false, error }); };
+    const requestId = `fix-${Date.now()}-${request}`;
+    let review = session;
+    const settleInlineEdit = () => {
+      inlineDiffRef.current = null;
+      setFixPrompt(null);
+      editor.focus();
+    };
+    let streamed = "";
+    let thought = "";
+    let frame = 0;
+    const unsubscribe = bridge.onAgentEvent?.((event: { type?: string; data?: { request_id?: string; text?: string; reasoning?: boolean } }) => {
+      if (event?.type !== "code-fix-delta" || event.data?.request_id !== requestId || request !== fixRequestRef.current) return;
+      if (event.data?.reasoning) thought += event.data?.text ?? "";
+      else streamed += event.data?.text ?? "";
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        if (request !== fixRequestRef.current) return;
+        if (thought) setFixPrompt((current) => current && current.thinking !== thought ? { ...current, thinking: thought } : current);
+        const partial = streamingPreviewText(streamed);
+        if (!partial || request !== fixRequestRef.current || editor.getModel() !== model) return;
+        pending.clear();
+        review ??= createInlineDiffSession(editor, monaco, startLine, target, settleInlineEdit);
+        inlineDiffRef.current = review;
+        review.preview(partial);
+      });
+    });
+    const fail = (error: string) => {
+      inlineDiffRef.current?.cancelPreview();
+      if (inlineDiffRef.current && !session && !fixPromptReviewing) inlineDiffRef.current = null;
+      if (request === fixRequestRef.current) setFixPrompt((current) => current && { ...current, busy: false, error, thinking: "" });
+    };
     try {
       const result = await bridge.agentGenerateCodeFix({
+        requestId,
         path,
         language,
         before: startLine > 1 ? model.getValueInRange(new monaco.Range(1, 1, startLine - 1, model.getLineMaxColumn(startLine - 1))) : "",
@@ -210,22 +239,22 @@ export function WorkspaceCodeEditor({
         after: endLine < lastLine ? model.getValueInRange(new monaco.Range(endLine + 1, 1, lastLine, model.getLineMaxColumn(lastLine))) : "",
         diagnostics,
         instruction,
+        reasoning,
       });
       if (request !== fixRequestRef.current) return;
-      if (result.error || !result.replacement) return fail(`Rarog could not fix this code: ${result.error || "empty reply"}`);
-      if (editor.getModel() !== model || model.getValueInRange(targetRange) !== target) return fail("The code changed while Rarog was working, so the fix was not applied.");
-      if (result.replacement === target) return fail("Rarog found nothing to change here. Try describing what you want.");
-      editor.pushUndoStop();
-      editor.executeEdits("rarog.fix", [{ range: targetRange, text: result.replacement, forceMoveMarkers: true }]);
-      editor.pushUndoStop();
-      const fixedEnd = startLine + result.replacement.split("\n").length - 1;
-      setFixPrompt(null);
-      editor.setSelection(new monaco.Range(startLine, 1, fixedEnd, model.getLineMaxColumn(fixedEnd)));
-      editor.revealRangeInCenterIfOutsideViewport(new monaco.Range(startLine, 1, fixedEnd, 1));
-      editor.focus();
+      cancelAnimationFrame(frame);
+      if (result.error || !result.replacement) return fail(`Leszy could not fix this code: ${result.error || "empty reply"}`);
+      if (editor.getModel() !== model || (review === session && model.getValueInRange(targetRange) !== target)) return fail("The code changed while Leszy was working, so the fix was not applied.");
+      if (result.replacement === target) return fail("Leszy found nothing to change here. Try describing what you want.");
+      review ??= createInlineDiffSession(editor, monaco, startLine, target, settleInlineEdit);
+      inlineDiffRef.current = review;
+      review.show(result.replacement);
+      setFixPrompt((current) => current && { ...current, busy: false, error: null, reviewing: true, thinking: "" });
     } catch (reason) {
-      fail(`Rarog could not fix this code: ${reason instanceof Error ? reason.message : String(reason)}`);
+      fail(`Leszy could not fix this code: ${reason instanceof Error ? reason.message : String(reason)}`);
     } finally {
+      cancelAnimationFrame(frame);
+      unsubscribe?.();
       pending.clear();
     }
   };
@@ -262,7 +291,7 @@ export function WorkspaceCodeEditor({
     const disposables = [
       monaco.editor.registerCommand(fixCommand, (_accessor, lines?: { startLine: number; endLine: number }) => fixWithRarog(lines)),
       monaco.editor.registerCommand(chatCommand, () => addToChat()),
-      editor.addAction({ id: "zorai.rarog.fix", label: "Fix with Rarog", contextMenuGroupId: "0_zorai", contextMenuOrder: 1, run: () => fixWithRarog() }),
+      editor.addAction({ id: "zorai.rarog.fix", label: "Fix with Leszy", keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyI], contextMenuGroupId: "0_zorai", contextMenuOrder: 1, run: () => fixWithRarog() }),
       editor.addAction({ id: "zorai.chat.add", label: "Add to Chat", contextMenuGroupId: "0_zorai", contextMenuOrder: 2, run: () => addToChat() }),
       editor.addAction({ id: "zorai.editor.close", label: "Close Editor", run: () => lspCallbacksRef.current.onClose?.() }),
       monaco.editor.registerEditorOpener({
@@ -308,7 +337,7 @@ export function WorkspaceCodeEditor({
             : undefined;
           return {
             actions: [
-              { title: "Fix with Rarog", kind: "quickfix", command: { id: fixCommand, title: "Fix with Rarog", arguments: lines ? [lines] : [] } },
+              { title: "Fix with Leszy", kind: "quickfix", command: { id: fixCommand, title: "Fix with Leszy", arguments: lines ? [lines] : [] } },
               ...(selected ? [{ title: "Add Selection to Chat", kind: "", command: { id: chatCommand, title: "Add Selection to Chat" } }] : []),
             ],
             dispose: () => {},
@@ -517,17 +546,21 @@ export function WorkspaceCodeEditor({
         }));
       }
     const builtInService = lsp?.available ? BUILT_IN_SERVICE_BY_LANGUAGE[language] : undefined;
-    if (builtInService && builtInServiceSuppressions[builtInService]++ === 0) setBuiltInLanguageService(monaco, builtInService, false);
+    const releaseBuiltInService = builtInService ? suppressBuiltInLanguageService(builtInService) : null;
     return () => {
       providerDisposablesRef.current.forEach((disposable) => disposable.dispose());
       providerDisposablesRef.current = [];
-      if (builtInService && --builtInServiceSuppressions[builtInService] === 0) setBuiltInLanguageService(monaco, builtInService, true);
+      releaseBuiltInService?.();
     };
   }, [mountedEditor, lsp?.root, lsp?.path, lsp?.language, lsp?.available, language]);
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
     applyMonacoGuiTheme(monaco);
+    registerInlineCompletions(monaco);
+    void getBridge()?.agentGetConfig?.().then((config) => {
+      setInlineCompletionsEnabled((config as { code_completion?: { enabled?: boolean } } | null)?.code_completion?.enabled !== false);
+    }).catch(() => undefined);
     actionDisposablesRef.current.forEach((disposable) => disposable.dispose());
     actionDisposablesRef.current = registerCodeEditorActions(editor, {
       onSave,
@@ -561,7 +594,7 @@ export function WorkspaceCodeEditor({
   };
   return (
     <MonacoBoundary fallback={fallback}>
-      {fixPrompt && fixPromptHost ? createPortal(<RarogFixPrompt key={fixPrompt.id} startLine={fixPrompt.startLine} endLine={fixPrompt.endLine} diagnostics={fixPrompt.diagnostics} busy={fixPrompt.busy} error={fixPrompt.error} onSubmit={(instruction) => void runRarogFix(instruction)} onClose={closeFixPrompt} />, fixPromptHost) : null}
+      {fixPrompt && fixPromptHost ? createPortal(<RarogFixPrompt key={fixPrompt.id} startLine={fixPrompt.startLine} endLine={fixPrompt.endLine} diagnostics={fixPrompt.diagnostics} busy={fixPrompt.busy} error={fixPrompt.error} reviewing={Boolean(fixPrompt.reviewing)} thinking={fixPrompt.thinking ?? ""} onSubmit={(instruction, reasoning) => void runRarogFix(instruction, reasoning)} onAccept={acceptInlineEdit} onClose={closeFixPrompt} />, fixPromptHost) : null}
       <Suspense fallback={fallback}>
         <MonacoEditor
           path={monacoModelPath("zorai-workspace", path)}

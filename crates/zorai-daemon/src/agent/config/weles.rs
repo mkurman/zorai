@@ -124,14 +124,24 @@ pub(super) fn sanitize_weles_builtin_overrides_struct(
     );
 }
 
+pub(in crate::agent) fn inherited_base_prompt(
+    definition_id: Option<&str>,
+    config: &AgentConfig,
+) -> String {
+    if definition_id.is_some_and(is_reserved_builtin_sub_agent_id) {
+        String::new()
+    } else {
+        config.system_prompt.clone()
+    }
+}
+
 pub(in crate::agent) fn build_effective_weles_definition(
     config: &AgentConfig,
 ) -> SubAgentDefinition {
     let mut overrides = config.builtin_sub_agents.weles.clone();
     sanitize_weles_builtin_overrides_struct(&mut overrides, &config.system_prompt);
     let reasoning_effort = resolve_weles_reasoning_effort(&overrides);
-    let system_prompt =
-        resolve_main_agent_default(overrides.system_prompt.take(), &config.system_prompt);
+    let system_prompt = overrides.system_prompt.take();
     SubAgentDefinition {
         generation_settings: None,
         base_url: None,
@@ -143,7 +153,7 @@ pub(in crate::agent) fn build_effective_weles_definition(
             .role
             .clone()
             .or_else(|| Some("governance".to_string())),
-        system_prompt: Some(system_prompt),
+        system_prompt,
         tool_whitelist: overrides.tool_whitelist.clone(),
         tool_blacklist: overrides
             .tool_blacklist

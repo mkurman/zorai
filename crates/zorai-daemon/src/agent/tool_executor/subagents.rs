@@ -1169,6 +1169,48 @@ pub(crate) async fn execute_list_agents(agent: &AgentEngine) -> Result<String> {
             listing_target_value(&config.builtin_sub_agents.rod.model, &config.model),
             true,
         ),
+        list_agents_target_row(
+            &config,
+            crate::agent::agent_identity::KIKIMORA_AGENT_ID,
+            crate::agent::agent_identity::KIKIMORA_AGENT_NAME,
+            "builtin",
+            listing_target_value(
+                &config.builtin_sub_agents.kikimora.provider,
+                &config.provider,
+            ),
+            listing_target_value(&config.builtin_sub_agents.kikimora.model, &config.model),
+            true,
+        ),
+        list_agents_target_row(
+            &config,
+            crate::agent::agent_identity::BANNIK_AGENT_ID,
+            crate::agent::agent_identity::BANNIK_AGENT_NAME,
+            "builtin",
+            listing_target_value(&config.builtin_sub_agents.bannik.provider, &config.provider),
+            listing_target_value(&config.builtin_sub_agents.bannik.model, &config.model),
+            true,
+        ),
+        list_agents_target_row(
+            &config,
+            crate::agent::agent_identity::OVINNIK_AGENT_ID,
+            crate::agent::agent_identity::OVINNIK_AGENT_NAME,
+            "builtin",
+            listing_target_value(
+                &config.builtin_sub_agents.ovinnik.provider,
+                &config.provider,
+            ),
+            listing_target_value(&config.builtin_sub_agents.ovinnik.model, &config.model),
+            true,
+        ),
+        list_agents_target_row(
+            &config,
+            crate::agent::agent_identity::DZIAD_AGENT_ID,
+            crate::agent::agent_identity::DZIAD_AGENT_NAME,
+            "builtin",
+            listing_target_value(&config.builtin_sub_agents.dziad.provider, &config.provider),
+            listing_target_value(&config.builtin_sub_agents.dziad.model, &config.model),
+            true,
+        ),
     ];
 
     for sub_agent in agent.list_sub_agents().await {

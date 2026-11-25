@@ -117,7 +117,9 @@ impl TuiModel {
             "rarog" | "concierge" => Some(zorai_protocol::AGENT_ID_RAROG.to_string()),
             "weles" => Some("weles".to_string()),
             "swarozyc" | "radogost" | "domowoj" | "swietowit" | "perun" | "mokosh" | "dazhbog"
-            | "rod" => Some(agent_alias.trim().to_ascii_lowercase()),
+            | "rod" | "kikimora" | "bannik" | "ovinnik" | "dziad" => {
+                Some(agent_alias.trim().to_ascii_lowercase())
+            }
             _ => self.subagents.entries.iter().find_map(|entry| {
                 if entry.id.eq_ignore_ascii_case(agent_alias)
                     || entry.name.eq_ignore_ascii_case(agent_alias)

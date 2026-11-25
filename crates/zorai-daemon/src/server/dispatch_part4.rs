@@ -91,6 +91,7 @@ pub(crate) async fn dispatch_part4(
             | ClientMessage::AgentSaveMemoryFile { .. }
             | ClientMessage::AgentGenerateCommitMessage { .. }
             | ClientMessage::AgentGenerateCodeFix { .. }
+            | ClientMessage::AgentCodeComplete { .. }
             | ClientMessage::AgentHandoffThread { .. }
             | ClientMessage::AgentGetSubagentMetrics { .. }
             | ClientMessage::AgentGetSubsystemMetrics
@@ -1926,6 +1927,8 @@ pub(crate) async fn dispatch_part4(
             after,
             diagnostics,
             instruction,
+            request_id,
+            reasoning,
         } => {
             let request = crate::agent::code_fix::CodeFixRequest {
                 path: &path,
@@ -1935,8 +1938,35 @@ pub(crate) async fn dispatch_part4(
                 after: &after,
                 diagnostics: &diagnostics,
                 instruction: &instruction,
+                reasoning,
             };
-            let reply = match agent.generate_code_fix(&request).await {
+            let (delta_tx, mut delta_rx) = tokio::sync::mpsc::unbounded_channel::<(String, bool)>();
+            let generation = agent.generate_code_fix(&request, Some(delta_tx));
+            tokio::pin!(generation);
+            let outcome = loop {
+                tokio::select! {
+                    outcome = &mut generation => break outcome,
+                    Some((text, reasoning)) = delta_rx.recv() => {
+                        framed
+                            .send(DaemonMessage::AgentCodeFixDelta {
+                                request_id: request_id.clone(),
+                                text,
+                                reasoning,
+                            })
+                            .await?;
+                    }
+                }
+            };
+            while let Ok((text, reasoning)) = delta_rx.try_recv() {
+                framed
+                    .send(DaemonMessage::AgentCodeFixDelta {
+                        request_id: request_id.clone(),
+                        text,
+                        reasoning,
+                    })
+                    .await?;
+            }
+            let reply = match outcome {
                 Ok(replacement) => DaemonMessage::AgentCodeFixGenerated {
                     replacement,
                     error: None,
@@ -1947,6 +1977,37 @@ pub(crate) async fn dispatch_part4(
                 },
             };
             framed.send(reply).await?;
+        }
+
+        ClientMessage::AgentCodeComplete {
+            request_id,
+            path,
+            language,
+            prefix,
+            suffix,
+        } => {
+            let sender = framed.sender();
+            let agent = agent.clone();
+            let task = tokio::spawn(async move {
+                let request = crate::agent::code_complete::CodeCompleteRequest {
+                    path: &path,
+                    language: &language,
+                    prefix: &prefix,
+                    suffix: &suffix,
+                };
+                let (completion, error) = match agent.generate_code_completion(&request).await {
+                    Ok(completion) => (completion, None),
+                    Err(error) => (String::new(), Some(error.to_string())),
+                };
+                let _ = sender
+                    .send(DaemonMessage::AgentCodeCompletion {
+                        request_id,
+                        completion,
+                        error,
+                    })
+                    .await;
+            });
+            crate::agent::code_complete::supersede_in_flight(task.abort_handle());
         }
 
         ClientMessage::AgentListUiColors => {

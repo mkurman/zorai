@@ -16,6 +16,10 @@ const BUILTIN_PERSONA_ALIASES = new Map<string, string>([
   ["mokosh", "mokosh"],
   ["dazhbog", "dazhbog"],
   ["rod", "rod"],
+  ["kikimora", "kikimora"],
+  ["bannik", "bannik"],
+  ["ovinnik", "ovinnik"],
+  ["dziad", "dziad"],
 ]);
 
 export function builtinAgentSetupCandidate(

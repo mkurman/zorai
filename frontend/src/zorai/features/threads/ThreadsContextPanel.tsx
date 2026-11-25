@@ -35,9 +35,10 @@ export function ThreadsContext() {
   );
   const agentSettings = useAgentStore((state) => state.agentSettings);
   const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
+  const coderConfig = useAgentStore((state) => state.coderConfig);
   const subAgents = useAgentStore((state) => state.subAgents);
   const contextWindowTokens = activeThread
-    ? resolveThreadOwnerRuntimeProfile(activeThread, subAgents, agentSettings, conciergeConfig).contextWindowTokens
+    ? resolveThreadOwnerRuntimeProfile(activeThread, subAgents, agentSettings, conciergeConfig, coderConfig).contextWindowTokens
     : Math.max(1, Math.trunc(agentSettings.context_window_tokens || 1));
   const currentContextTokens = resolveCurrentContextTokens(activeThread, runtime.messages);
   const goal = useMemo(

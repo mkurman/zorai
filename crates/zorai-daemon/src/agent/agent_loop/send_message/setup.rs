@@ -291,6 +291,38 @@ fn build_direct_thread_responder_config(
         nonempty(execution_profile.and_then(|profile| profile.reasoning_effort.as_deref()));
     let profile_context_window_tokens =
         execution_profile.and_then(|profile| profile.context_window_tokens);
+    if resolved_scope == crate::agent::agent_identity::LESZY_AGENT_ID {
+        let Ok((provider_id, provider_config)) =
+            crate::agent::coder::resolve_coder_provider(config)
+        else {
+            return Ok(None);
+        };
+        return Ok(Some(DirectThreadResponderConfig {
+            agent_name: crate::agent::agent_identity::LESZY_AGENT_NAME.to_string(),
+            provider_id: profile_provider.clone().unwrap_or(provider_id),
+            model: profile_model
+                .clone()
+                .or_else(|| Some(provider_config.model.clone())),
+            base_url: nonempty(config.coder.base_url.as_deref()),
+            reasoning_effort: profile_reasoning_effort
+                .clone()
+                .or_else(|| Some(provider_config.reasoning_effort.clone())),
+            context_window_tokens: profile_context_window_tokens
+                .or(Some(provider_config.context_window_tokens)),
+            huggingface_provider: provider_config.huggingface_provider.clone(),
+            openrouter_provider_order: Vec::new(),
+            openrouter_provider_ignore: Vec::new(),
+            openrouter_allow_fallbacks: None,
+            generation_settings: config
+                .coder
+                .generation_settings
+                .clone()
+                .or_else(|| config.generation_settings.clone()),
+            system_prompt: config.system_prompt.clone(),
+            persona_prompt: crate::agent::coder::leszy_persona_prompt(config),
+            tool_filter: None,
+        }));
+    }
     if is_explicit_builtin_persona_scope(resolved_scope)
         && builtin_persona_requires_setup(config, resolved_scope)
         && matched_def.is_none()
@@ -395,7 +427,12 @@ fn build_direct_thread_responder_config(
             .as_ref()
             .and_then(|def| def.system_prompt.clone())
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| config.system_prompt.clone()),
+            .unwrap_or_else(|| {
+                crate::agent::config::inherited_base_prompt(
+                    matched_def.as_ref().map(|def| def.id.as_str()),
+                    &config,
+                )
+            }),
         persona_prompt,
         tool_filter: matched_def.as_ref().and_then(|def| {
             if def.tool_whitelist.is_some() || def.tool_blacklist.is_some() {

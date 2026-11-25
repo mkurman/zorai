@@ -45,6 +45,17 @@ impl SubAgentsState {
             editor: None,
         }
     }
+
+    pub fn list_entries(&self) -> Vec<&SubAgentEntry> {
+        self.entries
+            .iter()
+            .filter(|entry| entry.id != "weles_builtin")
+            .collect()
+    }
+
+    pub fn selected_entry(&self) -> Option<&SubAgentEntry> {
+        self.list_entries().get(self.selected).copied()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -64,25 +75,27 @@ impl SubAgentsState {
         match action {
             SubAgentsAction::ListReceived(entries) => {
                 self.entries = entries;
-                if self.selected >= self.entries.len() {
-                    self.selected = self.entries.len().saturating_sub(1);
+                let list_len = self.list_entries().len();
+                if self.selected >= list_len {
+                    self.selected = list_len.saturating_sub(1);
                 }
-                if self.entries.is_empty() {
+                if list_len == 0 {
                     self.actions_focused = false;
                     self.action_cursor = 0;
                 }
             }
             SubAgentsAction::Added(entry) => {
                 self.entries.push(entry);
-                self.selected = self.entries.len().saturating_sub(1);
+                self.selected = self.list_entries().len().saturating_sub(1);
                 self.actions_focused = false;
             }
             SubAgentsAction::Removed(id) => {
                 self.entries.retain(|e| e.id != id);
-                if self.selected >= self.entries.len() {
-                    self.selected = self.entries.len().saturating_sub(1);
+                let list_len = self.list_entries().len();
+                if self.selected >= list_len {
+                    self.selected = list_len.saturating_sub(1);
                 }
-                if self.entries.is_empty() {
+                if list_len == 0 {
                     self.actions_focused = false;
                     self.action_cursor = 0;
                 }
@@ -93,7 +106,7 @@ impl SubAgentsState {
                 }
             }
             SubAgentsAction::Select(idx) => {
-                if idx < self.entries.len() {
+                if idx < self.list_entries().len() {
                     self.selected = idx;
                 }
             }

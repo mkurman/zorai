@@ -52,7 +52,7 @@ fn opening_weles_editor_hides_inherited_main_system_prompt() {
         })),
     }];
 
-    model.open_subagent_editor_existing();
+    model.open_weles_agent_editor();
 
     assert_eq!(
         model

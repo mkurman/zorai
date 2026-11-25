@@ -21,6 +21,7 @@ import {
   normalizeAgentSettingsFromSource,
 } from "./settings";
 import { useAgentStore } from "./store";
+import type { CoderRuntimeConfig } from "./storeTypes";
 import { getDaemonAgentConfig } from "../daemonConfig";
 
 export function retainActiveThreadMessages<T>(
@@ -54,6 +55,7 @@ async function hydrateAgentStoreInner(): Promise<void> {
       useAgentStore.setState({
         agentSettings: merged,
         agentSettingsDirty: false,
+        coderConfig: (daemonState as { coder?: CoderRuntimeConfig }).coder ?? {},
       });
       agentSettingsHydrated = true;
     }

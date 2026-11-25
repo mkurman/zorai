@@ -7,6 +7,7 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { SearchAddon } from "@xterm/addon-search";
 import { SerializeAddon } from "@xterm/addon-serialize";
 import { WebLinksAddon } from "@xterm/addon-web-links";
+import { findTerminalFileLinks, terminalFileLinkHandler } from "@/zorai/features/terminal/terminalFileLinks";
 import type { HistoryRecallHit, RiskLevel, SymbolRecallHit } from "@/lib/agentMissionStore";
 import type { TerminalSendOptions } from "@/lib/terminalRegistry";
 import { getBridge } from "@/lib/bridge";
@@ -234,6 +235,24 @@ export function useTerminalRuntime({
       }
     }
     term.loadAddon(new WebLinksAddon());
+    term.registerLinkProvider({
+      provideLinks(y, callback) {
+        if (!terminalFileLinkHandler()) {
+          callback(undefined);
+          return;
+        }
+        const text = term.buffer.active.getLine(y - 1)?.translateToString(true) ?? "";
+        const links = findTerminalFileLinks(text).map((link) => ({
+          range: { start: { x: link.start + 1, y }, end: { x: link.end, y } },
+          text: text.slice(link.start, link.end),
+          decorations: { underline: true, pointerCursor: true },
+          activate: (event: MouseEvent) => {
+            if (event.ctrlKey || event.metaKey) terminalFileLinkHandler()?.({ path: link.path, line: link.line, column: link.column });
+          },
+        }));
+        callback(links.length > 0 ? links : undefined);
+      },
+    });
 
     const { writeWithPreservedAncestorScroll, scheduleFit, cleanupViewport } = setupTerminalViewport({
       term,

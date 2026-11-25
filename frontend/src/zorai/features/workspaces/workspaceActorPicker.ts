@@ -19,6 +19,10 @@ export const BUILTIN_WORKSPACE_PERSONAS = [
   { id: "mokosh", label: "Mokosh" },
   { id: "dazhbog", label: "Dazhbog" },
   { id: "rod", label: "Rod" },
+  { id: "kikimora", label: "Kikimora" },
+  { id: "bannik", label: "Bannik" },
+  { id: "ovinnik", label: "Ovinnik" },
+  { id: "dziad", label: "Dziad" },
 ] as const;
 
 export function workspaceActorPickerOptions(

@@ -39,6 +39,7 @@ function resolveOwnerFromIdentity(
   if (canonical === "svarog") return SWAROG_AGENT_ID;
   if (canonical === "rarog" || canonical === "concierge") return RAROG_AGENT_ID;
   if (canonical === "weles") return "weles";
+  if (canonical === "leszy") return "leszy";
 
   const wanted = (value ?? "").trim().toLowerCase().replace(/_builtin$/, "");
   const matched = subAgents.find((entry) => {

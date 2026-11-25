@@ -4,6 +4,8 @@ impl SettingsTab {
         SettingsTab::Auth,
         SettingsTab::Agent,
         SettingsTab::Concierge,
+        SettingsTab::Leszy,
+        SettingsTab::Weles,
         SettingsTab::SubAgents,
         SettingsTab::Tools,
         SettingsTab::Skills,

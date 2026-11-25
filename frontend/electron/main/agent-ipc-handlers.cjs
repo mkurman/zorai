@@ -210,9 +210,30 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
                 after: String(request?.after ?? ''),
                 diagnostics: Array.isArray(request?.diagnostics) ? request.diagnostics.map(String) : [],
                 instruction: String(request?.instruction ?? ''),
+                request_id: String(request?.requestId ?? ''),
+                reasoning: typeof request?.reasoning === 'boolean' ? request.reasoning : null,
             }, 'code-fix', 180000);
         } catch (err) {
             return { replacement: '', error: err?.message || String(err) };
+        }
+    });
+    ipcMain.handle('agent-code-complete', async (_event, request) => {
+        const requestId = String(request?.requestId ?? '');
+        try {
+            const data = await sendAgentQuery({
+                type: 'code-complete',
+                request_id: requestId,
+                path: String(request?.path ?? ''),
+                language: String(request?.language ?? ''),
+                prefix: String(request?.prefix ?? ''),
+                suffix: String(request?.suffix ?? ''),
+            }, 'code-completion', 20000, {
+                concurrencyKey: `code-completion/${requestId}`,
+                matchEvent: (event) => event?.data?.request_id === requestId,
+            });
+            return { completion: String(data?.completion ?? ''), error: data?.error ?? null };
+        } catch (err) {
+            return { completion: '', error: err?.message || String(err) };
         }
     });
     ipcMain.handle('agent-list-ui-colors', async () => {

@@ -99,6 +99,7 @@ export function ThreadComposer({
     [
       { id: "swarog", name: agentDisplayName("Svarog") },
       { id: "rarog", name: agentDisplayName("Rarog") },
+      { id: "leszy", name: "Leszy" },
       ...BUILTIN_WORKSPACE_PERSONAS.map((persona) => ({ id: persona.id, name: persona.label })),
     ],
     [],

@@ -355,6 +355,26 @@ pub const BUILTIN_PERSONA_ROLE_CHOICES: &[RolePickerChoice] = &[
         label: "Rod",
         kind: RolePickerChoiceKind::Persona,
     },
+    RolePickerChoice {
+        id: "kikimora",
+        label: "Kikimora",
+        kind: RolePickerChoiceKind::Persona,
+    },
+    RolePickerChoice {
+        id: "bannik",
+        label: "Bannik",
+        kind: RolePickerChoiceKind::Persona,
+    },
+    RolePickerChoice {
+        id: "ovinnik",
+        label: "Ovinnik",
+        kind: RolePickerChoiceKind::Persona,
+    },
+    RolePickerChoice {
+        id: "dziad",
+        label: "Dziad",
+        kind: RolePickerChoiceKind::Persona,
+    },
 ];
 
 pub fn role_picker_custom_index() -> usize {

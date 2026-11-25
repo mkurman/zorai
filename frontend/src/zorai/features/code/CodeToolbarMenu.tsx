@@ -75,8 +75,8 @@ export function CodeContextMenu({ x, y, items, label, onClose }: { x: number; y:
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
 
   useLayoutEffect(() => {
-    const rect = rootRef.current?.getBoundingClientRect();
-    if (rect) setPosition(clampMenuPosition(x, y, rect, { width: window.innerWidth, height: window.innerHeight }));
+    const root = rootRef.current;
+    if (root) setPosition(clampMenuPosition(x, y, { width: root.offsetWidth, height: root.offsetHeight }, { width: window.innerWidth, height: window.innerHeight }));
   }, [x, y]);
 
   useEffect(() => {

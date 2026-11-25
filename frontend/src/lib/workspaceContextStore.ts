@@ -26,7 +26,7 @@ export type ThreadWorkspaceContext = {
 type WorkspaceContextState = {
   hydrated: boolean;
   byThreadId: Record<string, ThreadWorkspaceContext>;
-  hydrate: () => Promise<void>;
+  hydrate: (options?: { reopenEditors?: boolean }) => Promise<void>;
   bindRoot: (threadId: string, root: string) => void;
   adoptRoot: (threadId: string, root: string) => void;
   clearRoot: (threadId: string) => void;
@@ -125,18 +125,26 @@ function updateContext(
   return { ...state, byThreadId };
 }
 
+export function withoutReopenedEditors(context: ThreadWorkspaceContext): ThreadWorkspaceContext {
+  const kept = context.openFiles.filter((path) => context.pinnedFiles.includes(path));
+  return { ...context, openFiles: kept, activeFile: context.activeFile && kept.includes(context.activeFile) ? context.activeFile : kept[0] ?? null, selection: null };
+}
+
 export const useWorkspaceContextStore = create<WorkspaceContextState>((set, get) => ({
   hydrated: false,
   byThreadId: {},
-  hydrate: async () => {
+  hydrate: async (options) => {
     if (get().hydrated) return;
     const saved = await readPersistedJson<{ byDaemonThreadId?: Record<string, ThreadWorkspaceContext> }>(WORKSPACE_CONTEXT_FILE);
-    unmatchedByDaemonThreadId = Object.fromEntries(Object.entries(saved?.byDaemonThreadId ?? {}).map(([daemonThreadId, context]) => [daemonThreadId, {
-      ...context,
-      isolateAgentTasks: context.isolateAgentTasks ?? false,
-      isolatedWorktreeStates: context.isolatedWorktreeStates ?? {},
-      pinnedFiles: context.pinnedFiles ?? [],
-    }]));
+    unmatchedByDaemonThreadId = Object.fromEntries(Object.entries(saved?.byDaemonThreadId ?? {}).map(([daemonThreadId, context]) => {
+      const restored = {
+        ...context,
+        isolateAgentTasks: context.isolateAgentTasks ?? false,
+        isolatedWorktreeStates: context.isolatedWorktreeStates ?? {},
+        pinnedFiles: context.pinnedFiles ?? [],
+      };
+      return [daemonThreadId, options?.reopenEditors === false ? withoutReopenedEditors(restored) : restored];
+    }));
     lastPersisted = JSON.stringify(contextsByDaemonThreadId(get().byThreadId));
     set({ hydrated: true });
     syncWithThreads(useAgentStore.getState().threads);

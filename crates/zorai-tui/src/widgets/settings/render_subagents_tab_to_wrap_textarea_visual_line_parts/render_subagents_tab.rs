@@ -414,13 +414,13 @@ pub(crate) fn render_subagents_tab<'a>(
         return lines;
     }
 
-    if subagents.entries.is_empty() {
+    if subagents.list_entries().is_empty() {
         lines.push(Line::from(Span::styled(
             "  No sub-agents configured.",
             theme.fg_dim,
         )));
     } else {
-        for (i, entry) in subagents.entries.iter().enumerate() {
+        for (i, entry) in subagents.list_entries().into_iter().enumerate() {
             let is_selected = subagents.selected == i;
             let marker = if is_selected { "> " } else { "  " };
             let dot = if entry.enabled { "● " } else { "○ " };

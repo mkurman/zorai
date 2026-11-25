@@ -2,7 +2,7 @@ export type CodeCommandId =
   | "file.save" | "file.saveAll" | "file.reload" | "file.reopenClosed" | "file.quickOpen"
   | "file.close" | "file.closeOthers" | "file.next" | "file.previous" | "file.pin"
   | "file.openExternal" | "file.reveal" | "search.file" | "search.replace" | "search.project"
-  | "navigation.line" | "navigation.symbol" | "navigation.definition" | "navigation.references"
+  | "navigation.line" | "navigation.symbol" | "navigation.definition" | "navigation.references" | "navigation.back" | "navigation.forward"
   | "edit.undo" | "edit.redo" | "edit.cut" | "edit.copy" | "edit.paste" | "edit.selectAll"
   | "edit.deleteLine" | "edit.duplicate" | "edit.moveUp" | "edit.moveDown" | "edit.uppercase"
   | "edit.lowercase" | "edit.commentLine" | "edit.commentBlock" | "edit.indent" | "edit.outdent"
@@ -44,6 +44,8 @@ export const CODE_COMMANDS: CodeCommand[] = [
   command("search.replace", "Replace in File", "Search", "replace", "CtrlCmd+H"),
   command("search.project", "Search in Files", "Search", "search", "CtrlCmd+Shift+F"),
   command("navigation.line", "Go to Line", "Navigation", "terminal", "CtrlCmd+G"),
+  command("navigation.back", "Go Back", "Navigation", "reveal", "Alt+ArrowLeft"),
+  command("navigation.forward", "Go Forward", "Navigation", "reveal", "Alt+ArrowRight"),
   command("navigation.symbol", "Go to Symbol", "Navigation", "terminal", "CtrlCmd+Shift+O"),
   command("navigation.definition", "Go to Definition", "Navigation", "terminal", "F12"),
   command("navigation.references", "Find References", "Navigation", "terminal", "Shift+F12"),
@@ -88,7 +90,7 @@ export const CODE_COMMANDS: CodeCommand[] = [
   command("view.toggleTerminal", "Toggle Terminal", "View", "terminal", "Ctrl+`", ["shell", "console"]),
 ];
 
-export const UNWIRED_CODE_COMMANDS: ReadonlySet<CodeCommandId> = new Set(["file.reopenClosed", "view.toggleExplorer", "view.toggleAgent"]);
+export const UNWIRED_CODE_COMMANDS: ReadonlySet<CodeCommandId> = new Set<CodeCommandId>();
 export const RUNNABLE_CODE_COMMANDS = CODE_COMMANDS.filter((item) => !UNWIRED_CODE_COMMANDS.has(item.id));
 
 const byId = new Map(CODE_COMMANDS.map((item) => [item.id, item]));
@@ -112,8 +114,8 @@ export function matchesCodeBinding(binding: string, event: CodeKeyboardEventLike
   return (!ctrlCmd || event.ctrlKey || event.metaKey)
     && (parts.includes("Alt") === event.altKey)
     && (parts.includes("Shift") === event.shiftKey)
-    && (!parts.includes("Ctrl") || event.ctrlKey)
-    && (!parts.includes("Cmd") || event.metaKey)
+    && (ctrlCmd || parts.includes("Ctrl") === Boolean(event.ctrlKey))
+    && (ctrlCmd || parts.includes("Cmd") === Boolean(event.metaKey))
     && event.key.toLowerCase() === key;
 }
 

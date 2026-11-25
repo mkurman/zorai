@@ -33,6 +33,8 @@ mod cognitive_resonance_runtime;
 mod collaboration;
 mod commit_message;
 pub(crate) mod code_fix;
+pub(crate) mod coder;
+pub(crate) mod code_complete;
 mod compaction;
 mod config;
 mod consensus;

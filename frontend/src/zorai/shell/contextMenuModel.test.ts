@@ -42,7 +42,7 @@ describe("context menu", () => {
     expect(labels(entries)).toEqual([
       "Go to Definition", "Go to References", "---",
       "Rename Symbol", "Format Document", "---",
-      "Fix with Rarog", "Add to Chat", "---",
+      "Fix with Leszy", "Add to Chat", "---",
       "Cut", "Copy", "Paste", "Select All", "---",
       "Close Editor", "---",
       "Take Screenshot",

@@ -15,6 +15,8 @@ pub enum SettingsTab {
     Agent,
     SubAgents,
     Concierge,
+    Leszy,
+    Weles,
     Skills,
     Media,
     Memory,
@@ -90,6 +92,7 @@ fn field_uses_textarea(field: &str) -> bool {
         field,
         "system_prompt"
             | "subagent_system_prompt"
+            | "leszy_system_prompt"
             | "whatsapp_allowed_contacts"
             | "workspace_repo_monitor_include_dirs"
             | "workspace_repo_monitor_exclude_dirs"

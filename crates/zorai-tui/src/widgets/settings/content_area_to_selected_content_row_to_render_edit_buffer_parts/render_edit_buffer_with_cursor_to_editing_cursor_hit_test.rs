@@ -43,9 +43,9 @@ pub enum SubAgentTabAction {
     Toggle,
 }
 
-pub(crate) const TAB_LABELS: [&str; 22] = [
-    "Auth", "Svar", "Rar", "Sub", "Tools", "Skill", "Web", "Media", "Mem", "Beat", "Pro", "Flow",
-    "GW", "Chat", "Cmp", "Exec", "Safe", "ML", "Store", "Plug", "DB", "About",
+pub(crate) const TAB_LABELS: [&str; 24] = [
+    "Auth", "Svar", "Rar", "Lesz", "Wel", "Sub", "Tools", "Skill", "Web", "Media", "Mem", "Beat",
+    "Pro", "Flow", "GW", "Chat", "Cmp", "Exec", "Safe", "ML", "Store", "Plug", "DB", "About",
 ];
 pub(crate) const TAB_DIVIDER: &str = " | ";
 
@@ -330,6 +330,10 @@ pub(crate) fn hit_test(
         return subagents_hit_test(content, subagents, scroll, mouse);
     }
 
+    if settings.active_tab() == SettingsTab::Weles && subagents.editor.is_some() {
+        return None;
+    }
+
     let row = mouse.y.saturating_sub(content.y) as usize + scroll;
     match settings_row_hit(settings, config, subagents, row) {
         Some((_, Some(subagent_index))) => {
@@ -373,6 +377,8 @@ const SETTINGS_SIDEBAR_GROUPS: &[(&str, &[(SettingsTab, &str)])] = &[
             (SettingsTab::Auth, "Providers"),
             (SettingsTab::Agent, "Svarog"),
             (SettingsTab::Concierge, "Rarog"),
+            (SettingsTab::Leszy, "Leszy"),
+            (SettingsTab::Weles, "Weles"),
             (SettingsTab::SubAgents, "Sub-agents"),
         ],
     ),

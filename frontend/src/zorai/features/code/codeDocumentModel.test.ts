@@ -49,4 +49,14 @@ describe("code document controller", () => {
     expect(controller.get("/work", "b.ts")).toBeNull();
     expect(controller.get("/work", "c.ts")).not.toBeNull();
   });
+
+  it("honours a smaller Cached documents setting immediately, dropping the least recently used files", async () => {
+    const controller = createCodeDocumentController({ maxCachedDocuments: 3 });
+    for (const path of ["a.ts", "b.ts", "c.ts"]) await controller.open("/work", path, async () => loaded(path));
+    controller.get("/work", "a.ts");
+    controller.setMaxCachedDocuments(1);
+    expect(controller.get("/work", "a.ts")).not.toBeNull();
+    expect(controller.get("/work", "b.ts")).toBeNull();
+    expect(controller.get("/work", "c.ts")).toBeNull();
+  });
 });

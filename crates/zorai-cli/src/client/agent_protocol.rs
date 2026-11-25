@@ -138,6 +138,17 @@ pub(super) enum AgentBridgeCommand {
         diagnostics: Vec<String>,
         #[serde(default)]
         instruction: String,
+        #[serde(default)]
+        request_id: String,
+        #[serde(default)]
+        reasoning: Option<bool>,
+    },
+    CodeComplete {
+        request_id: String,
+        path: String,
+        language: String,
+        prefix: String,
+        suffix: String,
     },
     AddTask {
         title: String,

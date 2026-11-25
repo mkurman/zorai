@@ -171,6 +171,7 @@ function registerCoreIpcHandlers(ipcMain, options) {
     ipcMain.handle('workspace-lsp-request', (event, rootPath, relativePath, language, method, position, extra) => lspRuntime.request(event.sender, rootPath, relativePath, language, method, position, extra));
     ipcMain.handle('workspace-lsp-close', (_event, rootPath, relativePath, language) => lspRuntime.close(rootPath, relativePath, language));
     ipcMain.handle('workspace-lsp-servers', () => lspRuntime.servers());
+    ipcMain.handle('workspace-lsp-log', () => lspRuntime.logs());
     ipcMain.handle('workspace-lsp-install', (_event, id) => lspRuntime.install(id));
     ipcMain.handle('workspace-lsp-unsubscribe', (event, rootPath, language) => lspRuntime.unsubscribe(event.sender, rootPath, language));
     ipcMain.handle('workspace-tests-discover', (_event, rootPath, runtimeOptions) => testRuntime.discover(rootPath, runtimeOptions));

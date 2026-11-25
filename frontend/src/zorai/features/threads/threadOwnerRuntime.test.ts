@@ -25,6 +25,19 @@ function thread(partial: Partial<AgentThread> = {}): AgentThread {
 }
 
 describe("thread owner runtime profile", () => {
+  it("pins Leszy's own model on a new Leszy thread instead of Svarog's", () => {
+    const settings = { ...DEFAULT_AGENT_SETTINGS, active_provider: "openai" as const, openai: { ...DEFAULT_AGENT_SETTINGS.openai, model: "gpt-5.5" } };
+    const draft = draftThreadForOwnerSnapshot({ agentId: "leszy", agentName: "Leszy" }, "Svarog");
+    const profile = snapshotThreadOwnerRuntimeProfile(draft, [], settings, {}, { provider: "anthropic", model: "claude-sonnet-5-5", reasoning_effort: "low" });
+    expect(profile).toMatchObject({ profileProvider: "anthropic", profileModel: "claude-sonnet-5-5", profileReasoningEffort: "low" });
+  });
+
+  it("lets an unconfigured Leszy inherit Svarog, as its settings promise", () => {
+    const settings = { ...DEFAULT_AGENT_SETTINGS, active_provider: "openai" as const, openai: { ...DEFAULT_AGENT_SETTINGS.openai, model: "gpt-5.5" } };
+    const profile = resolveThreadOwnerRuntimeProfile(thread({ agent_name: "Leszy" }), [], settings, {}, {});
+    expect(profile).toMatchObject({ ownerId: "leszy", provider: "openai", model: "gpt-5.5" });
+  });
+
   it("loads the selected subagent provider instead of Svarog defaults", () => {
     const settings = {
       ...DEFAULT_AGENT_SETTINGS,

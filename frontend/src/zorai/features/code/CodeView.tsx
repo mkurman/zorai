@@ -20,6 +20,7 @@ import {
 } from "./codeEmptyStateModel";
 import { usePresence } from "@/hooks/usePresence";
 import { codeTiming } from "./codeTiming";
+import { hydrateCodeWorkspaceContexts } from "./hydrateCodeWorkspace";
 
 /**
  * Typed callback boundary for the GLM lifecycle task. The GLM task owns
@@ -245,7 +246,7 @@ export function CodeView({
     codeTiming("activate:start");
     try {
       const activeRuntime = runtimeRef.current;
-      await useWorkspaceContextStore.getState().hydrate();
+      await hydrateCodeWorkspaceContexts();
       codeTiming("activate:context-hydrated");
       if (generation !== activationGenRef.current) return;
       const bindings = useCodeWorkspaceBindingStore.getState();

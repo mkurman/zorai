@@ -111,6 +111,22 @@ fn bridge_event_from_daemon_message(message: &DaemonMessage) -> Option<serde_jso
             "type": "code-fix",
             "data": { "replacement": replacement, "error": error },
         })),
+        DaemonMessage::AgentCodeFixDelta {
+            request_id,
+            text,
+            reasoning,
+        } => Some(serde_json::json!({
+            "type": "code-fix-delta",
+            "data": { "request_id": request_id, "text": text, "reasoning": reasoning },
+        })),
+        DaemonMessage::AgentCodeCompletion {
+            request_id,
+            completion,
+            error,
+        } => Some(serde_json::json!({
+            "type": "code-completion",
+            "data": { "request_id": request_id, "completion": completion, "error": error },
+        })),
         DaemonMessage::AgentUiColors { colors_json } => Some(serde_json::json!({
             "type": "ui-colors",
             "data": serde_json::from_str::<serde_json::Value>(colors_json).unwrap_or_default(),

@@ -12,6 +12,8 @@ mod activate_database_settings_field;
 mod activate_features_settings_field;
 #[path = "activate_gateway_settings_field.rs"]
 mod activate_gateway_settings_field;
+#[path = "activate_leszy_weles_settings_field.rs"]
+mod activate_leszy_weles_settings_field;
 #[path = "activate_provider_settings_field.rs"]
 mod activate_provider_settings_field;
 impl TuiModel {
@@ -137,6 +139,7 @@ impl TuiModel {
             || self.activate_advanced_settings_field(field)
             || self.activate_compaction_settings_field(field)
             || self.activate_concierge_settings_field(field)
+            || self.activate_leszy_weles_settings_field(field)
             || self.activate_database_settings_field(field)
         {
             return;

@@ -13,6 +13,17 @@ export function transformSelectedLines(value: string, transform: SelectionLinesT
   return (transform === "descending" ? lines.reverse() : lines).join("\n");
 }
 
+export function paletteActions<T extends { id: string; label: string }>(actions: readonly T[], editorId: string, preferZorai: ReadonlySet<string>): T[] {
+  const zoraiId = (action: T) => (action.id.startsWith(`${editorId}:`) ? action.id.slice(editorId.length + 1) : null);
+  const preferredLabels = new Set(actions.filter((action) => preferZorai.has(zoraiId(action) ?? "")).map((action) => action.label));
+  const nativeLabels = new Set(actions.filter((action) => zoraiId(action) === null).map((action) => action.label));
+  return actions.filter((action) => {
+    const id = zoraiId(action);
+    if (id !== null) return preferZorai.has(id) || !nativeLabels.has(action.label);
+    return !preferredLabels.has(action.label);
+  });
+}
+
 export function registerCodeEditorActions(
   editor: MonacoEditorApi.IStandaloneCodeEditor,
   callbacks: { onSave: () => void; onFormatDocument?: () => Promise<void> },
@@ -49,7 +60,7 @@ export function registerCodeEditorActions(
     ["edit.formatSelection", "Format Selection", "editor.action.formatSelection"],
   ];
   for (const [id, label, actionId] of builtins) {
-    disposables.push(editor.addAction({ id, label, run: () => editor.getAction(actionId)?.run() }));
+    disposables.push(editor.addAction({ id, label, run: () => editor.trigger("zorai", actionId, null) }));
   }
 
   if (callbacks.onFormatDocument) disposables.push(editor.addAction({ id: "edit.formatDocument", label: "Format Document", run: callbacks.onFormatDocument }));
@@ -77,5 +88,9 @@ export function registerCodeEditorActions(
   transform("edit.sortAscending", "Sort Selected Lines Ascending", (text) => transformSelectedLines(text, "ascending"));
   transform("edit.sortDescending", "Sort Selected Lines Descending", (text) => transformSelectedLines(text, "descending"));
   transform("edit.trimWhitespace", "Trim Trailing Whitespace", (text) => transformSelectedLines(text, "trim"));
+  const preferZorai = new Set(callbacks.onFormatDocument ? ["edit.formatDocument"] : []);
+  const nativeSupportedActions = editor.getSupportedActions.bind(editor);
+  editor.getSupportedActions = () => paletteActions(nativeSupportedActions(), editor.getId(), preferZorai);
+  disposables.push({ dispose: () => { editor.getSupportedActions = nativeSupportedActions; } });
   return disposables;
 }

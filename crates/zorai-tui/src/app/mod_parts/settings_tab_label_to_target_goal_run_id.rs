@@ -11,6 +11,8 @@ pub(crate) fn settings_tab_label(tab: SettingsTab) -> &'static str {
         SettingsTab::Agent => "agent",
         SettingsTab::SubAgents => "subagents",
         SettingsTab::Concierge => "concierge",
+        SettingsTab::Leszy => "leszy",
+        SettingsTab::Weles => "weles",
         SettingsTab::Skills => "skills",
         SettingsTab::Media => "media",
         SettingsTab::Memory => "memory",

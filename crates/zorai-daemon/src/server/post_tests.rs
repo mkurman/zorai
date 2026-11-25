@@ -3,7 +3,10 @@ pub(crate) fn should_forward_agent_event(
     event: &crate::agent::types::AgentEvent,
     client_threads: &HashSet<String>,
 ) -> bool {
-    if matches!(event, crate::agent::types::AgentEvent::BrowserRequest { .. }) {
+    if matches!(
+        event,
+        crate::agent::types::AgentEvent::BrowserRequest { .. }
+    ) {
         return true;
     }
     if let crate::agent::types::AgentEvent::TaskUpdate {

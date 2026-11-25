@@ -363,6 +363,7 @@ export function ThreadsView({
     [
       { id: "swarog", name: agentDisplayName("Svarog") },
       { id: "rarog", name: agentDisplayName("Rarog") },
+      { id: "leszy", name: "Leszy" },
       ...BUILTIN_WORKSPACE_PERSONAS.map((persona) => ({ id: persona.id, name: persona.label })),
     ],
     subAgents.filter((agent) => agent.enabled).map((agent) => ({ id: agent.id, name: agent.name })),
@@ -702,8 +703,9 @@ function ThreadHeader({
 
   const agentSettings = useAgentStore((state) => state.agentSettings);
   const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
+  const coderConfig = useAgentStore((state) => state.coderConfig);
   const subAgents = useAgentStore((state) => state.subAgents);
-  const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig);
+  const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig, coderConfig);
   const provider = profile.provider || "default provider";
   const model = profile.model || "default model";
   const effort = profile.effort || "default effort";

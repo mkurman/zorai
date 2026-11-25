@@ -110,7 +110,9 @@ impl SettingsState {
             | SettingsTab::Compaction
             | SettingsTab::Execution
             | SettingsTab::Safety
-            | SettingsTab::Storage => {
+            | SettingsTab::Storage
+            | SettingsTab::Leszy
+            | SettingsTab::Weles => {
                 crate::state::settings_registry::settings_page_spec(self.active_tab)
                     .and_then(|page| page.all_fields().nth(self.field_cursor))
                     .map(|spec| spec.name)
@@ -281,7 +283,9 @@ impl SettingsState {
             | SettingsTab::Compaction
             | SettingsTab::Execution
             | SettingsTab::Safety
-            | SettingsTab::Storage => {
+            | SettingsTab::Storage
+            | SettingsTab::Leszy
+            | SettingsTab::Weles => {
                 crate::state::settings_registry::settings_page_spec(self.active_tab)
                     .map(|page| page.all_fields().count())
                     .unwrap_or(0)

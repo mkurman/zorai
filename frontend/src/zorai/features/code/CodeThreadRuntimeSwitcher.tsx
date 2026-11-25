@@ -15,6 +15,7 @@ const NO_MESSAGES: AgentMessage[] = [];
 export function CodeThreadRuntimeSwitcher({ thread, variant = "toolbar" }: Props) {
   const agentSettings = useAgentStore((state) => state.agentSettings);
   const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
+  const coderConfig = useAgentStore((state) => state.coderConfig);
   const subAgents = useAgentStore((state) => state.subAgents);
   const refreshProviderAuthStates = useAgentStore((state) => state.refreshProviderAuthStates);
   const threadMessages = useAgentStore((state) => thread ? state.messages[thread.id] ?? NO_MESSAGES : NO_MESSAGES);
@@ -38,6 +39,7 @@ export function CodeThreadRuntimeSwitcher({ thread, variant = "toolbar" }: Props
     const base = [
       { id: "swarog", name: "Svarog" },
       { id: "rarog", name: "Rarog" },
+      { id: "leszy", name: "Leszy" },
       ...BUILTIN_WORKSPACE_PERSONAS.map((p) => ({ id: p.id, name: p.label })),
     ];
     const withSub = [
@@ -98,7 +100,7 @@ export function CodeThreadRuntimeSwitcher({ thread, variant = "toolbar" }: Props
     );
   }
 
-  const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig);
+  const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig, coderConfig);
   const isThreadScoped = Boolean(thread.daemonThreadId);
   const currentAgentId = agents.find((a) => a.id.toLowerCase() === profile.ownerId.toLowerCase())?.id ?? profile.ownerId;
   const currentAgentName =

@@ -131,11 +131,14 @@ fn close_clears_editing_and_dropdown() {
 
 #[test]
 fn all_tabs_hide_provider_variant() {
-    assert_eq!(SettingsTab::all().len(), 22);
+    assert_eq!(SettingsTab::all().len(), 24);
     assert!(!SettingsTab::all().contains(&SettingsTab::Provider));
     assert_eq!(SettingsTab::all()[0], SettingsTab::Auth);
     assert_eq!(SettingsTab::all()[1], SettingsTab::Agent);
     assert_eq!(SettingsTab::all()[2], SettingsTab::Concierge);
+    assert_eq!(SettingsTab::all()[3], SettingsTab::Leszy);
+    assert_eq!(SettingsTab::all()[4], SettingsTab::Weles);
+    assert_eq!(SettingsTab::all()[5], SettingsTab::SubAgents);
     assert_eq!(SettingsTab::all().last(), Some(&SettingsTab::About));
 }
 
@@ -370,8 +373,12 @@ fn field_count_per_tab() {
     assert_eq!(state.field_count(), 1);
     state.reduce(SettingsAction::SwitchTab(SettingsTab::Concierge));
     assert_eq!(state.field_count(), 9);
+    state.reduce(SettingsAction::SwitchTab(SettingsTab::Leszy));
+    assert_eq!(state.field_count(), 5);
+    state.reduce(SettingsAction::SwitchTab(SettingsTab::Weles));
+    assert_eq!(state.field_count(), 7);
     state.reduce(SettingsAction::SwitchTab(SettingsTab::Compaction));
-    assert_eq!(state.field_count(), 18);
+    assert_eq!(state.field_count(), 14);
     state.reduce(SettingsAction::SwitchTab(SettingsTab::Plugins));
     assert_eq!(state.field_count(), 1);
     state.reduce(SettingsAction::SwitchTab(SettingsTab::About));

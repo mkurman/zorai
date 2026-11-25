@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { CODE_SETTINGS_TABS, CodeSettingsView } from "./CodeSettingsView";
+import { CodeSettingsView } from "./CodeSettingsView";
+import { CODE_SETTINGS_TABS } from "./codeSettingsTabs";
 
 describe("Code Settings tabs", () => {
   it("shows one section at a time so the page stays short, starting on Editor", () => {

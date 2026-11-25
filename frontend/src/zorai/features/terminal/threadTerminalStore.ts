@@ -10,6 +10,8 @@ type ThreadTerminalState = {
   shellCwds: Record<string, string>;
   shellTitles: Record<string, string>;
   shellCommands: Record<string, string>;
+  shellPaths: Record<string, string>;
+  splitPeers: Record<string, string | null>;
 };
 
 export type ThreadTerminalTab =
@@ -22,7 +24,7 @@ export type AgentTerminalSession = {
   cwd: string | null;
 };
 
-export const useThreadTerminalStore = create<ThreadTerminalState>(() => ({ open: {}, viewing: {}, shells: {}, dismissed: {}, shellCwds: {}, shellTitles: {}, shellCommands: {} }));
+export const useThreadTerminalStore = create<ThreadTerminalState>(() => ({ open: {}, viewing: {}, shells: {}, dismissed: {}, shellCwds: {}, shellTitles: {}, shellCommands: {}, shellPaths: {}, splitPeers: {} }));
 
 let shellSerial = 0;
 
@@ -35,7 +37,7 @@ export function viewThreadTerminal(sessionKey: string, tabId: string | null) {
   useThreadTerminalStore.setState((state) => ({ viewing: { ...state.viewing, [sessionKey]: tabId } }));
 }
 
-export function openThreadShell(sessionKey: string, cwd?: string, options: { title?: string; command?: string } = {}): string {
+export function openThreadShell(sessionKey: string, cwd?: string, options: { title?: string; command?: string; shell?: string } = {}): string {
   shellSerial += 1;
   const id = `shell-${Date.now().toString(36)}-${shellSerial}`;
   useThreadTerminalStore.setState((state) => ({
@@ -44,8 +46,22 @@ export function openThreadShell(sessionKey: string, cwd?: string, options: { tit
     shellCwds: cwd ? { ...state.shellCwds, [id]: cwd } : state.shellCwds,
     shellTitles: options.title ? { ...state.shellTitles, [id]: options.title } : state.shellTitles,
     shellCommands: options.command ? { ...state.shellCommands, [id]: options.command } : state.shellCommands,
+    shellPaths: options.shell ? { ...state.shellPaths, [id]: options.shell } : state.shellPaths,
   }));
   return id;
+}
+
+export function splitThreadTerminal(sessionKey: string, currentShellId: string, cwd?: string): string {
+  const state = useThreadTerminalStore.getState();
+  const shell = state.shellPaths[currentShellId];
+  const title = shell ? state.shellTitles[currentShellId] : undefined;
+  const peer = openThreadShell(sessionKey, cwd, { shell, title });
+  useThreadTerminalStore.setState((next) => ({ viewing: { ...next.viewing, [sessionKey]: currentShellId }, splitPeers: { ...next.splitPeers, [sessionKey]: peer } }));
+  return peer;
+}
+
+export function unsplitThreadTerminal(sessionKey: string): void {
+  useThreadTerminalStore.setState((state) => ({ splitPeers: { ...state.splitPeers, [sessionKey]: null } }));
 }
 
 export function takeShellCommand(id: string): string | null {

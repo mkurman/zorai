@@ -4,6 +4,7 @@ use futures::StreamExt;
 const CODE_FIX_CONTEXT_MAX_CHARS: usize = 12_000;
 const CODE_FIX_TARGET_MAX_CHARS: usize = 20_000;
 const CODE_FIX_DIAGNOSTICS_MAX: usize = 20;
+const CODE_FIX_ANSWER_TOKENS: u32 = 4096;
 
 const CODE_FIX_SYSTEM_PROMPT: &str =
     "You fix code inside an editor. You get the code before the target, the TARGET block, \
@@ -11,7 +12,7 @@ the code after it, any compiler or linter diagnostics, and possibly the develope
 keep its indentation and line structure, change nothing outside it, and do not repeat the surrounding code. \
 If an instruction is given, do exactly what it asks within the target. \
 Otherwise, if diagnostics are given, fix them; otherwise fix the most likely bug or clear problem in the target. \
-If nothing needs to change, return the target unchanged. No markdown fences, no explanation.";
+If the target is empty, write new code for that spot from the instruction. If nothing needs to change, return the target unchanged. No markdown fences, no explanation.";
 
 pub(crate) struct CodeFixRequest<'a> {
     pub path: &'a str,
@@ -21,6 +22,7 @@ pub(crate) struct CodeFixRequest<'a> {
     pub after: &'a str,
     pub diagnostics: &'a [String],
     pub instruction: &'a str,
+    pub reasoning: Option<bool>,
 }
 
 fn tail_chars(text: &str, max: usize) -> &str {
@@ -80,7 +82,8 @@ pub(crate) fn code_fix_prompt(request: &CodeFixRequest<'_>) -> String {
 }
 
 pub(crate) fn sanitize_code_fix(raw: &str) -> Option<String> {
-    let mut text = raw.trim_matches(|c| c == '\n' || c == '\r');
+    let without_thinking = strip_thinking(raw);
+    let mut text = without_thinking.trim_matches(|c| c == '\n' || c == '\r');
     if text.trim_start().starts_with("```") {
         let body = text.trim_start();
         text = body.split_once('\n').map(|(_, rest)| rest).unwrap_or("");
@@ -95,23 +98,47 @@ pub(crate) fn sanitize_code_fix(raw: &str) -> Option<String> {
     (!text.trim().is_empty()).then(|| text.to_string())
 }
 
+fn strip_thinking(raw: &str) -> String {
+    let mut text = raw.to_string();
+    while let Some(start) = text.find("<think>") {
+        match text[start..].find("</think>") {
+            Some(end) => text.replace_range(start..start + end + "</think>".len(), ""),
+            None => text.truncate(start),
+        }
+    }
+    text
+}
+
 impl AgentEngine {
-    pub(crate) async fn generate_code_fix(&self, request: &CodeFixRequest<'_>) -> Result<String> {
-        if request.target.trim().is_empty() {
-            anyhow::bail!("there is no code to fix");
+    pub(crate) async fn generate_code_fix(
+        &self,
+        request: &CodeFixRequest<'_>,
+        on_delta: Option<tokio::sync::mpsc::UnboundedSender<(String, bool)>>,
+    ) -> Result<String> {
+        if request.target.trim().is_empty() && request.instruction.trim().is_empty() {
+            anyhow::bail!("there is no code to fix; describe what to write");
         }
         if request.target.len() > CODE_FIX_TARGET_MAX_CHARS {
             anyhow::bail!("the selection is too large for a quick fix; select a smaller block");
         }
         let config = self.config.read().await.clone();
-        let resolved = crate::agent::concierge::resolve_concierge_provider(&config)?;
-        let provider_id = config
-            .concierge
-            .provider
-            .as_deref()
-            .unwrap_or(&config.provider)
-            .to_string();
-        let provider_config = crate::agent::concierge::fast_concierge_provider_config(&resolved);
+        let (provider_id, mut provider_config) =
+            crate::agent::coder::resolve_coder_provider(&config)?;
+        match request.reasoning {
+            Some(false) => provider_config.reasoning_effort = "off".to_string(),
+            Some(true)
+                if crate::agent::llm_client::anthropic_thinking_budget(
+                    &provider_config.reasoning_effort,
+                )
+                .is_none() =>
+            {
+                provider_config.reasoning_effort = "medium".to_string();
+            }
+            _ => {}
+        }
+        crate::agent::coder::ensure_answer_room(&mut provider_config, CODE_FIX_ANSWER_TOKENS);
+        let system_prompt =
+            crate::agent::coder::coder_system_prompt(&config, CODE_FIX_SYSTEM_PROMPT);
         drop(config);
 
         self.check_circuit_breaker(&provider_id).await?;
@@ -127,7 +154,7 @@ impl AgentEngine {
             &self.http_client,
             &provider_id,
             &provider_config,
-            CODE_FIX_SYSTEM_PROMPT,
+            &system_prompt,
             &messages,
             &[],
             provider_config.api_transport,
@@ -139,6 +166,7 @@ impl AgentEngine {
             },
         );
         let mut content = String::new();
+        let mut reasoned = false;
         let mut stream = std::pin::pin!(stream);
         while let Some(chunk) = stream.next().await {
             let chunk = match chunk {
@@ -149,7 +177,21 @@ impl AgentEngine {
                 }
             };
             match chunk {
-                CompletionChunk::Delta { content: delta, .. } => content.push_str(&delta),
+                CompletionChunk::Delta {
+                    content: delta,
+                    reasoning,
+                } => {
+                    if let Some(thought) = reasoning.filter(|text| !text.is_empty()) {
+                        reasoned = true;
+                        if let Some(sender) = &on_delta {
+                            let _ = sender.send((thought, true));
+                        }
+                    }
+                    if let Some(sender) = on_delta.as_ref().filter(|_| !delta.is_empty()) {
+                        let _ = sender.send((delta.clone(), false));
+                    }
+                    content.push_str(&delta);
+                }
                 CompletionChunk::Done {
                     content: done_content,
                     ..
@@ -167,7 +209,13 @@ impl AgentEngine {
                 _ => {}
             }
         }
-        sanitize_code_fix(&content).ok_or_else(|| anyhow::anyhow!("Rarog returned an empty fix"))
+        sanitize_code_fix(&content).ok_or_else(|| {
+            if reasoned {
+                anyhow::anyhow!("Leszy used its whole output on reasoning and wrote no code; retry, or lower Leszy's reasoning level")
+            } else {
+                anyhow::anyhow!("Leszy returned an empty fix")
+            }
+        })
     }
 }
 
@@ -189,6 +237,7 @@ mod tests {
             after,
             diagnostics,
             instruction: "",
+            reasoning: None,
         }
     }
 
@@ -242,5 +291,15 @@ mod tests {
             Some("  b();")
         );
         assert_eq!(sanitize_code_fix(" \n "), None);
+    }
+
+    #[test]
+    fn sanitize_drops_inline_thinking_so_only_the_code_is_applied() {
+        assert_eq!(
+            sanitize_code_fix("<think>The user wants x renamed.</think>\n    let total = 1;")
+                .as_deref(),
+            Some("    let total = 1;")
+        );
+        assert_eq!(sanitize_code_fix("<think>still thinking"), None);
     }
 }

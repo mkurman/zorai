@@ -88,8 +88,8 @@ fn renaming_weles_in_subagent_editor_sets_alias_without_renaming_protected_defin
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
     model
         .settings
-        .reduce(SettingsAction::SwitchTab(SettingsTab::SubAgents));
-    model.open_subagent_editor_existing();
+        .reduce(SettingsAction::SwitchTab(SettingsTab::Weles));
+    model.open_weles_agent_editor();
     drain(&mut daemon_rx);
 
     model.handle_key_modal(
@@ -151,4 +151,57 @@ fn rarog_alias_field_in_concierge_tab_writes_rarog_alias_item() {
         "Scout"
     );
     assert_eq!(crate::agent_aliases::display_agent_name("Rarog"), "Scout");
+}
+
+#[test]
+fn leszy_fields_write_coder_items_and_blank_inherits_svarog() {
+    let (mut model, mut daemon_rx) = make_model();
+    model.connected = true;
+    model.agent_config_loaded = true;
+    model.config.agent_config_raw = Some(serde_json::json!({}));
+    model
+        .modal
+        .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
+    focus_settings_field(&mut model, SettingsTab::Leszy, "leszy_model");
+    drain(&mut daemon_rx);
+
+    model.handle_key_modal(
+        KeyCode::Enter,
+        KeyModifiers::NONE,
+        modal::ModalKind::Settings,
+    );
+    type_and_commit(&mut model, "gpt-5.4");
+    model.handle_key_modal(
+        KeyCode::Enter,
+        KeyModifiers::NONE,
+        modal::ModalKind::Settings,
+    );
+    assert_eq!(model.settings.edit_buffer(), "gpt-5.4");
+    for _ in 0.."gpt-5.4".len() {
+        model.handle_key_modal(
+            KeyCode::Backspace,
+            KeyModifiers::NONE,
+            modal::ModalKind::Settings,
+        );
+    }
+    type_and_commit(&mut model, "");
+
+    let coder_items = drain(&mut daemon_rx)
+        .into_iter()
+        .filter_map(|command| match command {
+            DaemonCommand::SetConfigItem {
+                key_path,
+                value_json,
+            } if key_path.starts_with("/coder/") => Some((key_path, value_json)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        coder_items,
+        vec![
+            ("/coder/model".to_string(), "\"gpt-5.4\"".to_string()),
+            ("/coder/model".to_string(), "null".to_string()),
+        ],
+        "a blank Leszy value must be sent as null so the daemon falls back to Svarog"
+    );
 }

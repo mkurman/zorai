@@ -419,9 +419,28 @@ impl TuiModel {
     }
 
     pub(crate) fn open_subagent_editor_existing(&mut self) {
-        let Some(entry) = self.subagents.entries.get(self.subagents.selected).cloned() else {
+        let Some(entry) = self.subagents.selected_entry().cloned() else {
             return;
         };
+        self.open_subagent_editor_for_entry(entry);
+    }
+
+    pub(crate) fn open_weles_agent_editor(&mut self) {
+        let Some(entry) = self
+            .subagents
+            .entries
+            .iter()
+            .find(|entry| entry.id == "weles_builtin")
+            .cloned()
+        else {
+            self.send_daemon_command(DaemonCommand::ListSubAgents);
+            self.status_line = "WELES agent is not loaded yet".to_string();
+            return;
+        };
+        self.open_subagent_editor_for_entry(entry);
+    }
+
+    fn open_subagent_editor_for_entry(&mut self, entry: crate::state::subagents::SubAgentEntry) {
         let raw = entry
             .raw_json
             .clone()

@@ -786,7 +786,12 @@ impl AgentEngine {
             .as_ref()
             .and_then(|def| def.system_prompt.clone())
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| config.system_prompt.clone());
+            .unwrap_or_else(|| {
+                crate::agent::config::inherited_base_prompt(
+                    matched_def.as_ref().map(|def| def.id.as_str()),
+                    &config,
+                )
+            });
         let base_prompt = if persona_prompt.is_empty() {
             system_prompt
         } else {

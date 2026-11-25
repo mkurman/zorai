@@ -54,6 +54,7 @@ type Props = {
 export const ComposerContextCircle = memo(function ComposerContextCircle({ thread, messages }: Props) {
   const agentSettings = useAgentStore((state) => state.agentSettings);
   const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
+  const coderConfig = useAgentStore((state) => state.coderConfig);
   const subAgents = useAgentStore((state) => state.subAgents);
   const [open, setOpen] = useState(false);
   const presence = usePresence(open);
@@ -67,9 +68,9 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
   const contextWindowTokens = useMemo(() => {
     if (breakdown && breakdown.context_window_tokens > 0) return breakdown.context_window_tokens;
     if (!thread) return Math.max(1, Math.trunc((agentSettings as unknown as Record<string, unknown>).context_window_tokens as number || 256000));
-    const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig);
+    const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig, coderConfig);
     return profile.contextWindowTokens;
-  }, [breakdown, thread, subAgents, agentSettings, conciergeConfig]);
+  }, [breakdown, thread, subAgents, agentSettings, conciergeConfig, coderConfig]);
 
   const used = useMemo(
     () => (breakdown ? contextBreakdownUsedTokens(breakdown) : currentContextTokens(thread ?? null, messages)),
