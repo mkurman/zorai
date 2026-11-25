@@ -212,6 +212,27 @@ where
                 })
                 .await?;
         }
+        AgentBridgeCommand::GenerateCodeFix {
+            path,
+            language,
+            before,
+            target,
+            after,
+            diagnostics,
+            instruction,
+        } => {
+            framed
+                .send(ClientMessage::AgentGenerateCodeFix {
+                    path,
+                    language,
+                    before,
+                    target,
+                    after,
+                    diagnostics,
+                    instruction,
+                })
+                .await?;
+        }
         AgentBridgeCommand::ListUiColors => {
             framed.send(ClientMessage::AgentListUiColors).await?;
         }

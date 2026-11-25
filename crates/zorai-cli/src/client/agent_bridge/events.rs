@@ -107,6 +107,10 @@ fn bridge_event_from_daemon_message(message: &DaemonMessage) -> Option<serde_jso
             "type": "commit-message",
             "data": { "message": message, "error": error },
         })),
+        DaemonMessage::AgentCodeFixGenerated { replacement, error } => Some(serde_json::json!({
+            "type": "code-fix",
+            "data": { "replacement": replacement, "error": error },
+        })),
         DaemonMessage::AgentUiColors { colors_json } => Some(serde_json::json!({
             "type": "ui-colors",
             "data": serde_json::from_str::<serde_json::Value>(colors_json).unwrap_or_default(),

@@ -19,4 +19,16 @@ describe("bundled Monaco syntax tokenizers", () => {
       expect(source).toContain(`monaco-editor/esm/vs/basic-languages/${language}/${language}.contribution`);
     }
   });
+
+  it("bundles the standalone peek and quick-access pieces, without which references and Go to Line/Symbol silently do nothing", () => {
+    const source = readFileSync(fileURLToPath(new URL("./monacoEnvironment.ts", import.meta.url)), "utf8");
+    for (const module of [
+      "referenceSearch/standaloneReferenceSearch",
+      "quickAccess/standaloneGotoLineQuickAccess",
+      "quickAccess/standaloneGotoSymbolQuickAccess",
+      "quickAccess/standaloneCommandsQuickAccess",
+    ]) {
+      expect(source).toContain(`monaco-editor/esm/vs/editor/standalone/browser/${module}`);
+    }
+  });
 });

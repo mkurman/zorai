@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { LspMessageReader, encodeLspMessage, languageServerSpec, normalizeDiagnostic, resolveLanguageServer } = require('./main/lsp-runtime.cjs');
+const { serverSupports, typeScriptLanguageId, LspMessageReader, encodeLspMessage, languageServerSpec, normalizeDiagnostic, resolveLanguageServer } = require('./main/lsp-runtime.cjs');
 
 test('LSP message reader handles split and concatenated JSON-RPC frames', () => {
     const messages = [];
@@ -49,4 +49,30 @@ test('language server specifications cover Rust, Python, Go, and C++', () => {
     assert.equal(languageServerSpec('go').candidates[0].command, 'gopls');
     assert.equal(languageServerSpec('cpp').candidates[0].command, 'clangd');
     assert.equal(languageServerSpec('markdown'), null);
+});
+
+test('TypeScript server gets the JSX-aware language id so .tsx/.jsx files parse JSX', () => {
+    assert.equal(languageServerSpec('typescript').id, 'typescript');
+    assert.equal(languageServerSpec('javascript').id, 'typescript');
+    assert.equal(typeScriptLanguageId('src/App.tsx'), 'typescriptreact');
+    assert.equal(typeScriptLanguageId('src/App.jsx'), 'javascriptreact');
+    assert.equal(typeScriptLanguageId('electron/main.cjs'), 'javascript');
+    assert.equal(typeScriptLanguageId('src/lib/a.ts'), 'typescript');
+});
+
+test('HTML and CSS share one install so a single click enables both', () => {
+    assert.equal(languageServerSpec('html').installId, 'web');
+    assert.equal(languageServerSpec('scss').installId, 'web');
+    assert.equal(languageServerSpec('scss').languageId, 'scss');
+    assert.equal(languageServerSpec('html').initializationOptions.provideFormatter, true);
+    assert.notEqual(languageServerSpec('html').id, languageServerSpec('css').id);
+});
+
+test('requests a server never advertised are skipped, so the lightbulb does not spam method-not-found errors', () => {
+    const capabilities = { hoverProvider: true, definitionProvider: { workDoneProgress: true }, codeActionProvider: false };
+    assert.equal(serverSupports(capabilities, 'hover'), true);
+    assert.equal(serverSupports(capabilities, 'definition'), true);
+    assert.equal(serverSupports(capabilities, 'codeAction'), false);
+    assert.equal(serverSupports(capabilities, 'rename'), false);
+    assert.equal(serverSupports(undefined, 'rename'), true);
 });

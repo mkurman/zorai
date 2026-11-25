@@ -116,6 +116,8 @@
   z-index: 2147483000;
   top: auto;
   min-width: 200px;
+  max-height: calc(100vh - 8px);
+  overflow-y: auto;
   color: var(--zorai-text);
   font-size: var(--text-base);
   user-select: none;
@@ -6555,9 +6557,7 @@ body:has(.zorai-browser-panel.is-fullscreen) .zorai-thread-browser-host__tab {
 .zorai-workspace-root-form button,
 .zorai-workspace-actionbar button:not(.zorai-code-icon-button):not([role^="menuitem"]):not(.zorai-view-toggle__button),
 .zorai-workspace-explorer-heading button {
-  border: 1px solid var(--zorai-border);
   border-radius: 5px;
-  background: var(--zorai-bg-elevated);
   color: var(--zorai-text);
   cursor: pointer;
   padding: 5px 8px;
@@ -6784,6 +6784,82 @@ body:has(.zorai-browser-panel.is-fullscreen) .zorai-thread-browser-host__tab {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.zorai-workspace-actionbar>.zorai-code-path-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zorai-code-path {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  font: 12px var(--font-ui);
+}
+
+.zorai-code-path__folder,
+.zorai-code-path__file {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 3px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.zorai-code-path__folder {
+  min-width: 2ch;
+  flex-shrink: 1;
+  overflow: hidden;
+}
+
+.zorai-code-path__folder>span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.zorai-code-path__folder:hover,
+.zorai-code-path__file:hover {
+  background: var(--zorai-bg-elevated);
+  color: var(--zorai-text);
+}
+
+.zorai-code-path__folder svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+
+.zorai-code-path__sep {
+  flex-shrink: 0;
+  opacity: .7;
+}
+
+.zorai-code-path__file {
+  flex-shrink: 0;
+  color: var(--zorai-text);
+}
+
+.zorai-code-path__file .zorai-code-file-icon {
+  flex-shrink: 0;
+}
+
+.zorai-workspace-tree-row.is-revealed {
+  background: color-mix(in srgb, var(--zorai-accent) 18%, transparent);
+  box-shadow: inset 2px 0 0 var(--zorai-accent);
 }
 
 .zorai-workspace-actionbar .zorai-view-toggle {
@@ -7189,6 +7265,10 @@ body:has(.zorai-browser-panel.is-fullscreen) .zorai-thread-browser-host__tab {
   color: var(--zorai-text);
 }
 
+.zorai-code-search__field>button.zorai-code-search__clear {
+  font: 15px/1 var(--font-ui);
+}
+
 .zorai-code-search__field>button.is-on {
   border-color: var(--zorai-accent);
   background: color-mix(in srgb, var(--zorai-accent) 22%, transparent);
@@ -7241,6 +7321,19 @@ body:has(.zorai-browser-panel.is-fullscreen) .zorai-thread-browser-host__tab {
   background: var(--zorai-bg-surface);
   color: var(--zorai-text);
   font: 13px var(--font-ui);
+}
+
+.zorai-code-search__details label.zorai-code-search__check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.zorai-code-search__details label.zorai-code-search__check input {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
 }
 
 .zorai-code-search__details input:focus {
@@ -9015,7 +9108,50 @@ button.zorai-composer-context-chip {
 
 .zorai-code-tabs-shell {
   min-width: 0;
+  display: flex;
+  align-items: center;
   border-bottom: 1px solid var(--zorai-border);
+}
+
+.zorai-code-tabs-shell>.zorai-session-tabs {
+  flex: 1;
+  min-width: 0;
+}
+
+.zorai-code-tabs-shell>.zorai-code-icon-button,
+.zorai-code-settings__actions .zorai-code-icon-button {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  margin: 0 6px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--zorai-muted);
+  cursor: pointer;
+}
+
+.zorai-code-settings__actions .zorai-code-icon-button {
+  margin: 0;
+  border-color: var(--zorai-border-strong);
+}
+
+.zorai-workspace-editor-area.is-fullscreen {
+  position: fixed;
+  inset: 16px;
+  z-index: 120;
+  overflow: hidden;
+  border: 1px solid var(--zorai-border-strong);
+  border-radius: 12px;
+  background: var(--zorai-bg);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-backdrop] .zorai-shell--code .zorai-workspace-editor-area.is-fullscreen {
+  background: var(--bg-void);
 }
 
 .zorai-code-tabs-shell .zorai-session-tabs {
@@ -10502,8 +10638,69 @@ button.zorai-composer-context-chip {
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
-  max-width: 980px;
+  max-width: 820px;
   margin: 0 auto 24px;
+}
+
+.zorai-code-settings.is-fullscreen {
+  position: fixed;
+  inset: 16px;
+  z-index: 120;
+  border: 1px solid var(--zorai-border-strong);
+  border-radius: 12px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+}
+
+.zorai-code-settings__actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.zorai-code-settings__actions button {
+  border: 1px solid var(--zorai-border-strong);
+  border-radius: 6px;
+  padding: 5px 12px;
+  background: transparent;
+  color: var(--zorai-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.zorai-code-settings__actions button:hover {
+  background: var(--zorai-bg-elevated);
+}
+
+.zorai-code-settings__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  max-width: 820px;
+  margin: 0 auto 16px;
+  border-bottom: 1px solid var(--zorai-border);
+}
+
+.zorai-code-settings__tabs button {
+  margin-bottom: -1px;
+  padding: 7px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--zorai-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.zorai-code-settings__tabs button:hover {
+  color: var(--zorai-text);
+}
+
+.zorai-code-settings__tabs button.is-active {
+  border-bottom-color: var(--zorai-accent);
+  color: var(--zorai-text);
 }
 
 .zorai-code-settings h2 {
@@ -10523,7 +10720,6 @@ button.zorai-composer-context-chip {
   line-height: 1.5;
 }
 
-.zorai-code-settings>header button,
 .zorai-code-shortcuts button {
   border: 1px solid var(--zorai-border-strong);
   border-radius: 6px;
@@ -10535,7 +10731,6 @@ button.zorai-composer-context-chip {
   cursor: pointer;
 }
 
-.zorai-code-settings>header button:hover,
 .zorai-code-shortcuts button:hover:not(:disabled) {
   background: var(--zorai-bg-elevated);
 }
@@ -10568,6 +10763,249 @@ button.zorai-composer-context-chip {
   gap: 16px;
   border-top: 1px solid var(--zorai-border);
   font-size: var(--text-sm);
+}
+
+.monaco-editor .reference-zone-widget .ref-tree {
+  font-size: 12px;
+}
+
+.monaco-editor .zorai-rarog-fix-target {
+  background: color-mix(in srgb, var(--zorai-accent) 9%, transparent);
+}
+
+.zorai-rarog-fix-host {
+  position: absolute;
+  z-index: 5;
+}
+
+.zorai-rarog-fix {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px 10px;
+  border: 1px solid color-mix(in srgb, var(--zorai-accent) 45%, var(--zorai-border));
+  border-radius: 8px;
+  background: var(--zorai-bg-panel);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 28%);
+  color: var(--zorai-text);
+  font: 12px/1.4 var(--font-ui);
+}
+
+.zorai-rarog-fix header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 22px;
+  position: relative;
+}
+
+.zorai-rarog-fix header span {
+  color: var(--zorai-muted);
+}
+
+.zorai-rarog-fix button {
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--zorai-muted);
+  cursor: pointer;
+}
+
+.zorai-rarog-fix button:not(:disabled):hover {
+  background: var(--zorai-bg-elevated);
+  color: var(--zorai-text);
+}
+
+.zorai-rarog-fix button:disabled {
+  opacity: .45;
+  cursor: default;
+}
+
+.zorai-rarog-fix__close {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  width: 22px;
+  height: 22px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.zorai-rarog-fix__field {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 4px 4px 4px 8px;
+  border: 1px solid var(--zorai-border);
+  border-radius: 6px;
+  background: var(--zorai-bg-surface);
+}
+
+.zorai-rarog-fix__field:focus-within {
+  border-color: var(--zorai-accent);
+}
+
+.zorai-rarog-fix__field textarea {
+  flex: 1;
+  min-width: 0;
+  max-height: 120px;
+  padding: 3px 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  field-sizing: content;
+  background: transparent;
+  color: var(--zorai-text);
+  font: 13px/1.4 var(--font-ui);
+}
+
+.zorai-rarog-fix__field button {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+}
+
+.zorai-rarog-fix__field button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.zorai-rarog-fix__field button.is-recording {
+  color: var(--danger);
+}
+
+.zorai-rarog-fix__send:not(:disabled) {
+  background: var(--zorai-accent);
+  color: var(--zorai-bg-panel);
+}
+
+.zorai-rarog-fix__send:not(:disabled):hover {
+  background: color-mix(in srgb, var(--zorai-accent) 85%, white);
+  color: var(--zorai-bg-panel);
+}
+
+.zorai-rarog-fix__status,
+.zorai-rarog-fix__error {
+  margin: 0;
+  color: var(--zorai-muted);
+}
+
+.zorai-rarog-fix__error {
+  color: var(--danger);
+}
+
+.monaco-editor .zorai-rarog-fix-pending {
+  background: color-mix(in srgb, var(--zorai-accent) 14%, transparent);
+  animation: zorai-rarog-fix-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes zorai-rarog-fix-pulse {
+  50% { background: color-mix(in srgb, var(--zorai-accent) 4%, transparent); }
+}
+
+.zorai-lsp-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  cursor: default;
+}
+
+button.zorai-lsp-status {
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+button.zorai-lsp-status:hover {
+  background: var(--zorai-bg-elevated);
+  color: var(--zorai-text);
+}
+
+.zorai-lsp-status svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.zorai-lsp-status__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.zorai-lsp-status.is-ready .zorai-lsp-status__dot {
+  background: var(--success, #3fb950);
+}
+
+.zorai-lsp-status.is-unavailable .zorai-lsp-status__dot {
+  background: var(--danger);
+}
+
+.zorai-code-lsp-row {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-top: 1px solid var(--zorai-border);
+  font-size: var(--text-sm);
+}
+
+.zorai-code-lsp-row>span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.zorai-code-lsp-row strong small,
+.zorai-code-lsp-row>span>small {
+  overflow: hidden;
+  color: var(--zorai-muted);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zorai-code-lsp-row pre {
+  margin: 4px 0 0;
+  color: var(--danger);
+  font: 11px/1.4 var(--font-mono);
+  white-space: pre-wrap;
+}
+
+.zorai-code-lsp-row em {
+  flex-shrink: 0;
+  color: var(--zorai-muted);
+  font-style: normal;
+}
+
+.zorai-code-lsp-row button {
+  flex-shrink: 0;
+  border: 1px solid var(--zorai-border-strong);
+  border-radius: 6px;
+  padding: 5px 12px;
+  background: transparent;
+  color: var(--zorai-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.zorai-code-lsp-row button:hover:not(:disabled) {
+  background: var(--zorai-bg-elevated);
+}
+
+.zorai-code-lsp-row button:disabled {
+  opacity: .45;
+  cursor: default;
 }
 
 .zorai-code-settings-grid>label>span {
@@ -10613,13 +11051,11 @@ button.zorai-composer-context-chip {
   grid-column: 1 / -1;
   display: grid;
   gap: 4px;
-  max-height: 360px;
-  overflow: auto;
 }
 
 .zorai-code-shortcuts>div {
   display: grid;
-  grid-template-columns: minmax(190px, 1fr) 160px auto 90px;
+  grid-template-columns: minmax(0, 1fr) 200px auto 140px;
   align-items: center;
   gap: 8px;
   padding: 6px 2px;
@@ -10628,6 +11064,7 @@ button.zorai-composer-context-chip {
 }
 
 .zorai-code-shortcuts span {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -10638,8 +11075,11 @@ button.zorai-composer-context-chip {
 }
 
 .zorai-code-shortcuts code {
+  overflow: hidden;
   color: var(--zorai-muted);
   text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 800px) {

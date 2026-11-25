@@ -90,6 +90,7 @@ pub(crate) async fn dispatch_part4(
             | ClientMessage::AgentGetMemoryFiles { .. }
             | ClientMessage::AgentSaveMemoryFile { .. }
             | ClientMessage::AgentGenerateCommitMessage { .. }
+            | ClientMessage::AgentGenerateCodeFix { .. }
             | ClientMessage::AgentHandoffThread { .. }
             | ClientMessage::AgentGetSubagentMetrics { .. }
             | ClientMessage::AgentGetSubsystemMetrics
@@ -1911,6 +1912,37 @@ pub(crate) async fn dispatch_part4(
                 },
                 Err(error) => DaemonMessage::AgentCommitMessageGenerated {
                     message: String::new(),
+                    error: Some(error.to_string()),
+                },
+            };
+            framed.send(reply).await?;
+        }
+
+        ClientMessage::AgentGenerateCodeFix {
+            path,
+            language,
+            before,
+            target,
+            after,
+            diagnostics,
+            instruction,
+        } => {
+            let request = crate::agent::code_fix::CodeFixRequest {
+                path: &path,
+                language: &language,
+                before: &before,
+                target: &target,
+                after: &after,
+                diagnostics: &diagnostics,
+                instruction: &instruction,
+            };
+            let reply = match agent.generate_code_fix(&request).await {
+                Ok(replacement) => DaemonMessage::AgentCodeFixGenerated {
+                    replacement,
+                    error: None,
+                },
+                Err(error) => DaemonMessage::AgentCodeFixGenerated {
+                    replacement: String::new(),
                     error: Some(error.to_string()),
                 },
             };

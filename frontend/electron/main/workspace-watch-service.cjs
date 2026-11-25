@@ -93,6 +93,7 @@ function createWorkspaceWatcher(rootPath, onBatch, options = {}) {
         root,
         ready: discovered,
         get watchedDirectoryCount() { return watchers.size; },
+        isWatching(relativeDirectory) { return !closed && watchers.has(relativeDirectory ? path.join(root, relativeDirectory) : root); },
         close() {
             if (closed) return;
             closed = true;

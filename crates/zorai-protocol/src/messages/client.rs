@@ -346,4 +346,5 @@ pub enum ClientMessage {
     AgentSetUiColor { kind: String, key: String, color: Option<String> },
     AgentGetMemoryFiles { agent_id: String },
     AgentSaveMemoryFile { agent_id: String, target: String, content: String },
+    AgentGenerateCodeFix { path: String, language: String, before: String, target: String, after: String, #[serde(default)] diagnostics: Vec<String>, #[serde(default)] instruction: String },
 }

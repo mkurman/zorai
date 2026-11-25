@@ -76,6 +76,7 @@ const AGENT_QUERY_RESPONSE_TYPES = [
   'operation-accepted',
   'thread-operations',
   'commit-message',
+  'code-fix',
   'thread-handoff-result',
   'generated-tools',
   'generated-tool-result',

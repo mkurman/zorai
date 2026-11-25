@@ -12,16 +12,17 @@ import {
 const SEARCH_DEBOUNCE_MS = 300;
 export const CODE_SEARCH_MAX_RESULTS = 2000;
 
-type SearchRequest = CodeSearchOptions & { include: string; exclude: string; maxResults: number };
+type SearchRequest = CodeSearchOptions & { include: string; exclude: string; maxResults: number; useIgnoreFiles: boolean; fresh?: boolean };
 type ReplaceTarget = { path: string; line?: number; column?: number };
 
 function errorText(reason: unknown): string {
   return reason instanceof Error ? reason.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, "") : String(reason);
 }
 
-export function CodeSearchPanel({ root, focusToken, search, replace, onOpen }: {
+export function CodeSearchPanel({ root, focusToken, seedQuery = "", search, replace, onOpen }: {
   root: string;
   focusToken: number;
+  seedQuery?: string;
   search: (query: string, options: SearchRequest) => Promise<CodeSearchHit[]>;
   replace: (query: string, replacement: string, options: CodeSearchOptions, targets: ReplaceTarget[]) => Promise<{ files: number; replacements: number }>;
   onOpen: (hit: CodeSearchHit) => void;
@@ -32,6 +33,8 @@ export function CodeSearchPanel({ root, focusToken, search, replace, onOpen }: {
   const [showDetails, setShowDetails] = useState(false);
   const [include, setInclude] = useState("");
   const [exclude, setExclude] = useState("");
+  const [useIgnoreFiles, setUseIgnoreFiles] = useState(true);
+  const freshRef = useRef(false);
   const [options, setOptions] = useState<CodeSearchOptions>({ caseSensitive: false, wholeWord: false, regex: false });
   const [hits, setHits] = useState<CodeSearchHit[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -44,11 +47,12 @@ export function CodeSearchPanel({ root, focusToken, search, replace, onOpen }: {
 
   useEffect(() => {
     if (focusToken === 0) return;
+    if (seedQuery) setQuery(seedQuery);
     window.requestAnimationFrame(() => {
       inputRef.current?.focus();
       inputRef.current?.select();
     });
-  }, [focusToken]);
+  }, [focusToken, seedQuery]);
 
   useEffect(() => {
     if (!query.trim()) {
@@ -60,7 +64,9 @@ export function CodeSearchPanel({ root, focusToken, search, replace, onOpen }: {
     let cancelled = false;
     setSearching(true);
     const timer = window.setTimeout(() => {
-      search(query, { ...options, include, exclude, maxResults: CODE_SEARCH_MAX_RESULTS })
+      const fresh = freshRef.current;
+      freshRef.current = false;
+      search(query, { ...options, include, exclude, useIgnoreFiles, fresh, maxResults: CODE_SEARCH_MAX_RESULTS })
         .then((results) => {
           if (cancelled) return;
           setHits(results);
@@ -77,7 +83,7 @@ export function CodeSearchPanel({ root, focusToken, search, replace, onOpen }: {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [query, options, include, exclude, root, runToken, search]);
+  }, [query, options, include, exclude, root, runToken, search, useIgnoreFiles]);
 
   const toggleOption = (key: keyof CodeSearchOptions) => setOptions((current) => ({ ...current, [key]: !current[key] }));
   const runReplace = async (targets: ReplaceTarget[]) => {
@@ -101,7 +107,7 @@ export function CodeSearchPanel({ root, focusToken, search, replace, onOpen }: {
       <div className="zorai-code-search__header">
         <span>Search</span>
         <span className="zorai-code-search__header-actions">
-          <button type="button" title="Refresh" aria-label="Refresh search" disabled={!query.trim()} onClick={() => setRunToken((value) => value + 1)}><CodeIcon icon="reload" /></button>
+          <button type="button" title="Refresh" aria-label="Refresh search" disabled={!query.trim()} onClick={() => { freshRef.current = true; setRunToken((value) => value + 1); }}><CodeIcon icon="reload" /></button>
           <button type="button" title="Clear search results" aria-label="Clear search results" disabled={!query && hits.length === 0} onClick={() => { setQuery(""); setReplacement(""); setCollapsed(new Set()); inputRef.current?.focus(); }}>
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h10M4 11h10M4 16h6M15 14l5 5M20 14l-5 5" /></svg>
           </button>
@@ -135,6 +141,7 @@ export function CodeSearchPanel({ root, focusToken, search, replace, onOpen }: {
                 if (event.key === "Escape" && query) setQuery("");
               }}
             />
+            {query ? <button type="button" className="zorai-code-search__clear" title="Clear search (Esc)" aria-label="Clear search" onClick={() => { setQuery(""); inputRef.current?.focus(); }}>×</button> : null}
             <button type="button" className={options.caseSensitive ? "is-on" : undefined} title="Match Case" aria-label="Match Case" aria-pressed={options.caseSensitive} onClick={() => toggleOption("caseSensitive")}>Aa</button>
             <button type="button" className={options.wholeWord ? "is-on zorai-code-search__word" : "zorai-code-search__word"} title="Match Whole Word" aria-label="Match Whole Word" aria-pressed={options.wholeWord} onClick={() => toggleOption("wholeWord")}>ab</button>
             <button type="button" className={options.regex ? "is-on" : undefined} title="Use Regular Expression" aria-label="Use Regular Expression" aria-pressed={options.regex} onClick={() => toggleOption("regex")}>.*</button>
@@ -176,6 +183,10 @@ export function CodeSearchPanel({ root, focusToken, search, replace, onOpen }: {
           <label>
             <span>files to exclude</span>
             <input value={exclude} placeholder="e.g. *.ts, src/**/exclude" spellCheck={false} onChange={(event) => setExclude(event.target.value)} />
+          </label>
+          <label className="zorai-code-search__check">
+            <input type="checkbox" checked={useIgnoreFiles} onChange={(event) => setUseIgnoreFiles(event.target.checked)} />
+            <span>Use .gitignore (skip ignored files)</span>
           </label>
         </div>
       ) : null}

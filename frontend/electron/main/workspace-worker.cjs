@@ -3,6 +3,7 @@ const { setGitAskpassEnv } = require('./git-askpass.cjs');
 const { createWorkspaceWatcher } = require('./workspace-watch-service.cjs');
 const { discoverWorkspaceTests } = require('./test-runtime.cjs');
 const { createWorkspaceListCache } = require('./workspace-list-cache.cjs');
+const { createWorkspaceSearchCache } = require('./workspace-search-cache.cjs');
 
 const MUTATING_METHODS = new Set([
     'createWorkspaceDirectory', 'deleteWorkspacePath', 'renameWorkspacePath', 'writeWorkspaceFile',
@@ -17,6 +18,16 @@ const listCache = createWorkspaceListCache({
 });
 
 const watchers = new Map();
+
+const searchCache = createWorkspaceSearchCache({
+    canonicalRoot: workspaceService.canonicalWorkspaceRoot,
+    listFiles: workspaceService.listSearchableWorkspaceFiles,
+    collectMatches: workspaceService.collectWorkspaceTextMatches,
+    searchPattern: workspaceService.workspaceSearchPattern,
+    globMatcher: workspaceService.workspaceGlobMatcher,
+    isBinary: workspaceService.isProbablyBinary,
+    isTrusted: (root, relativeDirectory) => [...watchers.values()].some((watcher) => watcher.root === root && watcher.isWatching(relativeDirectory)),
+});
 
 function post(message) {
     process.parentPort.postMessage(message);
@@ -46,6 +57,7 @@ const handlers = {
     searchWorkspaceFileNames,
     listWorkspaceFiles: workspaceFileIndex,
     listWorkspaceDirectory: listCache.listDirectory,
+    searchWorkspace: (rootPath, query, options) => searchCache.search(rootPath, query, options),
     discoverTests: discoverWorkspaceTests,
     setAskpassEnv(env) {
         setGitAskpassEnv(env);
@@ -54,6 +66,7 @@ const handlers = {
     watchStart(rootPath, options) {
         const watcher = createWorkspaceWatcher(rootPath, (batch) => {
             listCache.applyChanges(batch.root, batch.changes);
+            searchCache.applyChanges(batch.root, batch.changes);
             if (batch.changes.some((change) => change.eventType === 'rename')) fileIndexByRoot.delete(batch.root);
             post({ type: 'watch-batch', batch });
         }, options);
@@ -62,6 +75,7 @@ const handlers = {
             if (watchers.get(watcher.subscriptionId) === watcher && watcher.watchedDirectoryCount > 0) {
                 watcher.countedForCache = true;
                 listCache.watchStarted(watcher.root);
+                void searchCache.warm(watcher.root).catch(() => {});
             }
         });
         return { subscriptionId: watcher.subscriptionId, root: watcher.root, watchedDirectoryCount: watcher.watchedDirectoryCount };
@@ -84,6 +98,9 @@ process.parentPort.on('message', async ({ data }) => {
         const callArgs = Array.isArray(args) ? args : [];
         if (MUTATING_METHODS.has(method)) workspaceService.forgetGitStatus(callArgs[0]);
         const result = await handler(...callArgs);
+        if (method === 'writeWorkspaceFile') searchCache.forgetPaths(callArgs[0], [callArgs[1]]);
+        else if (method === 'replaceInWorkspace') searchCache.forgetPaths(callArgs[0], (callArgs[4] ?? []).map((target) => target?.path));
+        else if (MUTATING_METHODS.has(method)) searchCache.invalidateRoot(callArgs[0]);
         if (MUTATING_METHODS.has(method)) {
             workspaceService.forgetGitStatus(callArgs[0]);
             listCache.invalidateRoot(callArgs[0]);

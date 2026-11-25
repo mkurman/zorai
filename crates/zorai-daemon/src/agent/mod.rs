@@ -32,6 +32,7 @@ pub(crate) mod claude_code_auth;
 mod cognitive_resonance_runtime;
 mod collaboration;
 mod commit_message;
+pub(crate) mod code_fix;
 mod compaction;
 mod config;
 mod consensus;

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode, Fragment } from "react";
 import { codeTiming } from "@/zorai/features/code/codeTiming";
 import { LoadingState } from "@/components/LoadingState";
 import { createPortal } from "react-dom";
@@ -12,7 +12,7 @@ import { SESSION_TAB_DRAG_TYPE, SessionTabStrip } from "@/zorai/features/threads
 import { ThreadSplitDivider, dropBox } from "@/zorai/features/threads/ThreadSplitView";
 import { MAX_SPLIT_PANES, mapSplitPaneIds, removeSplitPaneNode, setSplitSizesAt, splitChildSizes, splitDropZone, splitEdgeDropZone, splitLayoutsFor, splitOrNull, splitPaneIds, type ThreadSplitDropZone, type ThreadSplitLayout, type ThreadSplitNode } from "@/zorai/features/threads/threadSplitModel";
 import { CODE_FILE_DRAG_TYPE, useCodeSplitStore } from "@/zorai/features/code/codeSplitStore";
-import { CodeFileIcon } from "@/zorai/features/code/CodeFileIcon";
+import { CodeFileIcon, CodeFolderIcon } from "@/zorai/features/code/CodeFileIcon";
 import { RefreshIcon } from "@/zorai/shell/RefreshButton";
 import { SkillIcon } from "@/zorai/features/skills/SkillIcons";
 import { codeMediaKind, shouldRestoreWorkspaceDocument } from "@/zorai/features/code/workspaceDocumentRestore";
@@ -21,8 +21,14 @@ import { useWorkspaceEditorRequestStore } from "@/lib/workspaceEditorRequestStor
 import { openExternalFileInWorkspace } from "@/zorai/features/code/workspaceExternalFile";
 import { CodeQuickOpen } from "@/zorai/features/code/CodeQuickOpen";
 import { CodeSearchPanel } from "@/zorai/features/code/CodeSearchPanel";
+import { workspaceExplorerControllerFor } from "@/zorai/features/code/workspaceExplorerController";
+import { searchSeedFromSelection } from "@/zorai/features/code/codeSearchResults";
 import { monacoModelPath } from "@/zorai/features/code/codeLanguages";
 import { subscribeCodeRailActions } from "@/zorai/features/code/codeRailActions";
+import { SettingsGearIcon } from "@/zorai/features/code/SettingsGearIcon";
+import { applyLspTextEdits, type LspFileEdits } from "@/zorai/features/code/codeLspEdits";
+import { claimLanguageServerPrompt, useLanguageServerStore } from "@/zorai/features/code/codeLanguageServers";
+import { pushToast } from "@/lib/toastStore";
 import { setCommandPaletteOverride } from "@/zorai/shell/zoraiAppCommands";
 import { CodeCommandPalette } from "@/zorai/features/code/CodeCommandPalette";
 import { RUNNABLE_CODE_COMMANDS, matchesCodeBinding, shouldLeaveKeyToTerminal, shouldPassthroughCodeCommand, type CodeCommandId } from "@/zorai/features/code/codeCommands";
@@ -34,7 +40,7 @@ import { createCodeFileOpenTrace } from "@/zorai/features/code/codeEditorPerform
 import { applyCodeSaveTransforms, createCodeAutoSaveController } from "@/zorai/features/code/codeAutoSave";
 import { DirtyFileCloseDialog } from "@/zorai/features/code/DirtyFileCloseDialog";
 import { formatCodeText, prettierParserForLanguage } from "@/zorai/features/code/codeFormatter";
-import { CodeSettingsView } from "@/zorai/features/code/CodeSettingsView";
+import { CodeSettingsView, type CodeSettingsTab } from "@/zorai/features/code/CodeSettingsView";
 import {
   getCachedWorkspaceFiles,
   getWorkspaceFiles,
@@ -145,6 +151,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const reducedModePathsRef = useRef(new Set<string>());
   const [codeOverlay, setCodeOverlay] = useState<"quickOpen" | "commands" | null>(null);
   const [searchFocusToken, setSearchFocusToken] = useState(0);
+  const [searchSeed, setSearchSeed] = useState("");
   const [settingsTabOpen, setSettingsTabOpen] = useState(false);
   const [settingsTabPinned, setSettingsTabPinned] = useState(false);
   const [activeEditorTabId, setActiveEditorTabId] = useState<string | null>(null);
@@ -168,6 +175,9 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const [pathDialogError, setPathDialogError] = useState<string | null>(null);
   const [agentChanges, setAgentChanges] = useState<ZoraiWorkContextEntry[]>([]);
   const [operationSnapshots, setOperationSnapshots] = useState<Record<string, { available: boolean; revertible: boolean; stale_paths: string[]; retained_bytes: number; reason: string | null }>>({});
+  const languageServerRevision = useLanguageServerStore((state) => state.revision);
+  const [editorFullscreen, setEditorFullscreen] = useState(false);
+  const [codeSettingsTab, setCodeSettingsTab] = useState<CodeSettingsTab>("editor");
   const [lspStatus, setLspStatus] = useState<{ available: boolean; command?: string | null; reason?: string } | null>(null);
   const [diagnosticsByPath, setDiagnosticsByPath] = useState<Record<string, ZoraiLspDiagnostic[]>>({});
   const [workspaceTests, setWorkspaceTests] = useState<ZoraiWorkspaceTest[]>([]);
@@ -522,6 +532,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       lspVersionRef.current[activeDocument.path] = version;
       void bridge.workspaceLspOpen!(context.root, activeDocument.path, activeDocument.language, activeDocument.content, version).then((result) => {
         if (!disposed) setLspStatus({ available: result.available, command: result.command ?? null, reason: result.reason });
+        if (!result.available && result.missing && result.server && claimLanguageServerPrompt(result.server)) void promptLanguageServerInstall(result.server);
       }).catch((reason) => { if (!disposed) setLspStatus({ available: false, reason: reason?.message ?? String(reason) }); });
     }, LSP_OPEN_DELAY_MS);
     return () => {
@@ -531,7 +542,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     };
   // Document open/close follows identity; incremental content changes use the debounced effect below.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDocument?.language, activeDocument?.path, activeDocument?.hash, bridge, context?.root, editorSettings.lspEnabled]);
+  }, [activeDocument?.language, activeDocument?.path, activeDocument?.hash, bridge, context?.root, editorSettings.lspEnabled, languageServerRevision]);
   useEffect(() => {
     if (!editorSettings.lspEnabled || !context?.root || !activeDocument || !lspStatus?.available || !bridge?.workspaceLspChange || reducedModePathsRef.current.has(activeDocument.path)) return;
     if (lspChangeTimer.current !== null) window.clearTimeout(lspChangeTimer.current);
@@ -1158,7 +1169,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   };
 
   const searchRoot = context?.root;
-  const searchProjectFiles = useCallback(async (query: string, options: { caseSensitive: boolean; wholeWord: boolean; regex: boolean; include: string; exclude: string; maxResults: number }) => {
+  const searchProjectFiles = useCallback(async (query: string, options: { caseSensitive: boolean; wholeWord: boolean; regex: boolean; include: string; exclude: string; maxResults: number; useIgnoreFiles: boolean; fresh?: boolean }) => {
     if (!searchRoot || !bridge?.workspaceSearch) return [];
     return bridge.workspaceSearch(searchRoot, query, options);
   }, [bridge, searchRoot]);
@@ -1357,7 +1368,14 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     if (id === "view.commandPalette") { setCodeOverlay("commands"); return; }
     if (id === "file.save") { void saveCommandRef.current(); return; }
     if (id === "file.reload") { void reloadCommandRef.current(); return; }
-    if (id === "search.project") { setRailTab("search"); setSearchFocusToken((value) => value + 1); return; }
+    if (id === "search.project") {
+      const editor = monacoEditorRef.current;
+      const selection = editor?.getSelection();
+      setSearchSeed(searchSeedFromSelection(selection && !selection.isEmpty() ? editor?.getModel()?.getValueInRange(selection) : ""));
+      setRailTab("search");
+      setSearchFocusToken((value) => value + 1);
+      return;
+    }
     if (id === "file.openExternal" || id === "file.reveal") {
       const target = activeFileTargetRef.current;
       if (!target) return;
@@ -1634,7 +1652,10 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
               value={railTab}
               onChange={(tab) => {
                 setRailTab(tab);
-                if (tab === "search") setSearchFocusToken((value) => value + 1);
+                if (tab === "search") {
+                  setSearchSeed("");
+                  setSearchFocusToken((value) => value + 1);
+                }
               }}
               badges={{
                 scm: { count: (gitOverview?.stagedFiles ?? 0) + (gitOverview?.unstagedFiles ?? 0) + gitConflicts.length },
@@ -1703,6 +1724,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
               <CodeSearchPanel
                 root={context.root}
                 focusToken={searchFocusToken}
+                seedQuery={searchSeed}
                 search={searchProjectFiles}
                 replace={replaceProjectFiles}
                 onOpen={(hit) => void openFile(hit.path, { line: hit.line, column: hit.column })}
@@ -1937,6 +1959,36 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       cwd={context?.root ?? undefined}
     />
   ) : null;
+  const openLanguageServerSettings = () => {
+    setCodeSettingsTab("language-servers");
+    openSettingsTab();
+  };
+
+  const revealInExplorer = (path: string) => {
+    if (!context?.root) return;
+    setRailTab("explorer");
+    void workspaceExplorerControllerFor(bridge, context.root).reveal(path);
+  };
+
+  const lspIndicator = !lspStatus ? null : lspStatus.available ? (
+    <span className="zorai-lsp-status is-ready" title={`Language server running\n${lspStatus.command ?? "ready"}`}>
+      <span className="zorai-lsp-status__dot" aria-hidden="true" />
+      LSP
+    </span>
+  ) : (
+    <button
+      type="button"
+      className="zorai-lsp-status is-unavailable"
+      title={`Language server unavailable${lspStatus.reason ? `\n${lspStatus.reason}` : ""}\nOpen Code Settings → Language Servers`}
+      aria-label="Language server unavailable. Open Code Settings."
+      onClick={openLanguageServerSettings}
+    >
+      <span className="zorai-lsp-status__dot" aria-hidden="true" />
+      LSP
+      <SettingsGearIcon />
+    </button>
+  );
+
   const statusToggles = (
     <span className="zorai-code-statusbar-toggles">
       <button type="button" className={panelOpen && panelTab === "terminal" ? "is-active" : undefined} title="Toggle Terminal (Ctrl+`)" onClick={() => togglePanel("terminal")}>
@@ -1944,6 +1996,63 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       </button>
     </span>
   );
+
+  const promptLanguageServerInstall = async (serverId: string) => {
+    await useLanguageServerStore.getState().refresh();
+    const server = useLanguageServerStore.getState().servers.find((candidate) => candidate.id === serverId);
+    if (!server || server.installedCommand) return;
+    const install = () => void useLanguageServerStore.getState().install(server.id).then((ok) => pushToast(
+      ok ? `${server.server} installed. ${server.label} language features are starting.` : `${server.server} installation failed. Details are in Code Settings → Language Servers.`,
+      ok ? "success" : "error",
+      ok ? undefined : { actions: [{ label: "Code Settings", run: openLanguageServerSettings }] },
+    ));
+    pushToast(
+      `${server.label} Go to Definition, rename and refactoring need ${server.server}, which isn't installed. ${server.installable ? "Install it now?" : server.hint ?? ""} You can also do this any time in Code Settings → Language Servers.`,
+      "info",
+      { durationMs: 30000, actions: [...(server.installable ? [{ label: "Install", run: install }] : []), { label: "Code Settings", run: openLanguageServerSettings }] },
+    );
+  };
+
+  const addEditorContextToChat = (doc: OpenDocument, snippet: { startLine: number; endLine: number; text: string } | null) => {
+    if (!activeThreadId) {
+      pushToast("Open a thread to add code to the chat.", "error");
+      return;
+    }
+    if (!snippet) {
+      if (!context?.attachedFiles.includes(doc.path)) toggleAttachedFile(activeThreadId, doc.path);
+      pushToast(`${doc.path} is attached to the chat.`, "success", { durationMs: 2500 });
+      return;
+    }
+    const fence = snippet.text.includes("```") ? "````" : "```";
+    prefillAgentInput(`\`${doc.path}:${snippet.startLine}-${snippet.endLine}\`\n${fence}${doc.language}\n${snippet.text}\n${fence}`, "append");
+  };
+
+  const applyWorkspaceEdits = async (files: LspFileEdits[], skipped: number) => {
+    const root = context?.root;
+    if (!root) return;
+    const failed: string[] = [];
+    for (const file of files) {
+      const open = documents[file.path];
+      if (open) {
+        const value = applyLspTextEdits(open.content, file.edits);
+        documentControllerRef.current.updateContent(root, file.path, value);
+        setDocuments((current) => current[file.path] ? { ...current, [file.path]: { ...current[file.path], content: value, dirty: value !== current[file.path].original } } : current);
+        continue;
+      }
+      try {
+        if (!bridge?.workspaceReadFile || !bridge.workspaceWriteFile) throw new Error("Workspace file access is unavailable.");
+        const disk = await bridge.workspaceReadFile(root, file.path);
+        await bridge.workspaceWriteFile(root, file.path, applyLspTextEdits(disk.content, file.edits), disk.hash);
+      } catch {
+        failed.push(file.path);
+      }
+    }
+    const problems = [
+      failed.length > 0 ? `could not update ${failed.join(", ")}` : "",
+      skipped > 0 ? `skipped ${skipped} change(s) the language server proposed (file create/rename/delete or outside the workspace)` : "",
+    ].filter(Boolean);
+    if (problems.length > 0) setError(`Refactoring incomplete: ${problems.join("; ")}.`);
+  };
 
   const renderWorkspaceEditor = (doc: OpenDocument, paned: boolean) => (
     <WorkspaceCodeEditor
@@ -1977,6 +2086,11 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       }).filter((result): result is { line: number; status: "passed" | "failed" | "skipped"; message: string | null } => result !== null)}
       lsp={context?.root && lspStatus ? { root: context.root, path: doc.path, language: doc.language, available: !reducedModePathsRef.current.has(doc.path) && editorSettings.lspEnabled && lspStatus.available } : undefined}
       onNavigateLocation={(targetPath, line, column) => void openFile(targetPath, { line, column })}
+      onApplyWorkspaceEdit={(files, skipped) => void applyWorkspaceEdits(files, skipped)}
+      onAddToChat={(snippet) => addEditorContextToChat(doc, snippet)}
+      onCodeFixError={(message) => pushToast(message, "error")}
+      onClose={() => requestCloseFile(doc.path)}
+      workspaceRoot={context?.root}
       onSelect={recordEditorSelection}
       onChange={(value) => {
         if (context?.root) documentControllerRef.current.updateContent(context.root, doc.path, value);
@@ -2122,7 +2236,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   };
 
   const editor = (
-      <section className="zorai-workspace-editor-area">
+      <section className={editorFullscreen ? "zorai-workspace-editor-area is-fullscreen" : "zorai-workspace-editor-area"}>
         {operationDiff ? (
           <AgentOperationDiffView
             target={operationDiff}
@@ -2175,14 +2289,24 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             moveOpenFile(activeThreadId, tabId.replace(/^file:/, ""), targetId.replace(/^file:/, ""), placeAfter);
           }}
         />
+        <CodeIconButton icon={editorFullscreen ? "collapse" : "expand"} label={editorFullscreen ? "Exit full screen" : "Full screen editor"} onClick={() => setEditorFullscreen((current) => !current)} />
         </div>
-        {settingsTabOpen && activeEditorTabId === "code-settings" ? <CodeSettingsView /> : activeDocument ? (
+        {settingsTabOpen && activeEditorTabId === "code-settings" ? <CodeSettingsView tab={codeSettingsTab} onTabChange={setCodeSettingsTab} /> : activeDocument ? (
           <>
             {/* <nav className="zorai-workspace-breadcrumbs" aria-label="File breadcrumbs">
               {activeDocument.path.split(/[\\/]/).map((part, index, parts) => <span key={`${index}:${part}`}>{part}{index < parts.length - 1 ? " › " : ""}</span>)}
             </nav> */}
             <div className="zorai-workspace-actionbar">
-              <span>{activeDocument.path}{lspStatus ? ` · LSP ${lspStatus.available ? lspStatus.command ?? "ready" : "unavailable"}` : ""}</span>
+              <span className="zorai-code-path-bar">
+                <nav className="zorai-code-path" aria-label="File path" title={context?.root ? `${context.root.replace(/[\\/]+$/, "")}/${activeDocument.path}` : activeDocument.path}>
+                  {activeDocument.path.split(/[\\/]/).filter(Boolean).map((part, index, parts) => index === parts.length - 1 ? (
+                    <button key={`${index}:${part}`} type="button" className="zorai-code-path__file" title={`Reveal ${activeDocument.path} in Explorer`} onClick={() => revealInExplorer(activeDocument.path)}><CodeFileIcon path={activeDocument.path} />{part}</button>
+                  ) : (
+                    <Fragment key={`${index}:${part}`}><button type="button" className="zorai-code-path__folder" title={`Reveal ${parts.slice(0, index + 1).join("/")} in Explorer`} onClick={() => revealInExplorer(parts.slice(0, index + 1).join("/"))}><CodeFolderIcon /><span>{part}</span></button><span className="zorai-code-path__sep" aria-hidden="true">›</span></Fragment>
+                  ))}
+                </nav>
+                {lspIndicator}
+              </span>
               {codePreviewKind(activeDocument.path) && mode === "edit" ? (
                 <ViewModeToggle
                   modes={CODE_PREVIEW_MODES}
@@ -2299,7 +2423,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
           {activeDocument ? (
             <>
               <span>{activeDocument.path}</span>
-              <span>{activeDocument.language}{lspStatus ? ` · LSP ${lspStatus.available ? lspStatus.command ?? "ready" : "unavailable"}` : ""}</span>
+              <span>{activeDocument.language}{lspIndicator}</span>
             </>
           ) : (
             <>

@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePresence } from "@/hooks/usePresence";
-import { getBridge } from "@/lib/bridge";
 import { clampMenuPosition } from "@/zorai/shell/contextMenuModel";
 import { CodeIcon } from "./CodeIcon";
 import { codeCommandById, displayCodeBinding, type CodeCommandId } from "./codeCommands";
 import { useCodeEditorSettingsStore } from "./codeEditorSettingsStore";
+import { takeScreenshotAfterMenuCloses } from "@/zorai/shell/menuScreenshot";
 
 export type CodeToolbarMenuItem = {
   key: string;
@@ -114,7 +114,7 @@ export function CodeContextMenu({ x, y, items, label, onClose }: { x: number; y:
 
 export function withScreenshotItem(items: CodeToolbarMenuItem[]): CodeToolbarMenuItem[] {
   if (items.some((item) => item.key === "screenshot")) return items;
-  return [...items, { key: "screenshot", label: "Take Screenshot", separatorBefore: items.length > 0, onSelect: () => void getBridge()?.contextMenuAction?.("screenshot") }];
+  return [...items, { key: "screenshot", label: "Take Screenshot", separatorBefore: items.length > 0, onSelect: takeScreenshotAfterMenuCloses }];
 }
 
 export function submenuPlacement(rect: { right: number; bottom: number; width: number }, parentLeft: number, viewport: { width: number; height: number }): { flipX: boolean; shiftY: number } {

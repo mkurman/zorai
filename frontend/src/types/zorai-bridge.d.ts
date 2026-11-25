@@ -478,6 +478,16 @@ declare global {
         sort_order?: number | null;
     };
 
+    type ZoraiLanguageServerStatus = {
+        id: string;
+        label: string;
+        server: string;
+        installedCommand: string | null;
+        installable: boolean;
+        requires: string | null;
+        installCommand: string | null;
+        hint: string | null;
+    };
     type ZoraiWorkspaceFile = {
         path: string;
         content: string;
@@ -734,7 +744,7 @@ declare global {
         workspaceGitDiscard?: (rootPath: string, relativePath: string) => Promise<ZoraiWorkspaceGitStatus[]>;
         workspaceGitHunks?: (rootPath: string, relativePath: string, options?: { staged?: boolean }) => Promise<ZoraiWorkspaceGitHunk[]>;
         workspaceGitApplyHunk?: (rootPath: string, relativePath: string, hunkId: string, action: "stage" | "unstage" | "discard") => Promise<{ status: ZoraiWorkspaceGitStatus[]; hunks: ZoraiWorkspaceGitHunk[] }>;
-        workspaceSearch?: (rootPath: string, query: string, options?: { caseSensitive?: boolean; wholeWord?: boolean; regex?: boolean; include?: string; exclude?: string; maxResults?: number; maxFiles?: number }) => Promise<Array<{ path: string; line: number; column: number; preview: string; matchStart?: number; matchLength?: number }>>;
+        workspaceSearch?: (rootPath: string, query: string, options?: { caseSensitive?: boolean; wholeWord?: boolean; regex?: boolean; include?: string; exclude?: string; maxResults?: number; maxFiles?: number; useIgnoreFiles?: boolean; fresh?: boolean }) => Promise<Array<{ path: string; line: number; column: number; preview: string; matchStart?: number; matchLength?: number }>>;
         workspaceReplace?: (rootPath: string, query: string, replacement: string, options: { caseSensitive?: boolean; wholeWord?: boolean; regex?: boolean }, targets: Array<{ path: string; line?: number; column?: number }>) => Promise<{ files: number; replacements: number }>;
         workspaceSearchFileNames?: (rootPath: string, query: string, options?: { maxResults?: number }) => Promise<string[]>;
         workspaceListFiles?: (rootPath: string) => Promise<string[]>;
@@ -744,11 +754,13 @@ declare global {
         workspaceWatchStop?: (subscriptionId: string) => Promise<boolean>;
         onWorkspaceFilesChanged?: (cb: (batch: { subscriptionId: string; root: string; changes: Array<{ path: string; eventType: "change" | "rename"; observedAt: number }>; emittedAt: number }) => void) => (() => void) | void;
         workspaceLspStatus?: (rootPath: string, language: string) => Promise<{ root: string; language: string; configured: boolean; available: boolean; command: string | null; server: string | null }>;
-        workspaceLspOpen?: (rootPath: string, relativePath: string, language: string, content: string, version: number) => Promise<{ available: boolean; reason?: string; root?: string; server?: string; command?: string; document?: { path: string; version: number } }>;
+        workspaceLspOpen?: (rootPath: string, relativePath: string, language: string, content: string, version: number) => Promise<{ available: boolean; reason?: string; root?: string; server?: string; missing?: boolean; command?: string; document?: { path: string; version: number } }>;
         workspaceLspChange?: (rootPath: string, relativePath: string, language: string, content: string, version: number) => Promise<unknown>;
-        workspaceLspRequest?: (rootPath: string, relativePath: string, language: string, method: "hover" | "definition" | "references" | "completion", position: { line: number; character: number }) => Promise<{ available: boolean; reason?: string; result?: unknown }>;
+        workspaceLspRequest?: (rootPath: string, relativePath: string, language: string, method: "hover" | "definition" | "references" | "completion" | "rename" | "codeAction" | "formatting" | "documentSymbol", position: { line: number; character: number }, extra?: Record<string, unknown>) => Promise<{ available: boolean; reason?: string; result?: unknown }>;
         workspaceLspClose?: (rootPath: string, relativePath: string, language: string) => Promise<boolean>;
         workspaceLspUnsubscribe?: (rootPath: string, language: string) => Promise<boolean>;
+        workspaceLspServers?: () => Promise<ZoraiLanguageServerStatus[]>;
+        workspaceLspInstall?: (id: string) => Promise<{ ok: boolean; output: string; installedCommand?: string | null }>;
         onWorkspaceLspDiagnostics?: (cb: (payload: ZoraiLspDiagnosticsPayload) => void) => (() => void) | void;
         workspaceTestsDiscover?: (rootPath: string, options?: { maxTests?: number }) => Promise<{ root: string; frameworks: Array<{ id: string; label: string; command: string }>; tests: ZoraiWorkspaceTest[]; truncated: boolean }>;
         workspaceTestsRun?: (rootPath: string, request: { framework: string; path?: string; selector?: string }) => Promise<{ runId: string; command: string; args: string[]; startedAt: number }>;
@@ -895,6 +907,7 @@ declare global {
         agentGetMemoryFiles?: (agentId: string) => Promise<unknown>;
         agentSaveMemoryFile?: (agentId: string, target: "soul" | "memory" | "user", content: string) => Promise<unknown>;
         agentGenerateCommitMessage?: (diff: string, recentSubjects: string[]) => Promise<{ message: string; error?: string | null }>;
+        agentGenerateCodeFix?: (request: { path: string; language: string; before: string; target: string; after: string; diagnostics: string[]; instruction?: string }) => Promise<{ replacement: string; error?: string | null }>;
         agentCancelOperation?: (id: string) => Promise<{ ok?: boolean; error?: string } | unknown>;
         agentDismissParticipantSuggestion?: (payload: {
             threadId: string;

@@ -1,9 +1,32 @@
 const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 const { pathToFileURL, fileURLToPath } = require('url');
+const fs = require('fs');
+const os = require('os');
 const { canonicalWorkspaceRoot, isWithinRoot, resolveWorkspacePath } = require('./workspace-service.cjs');
+const { getZoraiDataDir } = require('./app-data.cjs');
 
 const MAX_LSP_MESSAGE_BYTES = 16 * 1024 * 1024;
+const LSP_RETRYABLE_CODES = new Set([-32801, -32802]);
+const LSP_METHOD_NOT_FOUND = -32601;
+const LSP_CAPABILITY_FOR_METHOD = {
+    hover: 'hoverProvider',
+    definition: 'definitionProvider',
+    references: 'referencesProvider',
+    completion: 'completionProvider',
+    rename: 'renameProvider',
+    codeAction: 'codeActionProvider',
+    formatting: 'documentFormattingProvider',
+    documentSymbol: 'documentSymbolProvider',
+};
+
+function serverSupports(capabilities, method) {
+    if (!capabilities) return true;
+    const value = capabilities[LSP_CAPABILITY_FOR_METHOD[method]];
+    return value !== undefined && value !== null && value !== false;
+}
+const LSP_RETRY_ATTEMPTS = 5;
+const LSP_RETRY_DELAY_MS = 300;
 
 class LspMessageReader {
     constructor(onMessage) {
@@ -44,7 +67,23 @@ function resolveCommandPath(command) {
     return String(result.stdout || '').split(/\r?\n/).map((value) => value.trim()).find(Boolean) ?? null;
 }
 
+function managedLanguageServerPath(command) {
+    const executable = process.platform === 'win32' ? `${command}.cmd` : command;
+    if (['vscode-html-language-server', 'vscode-css-language-server'].includes(command)) return path.join(getZoraiDataDir(), 'language-servers', 'web', 'node_modules', '.bin', executable);
+    if (command === 'typescript-language-server') return path.join(getZoraiDataDir(), 'language-servers', 'typescript', 'node_modules', '.bin', executable);
+    if (command === 'pyright-langserver') return path.join(getZoraiDataDir(), 'language-servers', 'pyright', 'node_modules', '.bin', executable);
+    if (command === 'gopls') return path.join(process.env.GOPATH || path.join(os.homedir(), 'go'), 'bin', process.platform === 'win32' ? 'gopls.exe' : 'gopls');
+    return null;
+}
+
+function managedLanguageServerComplete(command) {
+    if (command !== 'typescript-language-server') return true;
+    return fs.existsSync(path.join(getZoraiDataDir(), 'language-servers', 'typescript', 'node_modules', 'typescript', 'lib', 'tsserver.js'));
+}
+
 function usableLanguageServerCommand(command) {
+    const managed = managedLanguageServerPath(command);
+    if (managed && fs.existsSync(managed) && managedLanguageServerComplete(command)) return managed;
     const resolved = resolveCommandPath(command);
     if (!resolved) return null;
     // The Ubuntu/Snap rust-analyzer shim recursively invokes itself when the
@@ -59,6 +98,14 @@ function usableLanguageServerCommand(command) {
     return resolved;
 }
 
+function typeScriptLanguageId(relativePath) {
+    const extension = path.extname(String(relativePath || '')).toLowerCase();
+    if (extension === '.tsx') return 'typescriptreact';
+    if (extension === '.jsx') return 'javascriptreact';
+    if (['.js', '.mjs', '.cjs'].includes(extension)) return 'javascript';
+    return 'typescript';
+}
+
 function languageServerSpec(language) {
     const normalized = String(language || '').toLowerCase();
     if (normalized === 'rust') return { id: 'rust', languageId: 'rust', candidates: [{ command: 'rust-analyzer', args: [] }] };
@@ -68,9 +115,75 @@ function languageServerSpec(language) {
             { command: 'pyright-langserver', args: ['--stdio'] },
         ],
     };
+    if (['typescript', 'javascript', 'typescriptreact', 'javascriptreact'].includes(normalized)) return {
+        id: 'typescript',
+        languageId: 'typescript',
+        languageIdFor: typeScriptLanguageId,
+        candidates: [{ command: 'typescript-language-server', args: ['--stdio'] }],
+    };
+    if (normalized === 'html') return {
+        id: 'html',
+        installId: 'web',
+        languageId: 'html',
+        initializationOptions: { provideFormatter: true, embeddedLanguages: { css: true, javascript: true } },
+        candidates: [{ command: 'vscode-html-language-server', args: ['--stdio'] }],
+    };
+    if (['css', 'scss', 'less'].includes(normalized)) return {
+        id: 'css',
+        installId: 'web',
+        languageId: normalized,
+        initializationOptions: { provideFormatter: true },
+        candidates: [{ command: 'vscode-css-language-server', args: ['--stdio'] }],
+    };
     if (normalized === 'go') return { id: 'go', languageId: 'go', candidates: [{ command: 'gopls', args: [] }] };
     if (['c', 'cpp', 'objective-c'].includes(normalized)) return { id: 'cpp', languageId: normalized === 'c' ? 'c' : 'cpp', candidates: [{ command: 'clangd', args: ['--background-index'] }] };
     return null;
+}
+
+const LANGUAGE_SERVER_INSTALLS = [
+    { id: 'rust', label: 'Rust', server: 'rust-analyzer', requires: 'rustup', command: 'rustup', args: () => ['component', 'add', 'rust-analyzer'] },
+    { id: 'typescript', label: 'TypeScript / JavaScript', server: 'typescript-language-server', requires: 'npm', command: 'npm', args: () => ['install', '--no-audit', '--no-fund', '--prefix', path.join(getZoraiDataDir(), 'language-servers', 'typescript'), 'typescript-language-server', 'typescript@6'] },
+    { id: 'web', probe: 'html', label: 'HTML / CSS', server: 'vscode-langservers-extracted', requires: 'npm', command: 'npm', args: () => ['install', '--no-audit', '--no-fund', '--prefix', path.join(getZoraiDataDir(), 'language-servers', 'web'), 'vscode-langservers-extracted'] },
+    { id: 'python', label: 'Python', server: 'pyright', requires: 'npm', command: 'npm', args: () => ['install', '--no-audit', '--no-fund', '--prefix', path.join(getZoraiDataDir(), 'language-servers', 'pyright'), 'pyright'] },
+    { id: 'go', label: 'Go', server: 'gopls', requires: 'go', command: 'go', args: () => ['install', 'golang.org/x/tools/gopls@latest'] },
+    { id: 'cpp', label: 'C / C++', server: 'clangd', requires: null, hint: 'Install clangd with your system package manager (apt install clangd, brew install llvm, or the LLVM installer on Windows).' },
+];
+
+function languageServerStatuses() {
+    return LANGUAGE_SERVER_INSTALLS.map((entry) => {
+        const server = resolveLanguageServerUncached(entry.probe ?? entry.id);
+        const requirementFound = entry.requires ? Boolean(resolveCommandPath(entry.requires)) : false;
+        return {
+            id: entry.id,
+            label: entry.label,
+            server: entry.server,
+            installedCommand: server?.command ?? null,
+            installable: Boolean(entry.command) && requirementFound,
+            requires: entry.requires,
+            installCommand: entry.command ? [entry.command, ...entry.args()].join(' ') : null,
+            hint: entry.hint ?? (entry.requires && !requirementFound ? `${entry.requires} was not found on PATH; install it first.` : null),
+        };
+    });
+}
+
+function installLanguageServer(id) {
+    const entry = LANGUAGE_SERVER_INSTALLS.find((candidate) => candidate.id === id);
+    if (!entry?.command) return Promise.resolve({ ok: false, output: entry?.hint ?? `No installer is available for ${id}.` });
+    const command = resolveCommandPath(entry.command);
+    if (!command) return Promise.resolve({ ok: false, output: `${entry.command} was not found on PATH.` });
+    return new Promise((resolve) => {
+        let output = '';
+        const append = (chunk) => { output = `${output}${chunk.toString('utf8')}`.slice(-8000); };
+        const child = spawn(command, entry.args(), { cwd: os.homedir(), windowsHide: true, shell: process.platform === 'win32', stdio: ['ignore', 'pipe', 'pipe'] });
+        child.stdout.on('data', append);
+        child.stderr.on('data', append);
+        child.once('error', (error) => resolve({ ok: false, output: error.message }));
+        child.once('exit', (code) => {
+            languageServerCache.clear();
+            const installed = resolveLanguageServerUncached(entry.probe ?? entry.id)?.command ?? null;
+            resolve({ ok: code === 0 && Boolean(installed), installedCommand: installed, output: code === 0 && !installed ? `${output}\nInstalled, but ${entry.server} could not be found afterwards.` : output });
+        });
+    });
 }
 
 const LANGUAGE_SERVER_CACHE_TTL_MS = 60000;
@@ -157,10 +270,17 @@ class LspSession {
                 workspaceFolders: [{ uri: pathToFileURL(this.root).href, name: path.basename(this.root) }],
                 capabilities: {
                     workspace: { workspaceFolders: true, configuration: true },
-                    textDocument: { publishDiagnostics: { relatedInformation: true, versionSupport: true } },
+                    textDocument: {
+                        publishDiagnostics: { relatedInformation: true, versionSupport: true },
+                        rename: { prepareSupport: false },
+                        codeAction: { codeActionLiteralSupport: { codeActionKind: { valueSet: ['', 'quickfix', 'refactor', 'refactor.extract', 'refactor.inline', 'refactor.rewrite', 'source', 'source.organizeImports'] } } },
+                        formatting: {},
+                        documentSymbol: { hierarchicalDocumentSymbolSupport: true },
+                    },
                 },
-                initializationOptions: {},
+                initializationOptions: this.server.initializationOptions ?? {},
             }).then((result) => {
+                this.capabilities = result?.capabilities ?? {};
                 this.notify('initialized', {});
                 resolve(result);
             }).catch(reject);
@@ -189,7 +309,7 @@ class LspSession {
         if (message?.id !== undefined && this.pending.has(message.id)) {
             const pending = this.pending.get(message.id);
             this.pending.delete(message.id);
-            if (message.error) pending.reject(new Error(message.error.message || 'Language server request failed.'));
+            if (message.error) pending.reject(Object.assign(new Error(message.error.message || 'Language server request failed.'), { code: message.error.code }));
             else pending.resolve(message.result);
             return;
         }
@@ -230,7 +350,7 @@ class LspSession {
         const existing = this.documents.get(resolved.relativePath);
         if (!existing) {
             this.documents.set(resolved.relativePath, { uri, version });
-            this.notify('textDocument/didOpen', { textDocument: { uri, languageId: this.server.languageId, version, text: content } });
+            this.notify('textDocument/didOpen', { textDocument: { uri, languageId: this.server.languageIdFor?.(resolved.relativePath) ?? this.server.languageId, version, text: content } });
         } else {
             existing.version = Math.max(existing.version + 1, version);
             this.notify('textDocument/didChange', { textDocument: { uri, version: existing.version }, contentChanges: [{ text: content }] });
@@ -247,7 +367,14 @@ class LspSession {
         const resolved = resolveWorkspacePath(this.root, relativePath);
         const document = this.documents.get(resolved.relativePath);
         const textDocument = { uri: document?.uri ?? pathToFileURL(resolved.absolutePath).href };
-        return this.request(method, { textDocument, ...params });
+        for (let attempt = 1; ; attempt += 1) {
+            try {
+                return await this.request(method, { textDocument, ...params });
+            } catch (error) {
+                if (attempt >= LSP_RETRY_ATTEMPTS || !LSP_RETRYABLE_CODES.has(error?.code)) throw error;
+                await new Promise((resolve) => setTimeout(resolve, LSP_RETRY_DELAY_MS));
+            }
+        }
     }
 
     async hover(relativePath, position) {
@@ -264,6 +391,22 @@ class LspSession {
 
     async completion(relativePath, position) {
         return this.requestDocument(relativePath, 'textDocument/completion', { position, context: { triggerKind: 1 } });
+    }
+
+    async rename(relativePath, position, extra) {
+        return this.requestDocument(relativePath, 'textDocument/rename', { position, newName: String(extra?.newName ?? '') });
+    }
+
+    async codeAction(relativePath, _position, extra) {
+        return this.requestDocument(relativePath, 'textDocument/codeAction', { range: extra?.range, context: { diagnostics: Array.isArray(extra?.diagnostics) ? extra.diagnostics : [] } });
+    }
+
+    async formatting(relativePath, _position, extra) {
+        return this.requestDocument(relativePath, 'textDocument/formatting', { options: { tabSize: Number(extra?.tabSize) || 4, insertSpaces: extra?.insertSpaces !== false } });
+    }
+
+    async documentSymbol(relativePath) {
+        return this.requestDocument(relativePath, 'textDocument/documentSymbol', {});
     }
 
     closeDocument(relativePath) {
@@ -302,7 +445,7 @@ function createLspRuntime() {
         const root = canonicalWorkspaceRoot(rootPath);
         const server = resolveLanguageServer(language);
         if (!server) return { available: false, reason: `No LSP integration is configured for ${language}.` };
-        if (!server.command) return { available: false, reason: `${server.candidates.map((entry) => entry.command).join(' or ')} is not installed.` };
+        if (!server.command) return { available: false, server: server.installId ?? server.id, missing: true, reason: `${server.candidates.map((entry) => entry.command).join(' or ')} is not installed.` };
         const sessionKey = key(root, server.id);
         let session = sessions.get(sessionKey);
         if (!session) {
@@ -327,14 +470,21 @@ function createLspRuntime() {
         async change(webContents, rootPath, relativePath, language, content, version) {
             return this.open(webContents, rootPath, relativePath, language, content, version);
         },
-        async request(webContents, rootPath, relativePath, language, method, position) {
+        async request(webContents, rootPath, relativePath, language, method, position, extra) {
             const resolved = await getSession(webContents, rootPath, language);
             if (!resolved.available) return resolved;
-            if (!['hover', 'definition', 'references', 'completion'].includes(method)) throw new Error(`Unsupported LSP request: ${method}`);
-            const result = await resolved.session[method](relativePath, {
-                line: Math.max(0, Number(position?.line) || 0),
-                character: Math.max(0, Number(position?.character) || 0),
-            });
+            if (!['hover', 'definition', 'references', 'completion', 'rename', 'codeAction', 'formatting', 'documentSymbol'].includes(method)) throw new Error(`Unsupported LSP request: ${method}`);
+            if (!serverSupports(resolved.session.capabilities, method)) return { available: true, root: resolved.root, server: resolved.server, result: null, unsupported: true };
+            let result;
+            try {
+                result = await resolved.session[method](relativePath, {
+                    line: Math.max(0, Number(position?.line) || 0),
+                    character: Math.max(0, Number(position?.character) || 0),
+                }, extra);
+            } catch (error) {
+                if (error?.code !== LSP_METHOD_NOT_FOUND) throw error;
+                return { available: true, root: resolved.root, server: resolved.server, result: null, unsupported: true };
+            }
             return { available: true, root: resolved.root, server: resolved.server, result };
         },
         close(rootPath, relativePath, language) {
@@ -355,6 +505,12 @@ function createLspRuntime() {
             }
             return true;
         },
+        servers() {
+            return languageServerStatuses();
+        },
+        install(id) {
+            return installLanguageServer(String(id));
+        },
         async stopAll() {
             await Promise.all([...sessions.values()].map((session) => session.stop()));
             sessions.clear();
@@ -362,4 +518,4 @@ function createLspRuntime() {
     };
 }
 
-module.exports = { LspMessageReader, createLspRuntime, encodeLspMessage, languageServerSpec, normalizeDiagnostic, resolveLanguageServer, usableLanguageServerCommand };
+module.exports = { serverSupports, typeScriptLanguageId, LspMessageReader, createLspRuntime, encodeLspMessage, languageServerSpec, normalizeDiagnostic, resolveLanguageServer, usableLanguageServerCommand };

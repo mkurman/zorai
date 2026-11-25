@@ -199,6 +199,22 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
             return { message: '', error: err?.message || String(err) };
         }
     });
+    ipcMain.handle('agent-generate-code-fix', async (_event, request) => {
+        try {
+            return await sendAgentQuery({
+                type: 'generate-code-fix',
+                path: String(request?.path ?? ''),
+                language: String(request?.language ?? ''),
+                before: String(request?.before ?? ''),
+                target: String(request?.target ?? ''),
+                after: String(request?.after ?? ''),
+                diagnostics: Array.isArray(request?.diagnostics) ? request.diagnostics.map(String) : [],
+                instruction: String(request?.instruction ?? ''),
+            }, 'code-fix', 180000);
+        } catch (err) {
+            return { replacement: '', error: err?.message || String(err) };
+        }
+    });
     ipcMain.handle('agent-list-ui-colors', async () => {
         try {
             return await sendAgentQuery({ type: 'list-ui-colors' }, 'ui-colors', 15000);

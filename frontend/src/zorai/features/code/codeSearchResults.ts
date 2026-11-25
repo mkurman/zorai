@@ -35,3 +35,8 @@ export function previewCodeSearchReplacement(match: string, query: string, repla
     return replacement;
   }
 }
+
+export function searchSeedFromSelection(selected: string | null | undefined): string {
+  if (!selected || /[\r\n]/.test(selected) || !selected.trim()) return "";
+  return selected;
+}

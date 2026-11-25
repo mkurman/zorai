@@ -12,6 +12,8 @@ export function CodeIcon({ icon }: { icon: CodeIconId }) {
     case "external": return <svg {...common}><path d="M14 4h6v6M20 4l-9 9M18 13v7H4V6h7" /></svg>;
     case "reveal": return <svg {...common}><path d="M3 6h7l2 2h9v11H3z" /><path d="M8 13h8M12 10l4 3-4 3" /></svg>;
     case "minimap": return <svg {...common}><rect x="4" y="3" width="16" height="18" rx="1" /><path d="M14 6h3M14 9h3M14 12h3M7 7h4M7 11h4M7 15h7" /></svg>;
+    case "expand": return <svg {...common}><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>;
+    case "collapse": return <svg {...common}><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" /></svg>;
     case "wrap": return <svg {...common}><path d="M4 7h12a4 4 0 0 1 0 8H9M12 12l-3 3 3 3M4 11h6" /></svg>;
     case "palette": return <svg {...common}><path d="M4 6h16M4 12h10M4 18h7" /><circle cx="18" cy="12" r="2" /></svg>;
     case "pin": return <svg {...common}><path d="m8 3 8 8-2 2 3 4-1 1-4-3-2 2-8-8zM8 16l-5 5" /></svg>;

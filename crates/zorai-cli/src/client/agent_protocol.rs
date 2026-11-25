@@ -128,6 +128,17 @@ pub(super) enum AgentBridgeCommand {
         #[serde(default)]
         recent_subjects: Vec<String>,
     },
+    GenerateCodeFix {
+        path: String,
+        language: String,
+        before: String,
+        target: String,
+        after: String,
+        #[serde(default)]
+        diagnostics: Vec<String>,
+        #[serde(default)]
+        instruction: String,
+    },
     AddTask {
         title: String,
         description: String,

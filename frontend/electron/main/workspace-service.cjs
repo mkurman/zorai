@@ -412,28 +412,47 @@ async function searchWorkspace(rootPath, query, options = {}) {
             let buffer;
             try { buffer = await fs.promises.readFile(absolutePath); } catch { continue; }
             if (isProbablyBinary(buffer)) continue;
-            const lines = buffer.toString('utf8').split(/\r?\n/);
-            for (let lineIndex = 0; lineIndex < lines.length && results.length < maxResults; lineIndex += 1) {
-                const line = lines[lineIndex];
-                for (const match of workspaceLineMatches(line, pattern)) {
-                    if (results.length >= maxResults) break;
-                    const indent = line.length - line.trimStart().length;
-                    const previewStart = match.index - indent > 80 ? match.index - 40 : indent;
-                    const preview = line.slice(previewStart, previewStart + 240).trimEnd();
-                    const matchStart = match.index - previewStart;
-                    results.push({
-                        path: path.relative(root, absolutePath),
-                        line: lineIndex + 1,
-                        column: match.index + 1,
-                        preview,
-                        matchStart,
-                        matchLength: Math.max(0, Math.min(match.length, preview.length - matchStart)),
-                    });
-                }
-            }
+            collectWorkspaceTextMatches(path.relative(root, absolutePath), buffer.toString('utf8'), pattern, results, maxResults);
         }
     }
     return results;
+}
+
+function collectWorkspaceTextMatches(relativePath, text, pattern, results, maxResults) {
+    const lines = text.split(/\r?\n/);
+    for (let lineIndex = 0; lineIndex < lines.length && results.length < maxResults; lineIndex += 1) {
+        const line = lines[lineIndex];
+        for (const match of workspaceLineMatches(line, pattern)) {
+            if (results.length >= maxResults) break;
+            const indent = line.length - line.trimStart().length;
+            const previewStart = match.index - indent > 80 ? match.index - 40 : indent;
+            const preview = line.slice(previewStart, previewStart + 240).trimEnd();
+            const matchStart = match.index - previewStart;
+            results.push({
+                path: relativePath,
+                line: lineIndex + 1,
+                column: match.index + 1,
+                preview,
+                matchStart,
+                matchLength: Math.max(0, Math.min(match.length, preview.length - matchStart)),
+            });
+        }
+    }
+    return results;
+}
+
+async function listSearchableWorkspaceFiles(rootPath, options = {}) {
+    const root = canonicalWorkspaceRoot(rootPath);
+    if (options.useIgnoreFiles !== false) {
+        try {
+            const { stdout } = await execFileAsync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { cwd: root, encoding: 'utf8', timeout: 30000, maxBuffer: 256 * 1024 * 1024 });
+            const files = [...new Set(stdout.split('\0').filter(Boolean))]
+                .filter((file) => !file.split('/').some((part) => IGNORED_DIRECTORY_NAMES.has(part)));
+            return { root, files, source: 'git' };
+        } catch {}
+    }
+    const listing = await listAllWorkspaceFiles(root);
+    return { root, files: listing.files, source: 'walk' };
 }
 
 async function replaceInWorkspace(rootPath, query, replacement, options = {}, targets = []) {
@@ -1271,4 +1290,9 @@ module.exports = {
     workspaceGitUnstage,
     workspaceGitUnstageMany,
     writeWorkspaceFile,
+    collectWorkspaceTextMatches,
+    isProbablyBinary,
+    listSearchableWorkspaceFiles,
+    workspaceGlobMatcher,
+    workspaceSearchPattern,
 };

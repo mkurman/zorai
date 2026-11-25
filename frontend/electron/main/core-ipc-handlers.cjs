@@ -168,8 +168,10 @@ function registerCoreIpcHandlers(ipcMain, options) {
     ipcMain.handle('workspace-lsp-status', (_event, rootPath, language) => lspRuntime.status(rootPath, language));
     ipcMain.handle('workspace-lsp-open', (event, rootPath, relativePath, language, content, version) => lspRuntime.open(event.sender, rootPath, relativePath, language, content, version));
     ipcMain.handle('workspace-lsp-change', (event, rootPath, relativePath, language, content, version) => lspRuntime.change(event.sender, rootPath, relativePath, language, content, version));
-    ipcMain.handle('workspace-lsp-request', (event, rootPath, relativePath, language, method, position) => lspRuntime.request(event.sender, rootPath, relativePath, language, method, position));
+    ipcMain.handle('workspace-lsp-request', (event, rootPath, relativePath, language, method, position, extra) => lspRuntime.request(event.sender, rootPath, relativePath, language, method, position, extra));
     ipcMain.handle('workspace-lsp-close', (_event, rootPath, relativePath, language) => lspRuntime.close(rootPath, relativePath, language));
+    ipcMain.handle('workspace-lsp-servers', () => lspRuntime.servers());
+    ipcMain.handle('workspace-lsp-install', (_event, id) => lspRuntime.install(id));
     ipcMain.handle('workspace-lsp-unsubscribe', (event, rootPath, language) => lspRuntime.unsubscribe(event.sender, rootPath, language));
     ipcMain.handle('workspace-tests-discover', (_event, rootPath, runtimeOptions) => testRuntime.discover(rootPath, runtimeOptions));
     ipcMain.handle('workspace-tests-run', (event, rootPath, request) => testRuntime.run(event.sender, rootPath, request));

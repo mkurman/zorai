@@ -14,7 +14,7 @@ export type CodeCommandId =
   | "view.toggleStickyScroll" | "view.togglePanel" | "view.toggleTerminal";
 
 export type CodeIconId = "save" | "reload" | "file" | "search" | "replace" | "terminal" | "settings"
-  | "palette" | "close" | "pin" | "external" | "reveal" | "minimap" | "wrap" | "text" | "edit" | "diff" | "more";
+  | "palette" | "close" | "pin" | "external" | "reveal" | "minimap" | "wrap" | "text" | "edit" | "diff" | "more" | "expand" | "collapse";
 
 export type CodeCommand = {
   id: CodeCommandId;

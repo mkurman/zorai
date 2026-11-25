@@ -3,12 +3,15 @@ export type WorkspaceExplorerSnapshot = {
   childrenByPath: ReadonlyMap<string, ZoraiWorkspaceEntry[]>;
   loadingPaths: ReadonlySet<string>;
   errorByPath: ReadonlyMap<string, string>;
+  revealedPath: string | null;
+  revealToken: number;
 };
 
 export type WorkspaceExplorerController = {
   getSnapshot: () => WorkspaceExplorerSnapshot;
   subscribe: (listener: () => void) => () => void;
   toggle: (path: string) => Promise<void>;
+  reveal: (path: string) => Promise<void>;
   refreshExpanded: () => Promise<void>;
 };
 
@@ -30,6 +33,8 @@ export function createWorkspaceExplorerController(
     childrenByPath: new Map(),
     loadingPaths: new Set(),
     errorByPath: new Map(),
+    revealedPath: null,
+    revealToken: 0,
   };
   const listeners = new Set<() => void>();
   const publish = (next: WorkspaceExplorerSnapshot) => {
@@ -87,6 +92,17 @@ export function createWorkspaceExplorerController(
       if (expandedBefore.has(path)) return;
       if (snapshot.expandedPaths.has(path)) return;
       publish({ ...snapshot, expandedPaths: new Set([...snapshot.expandedPaths, path]) });
+    },
+    async reveal(path) {
+      const parts = path.split("/").filter(Boolean);
+      const ancestors = parts.slice(0, -1).map((_, index) => parts.slice(0, index + 1).join("/"));
+      const opened: string[] = [];
+      for (const ancestor of ancestors) {
+        if (!snapshot.childrenByPath.has(ancestor)) await load(ancestor);
+        if (!snapshot.childrenByPath.has(ancestor)) break;
+        opened.push(ancestor);
+      }
+      publish({ ...snapshot, expandedPaths: new Set([...snapshot.expandedPaths, ...opened]), revealedPath: path, revealToken: snapshot.revealToken + 1 });
     },
     async refreshExpanded() {
       const expanded = [...snapshot.expandedPaths];

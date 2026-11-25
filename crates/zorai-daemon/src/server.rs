@@ -201,6 +201,7 @@ fn client_message_requires_startup_readiness(msg: &ClientMessage) -> bool {
             | ClientMessage::AgentGetOperationStatus { .. }
             | ClientMessage::AgentListThreadOperations { .. }
             | ClientMessage::AgentGenerateCommitMessage { .. }
+            | ClientMessage::AgentGenerateCodeFix { .. }
             | ClientMessage::AgentHandoffThread { .. }
             | ClientMessage::AgentGetHealthStatus
     )
@@ -247,6 +248,7 @@ fn client_message_variant_name(msg: &ClientMessage) -> &'static str {
         AgentGetOperationStatus { .. } => "AgentGetOperationStatus",
         AgentListThreadOperations { .. } => "AgentListThreadOperations",
         AgentGenerateCommitMessage { .. } => "AgentGenerateCommitMessage",
+        AgentGenerateCodeFix { .. } => "AgentGenerateCodeFix",
         AgentHandoffThread { .. } => "AgentHandoffThread",
         AgentHeartbeatGetItems => "AgentHeartbeatGetItems",
         ListAgentEvents { .. } => "ListAgentEvents",

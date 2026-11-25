@@ -219,4 +219,5 @@ pub enum DaemonMessage {
     AgentAnalyzeImageResult { content: String },
     AgentUiColors { colors_json: String },
     AgentMemoryFiles { result_json: String },
+    AgentCodeFixGenerated { replacement: String, #[serde(default)] error: Option<String> },
 }
