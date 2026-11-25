@@ -1,5 +1,6 @@
 import { getBridge } from "@/lib/bridge";
 import { useAgentStore } from "@/lib/agentStore";
+import { takeInitialThreadExecutionProfile } from "@/lib/agentStore/threadProfileMerge";
 import { fetchGoalRun, fetchGoalRuns, normalizeGoalRun, upsertGoalRun, type GoalRun } from "@/lib/goalRuns";
 import { useAgentMissionStore } from "@/lib/agentMissionStore";
 import { useSnippetStore } from "@/lib/snippetStore";
@@ -45,16 +46,9 @@ function applyDeferredThreadDaemonSettings(localThreadId: string, daemonThreadId
     void bridge.agentSetThreadWorkspaceContext(daemonThreadId, toDaemonWorkspaceContext(workspaceContext));
   }
 
-  if (
-    bridge?.agentSetThreadExecutionProfile
-    && (thread.profileProvider || thread.profileModel)
-  ) {
-    void bridge.agentSetThreadExecutionProfile(daemonThreadId, {
-      provider: thread.profileProvider ?? null,
-      model: thread.profileModel ?? null,
-      reasoning_effort: thread.profileReasoningEffort ?? null,
-      context_window_tokens: thread.profileContextWindowTokens ?? null,
-    });
+  const initialProfile = takeInitialThreadExecutionProfile(thread);
+  if (bridge?.agentSetThreadExecutionProfile && initialProfile) {
+    void bridge.agentSetThreadExecutionProfile(daemonThreadId, initialProfile);
   }
 }
 

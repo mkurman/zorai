@@ -328,13 +328,62 @@ function rankFileNameMatches(files, query, limit = 200) {
     return scored.slice(0, limit).map((entry) => entry.file);
 }
 
+function workspaceSearchPattern(query, options = {}) {
+    const source = options.regex === true ? query : query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const wrapped = options.wholeWord === true ? `\\b(?:${source})\\b` : source;
+    try {
+        return new RegExp(wrapped, options.caseSensitive === true ? 'g' : 'gi');
+    } catch (error) {
+        throw workspaceError('WORKSPACE_SEARCH_INVALID', `Invalid regular expression: ${error.message}`);
+    }
+}
+
+function workspaceGlobMatcher(patterns) {
+    const globs = String(patterns ?? '').split(',').map((glob) => glob.trim().replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/$/, '')).filter(Boolean);
+    if (globs.length === 0) return null;
+    const expressions = globs.map((glob) => {
+        let source = '';
+        for (let index = 0; index < glob.length; index += 1) {
+            const char = glob[index];
+            if (char === '*' && glob[index + 1] === '*') {
+                if (glob[index + 2] === '/') {
+                    source += '(?:.*/)?';
+                    index += 2;
+                } else {
+                    source += '.*';
+                    index += 1;
+                }
+            } else if (char === '*') source += '[^/]*';
+            else if (char === '?') source += '[^/]';
+            else source += char.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+        }
+        return new RegExp(`${glob.includes('/') ? '^' : '(?:^|/)'}${source}(?:/|$)`);
+    });
+    return (relativePath) => expressions.some((expression) => expression.test(relativePath));
+}
+
+function workspaceLineMatches(line, pattern) {
+    const matches = [];
+    pattern.lastIndex = 0;
+    let match;
+    while ((match = pattern.exec(line)) !== null) {
+        if (match[0].length === 0) {
+            pattern.lastIndex += 1;
+            continue;
+        }
+        matches.push({ index: match.index, length: match[0].length });
+    }
+    return matches;
+}
+
 async function searchWorkspace(rootPath, query, options = {}) {
     const root = canonicalWorkspaceRoot(rootPath);
-    const needle = typeof query === 'string' ? query.trim() : '';
-    if (!needle) return [];
-    const caseSensitive = options.caseSensitive === true;
-    const comparableNeedle = caseSensitive ? needle : needle.toLowerCase();
-    const maxResults = Math.max(1, Math.min(Number(options.maxResults) || 100, 500));
+    const needle = typeof query === 'string' ? query : '';
+    if (!needle.trim()) return [];
+    const pattern = workspaceSearchPattern(needle, options);
+    const included = workspaceGlobMatcher(options.include);
+    const excluded = workspaceGlobMatcher(options.exclude);
+    const maxResults = Math.max(1, Math.min(Number(options.maxResults) || 100, 5000));
     const maxFiles = Math.max(1, Math.min(Number(options.maxFiles) || 5000, 20000));
     const results = [];
     const pending = [root];
@@ -348,11 +397,14 @@ async function searchWorkspace(rootPath, query, options = {}) {
             if (results.length >= maxResults || visitedFiles >= maxFiles) break;
             if (IGNORED_DIRECTORY_NAMES.has(entry.name) || entry.isSymbolicLink()) continue;
             const absolutePath = path.join(directory, entry.name);
+            const portablePath = path.relative(root, absolutePath).split(path.sep).join('/');
+            if (excluded && excluded(portablePath)) continue;
             if (entry.isDirectory()) {
                 pending.push(absolutePath);
                 continue;
             }
             if (!entry.isFile()) continue;
+            if (included && !included(portablePath)) continue;
             visitedFiles += 1;
             let stats;
             try { stats = await fs.promises.stat(absolutePath); } catch { continue; }
@@ -362,19 +414,69 @@ async function searchWorkspace(rootPath, query, options = {}) {
             if (isProbablyBinary(buffer)) continue;
             const lines = buffer.toString('utf8').split(/\r?\n/);
             for (let lineIndex = 0; lineIndex < lines.length && results.length < maxResults; lineIndex += 1) {
-                const comparableLine = caseSensitive ? lines[lineIndex] : lines[lineIndex].toLowerCase();
-                const columnIndex = comparableLine.indexOf(comparableNeedle);
-                if (columnIndex < 0) continue;
-                results.push({
-                    path: path.relative(root, absolutePath),
-                    line: lineIndex + 1,
-                    column: columnIndex + 1,
-                    preview: lines[lineIndex].trim().slice(0, 240),
-                });
+                const line = lines[lineIndex];
+                for (const match of workspaceLineMatches(line, pattern)) {
+                    if (results.length >= maxResults) break;
+                    const indent = line.length - line.trimStart().length;
+                    const previewStart = match.index - indent > 80 ? match.index - 40 : indent;
+                    const preview = line.slice(previewStart, previewStart + 240).trimEnd();
+                    const matchStart = match.index - previewStart;
+                    results.push({
+                        path: path.relative(root, absolutePath),
+                        line: lineIndex + 1,
+                        column: match.index + 1,
+                        preview,
+                        matchStart,
+                        matchLength: Math.max(0, Math.min(match.length, preview.length - matchStart)),
+                    });
+                }
             }
         }
     }
     return results;
+}
+
+async function replaceInWorkspace(rootPath, query, replacement, options = {}, targets = []) {
+    const root = canonicalWorkspaceRoot(rootPath);
+    if (typeof query !== 'string' || !query.trim()) return { files: 0, replacements: 0 };
+    if (typeof replacement !== 'string') throw workspaceError('WORKSPACE_CONTENT_INVALID', 'Replacement must be text.');
+    const pattern = workspaceSearchPattern(query, options);
+    const replaceWith = options.regex === true ? replacement : () => replacement;
+    const byPath = new Map();
+    for (const target of Array.isArray(targets) ? targets : []) {
+        if (!target || typeof target.path !== 'string') continue;
+        const current = byPath.get(target.path) ?? [];
+        current.push(target);
+        byPath.set(target.path, current);
+    }
+    let files = 0;
+    let replacements = 0;
+    for (const [relativePath, fileTargets] of byPath) {
+        const resolved = resolveWorkspacePath(root, relativePath);
+        const buffer = await fs.promises.readFile(resolved.absolutePath);
+        const parts = buffer.toString('utf8').split(/(\r?\n)/);
+        const wholeFile = fileTargets.some((target) => !Number.isInteger(target.line));
+        let changed = 0;
+        for (let index = 0; index < parts.length; index += 2) {
+            const lineNumber = index / 2 + 1;
+            const columns = wholeFile ? null : fileTargets.filter((target) => target.line === lineNumber).map((target) => target.column - 1).sort((left, right) => right - left);
+            if (columns && columns.length === 0) continue;
+            let line = parts[index];
+            const matches = workspaceLineMatches(line, pattern).filter((match) => !columns || columns.includes(match.index)).sort((left, right) => right.index - left.index);
+            for (const match of matches) {
+                const sticky = new RegExp(pattern.source, `${pattern.flags.replace('g', '')}y`);
+                sticky.lastIndex = match.index;
+                line = line.replace(sticky, replaceWith);
+                changed += 1;
+            }
+            parts[index] = line;
+        }
+        if (changed === 0) continue;
+        await writeWorkspaceFile(root, resolved.relativePath, parts.join(''), sha256(buffer));
+        files += 1;
+        replacements += changed;
+    }
+    return { files, replacements };
 }
 
 const gitStatusInFlight = new Map();
@@ -1133,6 +1235,7 @@ module.exports = {
     readWorkspaceFile,
     renameWorkspacePath,
     resolveWorkspacePath,
+    replaceInWorkspace,
     searchWorkspace,
     statWorkspaceFile,
     sha256,

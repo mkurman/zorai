@@ -296,6 +296,54 @@ pub(in crate::agent) async fn handle_user_memory_append_with_reconcile(
     reconcile_inner(agent_data_dir, history).await
 }
 
+pub(in crate::agent) async fn replace_user_profile_from_operator_edit(
+    agent_data_dir: &Path,
+    history: &HistoryStore,
+    content: &str,
+) -> Result<()> {
+    bootstrap_legacy_user_import(agent_data_dir, history).await?;
+    let rows = history
+        .list_profile_fields_excluding_ordered_by_key(USER_PROFILE_IMPORT_SENTINEL)
+        .await?;
+    let structured_lines = rows
+        .iter()
+        .filter(|row| !row.field_key.starts_with("legacy_"))
+        .map(|row| format!("- {}: {}", row.field_key, row.field_value_json))
+        .collect::<std::collections::HashSet<_>>();
+    let body = content
+        .lines()
+        .filter(|line| {
+            let trimmed = line.trim();
+            trimmed != "# User"
+                && trimmed != GENERATED_PROFILE_HEADER
+                && !structured_lines.contains(trimmed)
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        .trim()
+        .to_string();
+    for row in rows.iter().filter(|row| row.field_key.starts_with("legacy_")) {
+        history.delete_profile_field(&row.field_key).await?;
+    }
+    let value_json = serde_json::to_string(&body)?;
+    if !body.is_empty() {
+        history
+            .upsert_profile_field("legacy_user_md", &value_json, 1.0, "operator_edit")
+            .await?;
+    }
+    history
+        .append_profile_event(
+            &format!("op_evt_{}", uuid::Uuid::new_v4()),
+            "operator_user_md_edit",
+            Some("legacy_user_md"),
+            Some(&value_json),
+            "operator_edit",
+            None,
+        )
+        .await?;
+    reconcile_user_profile_from_db(agent_data_dir, history).await
+}
+
 #[cfg(test)]
 #[path = "user_sync/test_support.rs"]
 mod test_support;

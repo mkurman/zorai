@@ -11,7 +11,9 @@ import {
 } from "@/lib/agentStore/history";
 import {
   clearThreadRuntimeOverlay,
+  pendingThreadGenerationSettings,
   pinThreadRuntimeOverlay,
+  setPendingThreadGenerationSettings,
   snapshotThreadRuntimeOverlay,
 } from "@/lib/agentStore/threadProfileMerge";
 import { RAROG_AGENT_ID } from "./threadOwner";
@@ -158,7 +160,7 @@ export async function applyThreadReasoningEffort(thread: AgentThread, effort: st
 
 export async function loadThreadGenerationSettings(thread: AgentThread): Promise<GenerationSettings | null> {
   const daemonThreadId = resolveDaemonThreadIdForRuntime(thread);
-  if (!daemonThreadId) return null;
+  if (!daemonThreadId) return pendingThreadGenerationSettings(thread.id);
   const existing = await getBridge()?.agentGetThreadExecutionProfile?.(daemonThreadId).catch(() => null) as
     | { profile?: { generation_settings?: GenerationSettings | null } | null }
     | null
@@ -168,6 +170,10 @@ export async function loadThreadGenerationSettings(thread: AgentThread): Promise
 }
 
 export async function applyThreadGenerationSettings(thread: AgentThread, settings: GenerationSettings | null): Promise<void> {
+  if (!resolveDaemonThreadIdForRuntime(thread)) {
+    setPendingThreadGenerationSettings(thread.id, settings);
+    return;
+  }
   await patchDaemonThreadExecutionProfile(thread, { generation_settings: settings });
 }
 

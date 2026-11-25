@@ -9,7 +9,8 @@
 export type CodeRailAction =
   | { kind: "open-file" }
   | { kind: "open-folder" }
-  | { kind: "open-recent"; root: string };
+  | { kind: "open-recent"; root: string }
+  | { kind: "open-settings" };
 
 export type CodeRailActionHandler = (action: CodeRailAction) => void;
 

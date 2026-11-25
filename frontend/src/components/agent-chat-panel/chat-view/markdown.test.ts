@@ -187,3 +187,28 @@ describe("advanceStreamingMarkdownBlocks", () => {
     expect(next).toBe(first);
   });
 });
+
+describe("MarkdownContent HTML", () => {
+  const source = [
+    '<div align="center"><b>Read our docs</b><img src="x.png" onerror="alert(1)"></div>',
+    "",
+    "<script>alert(1)</script>",
+    "",
+    "# Title",
+  ].join("\n");
+
+  it("renders README-style HTML for file previews while stripping scripts and event handlers", () => {
+    const html = renderToStaticMarkup(createElement(MarkdownContent, { content: source, filePreview: true }));
+    expect(html).toContain('<div align="center"><b>Read our docs</b>');
+    expect(html).not.toContain("<script");
+    expect(html).not.toContain("onerror");
+    expect(html).toContain("<h1>Title</h1>");
+  });
+
+  it("keeps HTML inert in chat so model output cannot inject markup", () => {
+    const html = renderToStaticMarkup(createElement(MarkdownContent, { content: source }));
+    expect(html).not.toContain("<b>Read our docs</b>");
+    expect(html).not.toContain("<script");
+    expect(html).toContain("<h4>Title</h4>");
+  });
+});

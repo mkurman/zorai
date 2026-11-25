@@ -36,7 +36,7 @@ export function CodeDocumentPreview({ path, content, root }: { path: string; con
     <div className="zorai-code-preview">
       {kind === "markdown" ? (
         <div className="zorai-code-preview__markdown">
-          <MarkdownContent content={content} />
+          <MarkdownContent content={content} filePreview />
         </div>
       ) : kind === "html" ? (
         <iframe className="zorai-code-preview__html" title={`Preview of ${fileName}`} sandbox="" srcDoc={htmlDocument} />

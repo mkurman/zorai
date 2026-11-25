@@ -4,7 +4,8 @@ use std::borrow::Cow;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::operator_profile::user_sync::{
-    current_user_sync_state, handle_user_memory_append_with_reconcile, UserProfileSyncState,
+    current_user_sync_state, handle_user_memory_append_with_reconcile,
+    replace_user_profile_from_operator_edit, UserProfileSyncState,
 };
 use super::*;
 use crate::history::{HistoryStore, MemoryProvenanceRecord};
@@ -896,6 +897,78 @@ impl super::engine::AgentEngine {
         .await;
 
         Ok(())
+    }
+}
+
+pub(crate) fn operator_memory_scope_id(agent_id: &str) -> Result<String> {
+    let scope_id = agent_turn_scope_id(agent_id);
+    let safe = !scope_id.is_empty()
+        && !scope_id.contains("..")
+        && scope_id
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.'));
+    if !safe {
+        return Err(anyhow::anyhow!("invalid agent id `{agent_id}`"));
+    }
+    Ok(scope_id)
+}
+
+impl AgentEngine {
+    pub(crate) async fn operator_memory_files(&self, agent_id: &str) -> Result<serde_json::Value> {
+        let scope_id = operator_memory_scope_id(agent_id)?;
+        let memory = load_memory_for_scope(&self.data_dir, &scope_id).await?;
+        let paths = memory_paths_for_scope(&self.data_dir, &scope_id);
+        let file = |target: MemoryTarget, content: &str, path: &std::path::Path| {
+            serde_json::json!({
+                "content": content,
+                "limit_chars": target.limit_chars(),
+                "path": path.display().to_string(),
+            })
+        };
+        Ok(serde_json::json!({
+            "ok": true,
+            "agent_id": agent_id,
+            "scope_id": scope_id,
+            "soul": file(MemoryTarget::Soul, &memory.soul, &paths.soul_path),
+            "memory": file(MemoryTarget::Memory, &memory.memory, &paths.memory_path),
+            "user": file(MemoryTarget::User, &memory.user_profile, &paths.user_path),
+        }))
+    }
+
+    pub(crate) async fn save_operator_memory_file(
+        &self,
+        agent_id: &str,
+        target: &str,
+        content: &str,
+    ) -> Result<serde_json::Value> {
+        let scope_id = operator_memory_scope_id(agent_id)?;
+        let target = MemoryTarget::parse(target)?;
+        if target == MemoryTarget::User {
+            validate_memory_size(target, content.trim())?;
+            replace_user_profile_from_operator_edit(&self.data_dir, &self.history, content)
+                .await?;
+            self.memory.write().await.clear();
+            return self.operator_memory_files(agent_id).await;
+        }
+        run_with_agent_scope(
+            scope_id,
+            apply_memory_update(
+                &self.data_dir,
+                &self.history,
+                target,
+                MemoryUpdateMode::Replace,
+                content,
+                MemoryWriteContext {
+                    source_kind: "operator_edit",
+                    thread_id: None,
+                    task_id: None,
+                    goal_run_id: None,
+                },
+            ),
+        )
+        .await?;
+        self.memory.write().await.clear();
+        self.operator_memory_files(agent_id).await
     }
 }
 

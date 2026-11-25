@@ -9,6 +9,7 @@ const {
     parseUnifiedDiffHunks,
     readWorkspaceFile,
     resolveWorkspacePath,
+    replaceInWorkspace,
     searchWorkspace,
     workspaceGitApplyHunk,
     workspaceGitCommit,
@@ -91,7 +92,35 @@ test('workspace search is bounded, ignores heavy directories, and reports locati
         line: 2,
         column: 7,
         preview: 'const workspaceNeedle = true;',
+        matchStart: 6,
+        matchLength: 15,
     }]);
+    fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('workspace search honours case, whole word, regex and include/exclude globs like an editor search view', async () => {
+    const root = tempWorkspace();
+    fs.mkdirSync(path.join(root, 'src'));
+    fs.mkdirSync(path.join(root, 'docs'));
+    fs.writeFileSync(path.join(root, 'src', 'a.ts'), 'Foo foo food\n');
+    fs.writeFileSync(path.join(root, 'docs', 'b.md'), 'foo\n');
+    const columns = async (query, options) => (await searchWorkspace(root, query, { maxResults: 50, ...options })).map((hit) => `${hit.path.split(path.sep).join('/')}:${hit.column}`).sort();
+    assert.deepEqual(await columns('foo', {}), ['docs/b.md:1', 'src/a.ts:1', 'src/a.ts:5', 'src/a.ts:9']);
+    assert.deepEqual(await columns('foo', { caseSensitive: true, include: '*.ts' }), ['src/a.ts:5', 'src/a.ts:9']);
+    assert.deepEqual(await columns('foo', { wholeWord: true, exclude: 'docs' }), ['src/a.ts:1', 'src/a.ts:5']);
+    assert.deepEqual(await columns('fo+d', { regex: true }), ['src/a.ts:9']);
+    await assert.rejects(searchWorkspace(root, '(', { regex: true }), /Invalid regular expression/);
+    fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('workspace replace rewrites only the chosen match or every match in a file, keeping line endings', async () => {
+    const root = tempWorkspace();
+    const file = path.join(root, 'a.txt');
+    fs.writeFileSync(file, 'foo foo\r\nbar foo\r\n');
+    assert.deepEqual(await replaceInWorkspace(root, 'foo', 'x', {}, [{ path: 'a.txt', line: 1, column: 5 }]), { files: 1, replacements: 1 });
+    assert.equal(fs.readFileSync(file, 'utf8'), 'foo x\r\nbar foo\r\n');
+    assert.deepEqual(await replaceInWorkspace(root, '(f)oo', '$1$$', { regex: true }, [{ path: 'a.txt' }]), { files: 1, replacements: 2 });
+    assert.equal(fs.readFileSync(file, 'utf8'), 'f$ x\r\nbar f$\r\n');
     fs.rmSync(root, { recursive: true, force: true });
 });
 

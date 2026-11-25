@@ -120,6 +120,16 @@ impl HistoryStore {
         Ok(())
     }
 
+    pub async fn delete_profile_field(&self, field_key: &str) -> Result<()> {
+        self.conn_db
+            .execute(
+                "DELETE FROM operator_profile_fields WHERE field_key = ?1",
+                db::db_params![field_key],
+            )
+            .await?;
+        Ok(())
+    }
+
     pub async fn get_profile_field(
         &self,
         field_key: &str,

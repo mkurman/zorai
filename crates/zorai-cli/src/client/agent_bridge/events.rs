@@ -111,6 +111,10 @@ fn bridge_event_from_daemon_message(message: &DaemonMessage) -> Option<serde_jso
             "type": "ui-colors",
             "data": serde_json::from_str::<serde_json::Value>(colors_json).unwrap_or_default(),
         })),
+        DaemonMessage::AgentMemoryFiles { result_json } => Some(serde_json::json!({
+            "type": "memory-files",
+            "data": serde_json::from_str::<serde_json::Value>(result_json).unwrap_or_default(),
+        })),
         DaemonMessage::AgentThreadOperations {
             thread_id,
             operations_json,

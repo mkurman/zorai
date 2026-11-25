@@ -17,6 +17,7 @@ const AGENT_QUERY_RESPONSE_TYPES = [
   'git-diff',
   'file-preview',
   'data-query-result',
+  'memory-files',
   'goal-run-started',
   'goal-run-list',
   'goal-run-detail',

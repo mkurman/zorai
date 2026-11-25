@@ -1543,7 +1543,9 @@ impl<'a> SendMessageRunner<'a> {
                 &tid,
                 thread_execution_profile.as_ref(),
                 ThreadExecutionProfile {
-                    generation_settings: None,
+                    generation_settings: thread_execution_profile
+                        .as_ref()
+                        .and_then(|profile| profile.generation_settings.clone()),
                     provider: Some(active_provider_id.clone()),
                     model: (!provider_config.model.trim().is_empty())
                         .then(|| provider_config.model.clone()),

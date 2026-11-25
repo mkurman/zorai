@@ -4615,3 +4615,66 @@ async fn concierge_chat_runs_only_safe_lookup_tools_and_answers_from_their_resul
         Some("Found your video session.")
     );
 }
+
+#[tokio::test]
+async fn thread_generation_settings_survive_every_turn_not_just_the_first() {
+    let recorded_requests = Arc::new(StdMutex::new(VecDeque::new()));
+    let root = tempdir().unwrap();
+    let manager = SessionManager::new_test(root.path()).await;
+    let mut config = AgentConfig::default();
+    config.provider = PROVIDER_ID_OPENAI.to_string();
+    config.base_url = spawn_recording_request_server(recorded_requests.clone()).await;
+    config.model = "svarog-model".to_string();
+    config.api_key = "test-key".to_string();
+    config.api_transport = ApiTransport::ChatCompletions;
+    config.auto_retry = false;
+    config.max_retries = 0;
+    config.max_tool_loops = 1;
+    let engine = AgentEngine::new_test(manager, config, root.path()).await;
+    let thread_id = "thread_generation_survives";
+    engine
+        .set_thread_execution_profile(
+            thread_id,
+            Some(crate::agent::types::ThreadExecutionProfile {
+                generation_settings: Some(GenerationSettings {
+                    temperature: Some(0.123),
+                    ..GenerationSettings::default()
+                }),
+                ..Default::default()
+            }),
+        )
+        .await;
+
+    for content in ["first", "second"] {
+        engine
+            .send_message_with_session_surface_and_target(
+                Some(thread_id),
+                None,
+                content,
+                None,
+                None,
+                None,
+            )
+            .await
+            .expect("turn should complete");
+    }
+
+    let requests = recorded_requests.lock().unwrap();
+    assert_eq!(requests.len(), 2);
+    for request in requests.iter() {
+        assert!(
+            request.contains("\"temperature\":0.123"),
+            "every turn must sample with the thread's settings: {request}"
+        );
+    }
+    let profile = engine
+        .get_thread_execution_profile(thread_id)
+        .await
+        .expect("profile should remain");
+    assert_eq!(
+        profile
+            .generation_settings
+            .and_then(|settings| settings.temperature),
+        Some(0.123)
+    );
+}

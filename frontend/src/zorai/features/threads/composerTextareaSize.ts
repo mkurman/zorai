@@ -1,4 +1,4 @@
-export const COMPOSER_TEXTAREA_MIN_ROWS = 3;
+export const COMPOSER_TEXTAREA_MIN_ROWS = 1;
 export const COMPOSER_TEXTAREA_MAX_ROWS = 10;
 
 export function composerTextareaHeightPx(
