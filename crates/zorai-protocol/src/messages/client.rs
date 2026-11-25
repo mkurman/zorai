@@ -344,4 +344,6 @@ pub enum ClientMessage {
     AgentAnalyzeImage { args_json: String },
     AgentListUiColors,
     AgentSetUiColor { kind: String, key: String, color: Option<String> },
+    AgentGetMemoryFiles { agent_id: String },
+    AgentSaveMemoryFile { agent_id: String, target: String, content: String },
 }

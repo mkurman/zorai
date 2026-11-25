@@ -6,12 +6,12 @@ import {
 } from "./composerTextareaSize";
 
 describe("composerTextareaHeightPx", () => {
-  it("grows from 3 rows to a 10-row cap so wrapped drafts push the thread up, then shrink back", () => {
+  it("grows from 1 row to a 10-row cap so wrapped drafts push the thread up, then shrink back", () => {
     // Why: a fixed 3-row box hides long drafts; unbounded growth covers the
     // message list. The cap is 10 rows of content plus vertical padding.
     const lineHeight = 20;
     const paddingY = 18;
-    expect(composerTextareaHeightPx(40, lineHeight, paddingY)).toBe(lineHeight * COMPOSER_TEXTAREA_MIN_ROWS + paddingY);
+    expect(composerTextareaHeightPx(10, lineHeight, paddingY)).toBe(lineHeight * COMPOSER_TEXTAREA_MIN_ROWS + paddingY);
     expect(composerTextareaHeightPx(140, lineHeight, paddingY)).toBe(140);
     expect(composerTextareaHeightPx(800, lineHeight, paddingY)).toBe(lineHeight * COMPOSER_TEXTAREA_MAX_ROWS + paddingY);
   });

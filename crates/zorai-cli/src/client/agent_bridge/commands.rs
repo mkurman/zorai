@@ -215,6 +215,24 @@ where
         AgentBridgeCommand::ListUiColors => {
             framed.send(ClientMessage::AgentListUiColors).await?;
         }
+        AgentBridgeCommand::GetMemoryFiles { agent_id } => {
+            framed
+                .send(ClientMessage::AgentGetMemoryFiles { agent_id })
+                .await?;
+        }
+        AgentBridgeCommand::SaveMemoryFile {
+            agent_id,
+            target,
+            content,
+        } => {
+            framed
+                .send(ClientMessage::AgentSaveMemoryFile {
+                    agent_id,
+                    target,
+                    content,
+                })
+                .await?;
+        }
         AgentBridgeCommand::SetUiColor { kind, key, color } => {
             framed
                 .send(ClientMessage::AgentSetUiColor { kind, key, color })

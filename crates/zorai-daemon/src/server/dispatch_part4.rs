@@ -87,6 +87,8 @@ pub(crate) async fn dispatch_part4(
             | ClientMessage::AgentListThreadOperations { .. }
             | ClientMessage::AgentListUiColors
             | ClientMessage::AgentSetUiColor { .. }
+            | ClientMessage::AgentGetMemoryFiles { .. }
+            | ClientMessage::AgentSaveMemoryFile { .. }
             | ClientMessage::AgentGenerateCommitMessage { .. }
             | ClientMessage::AgentHandoffThread { .. }
             | ClientMessage::AgentGetSubagentMetrics { .. }
@@ -1500,6 +1502,7 @@ pub(crate) async fn dispatch_part4(
                     && profile.model.is_none()
                     && profile.reasoning_effort.is_none()
                     && profile.context_window_tokens.is_none()
+                    && profile.generation_settings.is_none()
                 {
                     map.remove(&thread_id);
                 } else {
@@ -1916,6 +1919,22 @@ pub(crate) async fn dispatch_part4(
 
         ClientMessage::AgentListUiColors => {
             send_ui_colors(agent, framed).await?;
+        }
+
+        ClientMessage::AgentGetMemoryFiles { agent_id } => {
+            let result = agent.operator_memory_files(&agent_id).await;
+            send_memory_files(framed, &agent_id, result).await?;
+        }
+
+        ClientMessage::AgentSaveMemoryFile {
+            agent_id,
+            target,
+            content,
+        } => {
+            let result = agent
+                .save_operator_memory_file(&agent_id, &target, &content)
+                .await;
+            send_memory_files(framed, &agent_id, result).await?;
         }
 
         ClientMessage::AgentSetUiColor { kind, key, color } => {
@@ -2366,6 +2385,22 @@ pub(crate) async fn dispatch_part4(
         _ => unreachable!("message chunk should be exhaustive"),
     }
     Ok(true)
+}
+
+async fn send_memory_files(
+    framed: &mut ConnectionWriter,
+    agent_id: &str,
+    result: Result<serde_json::Value>,
+) -> Result<()> {
+    let value = result.unwrap_or_else(|error| {
+        serde_json::json!({ "ok": false, "agent_id": agent_id, "error": error.to_string() })
+    });
+    framed
+        .send(DaemonMessage::AgentMemoryFiles {
+            result_json: value.to_string(),
+        })
+        .await?;
+    Ok(())
 }
 
 async fn send_ui_colors(agent: &Arc<AgentEngine>, framed: &mut ConnectionWriter) -> Result<()> {

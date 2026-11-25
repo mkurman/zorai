@@ -12,6 +12,7 @@ import { parseLeadingAgentDirective, type AgentDirective } from "./agentDirectiv
 import { waitForThreadStopBarrier } from "./threadStopBarrier";
 import { builtinAgentSetupCandidate, isBuiltinPersonaSetupError } from "./builtinAgentSetupPreflight";
 import { resolveNewThreadTargetAgent, notePendingUnboundThreadBind } from "./newThreadTargetAgent";
+import { takeInitialThreadExecutionProfile } from "@/lib/agentStore/threadProfileMerge";
 import type { BuiltinAgentSetupState } from "./types";
 
 type PendingBuiltinAgentSetup = BuiltinAgentSetupState & {
@@ -563,8 +564,15 @@ export function useDaemonAgentActions({
       const initialWorkspaceContext = daemonThreadId
         ? null
         : useWorkspaceContextStore.getState().byThreadId[threadId] ?? null;
+      let sendThreadId = daemonThreadId;
+      const latestThread = useAgentStore.getState().threads.find((entry) => entry.id === threadId);
+      const initialProfile = !daemonThreadId && latestThread ? takeInitialThreadExecutionProfile(latestThread) : null;
+      if (initialProfile && zorai.agentSetThreadExecutionProfile) {
+        sendThreadId = `thread_${crypto.randomUUID()}`;
+        await zorai.agentSetThreadExecutionProfile(sendThreadId, initialProfile);
+      }
       await sendAgentMessage(
-        daemonThreadId,
+        sendThreadId,
         text,
         preferredSessionId,
         contextMessages,

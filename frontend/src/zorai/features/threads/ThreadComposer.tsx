@@ -675,7 +675,7 @@ export function ThreadComposer({
           onKeyDown={handleKeyDown}
           readOnly={isRecording}
           placeholder={isTranscribing ? "Transcribing..." : isRecording ? "Listening…" : queue.editingId ? "Edit queued message…" : isStreamingResponse ? "Queue a follow-up…" : nextReplyOffer ? `${nextReplyOffer}  ⇥ Tab` : placeholder ?? "Message Zorai..."}
-          rows={3}
+          rows={1}
         />
         {isRecording && recordingStream ? <ComposerVoiceWaveform stream={recordingStream} /> : null}
 

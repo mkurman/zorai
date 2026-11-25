@@ -387,3 +387,18 @@ async fn custom_agent_scope_uses_legacy_agent_mission_persona_dir() -> Result<()
 
     Ok(())
 }
+
+#[test]
+fn operator_memory_scope_rejects_ids_that_would_escape_the_personas_dir() {
+    assert!(operator_memory_scope_id("../../etc").is_err());
+    assert!(operator_memory_scope_id("a/b").is_err());
+    assert_eq!(
+        operator_memory_scope_id("my-reviewer").unwrap(),
+        "my-reviewer"
+    );
+    assert_eq!(operator_memory_scope_id("swarog").unwrap(), MAIN_AGENT_ID);
+    assert_eq!(
+        operator_memory_scope_id("rarog").unwrap(),
+        CONCIERGE_AGENT_ID
+    );
+}

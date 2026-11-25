@@ -213,6 +213,20 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
             return { error: err?.message || String(err) };
         }
     });
+    ipcMain.handle('agent-get-memory-files', async (_event, agentId) => {
+        try {
+            return await sendAgentQuery({ type: 'get-memory-files', agent_id: agentId }, 'memory-files', 15000);
+        } catch (err) {
+            return { ok: false, agent_id: agentId, error: err?.message || String(err) };
+        }
+    });
+    ipcMain.handle('agent-save-memory-file', async (_event, agentId, target, content) => {
+        try {
+            return await sendAgentQuery({ type: 'save-memory-file', agent_id: agentId, target, content }, 'memory-files', 30000);
+        } catch (err) {
+            return { ok: false, agent_id: agentId, error: err?.message || String(err) };
+        }
+    });
     ipcMain.handle('agent-list-thread-operations', async (_event, threadId) => {
         try {
             return await sendAgentQuery({

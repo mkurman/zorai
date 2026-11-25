@@ -11,6 +11,7 @@ import { displayAgentName } from "../../lib/agentNames";
 import { PreferredSkillsEditor } from "../../zorai/features/skills/PreferredSkillsEditor";
 import { preferredSkillScopeId } from "../../zorai/features/skills/skillLibrary";
 import { PromptEditor } from "@/zorai/features/settings/PromptEditor";
+import { AgentMemoryFilesEditor } from "@/zorai/features/settings/AgentMemoryFilesEditor";
 import { ViewModeToggle } from "../data-viewers/ViewModeToggle";
 import { filterSubAgents, type SubAgentStatusFilter } from "./subAgentFilter";
 
@@ -432,6 +433,11 @@ export function SubAgentsTab() {
                     {editingId ? (
                         <Field label="Preferred Skills" stacked>
                             <PreferredSkillsEditor agentId={preferredSkillScopeId(editingId)} agentName={form.name || editingId} />
+                        </Field>
+                    ) : null}
+                    {editingId ? (
+                        <Field label="Memory Files" stacked>
+                            <AgentMemoryFilesEditor agentId={preferredSkillScopeId(editingId)} agentName={form.name || editingId} />
                         </Field>
                     ) : null}
                     <div className="zorai-subagents__advanced">

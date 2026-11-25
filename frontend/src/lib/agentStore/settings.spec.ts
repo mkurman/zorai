@@ -102,6 +102,17 @@ assert(
   "OpenRouter response caching should default to disabled",
 );
 
+const normalizedStaleFlatModel = normalizeAgentSettingsFromSource({
+  active_provider: "openai",
+  openai: { model: "gpt-old" },
+  providers: { openai: { model: "gpt-new" } },
+} as never);
+
+assert(
+  normalizedStaleFlatModel.openai.model === "gpt-new",
+  "The daemon's providers map is where model picks are saved, so a stale legacy flat model must not resurrect the previous model for new threads",
+);
+
 const normalizedOpenRouterCaching = normalizeAgentSettingsFromSource({
   active_provider: "openrouter",
   providers: {

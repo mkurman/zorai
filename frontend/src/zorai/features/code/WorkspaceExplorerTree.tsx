@@ -4,6 +4,7 @@ import { CodeFileIcon, CodeFolderChevron } from "./CodeFileIcon";
 import { workspaceExplorerControllerFor, type WorkspaceExplorerSnapshot } from "./workspaceExplorerController";
 import { filterExplorerEntries, searchWorkspaceFiles } from "./workspaceExplorerFilter";
 import { EXPLORER_DELETE_KEY, EXPLORER_RENAME_KEY } from "./workspaceExplorerMenu";
+import { startCodeFileDrag } from "./codeSplitStore";
 
 export type WorkspaceExplorerTreeProps = {
   root: string;
@@ -58,7 +59,7 @@ function WorkspaceExplorerTreeNode({ entry, depth, status, onOpen, snapshot, onT
   const activate = () => entry.isDirectory ? onToggle(entry.path) : Promise.resolve(onOpen(entry.path));
 
   return <div>
-    <button type="button" role="treeitem" aria-expanded={entry.isDirectory ? expanded : undefined} aria-disabled={loading || undefined} className={entry.isGitIgnored ? "zorai-workspace-tree-row zorai-workspace-tree-row--ignored" : "zorai-workspace-tree-row"} style={{ paddingLeft: 8 + depth * 14 }} onClick={() => void activate()} onContextMenu={explorerContextMenu(onEntryContextMenu, entry)} onKeyDown={explorerShortcut(onEntryShortcut, entry)}>
+    <button type="button" role="treeitem" aria-expanded={entry.isDirectory ? expanded : undefined} aria-disabled={loading || undefined} className={entry.isGitIgnored ? "zorai-workspace-tree-row zorai-workspace-tree-row--ignored" : "zorai-workspace-tree-row"} style={{ paddingLeft: 8 + depth * 14 }} draggable={!entry.isDirectory} onDragStart={entry.isDirectory ? undefined : (event) => startCodeFileDrag(event, entry.path)} onClick={() => void activate()} onContextMenu={explorerContextMenu(onEntryContextMenu, entry)} onKeyDown={explorerShortcut(onEntryShortcut, entry)}>
       {entry.isDirectory ? <span className="zorai-workspace-chevron"><CodeFolderChevron expanded={expanded} /></span> : null}
       {!entry.isDirectory ? <CodeFileIcon path={entry.path} /> : null}
       <span className="zorai-workspace-tree-name">{entry.name}</span>
@@ -121,7 +122,7 @@ export function WorkspaceExplorerTree({ root, entries, status, onOpen, refreshTo
             const name = parts.pop() ?? path;
             const marker = status.get(path) ?? "";
             return (
-              <button type="button" role="listitem" key={path} className="zorai-workspace-tree-row" style={{ paddingLeft: 8 }} title={path} onClick={() => onOpen(path)} onContextMenu={explorerContextMenu(onEntryContextMenu, { name, path, isDirectory: false, isSymbolicLink: false, sizeBytes: null, modifiedAt: null })} onKeyDown={explorerShortcut(onEntryShortcut, { name, path, isDirectory: false, isSymbolicLink: false, sizeBytes: null, modifiedAt: null })}>
+              <button type="button" role="listitem" key={path} className="zorai-workspace-tree-row" style={{ paddingLeft: 8 }} title={path} draggable onDragStart={(event) => startCodeFileDrag(event, path)} onClick={() => onOpen(path)} onContextMenu={explorerContextMenu(onEntryContextMenu, { name, path, isDirectory: false, isSymbolicLink: false, sizeBytes: null, modifiedAt: null })} onKeyDown={explorerShortcut(onEntryShortcut, { name, path, isDirectory: false, isSymbolicLink: false, sizeBytes: null, modifiedAt: null })}>
                 <CodeFileIcon path={path} />
                 <span className="zorai-workspace-tree-name">{name}</span>
                 {parts.length > 0 ? <span className="zorai-workspace-tree-dir">{parts.join("/")}</span> : null}

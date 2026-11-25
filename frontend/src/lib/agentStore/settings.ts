@@ -897,6 +897,7 @@ function providerConfigFromRaw(
   const flatValue = source?.[providerId] as Partial<AgentProviderConfig> | undefined;
   const mergedValue: Partial<AgentProviderConfig> = {
     ...(flatValue ?? {}),
+    model: providerMapValue?.model ?? flatValue?.model,
     base_url: providerMapValue?.base_url ?? flatValue?.base_url,
     custom_model_name: providerMapValue?.custom_model_name ?? flatValue?.custom_model_name,
     api_key: providerMapValue?.api_key ?? flatValue?.api_key,

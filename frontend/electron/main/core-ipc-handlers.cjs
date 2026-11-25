@@ -158,6 +158,7 @@ function registerCoreIpcHandlers(ipcMain, options) {
     ipcMain.handle('workspace-git-hunks', (_event, rootPath, relativePath, runtimeOptions) => workspaceService.workspaceGitHunks(rootPath, relativePath, runtimeOptions));
     ipcMain.handle('workspace-git-apply-hunk', (_event, rootPath, relativePath, hunkId, action) => workspaceService.workspaceGitApplyHunk(rootPath, relativePath, hunkId, action));
     ipcMain.handle('workspace-search', (_event, rootPath, query, runtimeOptions) => workspaceService.searchWorkspace(rootPath, query, runtimeOptions));
+    ipcMain.handle('workspace-replace', (_event, rootPath, query, replacement, runtimeOptions, targets) => workspaceService.replaceInWorkspace(rootPath, query, replacement, runtimeOptions, targets));
     ipcMain.handle('workspace-list-files', (_event, rootPath) => workspaceService.listWorkspaceFiles(rootPath));
     ipcMain.handle('workspace-search-file-names', (_event, rootPath, query, runtimeOptions) => workspaceService.searchWorkspaceFileNames(rootPath, query, runtimeOptions));
     ipcMain.handle('workspace-git-diff', (_event, rootPath, relativePath, runtimeOptions) => workspaceService.workspaceGitDiff(rootPath, relativePath, runtimeOptions));

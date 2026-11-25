@@ -734,7 +734,8 @@ declare global {
         workspaceGitDiscard?: (rootPath: string, relativePath: string) => Promise<ZoraiWorkspaceGitStatus[]>;
         workspaceGitHunks?: (rootPath: string, relativePath: string, options?: { staged?: boolean }) => Promise<ZoraiWorkspaceGitHunk[]>;
         workspaceGitApplyHunk?: (rootPath: string, relativePath: string, hunkId: string, action: "stage" | "unstage" | "discard") => Promise<{ status: ZoraiWorkspaceGitStatus[]; hunks: ZoraiWorkspaceGitHunk[] }>;
-        workspaceSearch?: (rootPath: string, query: string, options?: { caseSensitive?: boolean; maxResults?: number; maxFiles?: number }) => Promise<Array<{ path: string; line: number; column: number; preview: string }>>;
+        workspaceSearch?: (rootPath: string, query: string, options?: { caseSensitive?: boolean; wholeWord?: boolean; regex?: boolean; include?: string; exclude?: string; maxResults?: number; maxFiles?: number }) => Promise<Array<{ path: string; line: number; column: number; preview: string; matchStart?: number; matchLength?: number }>>;
+        workspaceReplace?: (rootPath: string, query: string, replacement: string, options: { caseSensitive?: boolean; wholeWord?: boolean; regex?: boolean }, targets: Array<{ path: string; line?: number; column?: number }>) => Promise<{ files: number; replacements: number }>;
         workspaceSearchFileNames?: (rootPath: string, query: string, options?: { maxResults?: number }) => Promise<string[]>;
         workspaceListFiles?: (rootPath: string) => Promise<string[]>;
         workspaceGitDiff?: (rootPath: string, relativePath?: string | null, options?: { staged?: boolean; againstHead?: boolean; includeUntracked?: boolean }) => Promise<string>;
@@ -891,6 +892,8 @@ declare global {
         agentListThreadOperations?: (threadId: string) => Promise<{ thread_id: string; operations: ZoraiThreadOperation[]; error?: string }>;
         agentListUiColors?: () => Promise<ZoraiUiColors>;
         agentSetUiColor?: (kind: "thread" | "root", key: string, color: string | null) => Promise<ZoraiUiColors>;
+        agentGetMemoryFiles?: (agentId: string) => Promise<unknown>;
+        agentSaveMemoryFile?: (agentId: string, target: "soul" | "memory" | "user", content: string) => Promise<unknown>;
         agentGenerateCommitMessage?: (diff: string, recentSubjects: string[]) => Promise<{ message: string; error?: string | null }>;
         agentCancelOperation?: (id: string) => Promise<{ ok?: boolean; error?: string } | unknown>;
         agentDismissParticipantSuggestion?: (payload: {

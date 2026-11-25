@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
 import renderMathInElement from "katex/contrib/auto-render";
 import "katex/dist/katex.min.css";
 import { FencedDataBlock, fencedBlockKind } from "@/components/data-viewers/FencedDataBlock";
@@ -248,6 +250,16 @@ const markdownComponents: Components = {
   table: ({ node, children }) => <MarkdownTable node={node}>{children}</MarkdownTable>,
 };
 
+const filePreviewMarkdownComponents: Components = {
+  ...markdownComponents,
+  h1: "h1",
+  h2: "h2",
+  h3: "h3",
+  h4: "h4",
+  h5: "h5",
+  h6: "h6",
+};
+
 const MATH_TOKEN_OPEN = "\uE100";
 const MATH_TOKEN_CLOSE = "\uE101";
 
@@ -423,9 +435,11 @@ const StreamingMarkdown = memo(function StreamingMarkdown({ content }: { content
 export const MarkdownContent = memo(function MarkdownContent({
   content,
   streaming = false,
+  filePreview = false,
 }: {
   content: string;
   streaming?: boolean;
+  filePreview?: boolean;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const renderMode = markdownRenderMode(streaming);
@@ -460,7 +474,7 @@ export const MarkdownContent = memo(function MarkdownContent({
   return (
     <div ref={rootRef} className="acp-md">
       <MathSegmentsContext.Provider value={mathRendering}>
-        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={filePreview ? [rehypeRaw, rehypeSanitize] : undefined} components={filePreview ? filePreviewMarkdownComponents : markdownComponents}>
           {protectedMath.content}
         </ReactMarkdown>
       </MathSegmentsContext.Provider>

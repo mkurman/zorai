@@ -109,6 +109,14 @@ pub(super) enum AgentBridgeCommand {
         thread_id: String,
     },
     ListUiColors,
+    GetMemoryFiles {
+        agent_id: String,
+    },
+    SaveMemoryFile {
+        agent_id: String,
+        target: String,
+        content: String,
+    },
     SetUiColor {
         kind: String,
         key: String,

@@ -70,6 +70,7 @@ import { duckDuckGoSafeSearchOptions, searchProviderOptions } from "./searchProv
 import { MlflowPanel } from "./MlflowPanel";
 import { PreferredSkillsEditor } from "../skills/PreferredSkillsEditor";
 import { PromptEditor } from "./PromptEditor";
+import { AgentMemoryFilesEditor } from "./AgentMemoryFilesEditor";
 import type { ZoraiSettingsTabId } from "./settingsTabs";
 import {
   formatProviderValidationError,
@@ -96,7 +97,7 @@ export const conciergeReasoningEffortOptions: Array<{ value: AgentSettings["reas
   { value: "xhigh", label: "xhigh" },
   { value: "max", label: "max" },
 ];
-const APP_VERSION = "1.1.20";
+const APP_VERSION = "1.1.21";
 const APP_AUTHOR = "Mariusz Kurman";
 const APP_GITHUB = "mkurman/zorai";
 const APP_HOMEPAGE = "zorai.app";
@@ -276,6 +277,9 @@ function ModelPanel() {
           <PromptEditor label="Svarog system prompt" path="settings/svarog-system-prompt.md" value={agentSettings.system_prompt} onChange={(value) => updateAgentSetting("system_prompt", value)} />
         </div>
         <Metric label="Backend" value="daemon" />
+      </Panel>
+      <Panel section="Svarog" title="Memory files">
+        <AgentMemoryFilesEditor agentId="swarog" agentName="Svarog" />
       </Panel>
       <Panel section="Svarog" title="Preferred skills">
         <PreferredSkillsEditor agentId="swarog" agentName="Svarog" />
@@ -675,6 +679,9 @@ function ConciergePanel() {
           />
         </Panel>
       ) : null}
+      <Panel section="Rarog" title="Memory files">
+        <AgentMemoryFilesEditor agentId="rarog" agentName="Rarog" />
+      </Panel>
       <Panel section="Rarog" title="Preferred skills">
         <PreferredSkillsEditor agentId="rarog" agentName="Rarog" />
       </Panel>

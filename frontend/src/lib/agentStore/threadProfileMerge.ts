@@ -1,4 +1,4 @@
-import type { AgentThread } from "./types";
+import type { AgentThread, GenerationSettings } from "./types";
 
 export type ThreadRuntimeOverlay = Pick<
   AgentThread,
@@ -6,6 +6,32 @@ export type ThreadRuntimeOverlay = Pick<
 >;
 
 const overlays = new Map<string, ThreadRuntimeOverlay>();
+const pendingGenerationSettings = new Map<string, GenerationSettings | null>();
+
+export function setPendingThreadGenerationSettings(threadId: string, settings: GenerationSettings | null): void {
+  pendingGenerationSettings.set(threadId, settings);
+}
+
+export function pendingThreadGenerationSettings(threadId: string): GenerationSettings | null {
+  return pendingGenerationSettings.get(threadId) ?? null;
+}
+
+const initialProfileTaken = new Set<string>();
+
+export function takeInitialThreadExecutionProfile(thread: AgentThread): Record<string, unknown> | null {
+  if (initialProfileTaken.has(thread.id)) return null;
+  initialProfileTaken.add(thread.id);
+  const generation = pendingThreadGenerationSettings(thread.id);
+  pendingGenerationSettings.delete(thread.id);
+  const profile = {
+    provider: thread.profileProvider?.trim() || null,
+    model: thread.profileModel?.trim() || null,
+    reasoning_effort: thread.profileReasoningEffort?.trim() || null,
+    context_window_tokens: thread.profileContextWindowTokens ?? null,
+    generation_settings: generation,
+  };
+  return Object.values(profile).some((value) => value !== null) ? profile : null;
+}
 
 export function pinThreadRuntimeOverlay(threadId: string, overlay: ThreadRuntimeOverlay): void {
   overlays.set(threadId, overlay);

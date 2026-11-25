@@ -31,7 +31,7 @@ function acceptsThreadDrag(event: DragEvent<HTMLElement>): boolean {
 
 type ThreadSplitDrop = { targetId: string | null; zone: ThreadSplitDropZone; box: CSSProperties; openOnly?: boolean };
 
-function dropBox(zone: ThreadSplitDropZone, target: DOMRect, container: DOMRect): CSSProperties {
+export function dropBox(zone: ThreadSplitDropZone, target: DOMRect, container: DOMRect): CSSProperties {
   const left = target.left - container.left;
   const top = target.top - container.top;
   const halfWidth = target.width / 2;
@@ -190,7 +190,7 @@ function usePaneSpawnedRuns(daemonThreadId: string | null | undefined, enabled: 
   return runs;
 }
 
-function ThreadSplitDivider({ direction, sizes, index, onCommit }: {
+export function ThreadSplitDivider({ direction, sizes, index, onCommit }: {
   direction: "row" | "column";
   sizes: number[];
   index: number;

@@ -326,3 +326,45 @@ async fn append_reconcile_write_error_keeps_db_updates_and_marks_dirty() -> Resu
     );
     Ok(())
 }
+
+#[tokio::test]
+async fn operator_user_md_edit_survives_the_next_profile_reconcile() -> Result<()> {
+    let _guard = acquire_user_sync_test_guard();
+    let root = std::env::temp_dir().join(format!("zorai-user-sync-test-{}", uuid::Uuid::new_v4()));
+    let history = crate::history::HistoryStore::new_test_store(&root).await?;
+    let agent_data_dir = test_agent_data_dir(&root);
+    let memory_dir = super::active_memory_dir(&agent_data_dir);
+    tokio::fs::create_dir_all(&memory_dir).await?;
+    set_user_sync_state_for_test(UserProfileSyncState::Clean);
+
+    history
+        .upsert_profile_field(
+            "legacy_user_signal",
+            "\"- prefers tabs\"",
+            0.55,
+            "legacy_append",
+        )
+        .await?;
+    history
+        .upsert_profile_field("timezone", "\"Europe/Warsaw\"", 0.9, "operator_model")
+        .await?;
+
+    let edited = format!(
+        "# User\n{GENERATED_PROFILE_HEADER}\n\n- prefers spaces\n- timezone: \"Europe/Warsaw\""
+    );
+    replace_user_profile_from_operator_edit(&agent_data_dir, &history, &edited).await?;
+    reconcile_user_profile_from_db(&agent_data_dir, &history).await?;
+
+    let rendered = tokio::fs::read_to_string(memory_dir.join("USER.md")).await?;
+    assert!(rendered.contains("- prefers spaces"));
+    assert!(
+        !rendered.contains("prefers tabs"),
+        "the replaced append must not come back: {rendered}"
+    );
+    assert_eq!(
+        rendered.matches("timezone").count(),
+        1,
+        "structured fields must not be duplicated: {rendered}"
+    );
+    Ok(())
+}

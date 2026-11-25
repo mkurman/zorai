@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
 import { codeTiming } from "@/zorai/features/code/codeTiming";
 import { LoadingState } from "@/components/LoadingState";
 import { createPortal } from "react-dom";
@@ -8,7 +8,11 @@ import { useWorkspaceStore } from "@/lib/workspaceStore";
 import { toDaemonWorkspaceContext, useWorkspaceContextStore } from "@/lib/workspaceContextStore";
 import { extractWorkspaceSymbols } from "@/lib/workspaceSymbols";
 import type { editor as MonacoEditorApi } from "monaco-editor";
-import { SessionTabStrip } from "@/zorai/features/threads/SessionTabStrip";
+import { SESSION_TAB_DRAG_TYPE, SessionTabStrip } from "@/zorai/features/threads/SessionTabStrip";
+import { ThreadSplitDivider, dropBox } from "@/zorai/features/threads/ThreadSplitView";
+import { MAX_SPLIT_PANES, mapSplitPaneIds, removeSplitPaneNode, setSplitSizesAt, splitChildSizes, splitDropZone, splitEdgeDropZone, splitLayoutsFor, splitOrNull, splitPaneIds, type ThreadSplitDropZone, type ThreadSplitLayout, type ThreadSplitNode } from "@/zorai/features/threads/threadSplitModel";
+import { CODE_FILE_DRAG_TYPE, useCodeSplitStore } from "@/zorai/features/code/codeSplitStore";
+import { CodeFileIcon } from "@/zorai/features/code/CodeFileIcon";
 import { RefreshIcon } from "@/zorai/shell/RefreshButton";
 import { SkillIcon } from "@/zorai/features/skills/SkillIcons";
 import { codeMediaKind, shouldRestoreWorkspaceDocument } from "@/zorai/features/code/workspaceDocumentRestore";
@@ -16,7 +20,9 @@ import { isCodeProjectThread, useCodeWorkspaceBindingStore } from "@/zorai/featu
 import { useWorkspaceEditorRequestStore } from "@/lib/workspaceEditorRequestStore";
 import { openExternalFileInWorkspace } from "@/zorai/features/code/workspaceExternalFile";
 import { CodeQuickOpen } from "@/zorai/features/code/CodeQuickOpen";
-import { CodeProjectSearch } from "@/zorai/features/code/CodeProjectSearch";
+import { CodeSearchPanel } from "@/zorai/features/code/CodeSearchPanel";
+import { monacoModelPath } from "@/zorai/features/code/codeLanguages";
+import { subscribeCodeRailActions } from "@/zorai/features/code/codeRailActions";
 import { setCommandPaletteOverride } from "@/zorai/shell/zoraiAppCommands";
 import { CodeCommandPalette } from "@/zorai/features/code/CodeCommandPalette";
 import { RUNNABLE_CODE_COMMANDS, matchesCodeBinding, shouldLeaveKeyToTerminal, shouldPassthroughCodeCommand, type CodeCommandId } from "@/zorai/features/code/codeCommands";
@@ -137,7 +143,8 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const [unsupportedFile, setUnsupportedFile] = useState<string | null>(null);
   const [mediaPreview, setMediaPreview] = useState<{ path: string; kind: "image" | "video" | "audio" } | null>(null);
   const reducedModePathsRef = useRef(new Set<string>());
-  const [codeOverlay, setCodeOverlay] = useState<"quickOpen" | "commands" | "search" | null>(null);
+  const [codeOverlay, setCodeOverlay] = useState<"quickOpen" | "commands" | null>(null);
+  const [searchFocusToken, setSearchFocusToken] = useState(0);
   const [settingsTabOpen, setSettingsTabOpen] = useState(false);
   const [settingsTabPinned, setSettingsTabPinned] = useState(false);
   const [activeEditorTabId, setActiveEditorTabId] = useState<string | null>(null);
@@ -149,12 +156,16 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const [pathDialog, setPathDialog] = useState<{ operation: WorkspacePathOperation; initialPath: string; sourcePath?: string } | null>(null);
   const [explorerMenu, setExplorerMenu] = useState<{ entry: ZoraiWorkspaceEntry | null; x: number; y: number } | null>(null);
   const closeExplorerMenu = useCallback(() => setExplorerMenu(null), []);
+  const [tabMenu, setTabMenu] = useState<{ tabId: string; x: number; y: number } | null>(null);
+  const [selectedTabIds, setSelectedTabIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [editorDrop, setEditorDrop] = useState<{ targetPath: string | null; zone: ThreadSplitDropZone; box: CSSProperties } | null>(null);
+  const paneEditorsRef = useRef(new Map<string, MonacoEditorApi.IStandaloneCodeEditor>());
+  const focusedPaneRef = useRef<string | null>(null);
+  const splitStoreRoot = useCodeSplitStore((state) => state.root);
   const rootTint = useTintStore((state) => (context?.root ? state.roots[context.root] : undefined));
   const setRootTint = useTintStore((state) => state.setRootTint);
   const [pathDialogBusy, setPathDialogBusy] = useState(false);
   const [pathDialogError, setPathDialogError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Array<{ path: string; line: number; column: number; preview: string }>>([]);
   const [agentChanges, setAgentChanges] = useState<ZoraiWorkContextEntry[]>([]);
   const [operationSnapshots, setOperationSnapshots] = useState<Record<string, { available: boolean; revertible: boolean; stale_paths: string[]; retained_bytes: number; reason: string | null }>>({});
   const [lspStatus, setLspStatus] = useState<{ available: boolean; command?: string | null; reason?: string } | null>(null);
@@ -165,6 +176,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const lspChangeTimer = useRef<number | null>(null);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
   const monacoEditorRef = useRef<MonacoEditorApi.IStandaloneCodeEditor | null>(null);
+  const monacoUriRef = useRef<{ parse: (value: string) => { toString: () => string } } | null>(null);
   const pendingNavigationRef = useRef<{ path: string; line: number; column: number } | null>(null);
   const saveCommandRef = useRef<() => Promise<boolean>>(async () => false);
   const fileCommandsRef = useRef<Partial<Record<CodeCommandId, () => void>>>({});
@@ -175,6 +187,11 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const handledEditorRequestTokenRef = useRef(0);
   const editorRequest = useWorkspaceEditorRequestStore((state) => state.request);
   const activeDocument = context?.activeFile ? documents[context.activeFile] : undefined;
+  const splitTree = useMemo(
+    () => splitOrNull(mapSplitPaneIds(splitStoreRoot, (path) => (documents[path] && context?.openFiles.includes(path) ? path : null))),
+    [splitStoreRoot, documents, context?.openFiles],
+  );
+  const splitPaths = useMemo(() => splitPaneIds(splitTree), [splitTree]);
   const isolatedTaskWorktrees = useMemo(() => gitWorktrees.filter((worktree) => /\/zorai\/(?:goal|task)-/.test(worktree.branch ?? "")), [gitWorktrees]);
   const operationGroups = useMemo(() => {
     const groups = new Map<string, ZoraiWorkContextEntry[]>();
@@ -430,15 +447,45 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     return () => window.clearInterval(timer);
   }, [activeDocument?.path, activeDocument?.hash, bridge, context?.root]);
 
+  const monacoShowsPath = (editor: MonacoEditorApi.IStandaloneCodeEditor, path: string) => (
+    editor.getModel()?.uri.toString() === monacoUriRef.current?.parse(monacoModelPath("zorai-workspace", path)).toString()
+  );
+  const revealPendingNavigation = (editor: MonacoEditorApi.IStandaloneCodeEditor) => {
+    const pending = pendingNavigationRef.current;
+    if (!pending || !monacoShowsPath(editor, pending.path)) return false;
+    editor.focus();
+    editor.setPosition({ lineNumber: pending.line, column: pending.column });
+    editor.revealPositionInCenter({ lineNumber: pending.line, column: pending.column });
+    pendingNavigationRef.current = null;
+    return true;
+  };
+
+  const splitScopeRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!context?.root || !activeThreadId) return;
+    const scope = `${activeThreadId}\u0000${context.root}`;
+    if (splitScopeRef.current && splitScopeRef.current !== scope) useCodeSplitStore.getState().clear();
+    splitScopeRef.current = scope;
+  }, [activeThreadId, context?.root]);
+
+  useEffect(() => {
+    const path = activeDocument?.path ?? null;
+    if (path && splitPaths.length >= 2 && !splitPaths.includes(path)) {
+      const previous = focusedPaneRef.current;
+      useCodeSplitStore.setState({ root: splitTree });
+      useCodeSplitStore.getState().replacePane(previous && splitPaths.includes(previous) ? previous : splitPaths[splitPaths.length - 1], path);
+    }
+    focusedPaneRef.current = path;
+    const paneEditor = path ? paneEditorsRef.current.get(path) : undefined;
+    if (paneEditor) monacoEditorRef.current = paneEditor;
+  }, [activeDocument?.path, splitPaths, splitTree]);
+
   useEffect(() => {
     const pending = pendingNavigationRef.current;
     if (!pending || activeDocument?.path !== pending.path || mode !== "edit") return;
     const monacoEditor = monacoEditorRef.current;
     if (monacoEditor) {
-      monacoEditor.focus();
-      monacoEditor.setPosition({ lineNumber: pending.line, column: pending.column });
-      monacoEditor.revealPositionInCenter({ lineNumber: pending.line, column: pending.column });
-      pendingNavigationRef.current = null;
+      revealPendingNavigation(monacoEditor);
       return;
     }
     const textarea = editorRef.current;
@@ -599,10 +646,16 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       }
       setMode("edit");
       if (location && nextDocument) {
-        requestAnimationFrame(() => {
+        let revealAttempts = 0;
+        const reveal = () => {
           if (!isCurrentOpen()) return;
-          trace.mark("paint");
           const monacoEditor = monacoEditorRef.current;
+          const editorShowsFile = monacoEditor ? monacoShowsPath(monacoEditor, filePath) : Boolean(editorRef.current);
+          if (!editorShowsFile) {
+            if (revealAttempts++ < 60) requestAnimationFrame(reveal);
+            return;
+          }
+          trace.mark("paint");
           if (monacoEditor) {
             monacoEditor.focus();
             monacoEditor.setPosition({ lineNumber: location.line, column: location.column });
@@ -620,7 +673,8 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
           pendingNavigationRef.current = null;
           trace.mark("interactive");
           trace.finish({ byteSize: new TextEncoder().encode(nextDocument!.content).byteLength, lineCount: nextDocument!.content.split("\n").length, language: nextDocument!.language });
-        });
+        };
+        requestAnimationFrame(reveal);
       } else {
         requestAnimationFrame(() => {
           if (!isCurrentOpen()) return;
@@ -1104,9 +1158,13 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   };
 
   const searchRoot = context?.root;
-  const searchProjectFiles = useCallback(async (query: string) => {
+  const searchProjectFiles = useCallback(async (query: string, options: { caseSensitive: boolean; wholeWord: boolean; regex: boolean; include: string; exclude: string; maxResults: number }) => {
     if (!searchRoot || !bridge?.workspaceSearch) return [];
-    return bridge.workspaceSearch(searchRoot, query, { maxResults: 100 });
+    return bridge.workspaceSearch(searchRoot, query, options);
+  }, [bridge, searchRoot]);
+  const replaceProjectFiles = useCallback(async (query: string, replacement: string, options: { caseSensitive: boolean; wholeWord: boolean; regex: boolean }, targets: Array<{ path: string; line?: number; column?: number }>) => {
+    if (!searchRoot || !bridge?.workspaceReplace) throw new Error("Replace needs the desktop app.");
+    return bridge.workspaceReplace(searchRoot, query, replacement, options, targets);
   }, [bridge, searchRoot]);
   const searchProjectFileNames = useCallback(async (query: string) => {
     if (!searchRoot || !bridge?.workspaceSearchFileNames) return [];
@@ -1119,17 +1177,6 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     });
     return () => setCommandPaletteOverride(null);
   }, []);
-
-  const runSearch = async () => {
-    if (!context?.root || !searchQuery.trim() || !bridge?.workspaceSearch) {
-      setSearchResults([]);
-      return;
-    }
-    try {
-      setSearchResults(await bridge.workspaceSearch(context.root, searchQuery, { maxResults: 100 }));
-      setError(null);
-    } catch (reason: any) { setError(reason?.message ?? String(reason)); }
-  };
 
   const reviewStateApi = useCodeReviewStore.getState();
   const prefillAgentInput = (text: string, mode: "replace" | "append") => {
@@ -1293,6 +1340,9 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     setActiveEditorTabId("code-settings");
   }, []);
 
+  useEffect(() => subscribeCodeRailActions((action) => {
+    if (action.kind === "open-settings") openSettingsTab();
+  }), [openSettingsTab]);
   const closeSettingsTab = useCallback(() => {
     if (settingsTabPinned) return;
     setSettingsTabOpen(false);
@@ -1307,7 +1357,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     if (id === "view.commandPalette") { setCodeOverlay("commands"); return; }
     if (id === "file.save") { void saveCommandRef.current(); return; }
     if (id === "file.reload") { void reloadCommandRef.current(); return; }
-    if (id === "search.project") { setCodeOverlay("search"); return; }
+    if (id === "search.project") { setRailTab("search"); setSearchFocusToken((value) => value + 1); return; }
     if (id === "file.openExternal" || id === "file.reveal") {
       const target = activeFileTargetRef.current;
       if (!target) return;
@@ -1419,6 +1469,41 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     "file.next": () => openNeighborFile(1),
     "file.previous": () => openNeighborFile(-1),
     "file.pin": () => { if (activeThreadId && activeDocument) togglePinnedFile(activeThreadId, activeDocument.path); },
+  };
+  const editorTabMenuItems = (tabId: string): CodeToolbarMenuItem[] => {
+    if (tabId === "code-settings") return [{ key: "close", label: "Close", onSelect: closeSettingsTab }];
+    if (!activeThreadId || !context) return [];
+    const path = tabId.replace(/^file:/, "");
+    const files = context.openFiles;
+    const index = files.indexOf(path);
+    const closeQuietly = (targets: string[]) => {
+      for (const target of targets) {
+        if (!documents[target]?.dirty && !context.pinnedFiles.includes(target)) closeFile(activeThreadId, target);
+      }
+    };
+    const pinned = context.pinnedFiles.includes(path);
+    const picked = new Set([...selectedTabIds].map((id) => id.replace(/^file:/, ""))).add(path);
+    if (picked.size < 2 && activeDocument) picked.add(activeDocument.path);
+    const pickedPaths = files.filter((candidate) => picked.has(candidate));
+    const splitItems: CodeToolbarMenuItem[] = pickedPaths.length > MAX_SPLIT_PANES
+      ? [{ key: "split-too-many", label: `Pick up to ${MAX_SPLIT_PANES} editors (${pickedPaths.length} picked)`, disabled: true }]
+      : pickedPaths.length >= 2
+        ? splitLayoutsFor(pickedPaths.length).map((option) => ({ key: `split-${option.layout}`, label: option.label, onSelect: () => void showEditorSplit(pickedPaths, path, option.layout) }))
+        : [{ key: "split-hint", label: "Ctrl+click tabs to pick editors to show together", disabled: true }];
+    splitItems[0] = { ...splitItems[0], separatorBefore: true };
+    if (selectedTabIds.size > 0) splitItems.push({ key: "clear-selection", label: "Clear selection", onSelect: () => setSelectedTabIds(new Set()) });
+    if (splitTree) splitItems.push({ key: "close-split", label: "Close split view", onSelect: () => useCodeSplitStore.getState().clear() });
+    return [
+      { key: "close", label: "Close", onSelect: () => requestCloseFile(path) },
+      { key: "close-others", label: "Close Others", disabled: files.length < 2, onSelect: () => closeQuietly(files.filter((candidate) => candidate !== path)) },
+      { key: "close-right", label: "Close to the Right", disabled: index < 0 || index === files.length - 1, onSelect: () => closeQuietly(files.slice(index + 1)) },
+      { key: "close-all", label: "Close All", onSelect: () => closeQuietly(files) },
+      { key: "pin", label: pinned ? "Unpin" : "Pin", separatorBefore: true, onSelect: () => togglePinnedFile(activeThreadId, path) },
+      { key: "copy-path", label: "Copy Relative Path", separatorBefore: true, onSelect: () => void navigator.clipboard.writeText(path).catch((reason) => setError(reason?.message ?? String(reason))) },
+      { key: "copy-abs", label: "Copy Path", onSelect: () => void navigator.clipboard.writeText(`${context.root.replace(/[\\/]+$/, "")}/${path}`).catch((reason) => setError(reason?.message ?? String(reason))) },
+      { key: "reveal", label: "Reveal in File Manager", onSelect: () => void bridge?.revealFsPath?.(`${context.root.replace(/[\\/]+$/, "")}/${path}`) },
+      ...splitItems,
+    ];
   };
   function openNeighborFile(step: 1 | -1) {
     const files = context?.openFiles ?? [];
@@ -1547,7 +1632,10 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             ) : null}
             <CodeRailTabs
               value={railTab}
-              onChange={setRailTab}
+              onChange={(tab) => {
+                setRailTab(tab);
+                if (tab === "search") setSearchFocusToken((value) => value + 1);
+              }}
               badges={{
                 scm: { count: (gitOverview?.stagedFiles ?? 0) + (gitOverview?.unstagedFiles ?? 0) + gitConflicts.length },
                 testing: testProblems.length > 0 ? { count: testProblems.length, tone: "danger" } : { count: workspaceTests.length },
@@ -1596,12 +1684,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                     <button type="button" title="New file" onClick={() => void createPath("file")}>+F</button>
                     <button type="button" title="New directory" onClick={() => void createPath("directory")}>+D</button>
                   </div>
-                  <div className="zorai-workspace-search-row">
-                    <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search workspace" onKeyDown={(event) => { if (event.key === "Enter") void runSearch(); }} />
-                    <button type="button" onClick={() => void runSearch()}>⌕</button>
-                  </div>
                 </details>
-                {searchResults.length > 0 ? <div className="zorai-workspace-search-results">{searchResults.map((result) => <button type="button" key={`${result.path}:${result.line}:${result.column}`} onClick={() => void openFile(result.path, { line: result.line, column: result.column })}><strong>{result.path}:{result.line}</strong><span>{result.preview}</span></button>)}</div> : null}
                 {workspaceDiagnostics.length > 0 ? (
                   <details className="zorai-workspace-problems">
                     <summary>Problems ({workspaceDiagnostics.length})</summary>
@@ -1616,6 +1699,15 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                 ) : null}
               </>
             ) : null}
+            <div hidden={railTab !== "search"}>
+              <CodeSearchPanel
+                root={context.root}
+                focusToken={searchFocusToken}
+                search={searchProjectFiles}
+                replace={replaceProjectFiles}
+                onOpen={(hit) => void openFile(hit.path, { line: hit.line, column: hit.column })}
+              />
+            </div>
             {railTab === "scm" ? (
               <>
                 {!gitOverview?.isRepository ? (
@@ -1853,6 +1945,182 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     </span>
   );
 
+  const renderWorkspaceEditor = (doc: OpenDocument, paned: boolean) => (
+    <WorkspaceCodeEditor
+      settings={reducedModePathsRef.current.has(doc.path) ? { ...editorSettings, minimap: false, stickyScroll: false, formatOnPaste: false, formatOnType: false } : editorSettings}
+      path={doc.path}
+      value={doc.content}
+      language={doc.language}
+      textareaRef={editorRef}
+      onMount={(editor, monaco) => {
+        monacoUriRef.current = monaco.Uri;
+        if (paned) {
+          paneEditorsRef.current.set(doc.path, editor);
+          editor.onDidDispose(() => {
+            if (paneEditorsRef.current.get(doc.path) === editor) paneEditorsRef.current.delete(doc.path);
+          });
+          if (doc.path !== activeDocument?.path) return;
+        }
+        monacoEditorRef.current = editor;
+        requestAnimationFrame(() => revealPendingNavigation(editor));
+      }}
+      onSave={() => void saveCommandRef.current()}
+      onFormatError={(message) => setError(`Formatting failed: ${message}`)}
+      onBlur={() => {
+        if (editorSettings.autoSave === "editor_focus_lost" && doc.dirty && doc.externalContent === undefined) void saveDocumentRef.current(doc.path);
+      }}
+      diagnostics={reducedModePathsRef.current.has(doc.path) ? [] : diagnosticsByPath[doc.path] ?? []}
+      testResults={(testRun?.evidence?.results ?? []).map((result) => {
+        const known = workspaceTests.find((test) => test.name === result.name || result.name.endsWith(test.name));
+        const location = result.location?.path === doc.path ? result.location : known?.path === doc.path ? { line: known.line } : null;
+        return location ? { line: location.line, status: result.status, message: result.message } : null;
+      }).filter((result): result is { line: number; status: "passed" | "failed" | "skipped"; message: string | null } => result !== null)}
+      lsp={context?.root && lspStatus ? { root: context.root, path: doc.path, language: doc.language, available: !reducedModePathsRef.current.has(doc.path) && editorSettings.lspEnabled && lspStatus.available } : undefined}
+      onNavigateLocation={(targetPath, line, column) => void openFile(targetPath, { line, column })}
+      onSelect={recordEditorSelection}
+      onChange={(value) => {
+        if (context?.root) documentControllerRef.current.updateContent(context.root, doc.path, value);
+        setDocuments((current) => ({ ...current, [doc.path]: { ...doc, content: value, dirty: value !== doc.original } }));
+      }}
+    />
+  );
+
+  const focusSplitPane = (path: string) => {
+    if (!activeThreadId) return;
+    setActiveFile(activeThreadId, path);
+    setActiveEditorTabId(`file:${path}`);
+    const paneEditor = paneEditorsRef.current.get(path);
+    if (paneEditor) monacoEditorRef.current = paneEditor;
+  };
+
+  const closeSplitPane = (path: string) => {
+    const remaining = splitPaths.filter((candidate) => candidate !== path);
+    useCodeSplitStore.setState({ root: splitOrNull(removeSplitPaneNode(splitTree, path)) });
+    if (path === activeDocument?.path && remaining[0]) focusSplitPane(remaining[0]);
+  };
+
+  const showEditorSplit = async (paths: string[], focusPath: string, layout: ThreadSplitLayout) => {
+    for (const path of paths) {
+      if (!documents[path]) await openFile(path);
+    }
+    useCodeSplitStore.getState().setLayout(paths, layout);
+    setSelectedTabIds(new Set());
+    await openFile(focusPath);
+  };
+
+  const draggedEditorPath = (event: DragEvent<HTMLElement>) => {
+    const filePath = event.dataTransfer.getData(CODE_FILE_DRAG_TYPE);
+    if (filePath) return filePath;
+    const id = event.dataTransfer.getData(SESSION_TAB_DRAG_TYPE);
+    return id.startsWith("file:") ? id.slice("file:".length) : null;
+  };
+
+  const editorDropTarget = (event: DragEvent<HTMLDivElement>) => {
+    const container = event.currentTarget.getBoundingClientRect();
+    const grid = splitTree ? event.currentTarget.querySelector<HTMLElement>(".zorai-code-split__grid")?.getBoundingClientRect() : null;
+    const edge = grid ? splitEdgeDropZone(grid, event.clientX, event.clientY) : null;
+    if (grid && edge) return { targetPath: null, zone: edge, box: dropBox(edge, grid, container) };
+    const paneElement = splitTree ? (event.target as Element).closest<HTMLElement>("[data-code-split-pane]") : null;
+    const targetPath = paneElement?.dataset.codeSplitPane ?? (splitTree ? null : activeDocument?.path ?? null);
+    if (!targetPath) return null;
+    const rect = paneElement?.getBoundingClientRect() ?? container;
+    const zone = splitDropZone(rect, event.clientX, event.clientY);
+    return { targetPath, zone, box: dropBox(zone, rect, container) };
+  };
+
+  const editorDropProps = {
+    onDragOver: (event: DragEvent<HTMLDivElement>) => {
+      const types = event.dataTransfer.types;
+      const next = types.includes(SESSION_TAB_DRAG_TYPE) || types.includes(CODE_FILE_DRAG_TYPE) ? editorDropTarget(event) : null;
+      if (!next) {
+        if (editorDrop) setEditorDrop(null);
+        return;
+      }
+      event.preventDefault();
+      event.dataTransfer.dropEffect = types.includes(CODE_FILE_DRAG_TYPE) ? "copy" : "move";
+      if (next.targetPath !== editorDrop?.targetPath || next.zone !== editorDrop?.zone) setEditorDrop(next);
+    },
+    onDragLeave: (event: DragEvent<HTMLDivElement>) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setEditorDrop(null);
+    },
+    onDrop: (event: DragEvent<HTMLDivElement>) => {
+      const path = draggedEditorPath(event);
+      const target = editorDrop ?? editorDropTarget(event);
+      setEditorDrop(null);
+      if (!path || !target) return;
+      event.preventDefault();
+      if (!splitTree && target.targetPath === path) return;
+      useCodeSplitStore.setState({ root: splitTree });
+      if (target.targetPath) useCodeSplitStore.getState().insert(target.targetPath, path, target.zone);
+      else useCodeSplitStore.getState().insertAtEdge(path, target.zone);
+      void openFile(path);
+    },
+  };
+
+  const renderSplitNode = (node: ThreadSplitNode, key: string, treePath: number[], grow = 1): ReactNode => {
+    if (node.kind === "pane") {
+      const doc = documents[node.id];
+      if (!doc) return null;
+      const focused = node.id === activeDocument?.path;
+      return (
+        <div
+          key={node.id}
+          className={focused ? "zorai-code-split__pane is-focused" : "zorai-code-split__pane"}
+          style={{ flexGrow: grow }}
+          data-code-split-pane={node.id}
+          onPointerDownCapture={(event) => {
+            if (!focused && !(event.target as Element).closest(".zorai-thread-split__close")) focusSplitPane(node.id);
+          }}
+          onFocusCapture={() => {
+            if (!focused) focusSplitPane(node.id);
+          }}
+        >
+          <div
+            className="zorai-code-split__header"
+            title={node.id}
+            draggable
+            onDragStart={(event) => {
+              event.dataTransfer.setData(SESSION_TAB_DRAG_TYPE, `file:${node.id}`);
+              event.dataTransfer.effectAllowed = "copyMove";
+            }}
+          >
+            <CodeFileIcon path={node.id} />
+            <span>{node.id.split(/[\\/]/).pop()}{doc.dirty ? " ●" : ""}</span>
+            <button type="button" className="zorai-thread-split__close" aria-label={`Close ${node.id} pane`} title="Close pane" onClick={() => closeSplitPane(node.id)}>×</button>
+          </div>
+          <div className="zorai-code-split__body">
+            {previewPaths[node.id] && codePreviewKind(node.id) ? (
+              <CodeDocumentPreview path={node.id} content={doc.content} root={context?.root ?? null} />
+            ) : (
+              <Suspense fallback={<div className="zorai-workspace-editor-loading">Loading Monaco editor…</div>}>
+                {renderWorkspaceEditor(doc, true)}
+              </Suspense>
+            )}
+          </div>
+        </div>
+      );
+    }
+    const sizes = splitChildSizes(node);
+    return (
+      <div key={key} className={`zorai-thread-split__node zorai-thread-split__node--${node.direction}`} style={{ flexGrow: grow }}>
+        {node.children.flatMap((child, index) => {
+          const rendered = renderSplitNode(child, `${key}.${index}`, [...treePath, index], sizes[index]);
+          if (index === 0) return [rendered];
+          return [
+            <ThreadSplitDivider
+              key={`${key}.divider.${index}`}
+              direction={node.direction}
+              sizes={sizes}
+              index={index - 1}
+              onCommit={(next) => useCodeSplitStore.setState({ root: setSplitSizesAt(splitTree, treePath, next) })}
+            />,
+            rendered,
+          ];
+        })}
+      </div>
+    );
+  };
+
   const editor = (
       <section className="zorai-workspace-editor-area">
         {operationDiff ? (
@@ -1874,6 +2142,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
               title: `${filePath.split(/[\\/]/).slice(-1)[0]}${documents[filePath]?.dirty ? " ●" : ""}`,
               pinned: Boolean(context?.pinnedFiles.includes(filePath)),
               active: activeEditorTabId ? activeEditorTabId === `file:${filePath}` : filePath === context?.activeFile && !settingsTabOpen,
+              inSplit: splitPaths.includes(filePath),
               working: false,
               unread: false,
             })),
@@ -1893,6 +2162,14 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             if (tabId === "code-settings") { setSettingsTabPinned((pinned) => !pinned); return; }
             togglePinnedFile(activeThreadId, tabId.replace(/^file:/, ""));
           }}
+          onTabContextMenu={(tabId, x, y) => setTabMenu({ tabId, x, y })}
+          selectedIds={selectedTabIds}
+          onToggleSelect={(tabId) => setSelectedTabIds((current) => {
+            const next = new Set(current);
+            if (next.has(tabId)) next.delete(tabId);
+            else next.add(tabId);
+            return next;
+          })}
           onMove={(tabId, targetId, placeAfter) => {
             if (tabId === "code-settings" || targetId === "code-settings") return;
             moveOpenFile(activeThreadId, tabId.replace(/^file:/, ""), targetId.replace(/^file:/, ""), placeAfter);
@@ -1946,7 +2223,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                 {symbols.map((symbol) => <button type="button" key={`${symbol.line}:${symbol.column}:${symbol.name}`} onClick={() => activeDocument && void openFile(activeDocument.path, { line: symbol.line, column: symbol.column })}><span>{symbol.kind}</span><strong>{symbol.name}</strong><code>{symbol.line}</code></button>)}
               </details>
             ) : null}
-            <div className="zorai-workspace-editor">
+            <div className="zorai-workspace-editor" {...editorDropProps}>
               {mode === "diff" ? (
                 <Suspense fallback={<div className="zorai-workspace-diff-grid"><pre>{activeDocument.gitBaseContent ?? activeDocument.original}</pre><pre>{activeDocument.content}</pre></div>}>
                   <WorkspaceDiffEditor original={activeDocument.gitBaseContent ?? activeDocument.original} modified={activeDocument.content} language={activeDocument.language} />
@@ -1955,38 +2232,16 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                 <Suspense fallback={<div className="zorai-workspace-diff-grid"><pre>{activeDocument.content}</pre><pre>{activeDocument.externalContent}</pre></div>}>
                   <WorkspaceDiffEditor original={activeDocument.content} modified={activeDocument.externalContent ?? ""} language={activeDocument.language} />
                 </Suspense>
+              ) : splitTree ? (
+                <div className="zorai-code-split__grid">{renderSplitNode(splitTree, "root", [])}</div>
               ) : previewPaths[activeDocument.path] && codePreviewKind(activeDocument.path) ? (
                 <CodeDocumentPreview path={activeDocument.path} content={activeDocument.content} root={context?.root ?? null} />
               ) : (
                 <Suspense fallback={<div className="zorai-workspace-editor-loading">Loading Monaco editor…</div>}>
-                  <WorkspaceCodeEditor
-                    settings={reducedModePathsRef.current.has(activeDocument.path) ? { ...editorSettings, minimap: false, stickyScroll: false, formatOnPaste: false, formatOnType: false } : editorSettings}
-                    path={activeDocument.path}
-                    value={activeDocument.content}
-                    language={activeDocument.language}
-                    textareaRef={editorRef}
-                    onMount={(editor) => { monacoEditorRef.current = editor; }}
-                    onSave={() => void save()}
-                    onFormatError={(message) => setError(`Formatting failed: ${message}`)}
-                    onBlur={() => {
-                      if (editorSettings.autoSave === "editor_focus_lost" && activeDocument.dirty && activeDocument.externalContent === undefined) void saveDocumentRef.current(activeDocument.path);
-                    }}
-                    diagnostics={reducedModePathsRef.current.has(activeDocument.path) ? [] : diagnosticsByPath[activeDocument.path] ?? []}
-                    testResults={(testRun?.evidence?.results ?? []).map((result) => {
-                      const known = workspaceTests.find((test) => test.name === result.name || result.name.endsWith(test.name));
-                      const location = result.location?.path === activeDocument.path ? result.location : known?.path === activeDocument.path ? { line: known.line } : null;
-                      return location ? { line: location.line, status: result.status, message: result.message } : null;
-                    }).filter((result): result is { line: number; status: "passed" | "failed" | "skipped"; message: string | null } => result !== null)}
-                    lsp={context?.root && lspStatus ? { root: context.root, path: activeDocument.path, language: activeDocument.language, available: !reducedModePathsRef.current.has(activeDocument.path) && editorSettings.lspEnabled && lspStatus.available } : undefined}
-                    onNavigateLocation={(targetPath, line, column) => void openFile(targetPath, { line, column })}
-                    onSelect={recordEditorSelection}
-                    onChange={(value) => {
-                      if (context?.root) documentControllerRef.current.updateContent(context.root, activeDocument.path, value);
-                      setDocuments((current) => ({ ...current, [activeDocument.path]: { ...activeDocument, content: value, dirty: value !== activeDocument.original } }));
-                    }}
-                  />
+                  {renderWorkspaceEditor(activeDocument, false)}
                 </Suspense>
               )}
+              {editorDrop ? <div className={`zorai-thread-split__drop zorai-thread-split__drop--${editorDrop.zone}`} style={editorDrop.box} aria-hidden="true" /> : null}
             </div>
             {mode === "diff" && diff !== null ? <details className="zorai-workspace-raw-diff"><summary>Git patch</summary><pre>{diff || "No working-tree diff for this file."}</pre></details> : null}
           </>
@@ -2062,6 +2317,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         </Presence>
         <Presence value={gitDialog}>{(spec) => <GitActionDialog spec={spec} busy={gitDialogBusy} error={gitDialogError} onClose={() => setGitDialog(null)} />}</Presence>
         <Presence value={gitOutputEntries}>{(entries) => <GitOutputDialog entries={entries} onClose={() => setGitOutputEntries(null)} />}</Presence>
+        <Presence value={tabMenu}>{(menu) => <CodeContextMenu x={menu.x} y={menu.y} label="Editor tab actions" items={editorTabMenuItems(menu.tabId)} onClose={() => setTabMenu(null)} />}</Presence>
         <Presence value={explorerMenu}>{(menu) => <CodeContextMenu x={menu.x} y={menu.y} label={menu.entry ? `Actions for ${menu.entry.name}` : "Workspace actions"} items={menu.entry || !context?.root ? explorerMenuItems(menu.entry) : [...explorerMenuItems(null), tintMenuItem(rootTint, (tint) => setRootTint(context.root!, tint), true)]} onClose={closeExplorerMenu} />}</Presence>
         <Presence value={pathDialog}>{(dialog) => <WorkspacePathDialog operation={dialog.operation} initialPath={dialog.initialPath} busy={pathDialogBusy} error={pathDialogError} onSubmit={submitPathDialog} onClose={() => { setPathDialog(null); setPathDialogError(null); }} />}</Presence>
         <Presence value={codeOverlay === "quickOpen"}>{() => (
@@ -2069,15 +2325,6 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             files={explorerFiles}
             searchFiles={searchProjectFileNames}
             onOpen={(path, line, column) => void openFile(path, line ? { line, column: column ?? 1 } : undefined)}
-            onClose={() => setCodeOverlay(null)}
-          />
-        )}</Presence>
-        <Presence value={codeOverlay === "search"}>{() => (
-          <CodeProjectSearch
-            search={searchProjectFiles}
-            searchFiles={searchProjectFileNames}
-            onOpen={(hit) => void openFile(hit.path, { line: hit.line, column: hit.column })}
-            onOpenFile={(path) => void openFile(path)}
             onClose={() => setCodeOverlay(null)}
           />
         )}</Presence>
