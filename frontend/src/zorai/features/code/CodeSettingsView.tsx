@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { CODE_COMMANDS, displayCodeBinding } from "./codeCommands";
+import { useEffect, useState } from "react";
+import { CodeShortcutsTable } from "./CodeShortcutsTable";
 import { useCodeEditorSettingsStore, type CodeEditorSettings } from "./codeEditorSettingsStore";
 import { useLanguageServerStore } from "./codeLanguageServers";
 import { CODE_SETTINGS_TABS, type CodeSettingsTab } from "./codeSettingsTabs";
@@ -23,8 +23,6 @@ export function CodeSettingsView({ tab: controlledTab, onTabChange }: { tab?: Co
   const settings = useCodeEditorSettingsStore((state) => state.settings);
   const update = useCodeEditorSettingsStore((state) => state.updateSetting);
   const reset = useCodeEditorSettingsStore((state) => state.resetSettings);
-  const [query, setQuery] = useState("");
-  const commands = useMemo(() => CODE_COMMANDS.filter((command) => `${command.title} ${command.category} ${command.id}`.toLowerCase().includes(query.toLowerCase())), [query]);
   const set = <K extends SettingKey>(key: K, value: CodeEditorSettings[K]) => update(key, value);
 
   return <div className={fullscreen ? "zorai-code-settings is-fullscreen" : "zorai-code-settings"} aria-label="Code Settings">
@@ -76,9 +74,8 @@ export function CodeSettingsView({ tab: controlledTab, onTabChange }: { tab?: Co
       <SelectSetting label="Whitespace" value={settings.renderWhitespace} options={["none", "selection", "boundary", "trailing", "all"]} onChange={(value) => set("renderWhitespace", value as CodeEditorSettings["renderWhitespace"])} />
       <SelectSetting label="Line numbers" value={settings.lineNumbers} options={["on", "off", "relative"]} onChange={(value) => set("lineNumbers", value as CodeEditorSettings["lineNumbers"])} />
     </SettingSection> : null}
-    {tab === "shortcuts" ? <SettingSection title="Keyboard Shortcuts" description="Overrides are Code-scoped and checked against the command registry.">
-      <input className="zorai-code-settings-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search commands" aria-label="Search keyboard shortcuts" />
-      <div className="zorai-code-shortcuts">{commands.map((command) => { const current = settings.keybindings[command.id] ?? command.defaultKeybinding; return <div key={command.id}><span><strong>{command.title}</strong><small>{command.category}</small></span><input aria-label={`${command.title} shortcut`} value={current ?? ""} placeholder="Unbound" onChange={(event) => set("keybindings", { ...settings.keybindings, [command.id]: event.target.value || null })} /><button type="button" disabled={settings.keybindings[command.id] === undefined} onClick={() => { const next = { ...settings.keybindings }; delete next[command.id]; set("keybindings", next); }}>Reset</button><code>{current ? displayCodeBinding(current) : "Unbound"}</code></div>; })}</div>
+    {tab === "shortcuts" ? <SettingSection title="Keyboard Shortcuts" description="Double-click a row or use ✎ to record a new shortcut.">
+      <CodeShortcutsTable overrides={settings.keybindings} onChange={(next) => set("keybindings", next)} />
     </SettingSection> : null}
     {tab === "language-servers" ? <SettingSection title="Language Services" description="Language services and diagnostics are disabled automatically in reduced mode.">
       <ToggleSetting label="Language server support" checked={settings.lspEnabled} onChange={(value) => set("lspEnabled", value)} />

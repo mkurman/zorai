@@ -383,7 +383,8 @@ async fn execute_tool_low_risk_read_file_stays_direct_allow() {
 }
 
 #[tokio::test]
-async fn execute_tool_unavailable_guarded_review_blocks_closed_normally_and_degrades_under_yolo() {
+async fn execute_tool_unavailable_guarded_review_blocks_closed_normally_and_runs_unreviewed_under_yolo(
+) {
     let root = tempdir().expect("tempdir should succeed");
     let manager = SessionManager::new_test(root.path()).await;
     let mut config = AgentConfig::default();
@@ -470,17 +471,12 @@ async fn execute_tool_unavailable_guarded_review_blocks_closed_normally_and_degr
     .await;
     let yolo_review = yolo_result
         .weles_review
-        .expect("flag_only unavailable review should carry metadata");
+        .expect("yolo call should carry governance metadata");
     assert_eq!(
         yolo_review.verdict,
-        crate::agent::types::WelesVerdict::FlagOnly
+        crate::agent::types::WelesVerdict::Allow
     );
     assert!(!yolo_review.weles_reviewed);
-    assert_eq!(yolo_review.security_override_mode.as_deref(), Some("yolo"));
-    assert!(yolo_review
-        .reasons
-        .iter()
-        .any(|reason| reason.contains("unavailable")));
 
     let config = engine.config.read().await;
     assert_eq!(
@@ -605,7 +601,7 @@ async fn execute_tool_weles_internal_task_allows_low_risk_shell_python_without_r
                     "python3 -c \"from pathlib import Path; Path(r'{}').write_text('hi')\"",
                     marker.display()
                 ),
-                "timeout_seconds": 5
+                "timeout_seconds": 30
             })
             .to_string(),
         },

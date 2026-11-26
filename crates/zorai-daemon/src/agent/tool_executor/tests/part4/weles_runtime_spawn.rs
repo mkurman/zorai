@@ -180,10 +180,10 @@ async fn spawn_subagent_rejects_protected_weles_from_normal_title_or_role_lookup
 
     let message = error.to_string();
     assert!(
-        message.contains("protected sub-agent"),
+        message.contains("cannot be spawned"),
         "unexpected error: {message}"
     );
-    assert!(message.contains("WELES"), "unexpected error: {message}");
+    assert!(message.contains("Weles"), "unexpected error: {message}");
 }
 
 #[tokio::test]

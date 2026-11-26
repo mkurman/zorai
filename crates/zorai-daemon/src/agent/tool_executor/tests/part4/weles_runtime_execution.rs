@@ -440,7 +440,7 @@ async fn execute_tool_python_execute_runs_code_and_preserves_weles_metadata() {
 }
 
 #[tokio::test]
-async fn execute_tool_yolo_downgrades_suspicious_reviewed_allow_to_flag_only() {
+async fn execute_tool_yolo_runs_suspicious_calls_without_weles_review() {
     let root = tempdir().expect("tempdir should succeed");
     let manager = SessionManager::new_test(root.path()).await;
     let recorded_bodies = Arc::new(Mutex::new(std::collections::VecDeque::new()));
@@ -528,9 +528,9 @@ async fn execute_tool_yolo_downgrades_suspicious_reviewed_allow_to_flag_only() {
         .expect("yolo suspicious configure should carry governance metadata");
     assert_eq!(
         yolo_review.verdict,
-        crate::agent::types::WelesVerdict::FlagOnly
+        crate::agent::types::WelesVerdict::Allow
     );
-    assert_eq!(yolo_review.security_override_mode.as_deref(), Some("yolo"));
+    assert!(!yolo_review.weles_reviewed);
 
     let config = engine.config.read().await;
     assert_eq!(

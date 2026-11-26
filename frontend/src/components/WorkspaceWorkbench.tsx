@@ -1661,6 +1661,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.target as Element | null)?.closest?.("[data-code-shortcut-recorder]")) return;
       const command = RUNNABLE_CODE_COMMANDS.find((item) => {
         const binding = editorSettings.keybindings[item.id] === undefined ? item.defaultKeybinding : editorSettings.keybindings[item.id];
         return binding && matchesCodeBinding(binding, event);

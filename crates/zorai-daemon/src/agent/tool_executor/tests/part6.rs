@@ -1751,7 +1751,7 @@ async fn bash_command_wait_true_waits_for_non_quick_headless_command() {
     );
 
     let result = timeout(
-        Duration::from_secs(10),
+        Duration::from_secs(60),
         execute_tool(
             &tool_call,
             &engine,

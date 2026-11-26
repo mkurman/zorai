@@ -18,7 +18,7 @@ async fn execute_tool_routes_weles_runtime_review_over_internal_dm_thread() {
         .to_string(),
     )
     .await;
-    config.model = "gpt-4o-mini".to_string();
+    config.model = "gpt-5.5".to_string();
     config.api_key = "test-key".to_string();
     config.api_transport = crate::agent::types::ApiTransport::ChatCompletions;
     config.auto_retry = false;
@@ -150,16 +150,25 @@ async fn execute_tool_routes_weles_runtime_review_over_internal_dm_thread() {
     );
     drop(threads);
 
-    let child_tasks = engine
-        .list_tasks()
-        .await
+    let tasks = engine.list_tasks().await;
+    assert!(
+        tasks
+            .iter()
+            .all(|task| task.parent_task_id.as_deref() != Some(parent_task.id.as_str())),
+        "governance review is out-of-band and must not become a child of the goal task"
+    );
+    let child_tasks = tasks
         .into_iter()
-        .filter(|task| task.parent_task_id.as_deref() == Some(parent_task.id.as_str()))
+        .filter(|task| {
+            task.sub_agent_def_id.as_deref()
+                == Some(crate::agent::agent_identity::WELES_BUILTIN_SUBAGENT_ID)
+                && task.parent_thread_id.as_deref() == Some(thread_id)
+        })
         .collect::<Vec<_>>();
     assert_eq!(
         child_tasks.len(),
         1,
-        "one governance child should be recorded"
+        "one governance review task should be recorded"
     );
     assert!(
         child_tasks
@@ -186,7 +195,7 @@ async fn execute_tool_weles_scope_blocks_shell_python_without_recursive_spawn_fr
         .to_string(),
     )
     .await;
-    config.model = "gpt-4o-mini".to_string();
+    config.model = "gpt-5.5".to_string();
     config.api_key = "test-key".to_string();
     config.api_transport = crate::agent::types::ApiTransport::ChatCompletions;
     config.auto_retry = false;
@@ -253,7 +262,7 @@ async fn execute_tool_weles_scope_blocks_shell_python_without_recursive_spawn_fr
 }
 
 #[tokio::test]
-async fn execute_dispatched_weles_task_uses_internal_dm_thread() {
+async fn synchronous_weles_governance_task_is_never_dispatched_by_the_scheduler() {
     let recorded_bodies = Arc::new(Mutex::new(std::collections::VecDeque::new()));
     let root = tempdir().expect("tempdir should succeed");
     let manager = SessionManager::new_test(root.path()).await;
@@ -264,7 +273,7 @@ async fn execute_dispatched_weles_task_uses_internal_dm_thread() {
         "Acknowledged.".to_string(),
     )
     .await;
-    config.model = "gpt-4o-mini".to_string();
+    config.model = "gpt-5.5".to_string();
     config.api_key = "test-key".to_string();
     config.api_transport = crate::agent::types::ApiTransport::ChatCompletions;
     config.auto_retry = false;
@@ -308,84 +317,36 @@ async fn execute_dispatched_weles_task_uses_internal_dm_thread() {
     )
     .await
     .expect("daemon-owned WELES governance spawn should succeed");
-
+    assert_eq!(
+        task.status,
+        crate::agent::types::TaskStatus::InProgress,
+        "governance reviews run synchronously and must not wait in the scheduler queue"
+    );
     engine
         .clone()
         .dispatch_ready_tasks()
         .await
-        .expect("scheduler should dispatch the queued WELES task");
+        .expect("scheduler pass should succeed");
+    tokio::time::sleep(Duration::from_millis(200)).await;
 
-    timeout(Duration::from_secs(5), async {
-        loop {
-            let tasks = engine.list_tasks().await;
-            let stored = tasks
-                .iter()
-                .find(|entry| entry.id == task.id)
-                .expect("task should remain persisted");
-            if stored.status == crate::agent::types::TaskStatus::Completed {
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(25)).await;
-        }
-    })
-    .await
-    .expect("WELES dispatched task should complete");
-
-    let dm_thread_id = crate::agent::agent_identity::internal_dm_thread_id(
-        crate::agent::agent_identity::MAIN_AGENT_ID,
-        crate::agent::agent_identity::WELES_AGENT_ID,
-    );
-    let threads = engine.threads.read().await;
-    let dm_thread = threads
-        .get(&dm_thread_id)
-        .expect("dispatcher should route WELES task onto internal DM");
-    assert!(
-        dm_thread.messages.iter().any(|message| {
-            message.role == crate::agent::types::MessageRole::Assistant
-                && message.content.contains("Acknowledged.")
-        }),
-        "internal DM thread should contain the WELES reply"
-    );
-    assert_eq!(
-        threads
-            .get(thread_id)
-            .expect("operator thread should remain present")
-            .messages
-            .len(),
-        1,
-        "operator thread should not receive the dispatched WELES exchange"
-    );
-    drop(threads);
-
-    let tasks = engine.list_tasks().await;
-    let stored = tasks
-        .iter()
+    let stored = engine
+        .list_tasks()
+        .await
+        .into_iter()
         .find(|entry| entry.id == task.id)
         .expect("task should remain persisted");
-    assert_eq!(stored.thread_id.as_deref(), Some(dm_thread_id.as_str()));
-    assert_eq!(stored.status, crate::agent::types::TaskStatus::Completed);
-
-    let recorded = recorded_bodies
-        .lock()
-        .expect("lock recorded assistant bodies");
-    let latest_body = recorded
-        .back()
-        .expect("stub assistant should record at least one request body");
-    let latest_json: serde_json::Value =
-        serde_json::from_str(latest_body).expect("request body should be valid json");
+    assert_eq!(stored.status, crate::agent::types::TaskStatus::InProgress);
     assert!(
-        latest_json
-            .get("tools")
-            .and_then(|value| value.as_array())
-            .is_some_and(|tools| tools.iter().any(|tool| {
-                tool.get("name").and_then(|value| value.as_str()) == Some("bash")
-                    || tool
-                        .get("function")
-                        .and_then(|value| value.get("name"))
-                        .and_then(|value| value.as_str())
-                        == Some("bash")
-            })),
-        "task-scoped WELES internal DM should expose bash tooling: {latest_body}"
+        stored.lane_id.is_none(),
+        "the scheduler must not run a governance review that the tool call is already running: {:?}",
+        stored.logs
+    );
+    assert!(
+        recorded_bodies
+            .lock()
+            .expect("lock stub assistant body log")
+            .is_empty(),
+        "no second WELES model call may be made for a synchronous governance review"
     );
 }
 
@@ -399,7 +360,7 @@ async fn workspace_review_weles_task_uses_dedicated_review_thread() {
     config.base_url =
         spawn_stub_assistant_server_for_tool_executor(recorded_bodies, "Reviewed.".to_string())
             .await;
-    config.model = "gpt-4o-mini".to_string();
+    config.model = "gpt-5.5".to_string();
     config.api_key = "test-key".to_string();
     config.api_transport = crate::agent::types::ApiTransport::ChatCompletions;
     config.auto_retry = false;
@@ -559,7 +520,7 @@ async fn workspace_review_weles_task_rehomes_internal_dm_thread_to_dedicated_rev
         "Dedicated review.".to_string(),
     )
     .await;
-    config.model = "gpt-4o-mini".to_string();
+    config.model = "gpt-5.5".to_string();
     config.api_key = "test-key".to_string();
     config.api_transport = crate::agent::types::ApiTransport::ChatCompletions;
     config.auto_retry = false;
