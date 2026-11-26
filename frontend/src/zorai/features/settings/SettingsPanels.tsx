@@ -71,6 +71,9 @@ import { MlflowPanel } from "./MlflowPanel";
 import { PreferredSkillsEditor } from "../skills/PreferredSkillsEditor";
 import { PromptEditor } from "./PromptEditor";
 import { AgentMemoryFilesEditor } from "./AgentMemoryFilesEditor";
+import { Panel, SettingRow, SettingsGrid } from "./settingsLayout";
+import { LeszyPanel } from "./LeszyPanel";
+import { useProviderIds } from "./settingsProviders";
 import type { ZoraiSettingsTabId } from "./settingsTabs";
 import {
   formatProviderValidationError,
@@ -97,7 +100,7 @@ export const conciergeReasoningEffortOptions: Array<{ value: AgentSettings["reas
   { value: "xhigh", label: "xhigh" },
   { value: "max", label: "max" },
 ];
-const APP_VERSION = "1.1.21";
+const APP_VERSION = "1.1.23";
 const APP_AUTHOR = "Mariusz Kurman";
 const APP_GITHUB = "mkurman/zorai";
 const APP_HOMEPAGE = "zorai.app";
@@ -138,6 +141,8 @@ const SETTINGS_TAB_PANELS: Record<ZoraiSettingsTabId, () => ReactNode> = {
   auth: AuthPanel,
   model: ModelPanel,
   concierge: ConciergePanel,
+  coder: LeszyPanel,
+  weles: WelesPanel,
   subagents: SubAgentsPanel,
   tools: ToolsPanel,
   skills: SkillsPanel,
@@ -605,10 +610,6 @@ function ConciergePanel() {
     <SettingsGrid>
       <Panel section="Rarog" title="Welcome agent and operational assistant">
         <AgentAliasRow aliasKey="rarog" name="Rarog" />
-        <div className="zorai-setting-row zorai-setting-row--stacked">
-          <div><strong>System Prompt</strong><span>Replaces Rarog's built-in concierge prompt. Leave empty to use the built-in one.</span></div>
-          <PromptEditor label="Rarog system prompt" path="settings/rarog-system-prompt.md" value={config.system_prompt ?? ""} onChange={(value) => patchConfig({ system_prompt: value })} />
-        </div>
         <SettingRow label="Enabled" description="Allow the concierge to brief and guide operator sessions.">
           <Switch checked={config.enabled} onChange={(checked) => patchConfig({ enabled: checked })} />
         </SettingRow>
@@ -679,10 +680,12 @@ function ConciergePanel() {
           />
         </Panel>
       ) : null}
-      <Panel section="Rarog" title="Memory files">
+      <Panel section="Rarog" title="Identity">
+        <div className="zorai-setting-row zorai-setting-row--stacked">
+          <div><strong>System Prompt</strong><span>Replaces Rarog's built-in concierge prompt. Leave empty to use the built-in one.</span></div>
+          <PromptEditor label="Rarog system prompt" path="settings/rarog-system-prompt.md" value={config.system_prompt ?? ""} onChange={(value) => patchConfig({ system_prompt: value })} />
+        </div>
         <AgentMemoryFilesEditor agentId="rarog" agentName="Rarog" />
-      </Panel>
-      <Panel section="Rarog" title="Preferred skills">
         <PreferredSkillsEditor agentId="rarog" agentName="Rarog" />
       </Panel>
     </SettingsGrid>
@@ -691,6 +694,68 @@ function ConciergePanel() {
 
 function SubAgentsPanel() {
   return <SubAgentsTab />;
+}
+
+function WelesPanel() {
+  const agentSettings = useAgentStore((state) => state.agentSettings);
+  const updateAgentSetting = useAgentStore((state) => state.updateAgentSetting);
+  const providerAuthStates = useAgentStore((state) => state.providerAuthStates);
+  const compaction = agentSettings.compaction;
+  const providerIds = useProviderIds(agentSettings);
+  const providerOptions = useProviderOptions(agentSettings);
+  const welesProviderConfig = getProviderConfig(agentSettings, compaction.weles.provider);
+  const updateCompaction = (patch: Partial<AgentSettings["compaction"]>) => updateAgentSetting("compaction", { ...compaction, ...patch });
+  const updateCompactionWeles = (patch: Partial<AgentSettings["compaction"]["weles"]>) => updateCompaction({ weles: { ...compaction.weles, ...patch } });
+  const providerHasDaemonAuth = (providerId: AgentProviderId) => providerAuthStates.some((state) => state.provider_id === providerId && state.authenticated);
+  const applyCompactionWelesProvider = (providerId: AgentProviderId) => updateCompactionWeles({
+    provider: providerId,
+    model: getDefaultModelForProvider(providerId, getProviderConfig(agentSettings, providerId).auth_source) || compaction.weles.model,
+  });
+
+  return (
+    <SettingsGrid>
+      <div className="zorai-panel">
+        <SubAgentsTab fixedAgentId="weles_builtin" />
+      </div>
+      <Panel section="Weles" title="Governance">
+        <SettingRow label="Managed Security" description="How strictly Weles reviews managed shell commands before they run.">
+          <select className="zorai-input" value={agentSettings.managed_security_level} onChange={(event) => updateAgentSetting("managed_security_level", event.target.value as AgentSettings["managed_security_level"])}>
+            {["highest", "moderate", "lowest", "yolo"].map((value) => <option key={value} value={value}>{value}</option>)}
+          </select>
+        </SettingRow>
+        <NumberRow label="Concurrent Reviews" description="How many reviews Weles runs at once." value={agentSettings.weles_max_concurrent_reviews} onChange={(value) => updateAgentSetting("weles_max_concurrent_reviews", value)} min={0} max={16} />
+      </Panel>
+      <Panel section="Weles" title="Compaction">
+        <p className="zorai-empty-state">Used when Compaction Mode is WELES{compaction.strategy === "weles" ? "" : " (currently it is not)"}.</p>
+        <SettingRow label="Provider" description="Provider used by WELES compaction.">
+          <ProviderSelect value={compaction.weles.provider} options={providerOptions} fallbackOptions={providerIds} onChange={applyCompactionWelesProvider} />
+        </SettingRow>
+        <SettingRow label="Model" description="Model used by WELES compaction.">
+          <ModelSelector
+            providerId={compaction.weles.provider}
+            value={compaction.weles.model}
+            customName={welesProviderConfig.custom_model_name}
+            onChange={(value) => updateCompactionWeles({ model: value })}
+            base_url={welesProviderConfig.base_url}
+            api_key={welesProviderConfig.api_key}
+            auth_source={welesProviderConfig.auth_source}
+            allowProviderAuthFetch={providerHasDaemonAuth(compaction.weles.provider)}
+          />
+        </SettingRow>
+        <SettingRow label="Reasoning" description="Reasoning effort for WELES compaction.">
+          <select className="zorai-input" value={compaction.weles.reasoning_effort} onChange={(event) => updateCompactionWeles({ reasoning_effort: event.target.value as AgentSettings["reasoning_effort"] })}>
+            {reasoningEfforts.map((value) => <option key={value} value={value}>{value}</option>)}
+          </select>
+        </SettingRow>
+        <SettingRow label="Transport" description="API transport for WELES compaction. Inherit uses the provider default.">
+          <select className="zorai-input" value={compaction.weles.api_transport ?? ""} onChange={(event) => updateCompactionWeles({ api_transport: event.target.value ? normalizeApiTransport(compaction.weles.provider, event.target.value) : null })}>
+            <option value="">Inherit</option>
+            {getSupportedApiTransports(compaction.weles.provider).map((transport) => <option key={transport} value={transport}>{formatTransportLabel(transport)}</option>)}
+          </select>
+        </SettingRow>
+      </Panel>
+    </SettingsGrid>
+  );
 }
 
 function RarogContextField() {
@@ -1304,19 +1369,13 @@ function CompactionPanel() {
   const compaction = agentSettings.compaction;
   const providerIds = useProviderIds(agentSettings);
   const providerOptions = useProviderOptions(agentSettings);
-  const welesProviderConfig = getProviderConfig(agentSettings, compaction.weles.provider);
   const customCompactionProvider = compaction.custom_model.provider;
   const customCompactionProviderConfig = getProviderConfig(agentSettings, customCompactionProvider);
   const customCompactionTransports = getSupportedApiTransports(customCompactionProvider);
   const customCompactionTransport = normalizeApiTransport(customCompactionProvider, compaction.custom_model.api_transport);
   const updateCompaction = (patch: Partial<AgentSettings["compaction"]>) => updateAgentSetting("compaction", { ...compaction, ...patch });
-  const updateCompactionWeles = (patch: Partial<AgentSettings["compaction"]["weles"]>) => updateCompaction({ weles: { ...compaction.weles, ...patch } });
   const updateCompactionCustom = (patch: Partial<AgentSettings["compaction"]["custom_model"]>) => updateCompaction({ custom_model: { ...compaction.custom_model, ...patch } });
   const providerHasDaemonAuth = (providerId: AgentProviderId) => providerAuthStates.some((state) => state.provider_id === providerId && state.authenticated);
-  const applyCompactionWelesProvider = (providerId: AgentProviderId) => updateCompactionWeles({
-    provider: providerId,
-    model: getDefaultModelForProvider(providerId, getProviderConfig(agentSettings, providerId).auth_source) || compaction.weles.model,
-  });
   const applyCompactionCustomProvider = (providerId: AgentProviderId) => {
     const providerConfig = getProviderConfig(agentSettings, providerId);
     updateCompactionCustom({
@@ -1346,36 +1405,7 @@ function CompactionPanel() {
         <NumberRow label="Heuristic Max Msgs" description="Conversation messages kept before compaction." value={agentSettings.max_context_messages} onChange={(value) => updateAgentSetting("max_context_messages", value)} min={10} max={500} />
       </Panel>
       <Panel section="Compaction" title="Compaction Strategy Settings">
-        {compaction.strategy === "weles" ? (
-          <>
-            <SettingRow label="WELES Provider" description="Provider used by WELES compaction.">
-              <ProviderSelect value={compaction.weles.provider} options={providerOptions} fallbackOptions={providerIds} onChange={applyCompactionWelesProvider} />
-            </SettingRow>
-            <SettingRow label="WELES Model" description="Model used by WELES compaction.">
-              <ModelSelector
-                providerId={compaction.weles.provider}
-                value={compaction.weles.model}
-                customName={welesProviderConfig.custom_model_name}
-                onChange={(value) => updateCompactionWeles({ model: value })}
-                base_url={welesProviderConfig.base_url}
-                api_key={welesProviderConfig.api_key}
-                auth_source={welesProviderConfig.auth_source}
-                allowProviderAuthFetch={providerHasDaemonAuth(compaction.weles.provider)}
-              />
-            </SettingRow>
-            <SettingRow label="WELES Reasoning" description="Reasoning effort for WELES compaction.">
-              <select className="zorai-input" value={compaction.weles.reasoning_effort} onChange={(event) => updateCompactionWeles({ reasoning_effort: event.target.value as AgentSettings["reasoning_effort"] })}>
-                {reasoningEfforts.map((value) => <option key={value} value={value}>{value}</option>)}
-              </select>
-            </SettingRow>
-            <SettingRow label="WELES Transport" description="API transport for WELES compaction. Inherit uses the provider default.">
-              <select className="zorai-input" value={compaction.weles.api_transport ?? ""} onChange={(event) => updateCompactionWeles({ api_transport: event.target.value ? normalizeApiTransport(compaction.weles.provider, event.target.value) : null })}>
-                <option value="">Inherit</option>
-                {getSupportedApiTransports(compaction.weles.provider).map((transport) => <option key={transport} value={transport}>{formatTransportLabel(transport)}</option>)}
-              </select>
-            </SettingRow>
-          </>
-        ) : null}
+        {compaction.strategy === "weles" ? <p className="zorai-empty-state">WELES compaction uses the provider and model set in the Weles tab.</p> : null}
         {compaction.strategy === "custom_model" ? (
           <>
             <SettingRow label="Custom Provider" description="Provider used by LLM provider compaction.">
@@ -1441,9 +1471,6 @@ function ExecutionPanel() {
         <NumberRow label="Retry Delay (ms)" description="Delay between retries." value={agentSettings.retry_delay_ms} onChange={(value) => updateAgentSetting("retry_delay_ms", value)} min={0} max={60000} />
         <NumberRow label="LLM Stream Timeout (s)" description="Timeout while waiting for streamed model chunks." value={agentSettings.llm_stream_chunk_timeout_secs} onChange={(value) => updateAgentSetting("llm_stream_chunk_timeout_secs", value)} min={1} max={3600} />
       </Panel>
-      <Panel section="Execution" title="Reviews">
-        <NumberRow label="WELES Reviews" description="Concurrent WELES review limit." value={agentSettings.weles_max_concurrent_reviews} onChange={(value) => updateAgentSetting("weles_max_concurrent_reviews", value)} min={0} max={16} />
-      </Panel>
     </SettingsGrid>
   );
 }
@@ -1457,11 +1484,6 @@ function SafetyPanel() {
     <SettingsGrid>
       <Panel section="Safety" title="Managed commands">
         <SettingRow label="Run Agent Commands in a Sandbox" description="Confines the agent's shell commands (bubblewrap on Linux, seatbelt on macOS): only the working folder is writable, your home folder is hidden, and network is off unless the agent asks for it. Commands that need anything else will fail. Not available on Windows."><Switch checked={Boolean(agentSettings.managed_sandbox_enabled)} onChange={(checked) => updateLooseAgentSetting("managed_sandbox_enabled", checked)} /></SettingRow>
-        <SettingRow label="Managed Security" description="Default approval strictness for managed shell commands.">
-          <select className="zorai-input" value={String(agentSettings.managed_security_level ?? "lowest")} onChange={(event) => updateLooseAgentSetting("managed_security_level", event.target.value)}>
-            {["highest", "moderate", "lowest", "yolo"].map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
-        </SettingRow>
       </Panel>
       <Panel section="Safety" title="Compliance">
         <SettingRow label="Compliance" description="Audit mode for retained events.">
@@ -1885,13 +1907,6 @@ function AboutPanel() {
   );
 }
 
-function useProviderIds(agentSettings: AgentSettings): AgentProviderId[] {
-  return useMemo(() => Object.keys(agentSettings).filter((key) => {
-    const value = agentSettings[key];
-    return value && typeof value === "object" && "model" in value && "base_url" in value;
-  }).sort() as AgentProviderId[], [agentSettings]);
-}
-
 function useProviderOptions(agentSettings: AgentSettings): ProviderOption[] {
   const providerIds = useProviderIds(agentSettings);
   return useMemo(() => providerIds.map((providerId) => ({
@@ -1942,35 +1957,6 @@ function ProviderSelect({
     <select className="zorai-input" value={value} onChange={(event) => onChange(event.target.value as AgentProviderId)}>
       {visibleOptions.map((provider) => <option key={provider.id} value={provider.id}>{provider.label}</option>)}
     </select>
-  );
-}
-
-function SettingsGrid({ children, extraClassName }: { children: ReactNode; extraClassName?: string }) {
-  return <div className={["zorai-settings-grid", extraClassName ?? ""].filter(Boolean).join(" ")}>{children}</div>;
-}
-
-function Panel({ section, title, children, extraClassName, actions }: { section: string; title: string; children: ReactNode; extraClassName?: string; actions?: ReactNode }) {
-  return (
-    <div className={["zorai-panel", extraClassName ?? ""].filter(Boolean).join(" ")}>
-      {actions ? (
-        <div className="zorai-panel__heading">
-          <div><div className="zorai-section-label">{section}</div><h2>{title}</h2></div>
-          <div className="zorai-panel__heading-actions">{actions}</div>
-        </div>
-      ) : (
-        <div><div className="zorai-section-label">{section}</div><h2>{title}</h2></div>
-      )}
-      {children}
-    </div>
-  );
-}
-
-function SettingRow({ label, description, children }: { label: ReactNode; description: string; children: ReactNode }) {
-  return (
-    <div className="zorai-setting-row">
-      <div><strong>{label}</strong><span>{description}</span></div>
-      {children}
-    </div>
   );
 }
 

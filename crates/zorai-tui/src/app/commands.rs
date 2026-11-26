@@ -190,7 +190,7 @@ fn builtin_participant_display_name(agent_alias: &str) -> Option<String> {
     let canonical = match normalized.as_str() {
         "veles" => "weles",
         "weles" | "swarozyc" | "radogost" | "domowoj" | "swietowit" | "perun" | "mokosh"
-        | "dazhbog" | "rod" => normalized.as_str(),
+        | "dazhbog" | "rod" | "kikimora" | "bannik" | "ovinnik" | "dziad" => normalized.as_str(),
         _ => return None,
     };
     Some(ascii_title_case(canonical))

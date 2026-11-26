@@ -63,6 +63,10 @@ const { startGitAskpass } = require('./main/git-askpass.cjs');
 const crypto = require('crypto');
 const { createWorkspaceWorkerClient, workspaceServiceProxy } = require('./main/workspace-worker-client.cjs');
 const { createLspRuntime } = require('./main/lsp-runtime.cjs');
+const { createLocalHistory } = require('./main/local-history.cjs');
+const { createDapRuntime } = require('./main/dap-runtime.cjs');
+const { createTaskRuntime } = require('./main/task-runtime.cjs');
+const { createNotebookKernels } = require('./main/notebook-kernel.cjs');
 const { createTestRuntime } = require('./main/test-runtime.cjs');
 const { createUpdateRuntime } = require('./main/update-runtime.cjs');
 const { createThemeStore, registerThemeIpcHandlers, seeThroughWindowOptions } = require('./main/themes.cjs');
@@ -79,17 +83,32 @@ const MAX_REATTACH_HISTORY_BYTES = 64 * 1024;
 const VISION_SCREENSHOT_TTL_MS = 10 * 60 * 1000;
 let mainWindow = null;
 const workspaceWatchSubscribers = new Map();
+const workspaceSearchStreams = new Map();
 const workspaceWorker = createWorkspaceWorkerClient({
     fork: (entryPath, args, options) => utilityProcess.fork(entryPath, args, options),
     askpassEnv: () => gitAskpass?.env ?? null,
     onWatchBatch: (batch) => {
         const webContents = workspaceWatchSubscribers.get(batch?.subscriptionId);
         if (webContents && !webContents.isDestroyed()) webContents.send('workspace-files-changed', batch);
+        if (batch?.root && Array.isArray(batch.changes)) {
+            lspRuntime.filesChanged(batch.root, batch.changes.map((change) => {
+                const absolutePath = path.join(batch.root, change.path);
+                const exists = fs.existsSync(absolutePath);
+                return { uri: pathToFileURL(absolutePath).href, type: !exists ? 3 : change.eventType === 'rename' ? 1 : 2 };
+            }));
+        }
+    },
+    onSearchBatch: (message) => {
+        const webContents = workspaceSearchStreams.get(message?.streamId);
+        if (webContents && !webContents.isDestroyed()) webContents.send('workspace-search-batch', { streamId: message.streamId, hits: message.hits });
     },
     log: (message, details) => logToFile('warn', message, details),
 });
 const workspaceServiceInWorker = workspaceServiceProxy(workspaceWorker, [...Object.keys(workspaceService).filter((name) => typeof workspaceService[name] === 'function'), 'searchWorkspaceFileNames', 'listWorkspaceFiles']);
 const lspRuntime = createLspRuntime();
+const dapRuntime = createDapRuntime();
+const taskRuntime = createTaskRuntime();
+const notebookKernels = createNotebookKernels();
 const testRuntime = createTestRuntime((webContents, event) => webContents.send('workspace-test-event', event));
 const updateRuntime = createUpdateRuntime({ app, getCliPath, logToFile });
 // Module-level reference to sendAgentCommand (set during registerIpcHandlers)
@@ -634,6 +653,11 @@ function registerIpcHandlers() {
             return workspaceWorker.call('watchStop', subscriptionId);
         },
         lspRuntime,
+        workspaceSearchStreams,
+        dapRuntime,
+        taskRuntime,
+        notebookKernels,
+        localHistory: createLocalHistory(path.join(app.getPath('userData'), 'local-history')),
         testRuntime: { ...testRuntime, discover: (rootPath, runtimeOptions) => workspaceWorker.call('discoverTests', rootPath, runtimeOptions) },
         writeFsText,
         writeJsonFile,
@@ -776,6 +800,9 @@ app.on('before-quit', () => {
     workspaceWatchSubscribers.clear();
     workspaceWorker.stop();
     void lspRuntime.stopAll();
+    void dapRuntime.stopAll();
+    taskRuntime.stopAll();
+    notebookKernels.stopAll();
     testRuntime.stopAll();
     gitAskpass?.stop();
     if (whatsAppRuntime.isDaemonSubscribed() && sendAgentCommandFn) {

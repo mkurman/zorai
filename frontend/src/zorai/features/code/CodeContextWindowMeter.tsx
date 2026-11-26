@@ -28,6 +28,7 @@ type Props = {
 export function CodeContextWindowMeter({ thread, messages }: Props) {
   const agentSettings = useAgentStore((state) => state.agentSettings);
   const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
+  const coderConfig = useAgentStore((state) => state.coderConfig);
   const subAgents = useAgentStore((state) => state.subAgents);
   const autoCompact = agentSettings.auto_compact_context === true;
   const compactionStatus = useThreadCompaction(thread?.daemonThreadId);
@@ -36,9 +37,9 @@ export function CodeContextWindowMeter({ thread, messages }: Props) {
 
   const contextWindowTokens = useMemo(() => {
     if (!thread) return Math.max(1, Math.trunc(agentSettings.context_window_tokens || 256000));
-    const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig);
+    const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig, coderConfig);
     return profile.contextWindowTokens;
-  }, [thread, subAgents, agentSettings, conciergeConfig]);
+  }, [thread, subAgents, agentSettings, conciergeConfig, coderConfig]);
 
   const used = currentContextTokens(thread, messages);
   const pct = contextWindowTokens > 0 ? Math.min(100, Math.round((used / contextWindowTokens) * 100)) : 0;

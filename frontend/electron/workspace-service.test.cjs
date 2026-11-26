@@ -7,12 +7,16 @@ const {
     listWorkspaceDirectory,
     parseGitWorktreeList,
     parseUnifiedDiffHunks,
+    parseGitBlamePorcelain,
     readWorkspaceFile,
     resolveWorkspacePath,
     replaceInWorkspace,
     searchWorkspace,
     workspaceGitApplyHunk,
     workspaceGitCommit,
+    workspaceGitStageContent,
+    readWorkspaceBytes,
+    parseChangedRanges,
     workspaceGitCreateWorktree,
     workspaceGitDiscard,
     workspaceGitHistory,
@@ -122,6 +126,83 @@ test('workspace replace rewrites only the chosen match or every match in a file,
     assert.deepEqual(await replaceInWorkspace(root, '(f)oo', '$1$$', { regex: true }, [{ path: 'a.txt' }]), { files: 1, replacements: 2 });
     assert.equal(fs.readFileSync(file, 'utf8'), 'f$ x\r\nbar f$\r\n');
     fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('multiline search finds blocks across CRLF lines and replace rewrites the whole block', async () => {
+    const root = tempWorkspace();
+    const file = path.join(root, 'b.txt');
+    fs.writeFileSync(file, 'start\r\nfoo();\r\nbar();\r\nfoo();\nbar();\n');
+    const hits = await searchWorkspace(root, 'foo();\nbar();', { maxResults: 10 });
+    assert.deepEqual(hits.map((hit) => [hit.line, hit.column, hit.endLine]), [[2, 1, 3], [4, 1, 5]]);
+    assert.deepEqual(await replaceInWorkspace(root, 'foo();\nbar();', 'baz();', {}, [{ path: 'b.txt', line: 4, column: 1 }]), { files: 1, replacements: 1 });
+    assert.equal(fs.readFileSync(file, 'utf8'), 'start\r\nfoo();\r\nbar();\r\nbaz();\n');
+    fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('preserve case keeps each match\'s casing so renaming user to account fixes User and USER too', async () => {
+    const root = tempWorkspace();
+    const file = path.join(root, 'c.txt');
+    fs.writeFileSync(file, 'user User USER uSeR\n');
+    assert.deepEqual(await replaceInWorkspace(root, 'user', 'account', { preserveCase: true }, [{ path: 'c.txt' }]), { files: 1, replacements: 4 });
+    assert.equal(fs.readFileSync(file, 'utf8'), 'account Account ACCOUNT account\n');
+    fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('blame porcelain maps every line to its commit, including repeated commits and uncommitted lines', () => {
+    const a = 'a'.repeat(40);
+    const zero = '0'.repeat(40);
+    const output = [
+        `${a} 1 1 2`, 'author Ada', 'author-time 1700000000', 'summary Initial import', 'filename f.ts', '\tline one',
+        `${a} 2 2`, '\tline two',
+        `${zero} 3 3 1`, 'author Not Committed Yet', 'author-time 1700000100', 'summary Version of f.ts from f.ts', 'filename f.ts', '\tline three',
+    ].join('\n');
+    const blame = parseGitBlamePorcelain(output);
+    assert.equal(blame.length, 3);
+    assert.deepEqual(blame[1], { hash: a, author: 'Ada', time: 1700000000000, summary: 'Initial import', uncommitted: false });
+    assert.equal(blame[2].uncommitted, true);
+});
+
+test('staging chosen content writes exactly that text to the index and leaves the working file alone', async () => {
+    const root = tempWorkspace();
+    const { execFileSync } = require('node:child_process');
+    const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' });
+    git('init', '-q');
+    git('config', 'user.email', 'test@example.com');
+    git('config', 'user.name', 'Test');
+    fs.writeFileSync(path.join(root, 'f.txt'), 'a\nb\n');
+    git('add', 'f.txt');
+    git('commit', '-qm', 'init');
+    fs.writeFileSync(path.join(root, 'f.txt'), 'A\nb\nC\n');
+    await workspaceGitStageContent(root, 'f.txt', 'A\nb\n');
+    assert.equal(git('show', ':f.txt'), 'A\nb\n');
+    assert.equal(fs.readFileSync(path.join(root, 'f.txt'), 'utf8'), 'A\nb\nC\n');
+    fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('reading bytes returns the requested window of a binary file and its total size', async () => {
+    const root = tempWorkspace();
+    fs.writeFileSync(path.join(root, 'b.bin'), Buffer.from([0, 1, 2, 3, 255, 254]));
+    const chunk = await readWorkspaceBytes(root, 'b.bin', 2, 3);
+    assert.equal(chunk.totalBytes, 6);
+    assert.deepEqual([...Buffer.from(chunk.base64, 'base64')], [2, 3, 255]);
+    assert.equal(Buffer.from((await readWorkspaceBytes(root, 'b.bin', 5, 100)).base64, 'base64').length, 1);
+    fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('changed line ranges come from zero-context hunks, in base-file line numbers', () => {
+    const diff = [
+        'diff --git a/src/a.rs b/src/a.rs',
+        '--- a/src/a.rs',
+        '+++ b/src/a.rs',
+        '@@ -10,3 +10,4 @@ fn x()',
+        '@@ -40 +41 @@',
+        '@@ -55,0 +57,2 @@',
+        'diff --git a/new.ts b/new.ts',
+        '--- /dev/null',
+        '+++ b/new.ts',
+        '@@ -0,0 +1,5 @@',
+    ].join('\n');
+    assert.deepEqual(parseChangedRanges(diff), { 'src/a.rs': [[10, 12], [40, 40], [55, 55]], 'new.ts': [[1, 1]] });
 });
 
 test('workspace file language IDs match bundled Monaco tokenizers', async () => {

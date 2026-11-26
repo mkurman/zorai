@@ -22,23 +22,21 @@ pub(crate) async fn execute_python_execute(
         agent.config.read().await.managed_execution.security_level,
         SecurityLevel::Highest
     );
+    if !requires_approval && operator_sandbox_enabled(agent, Some(thread_id)).await {
+        return execute_bash_command(
+            &python_as_shell_args(args, code)?,
+            agent,
+            task_id,
+            session_manager,
+            session_id,
+            &agent.event_tx,
+            thread_id,
+            cancel_token,
+        )
+        .await;
+    }
     if requires_approval {
-        let quoted = shlex::try_quote(code)
-            .map_err(|error| anyhow::anyhow!("python code cannot be shell-quoted: {error}"))?;
-        let mut managed_args = args.clone();
-        if let Some(map) = managed_args.as_object_mut() {
-            map.remove("code");
-            map.insert(
-                "command".to_string(),
-                serde_json::Value::String(format!("python3 -c {quoted}")),
-            );
-            map.entry("rationale")
-                .or_insert_with(|| serde_json::Value::String("Run Python code".to_string()));
-            map.insert(
-                "language_hint".to_string(),
-                serde_json::Value::String("python".to_string()),
-            );
-        }
+        let managed_args = python_as_shell_args(args, code)?;
         return execute_managed_command(
             &managed_args,
             agent,
@@ -404,4 +402,50 @@ fn spawn_python_execute_monitor(
             }
         }
     });
+}
+
+pub(crate) fn python_as_shell_args(
+    args: &serde_json::Value,
+    code: &str,
+) -> Result<serde_json::Value> {
+    let quoted = shlex::try_quote(code)
+        .map_err(|error| anyhow::anyhow!("python code cannot be shell-quoted: {error}"))?;
+    let mut shell_args = args.clone();
+    if let Some(map) = shell_args.as_object_mut() {
+        map.remove("code");
+        map.insert(
+            "command".to_string(),
+            serde_json::Value::String(format!("python3 -c {quoted}")),
+        );
+        map.entry("rationale")
+            .or_insert_with(|| serde_json::Value::String("Run Python code".to_string()));
+        map.insert(
+            "language_hint".to_string(),
+            serde_json::Value::String("python".to_string()),
+        );
+    }
+    Ok(shell_args)
+}
+
+#[cfg(test)]
+mod sandbox_route_tests {
+    use super::python_as_shell_args;
+
+    #[test]
+    fn sandboxed_python_keeps_the_callers_options_and_runs_the_exact_code() {
+        let args = serde_json::json!({
+            "code": "print('it''s ok')",
+            "cwd": "/work",
+            "timeout_seconds": 90,
+            "wait_for_completion": false
+        });
+        let shell = python_as_shell_args(&args, "print('it''s ok')").unwrap();
+        assert!(shell.get("code").is_none());
+        assert_eq!(shell["cwd"], "/work");
+        assert_eq!(shell["timeout_seconds"], 90);
+        assert_eq!(shell["wait_for_completion"], false);
+        let command = shell["command"].as_str().unwrap();
+        let parts = shlex::split(command).unwrap();
+        assert_eq!(parts, vec!["python3", "-c", "print('it''s ok')"]);
+    }
 }

@@ -388,7 +388,7 @@ fn build_direct_target(
             .system_prompt
             .clone()
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| config.system_prompt.clone());
+            .unwrap_or_default();
         return Ok(PromptInspectionTarget {
             agent_id: WELES_AGENT_ID.to_string(),
             agent_name: WELES_AGENT_NAME.to_string(),

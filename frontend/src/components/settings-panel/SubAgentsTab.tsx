@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAgentStore, getSupportedApiTransports } from "../../lib/agentStore";
 import type { SubAgentDefinition, AgentProviderId, GenerationSettings } from "../../lib/agentStore";
 import { getSubAgentCapabilities } from "../../lib/agentStore/providerActions";
@@ -65,7 +65,7 @@ const emptyForm: SubAgentForm = {
     generation_settings: null,
 };
 
-export function SubAgentsTab() {
+export function SubAgentsTab({ fixedAgentId }: { fixedAgentId?: string } = {}) {
     const subAgents = useAgentStore((s) => s.subAgents);
     const providerAuthStates = useAgentStore((s) => s.providerAuthStates);
     const refreshSubAgents = useAgentStore((s) => s.refreshSubAgents);
@@ -81,8 +81,11 @@ export function SubAgentsTab() {
     const [statusFilter, setStatusFilter] = useState<SubAgentStatusFilter>("all");
     const [editingId, setEditingId] = useState<string | null>(null);
     const [form, setForm] = useState<SubAgentForm>(emptyForm);
+    const savedFormRef = useRef<SubAgentForm | null>(null);
     const selectableProviders = selectableProviderAuthStates(providerAuthStates);
     const openRouterProviderState = providerAuthStates.find((state) => state.provider_id === "openrouter");
+    const listedSubAgents = subAgents.filter((sa) => sa.id !== WELES_BUILTIN_SUBAGENT_ID);
+    const fixedAgent = fixedAgentId ? subAgents.find((sa) => sa.id === fixedAgentId) : undefined;
 
     useEffect(() => {
         refreshSubAgents();
@@ -125,13 +128,14 @@ export function SubAgentsTab() {
             await addSubAgent(def);
         }
 
+        if (fixedAgentId) return;
         setForm(emptyForm);
         setShowForm(false);
         setEditingId(null);
     };
 
     const handleEdit = (sa: SubAgentDefinition) => {
-        setForm({
+        const next: SubAgentForm = {
             name: sa.name,
             provider: sa.provider,
             model: sa.model,
@@ -150,10 +154,30 @@ export function SubAgentsTab() {
             openrouter_provider_ignore: sa.openrouter_provider_ignore ?? [],
             openrouter_allow_fallbacks: sa.openrouter_allow_fallbacks ?? null,
             generation_settings: sa.generation_settings ?? null,
-        });
+        };
+        savedFormRef.current = next;
+        setForm(next);
         setEditingId(sa.id);
         setShowForm(true);
     };
+
+    useEffect(() => {
+        if (fixedAgent && editingId !== fixedAgent.id) handleEdit(fixedAgent);
+    }, [fixedAgent, editingId]);
+
+    const saveRef = useRef(handleSave);
+    useEffect(() => {
+        saveRef.current = handleSave;
+    });
+
+    useEffect(() => {
+        if (!fixedAgentId || !editingId || form === savedFormRef.current || !form.provider || !form.model) return;
+        const timer = window.setTimeout(() => {
+            savedFormRef.current = form;
+            void saveRef.current();
+        }, 600);
+        return () => window.clearTimeout(timer);
+    }, [form, editingId, fixedAgentId]);
 
     const handleDelete = async (id: string) => {
         await removeSubAgent(id);
@@ -187,11 +211,15 @@ export function SubAgentsTab() {
 
     const title = showForm ? (editingId ? "Edit Sub-Agent" : "Add Sub-Agent") : "Sub-Agent Registry";
     const agentDisplayName = (sa: SubAgentDefinition) => sa.id === WELES_BUILTIN_SUBAGENT_ID ? displayAgentName(sa.name, agentAliases) : sa.name;
-    const visibleSubAgents = filterSubAgents(subAgents, query, statusFilter, providerName, agentDisplayName);
+    const visibleSubAgents = filterSubAgents(listedSubAgents, query, statusFilter, providerName, agentDisplayName);
+
+    if (fixedAgentId && !showForm) {
+        return <p className="zorai-subagents__empty">Loading…</p>;
+    }
 
     return (
         <section className="zorai-subagents">
-            <header className="zorai-subagents__header">
+            {fixedAgentId ? null : <header className="zorai-subagents__header">
                 <div>
                     <div className="zorai-section-label">Sub-Agents</div>
                     <h2>{title}</h2>
@@ -209,15 +237,15 @@ export function SubAgentsTab() {
                         Add Sub-Agent
                     </button>
                 )}
-            </header>
+            </header>}
 
-            {showForm ? null : subAgents.length === 0 ? (
+            {showForm ? null : listedSubAgents.length === 0 ? (
                 <p className="zorai-subagents__empty">
                     No sub-agents configured. Add one to enable orchestration dispatch.
                 </p>
             ) : null}
 
-            {!showForm && subAgents.length > 0 && (
+            {!showForm && listedSubAgents.length > 0 && (
                 <>
                     <div className="zorai-subagents__toolbar">
                         <input
@@ -229,7 +257,7 @@ export function SubAgentsTab() {
                             onChange={(event) => setQuery(event.target.value)}
                         />
                         <ViewModeToggle modes={STATUS_FILTERS} value={statusFilter} onChange={setStatusFilter} label="Status" />
-                        <span className="zorai-subagents__count">{visibleSubAgents.length} of {subAgents.length}</span>
+                        <span className="zorai-subagents__count">{visibleSubAgents.length} of {listedSubAgents.length}</span>
                     </div>
                     {visibleSubAgents.length === 0 ? (
                         <p className="zorai-subagents__empty">No sub-agents match.</p>
@@ -487,7 +515,7 @@ export function SubAgentsTab() {
                             </div>
                         )}
                     </div>
-                    <div className="zorai-subagents__actions">
+                    {fixedAgentId ? null : <div className="zorai-subagents__actions">
                         <button
                             type="button"
                             className="zorai-primary-button"
@@ -499,7 +527,7 @@ export function SubAgentsTab() {
                         <button type="button" className="zorai-ghost-button" onClick={closeForm}>
                             Cancel
                         </button>
-                    </div>
+                    </div>}
                 </div>
             ) : null}
         </section>

@@ -593,7 +593,7 @@ impl TuiModel {
                 self.open_subagent_editor_existing();
             }
             2 => {
-                if let Some(entry) = self.subagents.entries.get(self.subagents.selected) {
+                if let Some(entry) = self.subagents.selected_entry() {
                     if !entry.delete_allowed {
                         self.status_line = "This sub-agent cannot be deleted".to_string();
                         return;
@@ -606,7 +606,7 @@ impl TuiModel {
                 }
             }
             3 => {
-                if let Some(entry) = self.subagents.entries.get(self.subagents.selected) {
+                if let Some(entry) = self.subagents.selected_entry() {
                     if entry.enabled && !entry.disable_allowed {
                         self.status_line = "This sub-agent cannot be disabled".to_string();
                         return;

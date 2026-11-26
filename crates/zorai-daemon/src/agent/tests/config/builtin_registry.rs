@@ -112,7 +112,7 @@ async fn list_sub_agents_always_includes_weles_builtin_with_main_defaults() {
     assert_eq!(weles.name, "WELES");
     assert_eq!(weles.provider, PROVIDER_ID_OPENAI);
     assert_eq!(weles.model, "gpt-5.4-mini");
-    assert_eq!(weles.system_prompt.as_deref(), Some("Main agent prompt"));
+    assert_eq!(weles.system_prompt, None);
     assert_eq!(weles.reasoning_effort.as_deref(), Some("medium"));
     assert_eq!(weles.tool_whitelist, None);
     assert_eq!(
@@ -305,7 +305,7 @@ async fn set_sub_agent_preserves_weles_inheritance_when_editing_unrelated_fields
         .expect("missing builtin weles entry");
     assert_eq!(weles.provider, PROVIDER_ID_ANTHROPIC);
     assert_eq!(weles.model, "claude-sonnet");
-    assert_eq!(weles.system_prompt.as_deref(), Some("Main prompt B"));
+    assert_eq!(weles.system_prompt, None);
     assert_eq!(weles.reasoning_effort.as_deref(), Some("high"));
 }
 

@@ -400,13 +400,13 @@ impl TuiModel {
                     true
                 }
                 KeyCode::Down => {
-                    if self.subagents.selected + 1 < self.subagents.entries.len() {
+                    if self.subagents.selected + 1 < self.subagents.list_entries().len() {
                         self.subagents.selected += 1;
                     }
                     true
                 }
                 KeyCode::Left => {
-                    if !self.subagents.entries.is_empty() {
+                    if !self.subagents.list_entries().is_empty() {
                         self.subagents.actions_focused = true;
                         self.subagents.action_cursor =
                             self.subagents.action_cursor.max(1).saturating_sub(1).max(1);
@@ -414,7 +414,7 @@ impl TuiModel {
                     true
                 }
                 KeyCode::Right => {
-                    if !self.subagents.entries.is_empty() {
+                    if !self.subagents.list_entries().is_empty() {
                         self.subagents.actions_focused = true;
                         self.subagents.action_cursor =
                             (self.subagents.action_cursor.max(1) + 1).min(3);
@@ -422,7 +422,7 @@ impl TuiModel {
                     true
                 }
                 KeyCode::Enter => {
-                    if self.subagents.entries.is_empty() {
+                    if self.subagents.list_entries().is_empty() {
                         self.subagents.action_cursor = 0;
                         self.run_subagent_action();
                     } else if self.subagents.actions_focused {
@@ -435,7 +435,7 @@ impl TuiModel {
                     true
                 }
                 KeyCode::Char(' ') => {
-                    if !self.subagents.entries.is_empty() {
+                    if !self.subagents.list_entries().is_empty() {
                         self.subagents.actions_focused = true;
                         self.subagents.action_cursor = 3;
                         self.run_subagent_action();
@@ -448,7 +448,7 @@ impl TuiModel {
                     true
                 }
                 KeyCode::Char('e') => {
-                    if !self.subagents.entries.is_empty() {
+                    if !self.subagents.list_entries().is_empty() {
                         self.subagents.actions_focused = true;
                         self.subagents.action_cursor = 1;
                         self.run_subagent_action();
@@ -456,7 +456,7 @@ impl TuiModel {
                     true
                 }
                 KeyCode::Delete | KeyCode::Backspace | KeyCode::Char('d') => {
-                    if !self.subagents.entries.is_empty() {
+                    if !self.subagents.list_entries().is_empty() {
                         self.subagents.actions_focused = true;
                         self.subagents.action_cursor = 2;
                         self.run_subagent_action();
@@ -464,7 +464,7 @@ impl TuiModel {
                     true
                 }
                 KeyCode::Char('h') => {
-                    if !self.subagents.entries.is_empty() {
+                    if !self.subagents.list_entries().is_empty() {
                         self.subagents.actions_focused = true;
                         self.subagents.action_cursor =
                             self.subagents.action_cursor.max(1).saturating_sub(1).max(1);
@@ -472,7 +472,7 @@ impl TuiModel {
                     true
                 }
                 KeyCode::Char('l') => {
-                    if !self.subagents.entries.is_empty() {
+                    if !self.subagents.list_entries().is_empty() {
                         self.subagents.actions_focused = true;
                         self.subagents.action_cursor =
                             (self.subagents.action_cursor.max(1) + 1).min(3);

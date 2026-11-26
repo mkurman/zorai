@@ -188,11 +188,7 @@ fn activating_compaction_weles_provider_opens_provider_picker() {
         .modal
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
     model.config.compaction_strategy = "weles".to_string();
-    focus_settings_field(
-        &mut model,
-        SettingsTab::Compaction,
-        "compaction_weles_provider",
-    );
+    focus_settings_field(&mut model, SettingsTab::Weles, "compaction_weles_provider");
 
     model.activate_settings_field();
 
@@ -214,11 +210,7 @@ fn activating_compaction_weles_model_opens_model_picker() {
         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
     model.config.compaction_strategy = "weles".to_string();
     model.config.compaction_weles_provider = PROVIDER_ID_OPENAI.to_string();
-    focus_settings_field(
-        &mut model,
-        SettingsTab::Compaction,
-        "compaction_weles_model",
-    );
+    focus_settings_field(&mut model, SettingsTab::Weles, "compaction_weles_model");
 
     model.activate_settings_field();
 

@@ -212,6 +212,89 @@ where
                 })
                 .await?;
         }
+        AgentBridgeCommand::GenerateCodeFix {
+            path,
+            language,
+            before,
+            target,
+            after,
+            diagnostics,
+            instruction,
+            request_id,
+            reasoning,
+            images,
+        } => {
+            framed
+                .send(ClientMessage::AgentGenerateCodeFix {
+                    path,
+                    language,
+                    before,
+                    target,
+                    after,
+                    diagnostics,
+                    instruction,
+                    request_id,
+                    reasoning,
+                    images,
+                })
+                .await?;
+        }
+        AgentBridgeCommand::ListProjectRules { root, targets } => {
+            framed
+                .send(ClientMessage::AgentListProjectRules { root, targets })
+                .await?;
+        }
+        AgentBridgeCommand::CodeSymbols {
+            root,
+            path,
+            content,
+        } => {
+            framed
+                .send(ClientMessage::AgentCodeSymbols {
+                    root,
+                    path,
+                    content,
+                })
+                .await?;
+        }
+        AgentBridgeCommand::CodeIndex {
+            action,
+            root,
+            query,
+            limit,
+            options_json,
+        } => {
+            framed
+                .send(ClientMessage::AgentCodeIndex {
+                    action,
+                    root,
+                    query,
+                    limit,
+                    options_json,
+                })
+                .await?;
+        }
+        AgentBridgeCommand::CodeComplete {
+            request_id,
+            path,
+            language,
+            prefix,
+            suffix,
+            kind,
+            recent_edits,
+        } => {
+            framed
+                .send(ClientMessage::AgentCodeComplete {
+                    request_id,
+                    path,
+                    language,
+                    prefix,
+                    suffix,
+                    kind,
+                    recent_edits,
+                })
+                .await?;
+        }
         AgentBridgeCommand::ListUiColors => {
             framed.send(ClientMessage::AgentListUiColors).await?;
         }

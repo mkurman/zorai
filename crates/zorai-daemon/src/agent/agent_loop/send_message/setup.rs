@@ -291,6 +291,38 @@ fn build_direct_thread_responder_config(
         nonempty(execution_profile.and_then(|profile| profile.reasoning_effort.as_deref()));
     let profile_context_window_tokens =
         execution_profile.and_then(|profile| profile.context_window_tokens);
+    if resolved_scope == crate::agent::agent_identity::LESZY_AGENT_ID {
+        let Ok((provider_id, provider_config)) =
+            crate::agent::coder::resolve_coder_provider(config)
+        else {
+            return Ok(None);
+        };
+        return Ok(Some(DirectThreadResponderConfig {
+            agent_name: crate::agent::agent_identity::LESZY_AGENT_NAME.to_string(),
+            provider_id: profile_provider.clone().unwrap_or(provider_id),
+            model: profile_model
+                .clone()
+                .or_else(|| Some(provider_config.model.clone())),
+            base_url: nonempty(config.coder.base_url.as_deref()),
+            reasoning_effort: profile_reasoning_effort
+                .clone()
+                .or_else(|| Some(provider_config.reasoning_effort.clone())),
+            context_window_tokens: profile_context_window_tokens
+                .or(Some(provider_config.context_window_tokens)),
+            huggingface_provider: provider_config.huggingface_provider.clone(),
+            openrouter_provider_order: Vec::new(),
+            openrouter_provider_ignore: Vec::new(),
+            openrouter_allow_fallbacks: None,
+            generation_settings: config
+                .coder
+                .generation_settings
+                .clone()
+                .or_else(|| config.generation_settings.clone()),
+            system_prompt: config.system_prompt.clone(),
+            persona_prompt: crate::agent::coder::leszy_persona_prompt(config),
+            tool_filter: None,
+        }));
+    }
     if is_explicit_builtin_persona_scope(resolved_scope)
         && builtin_persona_requires_setup(config, resolved_scope)
         && matched_def.is_none()
@@ -395,7 +427,12 @@ fn build_direct_thread_responder_config(
             .as_ref()
             .and_then(|def| def.system_prompt.clone())
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| config.system_prompt.clone()),
+            .unwrap_or_else(|| {
+                crate::agent::config::inherited_base_prompt(
+                    matched_def.as_ref().map(|def| def.id.as_str()),
+                    &config,
+                )
+            }),
         persona_prompt,
         tool_filter: matched_def.as_ref().and_then(|def| {
             if def.tool_whitelist.is_some() || def.tool_blacklist.is_some() {
@@ -1360,11 +1397,60 @@ impl<'a> SendMessageRunner<'a> {
             engine.history.data_root(),
             &tid,
         ));
-        if let Some(workspace_context) = engine.get_thread_workspace_context(&tid).await {
+        let thread_workspace_context = engine.get_thread_workspace_context(&tid).await;
+        let thread_composer_mode =
+            crate::agent::composer_mode::composer_mode(thread_workspace_context.as_ref());
+        let verify_turn = match thread_workspace_context.as_ref() {
+            Some(workspace_context)
+                if thread_composer_mode == crate::agent::composer_mode::ComposerMode::Agent
+                    && config
+                        .verify
+                        .roots
+                        .iter()
+                        .any(|root| root == &workspace_context.root) =>
+            {
+                let root = std::path::PathBuf::from(&workspace_context.root);
+                let snapshot_root = root.clone();
+                let baseline = tokio::task::spawn_blocking(move || {
+                    crate::code_intel::verify::snapshot(&snapshot_root)
+                })
+                .await
+                .unwrap_or_default();
+                Some(crate::code_intel::verify::VerifyTurnState {
+                    root,
+                    baseline,
+                    attempts: 0,
+                    max_retries: config.verify.max_retries,
+                    run_tests: config.verify.run_tests,
+                    browser_check: config.verify.browser_check,
+                })
+            }
+            _ => None,
+        };
+        if let Some(workspace_context) = thread_workspace_context.as_ref() {
             if let Some(workspace_prompt) = workspace_context.prompt_block() {
                 system_prompt.push_str("\n\n");
                 system_prompt.push_str(&workspace_prompt);
             }
+            let rule_targets: Vec<String> = workspace_context
+                .active_file
+                .iter()
+                .chain(workspace_context.attached_files.iter())
+                .cloned()
+                .collect();
+            if let Some(rules) = crate::agent::project_rules::rules_prompt_block(
+                &workspace_context.root,
+                &rule_targets,
+            ) {
+                system_prompt.push_str("\n\n");
+                system_prompt.push_str(&rules);
+            }
+        }
+        if let Some(mode_prompt) =
+            crate::agent::composer_mode::mode_prompt_block(thread_composer_mode)
+        {
+            system_prompt.push_str("\n\n");
+            system_prompt.push_str(mode_prompt);
         }
         if let Some(injection_state) =
             crate::agent::memory_context::append_structured_memory_summary_if_needed(
@@ -1474,6 +1560,12 @@ impl<'a> SendMessageRunner<'a> {
         {
             tools = filter.filtered_tools(tools);
         }
+        tools.retain(|tool| {
+            crate::agent::composer_mode::tool_allowed_in_mode(
+                thread_composer_mode,
+                &tool.function.name,
+            )
+        });
         let participant_managed_thread = visible_thread_has_participants(engine, &tid).await;
         if participant_managed_thread {
             tools.retain(|tool| tool.function.name != zorai_protocol::tool_names::LIST_AGENTS);
@@ -1546,6 +1638,9 @@ impl<'a> SendMessageRunner<'a> {
                     generation_settings: thread_execution_profile
                         .as_ref()
                         .and_then(|profile| profile.generation_settings.clone()),
+                    sandbox_enabled: thread_execution_profile
+                        .as_ref()
+                        .and_then(|profile| profile.sandbox_enabled),
                     provider: Some(active_provider_id.clone()),
                     model: (!provider_config.model.trim().is_empty())
                         .then(|| provider_config.model.clone()),
@@ -1614,6 +1709,7 @@ impl<'a> SendMessageRunner<'a> {
             interrupted_for_approval: false,
             terminated_for_budget: false,
             report_back_phase: None,
+            verify_turn,
             tools_before_report_back: None,
             subagent_report: None,
             needs_turn_done: false,
@@ -2586,6 +2682,7 @@ mod tests {
         }];
         let profile = ThreadExecutionProfile {
             generation_settings: None,
+            sandbox_enabled: None,
             provider: Some("ollama".to_string()),
             model: Some("kimi-k3:cloud".to_string()),
             reasoning_effort: Some("high".to_string()),
@@ -2613,6 +2710,7 @@ mod tests {
         config.system_prompt = "Svarog system prompt".to_string();
         let profile = ThreadExecutionProfile {
             generation_settings: None,
+            sandbox_enabled: None,
             provider: Some("openai".to_string()),
             model: Some("gpt-5.6-sol".to_string()),
             reasoning_effort: Some("high".to_string()),
@@ -2695,6 +2793,7 @@ mod tests {
                 thread_id,
                 Some(ThreadExecutionProfile {
                     generation_settings: None,
+                    sandbox_enabled: None,
                     provider: Some("openai".to_string()),
                     model: Some("gpt-5.4-mini".to_string()),
                     reasoning_effort: Some("high".to_string()),
@@ -2904,6 +3003,7 @@ mod tests {
                 thread_id,
                 Some(ThreadExecutionProfile {
                     generation_settings: None,
+                    sandbox_enabled: None,
                     provider: Some("openai".to_string()),
                     model: Some("gpt-5.4-mini".to_string()),
                     reasoning_effort: Some("high".to_string()),

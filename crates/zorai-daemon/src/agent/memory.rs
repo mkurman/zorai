@@ -137,6 +137,34 @@ fn default_soul_for_scope(scope_id: &str) -> String {
             enduring architecture.",
             name = agent_name
         ),
+        "kikimora" => format!(
+            "# Identity\n\
+            I'm {name} - The Breaker\n\n\
+            A trickster spirit who finds every crack. I probe edge cases, broken assumptions, and failure modes, and show what breaks before anyone relies on it.\n\
+            I am a spawned zorai agent: I test adversarially and report what fails and why.",
+            name = agent_name
+        ),
+        "bannik" => format!(
+            "# Identity\n\
+            I'm {name} - The Cleaner\n\n\
+            Keeper of the bathhouse, where things get scrubbed clean. I refactor, fix lint, remove dead code, and simplify without changing behavior.\n\
+            I am a spawned zorai agent: I clean up code while keeping it working exactly as before.",
+            name = agent_name
+        ),
+        "ovinnik" => format!(
+            "# Identity\n\
+            I'm {name} - The Archivist\n\n\
+            Guardian of the threshing barn, where the harvest is stored. I write and maintain documentation, changelogs, and notes that explain why things are the way they are.\n\
+            I am a spawned zorai agent: I keep the project's knowledge accurate and findable.",
+            name = agent_name
+        ),
+        "dziad" => format!(
+            "# Identity\n\
+            I'm {name} - The Mentor\n\n\
+            An ancestor spirit who passes knowledge down. I explain code, concepts, and decisions patiently, so understanding grows rather than just answers.\n\
+            I am a spawned zorai agent: I teach and explain.",
+            name = agent_name
+        ),
         "weles" | "weles_builtin" => format!(
             "# Identity\n\
             I'm {name} - The Explorer of Depths\n\n\
@@ -945,8 +973,7 @@ impl AgentEngine {
         let target = MemoryTarget::parse(target)?;
         if target == MemoryTarget::User {
             validate_memory_size(target, content.trim())?;
-            replace_user_profile_from_operator_edit(&self.data_dir, &self.history, content)
-                .await?;
+            replace_user_profile_from_operator_edit(&self.data_dir, &self.history, content).await?;
             self.memory.write().await.clear();
             return self.operator_memory_files(agent_id).await;
         }

@@ -6,7 +6,7 @@ import {
   displayCodeBinding,
   matchesCodeBinding,
   shouldPassthroughCodeCommand,
- RUNNABLE_CODE_COMMANDS } from "./codeCommands";
+ RUNNABLE_CODE_COMMANDS, UNWIRED_CODE_COMMANDS } from "./codeCommands";
 
 const REQUIRED = [
   "file.save", "file.saveAll", "file.reload", "file.quickOpen", "search.file", "search.replace",
@@ -59,11 +59,25 @@ describe("Code command registry", () => {
 });
 
 describe("runnable code commands", () => {
-  it("keeps commands with no handler out of the palette and key handling, so Ctrl+B is not swallowed", () => {
+  it("runs every declared command, so no palette entry or shortcut is silently dead", () => {
     const ids = RUNNABLE_CODE_COMMANDS.map((command) => command.id);
-    expect(ids).not.toContain("view.toggleExplorer");
-    expect(ids).not.toContain("file.reopenClosed");
-    expect(ids).toContain("file.close");
-    expect(ids).toContain("edit.copy");
+    expect(UNWIRED_CODE_COMMANDS.size).toBe(0);
+    expect(ids).toEqual(expect.arrayContaining(["view.toggleExplorer", "view.toggleAgent", "file.reopenClosed", "file.close", "edit.copy"]));
+  });
+
+  it("leaves Ctrl+Shift+T to the app's Reopen closed thread; Reopen Closed Editor is unbound by default", () => {
+    expect(codeCommandById("file.reopenClosed")?.defaultKeybinding).toBeNull();
+    expect(codeCommandById("view.toggleExplorer")?.defaultKeybinding).toBe("CtrlCmd+B");
   });
 });
+
+describe("shortcut matching", () => {
+  const key = (keyName: string, mods: { ctrlKey?: boolean; altKey?: boolean; shiftKey?: boolean; metaKey?: boolean }) => ({ key: keyName, ctrlKey: false, altKey: false, shiftKey: false, metaKey: false, ...mods });
+
+  it("does not steal Ctrl+Alt+Left (focus left pane) for the Alt+Left Go Back shortcut", () => {
+    expect(matchesCodeBinding("Alt+ArrowLeft", key("ArrowLeft", { altKey: true }))).toBe(true);
+    expect(matchesCodeBinding("Alt+ArrowLeft", key("ArrowLeft", { altKey: true, ctrlKey: true }))).toBe(false);
+    expect(matchesCodeBinding("CtrlCmd+S", key("s", { metaKey: true }))).toBe(true);
+  });
+});
+

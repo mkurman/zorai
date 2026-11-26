@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { browserWebview, registerBrowserSlot } from "./threadBrowserRegistry";
+import { pickElement, type PickedElement } from "./domToCode";
 import { useComposerPanelHeight } from "../threads/useComposerPanelHeight";
 import { PanelFullscreenIcon } from "../threads/PanelFullscreenIcon";
 import {
@@ -20,7 +21,7 @@ function tabLabel(title: string, url: string): string {
   return url.replace(/^https?:\/\//, "");
 }
 
-export function ComposerBrowserPanel({ sessionKey }: { sessionKey: string }) {
+export function ComposerBrowserPanel({ sessionKey, onPickElement }: { sessionKey: string; onPickElement?: (picked: PickedElement) => void }) {
   const session = useThreadBrowserStore((state) => state.sessions[sessionKey]) ?? emptyBrowserSession();
   const slotRef = useRef<HTMLDivElement | null>(null);
   const resize = useComposerPanelHeight(460, 220);
@@ -28,6 +29,7 @@ export function ComposerBrowserPanel({ sessionKey }: { sessionKey: string }) {
   const [address, setAddress] = useState(activeTab?.url ?? "");
   const [editing, setEditing] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [picking, setPicking] = useState(false);
   const agentDriving = session.agentUsed && !session.operatorControl;
 
   useEffect(() => {
@@ -94,6 +96,22 @@ export function ComposerBrowserPanel({ sessionKey }: { sessionKey: string }) {
         <button type="button" className="zorai-browser-panel__icon" title="Back" aria-label="Back" disabled={agentDriving} onClick={() => webview()?.goBack()}>‹</button>
         <button type="button" className="zorai-browser-panel__icon" title="Forward" aria-label="Forward" disabled={agentDriving} onClick={() => webview()?.goForward()}>›</button>
         <button type="button" className="zorai-browser-panel__icon" title="Reload" aria-label="Reload" disabled={agentDriving} onClick={() => webview()?.reload()}>↻</button>
+        {onPickElement ? (
+          <button
+            type="button"
+            className={picking ? "zorai-browser-panel__icon is-active" : "zorai-browser-panel__icon"}
+            title={picking ? "Click an element on the page (Esc cancels)" : "Pick an element and jump to its code"}
+            aria-label="Pick element"
+            aria-pressed={picking}
+            disabled={agentDriving || !activeTab || picking}
+            onClick={() => {
+              const target = webview();
+              if (!target) return;
+              setPicking(true);
+              void pickElement(target).then((picked) => { if (picked) onPickElement(picked); }).catch(() => undefined).finally(() => setPicking(false));
+            }}
+          >⌖</button>
+        ) : null}
         <input
           className="zorai-browser-panel__address"
           value={address}

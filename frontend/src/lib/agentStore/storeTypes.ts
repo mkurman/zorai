@@ -19,6 +19,8 @@ import type {
 } from "./types";
 import type { PaneId, SurfaceId, WorkspaceId } from "../types";
 
+export type CoderRuntimeConfig = { provider?: string | null; model?: string | null; reasoning_effort?: string | null };
+
 export interface ConciergeConfig {
   enabled: boolean;
   detail_level: string;
@@ -64,6 +66,7 @@ export interface AgentState {
   providerAuthStates: ProviderAuthState[];
   subAgents: SubAgentDefinition[];
   conciergeConfig: ConciergeConfig;
+  coderConfig: CoderRuntimeConfig;
   conciergeWelcome: {
     content: string;
     actions: ConciergeWelcomeAction[];

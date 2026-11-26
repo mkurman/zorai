@@ -90,6 +90,11 @@ pub(crate) async fn dispatch_part4(
             | ClientMessage::AgentGetMemoryFiles { .. }
             | ClientMessage::AgentSaveMemoryFile { .. }
             | ClientMessage::AgentGenerateCommitMessage { .. }
+            | ClientMessage::AgentGenerateCodeFix { .. }
+            | ClientMessage::AgentCodeComplete { .. }
+            | ClientMessage::AgentListProjectRules { .. }
+            | ClientMessage::AgentCodeSymbols { .. }
+            | ClientMessage::AgentCodeIndex { .. }
             | ClientMessage::AgentHandoffThread { .. }
             | ClientMessage::AgentGetSubagentMetrics { .. }
             | ClientMessage::AgentGetSubsystemMetrics
@@ -1496,13 +1501,15 @@ pub(crate) async fn dispatch_part4(
             };
             // Persist immediately, then wake any in-flight retry so the next LLM
             // attempt can rebuild against this profile instead of the snapshotted provider.
-            if let Some(profile) = parsed.clone() {
+            if let Some(mut profile) = parsed.clone() {
                 let mut map = agent.thread_execution_profiles.write().await;
+                crate::agent::types::keep_thread_sandbox_choice(&mut profile, map.get(&thread_id));
                 if profile.provider.is_none()
                     && profile.model.is_none()
                     && profile.reasoning_effort.is_none()
                     && profile.context_window_tokens.is_none()
                     && profile.generation_settings.is_none()
+                    && profile.sandbox_enabled.is_none()
                 {
                     map.remove(&thread_id);
                 } else {
@@ -1915,6 +1922,210 @@ pub(crate) async fn dispatch_part4(
                 },
             };
             framed.send(reply).await?;
+        }
+
+        ClientMessage::AgentGenerateCodeFix {
+            path,
+            language,
+            before,
+            target,
+            after,
+            diagnostics,
+            instruction,
+            request_id,
+            reasoning,
+            images,
+        } => {
+            let request = crate::agent::code_fix::CodeFixRequest {
+                path: &path,
+                language: &language,
+                before: &before,
+                target: &target,
+                after: &after,
+                diagnostics: &diagnostics,
+                instruction: &instruction,
+                reasoning,
+                images: &images,
+            };
+            let (delta_tx, mut delta_rx) = tokio::sync::mpsc::unbounded_channel::<(String, bool)>();
+            let generation = agent.generate_code_fix(&request, Some(delta_tx));
+            tokio::pin!(generation);
+            let outcome = loop {
+                tokio::select! {
+                    outcome = &mut generation => break outcome,
+                    Some((text, reasoning)) = delta_rx.recv() => {
+                        framed
+                            .send(DaemonMessage::AgentCodeFixDelta {
+                                request_id: request_id.clone(),
+                                text,
+                                reasoning,
+                            })
+                            .await?;
+                    }
+                }
+            };
+            while let Ok((text, reasoning)) = delta_rx.try_recv() {
+                framed
+                    .send(DaemonMessage::AgentCodeFixDelta {
+                        request_id: request_id.clone(),
+                        text,
+                        reasoning,
+                    })
+                    .await?;
+            }
+            let reply = match outcome {
+                Ok(replacement) => DaemonMessage::AgentCodeFixGenerated {
+                    replacement,
+                    error: None,
+                },
+                Err(error) => DaemonMessage::AgentCodeFixGenerated {
+                    replacement: String::new(),
+                    error: Some(error.to_string()),
+                },
+            };
+            framed.send(reply).await?;
+        }
+
+        ClientMessage::AgentCodeComplete {
+            request_id,
+            path,
+            language,
+            prefix,
+            suffix,
+            kind,
+            recent_edits,
+        } => {
+            let is_next_edit = kind == "next_edit";
+            let sender = framed.sender();
+            let agent = agent.clone();
+            let task = tokio::spawn(async move {
+                let request = crate::agent::code_complete::CodeCompleteRequest {
+                    path: &path,
+                    language: &language,
+                    prefix: &prefix,
+                    suffix: &suffix,
+                    recent_edits: &recent_edits,
+                };
+                let outcome = if kind == "next_edit" {
+                    agent.predict_next_edit(&request).await
+                } else {
+                    agent.generate_code_completion(&request).await
+                };
+                let (completion, error) = match outcome {
+                    Ok(completion) => (completion, None),
+                    Err(error) => (String::new(), Some(error.to_string())),
+                };
+                let _ = sender
+                    .send(DaemonMessage::AgentCodeCompletion {
+                        request_id,
+                        completion,
+                        error,
+                    })
+                    .await;
+            });
+            crate::agent::code_complete::supersede_in_flight(is_next_edit, task.abort_handle());
+        }
+
+        ClientMessage::AgentListProjectRules { root, targets } => {
+            let rules = crate::agent::project_rules::rule_summaries(&root, &targets);
+            framed
+                .send(DaemonMessage::AgentProjectRules {
+                    rules_json: serde_json::to_string(&rules).unwrap_or_else(|_| "[]".to_string()),
+                })
+                .await?;
+        }
+
+        ClientMessage::AgentCodeSymbols {
+            root,
+            path,
+            content,
+        } => {
+            let graph = tokio::task::spawn_blocking(move || {
+                let source = content.or_else(|| {
+                    std::fs::read_to_string(std::path::Path::new(&root).join(&path)).ok()
+                })?;
+                crate::code_intel::ast_graph::file_graph(&path, &source)
+            })
+            .await
+            .ok()
+            .flatten();
+            framed
+                .send(DaemonMessage::AgentCodeSymbolsResult {
+                    graph_json: graph
+                        .and_then(|graph| serde_json::to_string(&graph).ok())
+                        .unwrap_or_else(|| "null".to_string()),
+                })
+                .await?;
+        }
+
+        ClientMessage::AgentCodeIndex {
+            action,
+            root,
+            query,
+            limit,
+            options_json,
+        } => {
+            let sender = framed.sender();
+            let agent = agent.clone();
+            tokio::spawn(async move {
+                let outcome: anyhow::Result<serde_json::Value> = match action.as_str() {
+                    "status" => Ok(agent.code_index_status(&root).await),
+                    "text-search" => {
+                        let mut options: crate::code_intel::search::CodeSearchOptions = options_json
+                            .as_deref()
+                            .and_then(|json| serde_json::from_str(json).ok())
+                            .unwrap_or_default();
+                        options.max_results = options.max_results.or(limit);
+                        let search_root = std::path::PathBuf::from(&root);
+                        tokio::task::spawn_blocking(move || {
+                            crate::code_intel::search::search_workspace(&search_root, &query, &options)
+                        })
+                        .await
+                        .map_err(anyhow::Error::from)
+                        .and_then(|result| result)
+                        .map(|hits| serde_json::json!(hits))
+                    }
+                    "verify" => {
+                        let checks_root = std::path::PathBuf::from(&root);
+                        let base = query.clone();
+                        let checks = tokio::task::spawn_blocking(move || {
+                            let changed = crate::code_intel::verify::changed_against(&checks_root, &base);
+                            (crate::code_intel::verify::plan_checks(&checks_root, &changed, true), changed)
+                        })
+                        .await;
+                        match checks {
+                            Ok((checks, changed)) => {
+                                let outcomes = crate::code_intel::verify::run_checks(&checks).await;
+                                Ok(serde_json::json!({
+                                    "changed": changed,
+                                    "outcomes": outcomes.iter().map(|outcome| serde_json::json!({ "label": outcome.label, "ok": outcome.ok, "output": outcome.output })).collect::<Vec<_>>(),
+                                }))
+                            }
+                            Err(error) => Err(anyhow::Error::from(error)),
+                        }
+                    }
+                    "sync" => agent
+                        .sync_code_indexes()
+                        .await
+                        .map(|changed| serde_json::json!({ "changed": changed })),
+                    "search" => agent
+                        .semantic_code_search(&root, &query, limit.unwrap_or(20).clamp(1, 100))
+                        .await
+                        .map(|hits| serde_json::json!(hits)),
+                    other => Err(anyhow::anyhow!("unknown code index action '{other}'")),
+                };
+                let (result_json, error) = match outcome {
+                    Ok(value) => (value.to_string(), None),
+                    Err(error) => ("null".to_string(), Some(error.to_string())),
+                };
+                let _ = sender
+                    .send(DaemonMessage::AgentCodeIndexResult {
+                        action,
+                        result_json,
+                        error,
+                    })
+                    .await;
+            });
         }
 
         ClientMessage::AgentListUiColors => {

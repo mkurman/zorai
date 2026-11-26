@@ -94,7 +94,7 @@ describe("Zorai feature surfaces", () => {
     expect(workbenchSource).toContain("shouldRestoreWorkspaceDocument");
     expect(workbenchSource).toContain("shouldPassthroughCodeCommand");
     expect(workbenchSource).toContain("shouldPassthroughCodeCommand(command.id, event.target)");
-    expect(workbenchSource).toContain('setActiveEditorTabId(`file:${filePath}`)');
+    expect(workbenchSource).toContain('setActiveEditorTabId(view === "diff" ? `diff:${filePath}` : `file:${filePath}`)');
     expect(workbenchSource).toContain("void openFile(filePath)");
     expect(workbenchSource).toContain('<SessionTabStrip');
     expect(workbenchSource).toContain("This folder is not a Git repository");
@@ -129,17 +129,20 @@ describe("Zorai feature surfaces", () => {
     expect(historyMenuSource).toContain('aria-label="New project thread"');
     expect(historyMenuSource).toContain('aria-label="Project thread history"');
     expect(readFeature("./threads/ComposerContextCircle.tsx")).toContain('className="zorai-composer-context-circle"');
-    expect(readFeature("./threads/ThreadComposer.tsx")).toContain('ComposerContextCircle');
+    expect(readFeature("./threads/ThreadComposer.tsx")).toContain('<ComposerFooter');
+    expect(readFeature("./threads/ComposerFooter.tsx")).toContain('<ComposerContextCircle');
   });
 
   it("reserves editor hierarchy when no document is selected", () => {
     const workbenchSource = readFeature("../../components/WorkspaceWorkbench.tsx");
+    const statusBarSource = readFeature("./code/CodeStatusBar.tsx");
     const codeSource = readFeature("./code/CodeView.tsx");
 
     expect(workbenchSource).toContain('className="zorai-workspace-breadcrumbs zorai-workspace-breadcrumbs--empty"');
     expect(workbenchSource).toContain("No file selected");
-    expect(workbenchSource).toContain('className="zorai-workspace-statusbar"');
-    expect(workbenchSource).toContain("Ready · Select a file from Explorer");
+    expect(workbenchSource).toContain("<CodeStatusBar");
+    expect(statusBarSource).toContain('className="zorai-workspace-statusbar"');
+    expect(statusBarSource).toContain("Ready · Select a file from Explorer");
     expect(codeSource).not.toContain("export function CodeAgentPane");
   });
 
@@ -539,9 +542,12 @@ describe("Zorai feature surfaces", () => {
     expect(advancedSource).toContain('<option value="heuristic">Heuristic</option>');
     expect(advancedSource).toContain('<option value="weles">WELES</option>');
     expect(advancedSource).toContain('<option value="custom_model">LLM provider</option>');
-    expect(advancedSource).toContain("welesProviderConfig");
     expect(advancedSource).toContain("customCompactionProviderConfig");
-    expect((advancedSource.match(/<ModelSelector/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    expect(advancedSource).toContain("set in the Weles tab");
+    expect((advancedSource.match(/<ModelSelector/g) ?? []).length).toBeGreaterThanOrEqual(1);
+    const welesSource = readFunctionSource(panelSource, "function WelesPanel()", "function RarogContextField()");
+    expect(welesSource).toContain("welesProviderConfig");
+    expect(welesSource).toContain("<ModelSelector");
     expect(advancedSource).not.toContain('label="WELES Provider" description="Provider used by WELES compaction."><input');
     expect(advancedSource).not.toContain('label="Custom Provider" description="Provider used by custom-model compaction."><input');
   });
@@ -757,10 +763,9 @@ describe("Zorai feature surfaces", () => {
     expect(contextSource).toContain("Spawned");
     expect(contextSource).toContain("resolveThreadOwnerRuntimeProfile");
     expect(readFeature("./threads/threadOwnerRuntime.ts")).toContain("profileContextWindowTokens");
-    expect(contextSource).toContain("activeContextWindowTokens");
-    expect(contextSource).toContain("tokens");
-    expect(contextSource).toContain("zorai-todo-context-list");
-    expect(contextSource).toContain("zorai-todo-checkbox");
+    expect(contextSource).toContain("useContextUsage(activeThread ?? null, runtime.messages)");
+    expect(readFeature("./threads/ComposerContextCircle.tsx")).toContain("activeContextWindowTokens");
+    expect(contextSource).toContain("<WorkTodoList todos={runtime.todos} />");
     expect(contextSource).toContain("}, [daemonThreadId]);");
     expect(contextSource).not.toContain("}, [activeThread, daemonThreadId]);");
     expect(contextSource).not.toContain("SpawnedAgentsPanel");

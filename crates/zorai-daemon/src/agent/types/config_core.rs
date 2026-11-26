@@ -224,6 +224,15 @@ pub struct AgentConfig {
     /// Concierge agent configuration.
     #[serde(default)]
     pub concierge: ConciergeConfig,
+    /// Leszy, the coding agent.
+    #[serde(default)]
+    pub coder: CoderConfig,
+    #[serde(default)]
+    pub code_completion: CodeCompletionConfig,
+    #[serde(default)]
+    pub code_index: CodeIndexConfig,
+    #[serde(default)]
+    pub verify: VerifyConfig,
     /// Anticipatory pre-loading and surfacing controls.
     #[serde(default)]
     pub anticipatory: AnticipatoryConfig,
@@ -442,6 +451,14 @@ pub struct BuiltinSubAgentOverrides {
     pub dazhbog: BuiltinPersonaOverrides,
     #[serde(default)]
     pub rod: BuiltinPersonaOverrides,
+    #[serde(default)]
+    pub kikimora: BuiltinPersonaOverrides,
+    #[serde(default)]
+    pub bannik: BuiltinPersonaOverrides,
+    #[serde(default)]
+    pub ovinnik: BuiltinPersonaOverrides,
+    #[serde(default)]
+    pub dziad: BuiltinPersonaOverrides,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

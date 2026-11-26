@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-export type CodeBottomPanelTab = "output" | "terminal";
+export type CodeBottomPanelTab = "problems" | "output" | "terminal" | "debug" | "tasks";
 
 export const CODE_PANEL_MIN_HEIGHT = 120;
 export const CODE_PANEL_DEFAULT_HEIGHT = 260;
@@ -43,7 +43,7 @@ export const useCodeBottomPanelStore = create<CodeBottomPanelState>()(persist(
     partialize: (state) => ({ open: state.open, tab: state.tab, height: state.height }),
     merge: (persisted, current) => {
       const saved = (persisted ?? {}) as Partial<CodeBottomPanelState>;
-      return { ...current, ...saved, tab: saved.tab === "output" ? "output" : "terminal" };
+      return { ...current, ...saved, tab: saved.tab === "output" || saved.tab === "problems" ? saved.tab : "terminal" };
     },
   },
 ));

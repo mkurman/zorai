@@ -148,7 +148,7 @@ fn concierge_tab_renders_reasoning_effort_field() {
 }
 
 #[test]
-fn protected_weles_row_hides_delete_and_disable_actions() {
+fn protected_builtin_row_hides_delete_and_disable_actions() {
     let mut settings = SettingsState::new();
     settings.reduce(crate::state::settings::SettingsAction::SwitchTab(
         SettingsTab::SubAgents,
@@ -161,8 +161,8 @@ fn protected_weles_row_hides_delete_and_disable_actions() {
         .entries
         .push(crate::state::subagents::SubAgentEntry {
             claude_permission_mode: None,
-            id: "weles_builtin".to_string(),
-            name: "WELES".to_string(),
+            id: "rod_builtin".to_string(),
+            name: "Rod".to_string(),
             provider: PROVIDER_ID_OPENAI.to_string(),
             model: "gpt-5.4-mini".to_string(),
             role: Some("testing".to_string()),
@@ -178,7 +178,7 @@ fn protected_weles_row_hides_delete_and_disable_actions() {
             openrouter_provider_ignore: String::new(),
             openrouter_allow_fallbacks: true,
             huggingface_provider: String::new(),
-            raw_json: Some(serde_json::json!({ "id": "weles_builtin" })),
+            raw_json: Some(serde_json::json!({ "id": "rod_builtin" })),
         });
     let concierge = crate::state::concierge::ConciergeState::new();
     let plugin_settings = crate::state::settings::PluginSettingsState::new();
@@ -214,11 +214,11 @@ fn protected_weles_row_hides_delete_and_disable_actions() {
     );
     assert!(
         !text.contains("[Delete]"),
-        "protected WELES row should hide delete action: {text}"
+        "protected built-in row should hide delete action: {text}"
     );
     assert!(
         !text.contains("[Disable]"),
-        "protected WELES row should hide disable action: {text}"
+        "protected built-in row should hide disable action: {text}"
     );
 }
 

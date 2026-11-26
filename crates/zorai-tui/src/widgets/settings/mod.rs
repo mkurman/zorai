@@ -40,6 +40,8 @@ mod tests {
     mod gateway_tab;
     #[path = "heartbeat_page.rs"]
     mod heartbeat_page;
+    #[path = "leszy_weles_tabs.rs"]
+    mod leszy_weles_tabs;
     #[path = "mlflow_tab.rs"]
     mod mlflow_tab;
     #[path = "settings_handles_empty_state_to_auth_tab_shows_chatgpt_logout.rs"]

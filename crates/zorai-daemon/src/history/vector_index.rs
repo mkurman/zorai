@@ -24,6 +24,7 @@ pub(crate) enum VectorSourceKind {
     CausalTrace,
     Counterfactual,
     MetaCognition,
+    Code,
 }
 
 impl VectorSourceKind {
@@ -39,6 +40,7 @@ impl VectorSourceKind {
             Self::CausalTrace => "causal_trace",
             Self::Counterfactual => "counterfactual",
             Self::MetaCognition => "meta_cognition",
+            Self::Code => "code",
         }
     }
 
@@ -54,6 +56,7 @@ impl VectorSourceKind {
             "causal_trace" => Some(Self::CausalTrace),
             "counterfactual" => Some(Self::Counterfactual),
             "meta_cognition" => Some(Self::MetaCognition),
+            "code" => Some(Self::Code),
             _ => None,
         }
     }

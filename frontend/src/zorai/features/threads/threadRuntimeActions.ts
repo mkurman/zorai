@@ -108,6 +108,24 @@ async function patchDaemonThreadExecutionProfile(
   if (result?.error) throw new Error(result.error);
 }
 
+export function threadHasDaemonRuntime(thread: AgentThread): boolean {
+  return resolveDaemonThreadIdForRuntime(thread) !== null;
+}
+
+export async function loadThreadSandbox(thread: AgentThread): Promise<boolean | null> {
+  const daemonThreadId = resolveDaemonThreadIdForRuntime(thread);
+  if (!daemonThreadId) return null;
+  const existing = await getBridge()?.agentGetThreadExecutionProfile?.(daemonThreadId).catch(() => null) as
+    | { profile?: { sandbox_enabled?: boolean | null } | null }
+    | null
+    | undefined;
+  return typeof existing?.profile?.sandbox_enabled === "boolean" ? existing.profile.sandbox_enabled : null;
+}
+
+export async function applyThreadSandbox(thread: AgentThread, enabled: boolean): Promise<void> {
+  await patchDaemonThreadExecutionProfile(thread, { sandbox_enabled: enabled });
+}
+
 export async function applyThreadProviderModel(
   thread: AgentThread,
   providerId: string,

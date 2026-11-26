@@ -9,6 +9,7 @@ export const BUILTIN_PREFERRED_SKILL_AGENTS: PreferredSkillAgent[] = [
   { id: "swarog", name: "Svarog" },
   { id: "rarog", name: "Rarog" },
   { id: "weles", name: "Weles" },
+  { id: "leszy", name: "Leszy" },
   { id: "swarozyc", name: "Swarozyc" },
   { id: "radogost", name: "Radogost" },
   { id: "domowoj", name: "Domowoj" },
@@ -17,6 +18,10 @@ export const BUILTIN_PREFERRED_SKILL_AGENTS: PreferredSkillAgent[] = [
   { id: "mokosh", name: "Mokosh" },
   { id: "dazhbog", name: "Dazhbog" },
   { id: "rod", name: "Rod" },
+  { id: "kikimora", name: "Kikimora" },
+  { id: "bannik", name: "Bannik" },
+  { id: "ovinnik", name: "Ovinnik" },
+  { id: "dziad", name: "Dziad" },
 ];
 
 export function normalizeSkillKey(raw: string): string | null {

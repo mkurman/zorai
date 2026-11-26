@@ -177,3 +177,7 @@ export function normalizeZoraiToolNavigation(input: ZoraiToolNavigationInput): {
   }
   return normalized;
 }
+
+export function viewHasContextPanel(view: ZoraiViewId): boolean {
+  return view === "code" || view === "threads" || view === "goals" || view === "workspaces" || view === "tools";
+}

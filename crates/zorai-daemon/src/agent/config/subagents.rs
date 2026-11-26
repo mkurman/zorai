@@ -74,7 +74,7 @@ pub(super) fn apply_weles_allowed_overrides(
     let inherited_provider = resolve_main_agent_default(None, &config.provider);
     let inherited_model = resolve_main_agent_default(None, &config.model);
     let inherited_role = Some("governance".to_string());
-    let inherited_system_prompt = Some(resolve_main_agent_default(None, &config.system_prompt));
+    let inherited_system_prompt = None::<String>;
     let inherited_tool_whitelist = None::<Vec<String>>;
     let inherited_tool_blacklist = Some(default_weles_tool_blacklist());
     let inherited_context_budget_tokens = None::<u32>;

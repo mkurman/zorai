@@ -78,6 +78,13 @@ fn execution_fields_for_agent(
             reasoning_effort: nonempty(config.concierge.reasoning_effort.clone()),
             context_window_tokens: None,
         }),
+        crate::agent::agent_identity::LESZY_AGENT_ID => Some(AgentExecutionFields {
+            provider: nonempty(config.coder.provider.clone())
+                .unwrap_or_else(|| config.provider.clone()),
+            model: nonempty(config.coder.model.clone()).unwrap_or_else(|| config.model.clone()),
+            reasoning_effort: nonempty(config.coder.reasoning_effort.clone()),
+            context_window_tokens: None,
+        }),
         WELES_AGENT_ID => {
             let overrides = &config.builtin_sub_agents.weles;
             Some(AgentExecutionFields {
@@ -95,7 +102,11 @@ fn execution_fields_for_agent(
         | crate::agent::agent_identity::PERUN_AGENT_ID
         | crate::agent::agent_identity::MOKOSH_AGENT_ID
         | crate::agent::agent_identity::DAZHBOG_AGENT_ID
-        | crate::agent::agent_identity::ROD_AGENT_ID => {
+        | crate::agent::agent_identity::ROD_AGENT_ID
+        | crate::agent::agent_identity::KIKIMORA_AGENT_ID
+        | crate::agent::agent_identity::BANNIK_AGENT_ID
+        | crate::agent::agent_identity::OVINNIK_AGENT_ID
+        | crate::agent::agent_identity::DZIAD_AGENT_ID => {
             let overrides =
                 crate::agent::agent_identity::builtin_persona_overrides(config, &target)?;
             Some(AgentExecutionFields {

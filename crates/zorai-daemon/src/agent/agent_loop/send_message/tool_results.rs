@@ -87,12 +87,12 @@ fn summarize_preview_backed_tool_result(
 }
 
 fn should_persist_tool_output_preview(tool_name: &str) -> bool {
-    TOOL_OUTPUT_PREVIEW_ALLOWLIST.contains(&tool_name)
+    TOOL_OUTPUT_PREVIEW_ALLOWLIST.contains(&zorai_protocol::tool_names::canonical_tool_name(tool_name))
 }
 
 fn should_include_argument_in_tool_output_preview(tool_name: &str) -> bool {
     matches!(
-        tool_name,
+        zorai_protocol::tool_names::canonical_tool_name(tool_name),
         zorai_protocol::tool_names::BASH_COMMAND
             | zorai_protocol::tool_names::PYTHON_EXECUTE
             | zorai_protocol::tool_names::RUN_TERMINAL_COMMAND

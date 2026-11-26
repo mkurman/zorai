@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent } from "react";
 import { getBridge } from "@/lib/bridge";
 import { CodeFileIcon, CodeFolderChevron } from "./CodeFileIcon";
 import { workspaceExplorerControllerFor, type WorkspaceExplorerSnapshot } from "./workspaceExplorerController";
@@ -57,9 +57,14 @@ function WorkspaceExplorerTreeNode({ entry, depth, status, onOpen, snapshot, onT
   const marker = status.get(entry.path) ?? "";
   const error = snapshot.errorByPath.get(entry.path);
   const activate = () => entry.isDirectory ? onToggle(entry.path) : Promise.resolve(onOpen(entry.path));
+  const revealed = snapshot.revealedPath === entry.path;
+  const rowRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (revealed) rowRef.current?.scrollIntoView({ block: "nearest" });
+  }, [revealed, snapshot.revealToken]);
 
   return <div>
-    <button type="button" role="treeitem" aria-expanded={entry.isDirectory ? expanded : undefined} aria-disabled={loading || undefined} className={entry.isGitIgnored ? "zorai-workspace-tree-row zorai-workspace-tree-row--ignored" : "zorai-workspace-tree-row"} style={{ paddingLeft: 8 + depth * 14 }} draggable={!entry.isDirectory} onDragStart={entry.isDirectory ? undefined : (event) => startCodeFileDrag(event, entry.path)} onClick={() => void activate()} onContextMenu={explorerContextMenu(onEntryContextMenu, entry)} onKeyDown={explorerShortcut(onEntryShortcut, entry)}>
+    <button ref={rowRef} type="button" role="treeitem" aria-expanded={entry.isDirectory ? expanded : undefined} aria-disabled={loading || undefined} aria-current={revealed || undefined} className={["zorai-workspace-tree-row", entry.isGitIgnored ? "zorai-workspace-tree-row--ignored" : "", revealed ? "is-revealed" : ""].filter(Boolean).join(" ")} style={{ paddingLeft: 8 + depth * 14 }} draggable={!entry.isDirectory} onDragStart={entry.isDirectory ? undefined : (event) => startCodeFileDrag(event, entry.path)} onClick={() => void activate()} onContextMenu={explorerContextMenu(onEntryContextMenu, entry)} onKeyDown={explorerShortcut(onEntryShortcut, entry)}>
       {entry.isDirectory ? <span className="zorai-workspace-chevron"><CodeFolderChevron expanded={expanded} /></span> : null}
       {!entry.isDirectory ? <CodeFileIcon path={entry.path} /> : null}
       <span className="zorai-workspace-tree-name">{entry.name}</span>
@@ -89,6 +94,8 @@ const EMPTY_EXPLORER_SNAPSHOT: WorkspaceExplorerSnapshot = {
   childrenByPath: new Map(),
   loadingPaths: new Set(),
   errorByPath: new Map(),
+  revealedPath: null,
+  revealToken: 0,
 };
 
 export function WorkspaceExplorerTree({ root, entries, status, onOpen, refreshToken, allFiles, onEntryContextMenu, onEntryShortcut }: WorkspaceExplorerTreeProps) {

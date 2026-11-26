@@ -47,6 +47,7 @@ pub(super) struct SendMessageRunner<'a> {
     pub(super) interrupted_for_approval: bool,
     pub(super) terminated_for_budget: bool,
     pub(super) report_back_phase: Option<super::report_back::ReportBackReason>,
+    pub(super) verify_turn: Option<crate::code_intel::verify::VerifyTurnState>,
     pub(super) tools_before_report_back: Option<Vec<ToolDefinition>>,
     pub(super) subagent_report: Option<SubagentTurnReport>,
     pub(super) needs_turn_done: bool,

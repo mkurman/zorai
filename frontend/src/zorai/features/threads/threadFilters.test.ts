@@ -262,6 +262,8 @@ describe("thread filters", () => {
     expect(daemonAgentFilterForThreadTab("svarog")).toBe("svarog");
     expect(daemonAgentFilterForThreadTab("rarog")).toBe("rarog");
     expect(daemonAgentFilterForThreadTab("weles")).toBe("weles");
+    expect(daemonAgentFilterForThreadTab("leszy")).toBe("leszy");
+    expect(resolveThreadCreationAgent("leszy", [])).toEqual({ id: "leszy", name: "Leszy" });
     expect(daemonAgentFilterForThreadTab("agent:domowoj")).toBe("domowoj");
     expect(daemonAgentFilterForThreadTab("agent:subagent-1777065727944", [
       { id: "subagent-1777065727944", name: "DeepSeekorrr", builtin: false } as SubAgentDefinition,
@@ -281,6 +283,7 @@ describe("thread filters", () => {
     expect(tabs.filter((tab) => !tab.id.startsWith("agent:")).map((tab) => tab.id)).toEqual([
       "svarog",
       "rarog",
+      "leszy",
       "weles",
       "goals",
       "workspace",

@@ -13,9 +13,31 @@ pub(crate) struct CliWrapperSynthesisProposal {
     pub target: String,
 }
 
+async fn cli_command(
+    argv: &[String],
+    os_sandbox_root: Option<&std::path::Path>,
+    allow_network: bool,
+) -> Result<tokio::process::Command> {
+    let Some(root) = os_sandbox_root else {
+        let mut command = tokio::process::Command::new(&argv[0]);
+        command.args(&argv[1..]);
+        return Ok(command);
+    };
+    tokio::fs::create_dir_all(root).await?;
+    let wrapped = crate::sandbox::detect_sandbox().wrap(
+        &crate::pty_session::shell_join(&argv[0], &argv[1..]),
+        &root.to_string_lossy(),
+        allow_network,
+    );
+    let mut command = tokio::process::Command::new(&wrapped.program);
+    command.args(&wrapped.args);
+    Ok(command)
+}
+
 pub(super) async fn synthesize_cli_tool(
     target: &str,
     requested_name: Option<&str>,
+    os_sandbox_root: Option<&std::path::Path>,
 ) -> Result<GeneratedToolRecord> {
     let invocation = target
         .split_whitespace()
@@ -25,11 +47,12 @@ pub(super) async fn synthesize_cli_tool(
         anyhow::bail!("empty CLI target");
     }
     validate_safe_cli_invocation(&invocation)?;
+    let mut probe = invocation.clone();
+    probe.push("--help".to_string());
     let output = tokio::time::timeout(
         Duration::from_secs(10),
-        tokio::process::Command::new(&invocation[0])
-            .args(&invocation[1..])
-            .arg("--help")
+        cli_command(&probe, os_sandbox_root, false)
+            .await?
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .output(),
@@ -183,6 +206,7 @@ pub(super) async fn run_cli_generated_tool(
     record: &GeneratedToolRecord,
     args: &serde_json::Value,
     sandbox: &ToolSynthesisSandboxConfig,
+    os_sandbox_root: Option<&std::path::Path>,
 ) -> Result<String> {
     if !sandbox.allow_filesystem {
         anyhow::bail!(
@@ -191,8 +215,7 @@ pub(super) async fn run_cli_generated_tool(
     }
     let cli = record.cli.as_ref().context("missing CLI spec")?;
     validate_safe_cli_invocation(&cli.invocation)?;
-    let mut command = tokio::process::Command::new(&cli.invocation[0]);
-    command.args(&cli.invocation[1..]);
+    let mut argv = cli.invocation.clone();
     for parameter in &record.parameters {
         let Some(value) = args.get(&parameter.name) else {
             continue;
@@ -201,12 +224,13 @@ pub(super) async fn run_cli_generated_tool(
             if value.as_bool() == Some(false) {
                 continue;
             }
-            command.arg(flag);
+            argv.push(flag.to_string());
             if parameter.param_type != "boolean" {
-                command.arg(value_to_command_arg(value));
+                argv.push(value_to_command_arg(value));
             }
         }
     }
+    let mut command = cli_command(&argv, os_sandbox_root, sandbox.allow_network).await?;
     let output = tokio::time::timeout(
         Duration::from_secs(sandbox.max_execution_time_secs.max(1)),
         command
@@ -517,7 +541,7 @@ impl AgentEngine {
     pub async fn synthesize_tool_json(&self, request_json: &str) -> Result<String> {
         let args = serde_json::from_str::<serde_json::Value>(request_json)
             .context("invalid generated-tool synthesis request JSON")?;
-        synthesize_tool(&args, self, &self.data_dir, &self.http_client).await
+        synthesize_tool(&args, self, &self.data_dir, &self.http_client, None).await
     }
 
     pub async fn run_generated_tool_json(

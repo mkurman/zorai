@@ -1,8 +1,10 @@
-import type { ConciergeConfig } from "@/lib/agentStore";
+import type { CoderRuntimeConfig, ConciergeConfig } from "@/lib/agentStore";
 import type { AgentSettings } from "@/lib/agentStore/settings";
 import type { AgentProviderId, AgentThread, SubAgentDefinition } from "@/lib/agentStore";
 import { getDefaultModelForProvider } from "@/lib/agentStore/providers";
 import { isSvarogOwner, RAROG_AGENT_ID, resolveThreadOwnerAgentId } from "./threadOwner";
+
+const LESZY_AGENT_ID = "leszy";
 
 export type ThreadOwnerRuntimeProfile = {
   ownerId: string;
@@ -47,8 +49,9 @@ export function snapshotThreadOwnerRuntimeProfile(
   subAgents: SubAgentDefinition[],
   agentSettings: AgentSettings,
   conciergeConfig: Pick<ConciergeConfig, "provider" | "model" | "reasoning_effort">,
+  coderConfig: CoderRuntimeConfig = {},
 ): Pick<AgentThread, "profileProvider" | "profileModel" | "profileReasoningEffort" | "profileContextWindowTokens"> {
-  const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig);
+  const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig, coderConfig);
   return {
     profileProvider: profile.provider.trim() || null,
     profileModel: profile.model.trim() || null,
@@ -62,10 +65,11 @@ export function resolveThreadOwnerRuntimeProfile(
   subAgents: SubAgentDefinition[],
   agentSettings: AgentSettings,
   conciergeConfig: Pick<ConciergeConfig, "provider" | "model" | "reasoning_effort">,
+  coderConfig: CoderRuntimeConfig = {},
 ): ThreadOwnerRuntimeProfile {
   const ownerId = resolveThreadOwnerAgentId(thread, subAgents);
   const inherited = svarogRuntimeProfile(agentSettings, ownerId);
-  const configured = configuredOwnerRuntimeProfile(ownerId, subAgents, agentSettings, conciergeConfig)
+  const configured = configuredOwnerRuntimeProfile(ownerId, subAgents, agentSettings, conciergeConfig, coderConfig)
     ?? inherited;
   const upstreamProvider = typeof thread.upstreamProvider === "string" ? thread.upstreamProvider.trim() : "";
   const upstreamModel = typeof thread.upstreamModel === "string" ? thread.upstreamModel.trim() : "";
@@ -85,6 +89,7 @@ function configuredOwnerRuntimeProfile(
   subAgents: SubAgentDefinition[],
   agentSettings: AgentSettings,
   conciergeConfig: Pick<ConciergeConfig, "provider" | "model" | "reasoning_effort">,
+  coderConfig: CoderRuntimeConfig,
 ): ThreadOwnerRuntimeProfile | null {
   if (isSvarogOwner(ownerId)) {
     return svarogRuntimeProfile(agentSettings, ownerId);
@@ -102,6 +107,19 @@ function configuredOwnerRuntimeProfile(
       };
     }
     return svarogRuntimeProfile(agentSettings, ownerId);
+  }
+
+  if (ownerId === LESZY_AGENT_ID) {
+    const inherited = svarogRuntimeProfile(agentSettings, ownerId);
+    const provider = coderConfig.provider?.trim() || inherited.provider;
+    const model = coderConfig.model?.trim() || (coderConfig.provider?.trim() ? getDefaultModelForProvider(provider as AgentProviderId) : inherited.model);
+    return {
+      ownerId,
+      provider,
+      model,
+      effort: coderConfig.reasoning_effort?.trim() || inherited.effort,
+      contextWindowTokens: provider === inherited.provider ? inherited.contextWindowTokens : contextWindowForProvider(agentSettings, provider),
+    };
   }
 
   const entry = findSubAgent(ownerId, subAgents);

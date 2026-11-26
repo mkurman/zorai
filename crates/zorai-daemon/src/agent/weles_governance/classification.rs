@@ -64,7 +64,7 @@ pub(crate) fn security_level_for_tool_call(
     tool_args: &serde_json::Value,
 ) -> SecurityLevel {
     let is_shell = matches!(
-        tool_name,
+        zorai_protocol::tool_names::canonical_tool_name(tool_name),
         zorai_protocol::tool_names::BASH_COMMAND
             | zorai_protocol::tool_names::RUN_TERMINAL_COMMAND
             | zorai_protocol::tool_names::EXECUTE_MANAGED_COMMAND
@@ -96,7 +96,7 @@ pub(crate) fn stamp_shell_tool_security_level(
     security_level: SecurityLevel,
 ) {
     let is_shell = matches!(
-        tool_name,
+        zorai_protocol::tool_names::canonical_tool_name(tool_name),
         zorai_protocol::tool_names::BASH_COMMAND
             | zorai_protocol::tool_names::RUN_TERMINAL_COMMAND
             | zorai_protocol::tool_names::EXECUTE_MANAGED_COMMAND
@@ -291,7 +291,9 @@ pub(crate) fn classify_tool_call(
     tool_name: &str,
     tool_args: &serde_json::Value,
 ) -> WelesToolClassification {
-    let normalized_tool = tool_name.trim().to_ascii_lowercase();
+    let lowered_tool = tool_name.trim().to_ascii_lowercase();
+    let normalized_tool =
+        zorai_protocol::tool_names::canonical_tool_name(lowered_tool.as_str()).to_string();
     if matches!(
         normalized_tool.as_str(),
         zorai_protocol::tool_names::BASH_COMMAND
@@ -430,6 +432,23 @@ mod tests {
         let mut config = AgentConfig::default();
         config.managed_execution.security_level = security_level;
         config
+    }
+
+    #[test]
+    fn legacy_shell_tool_names_get_the_same_review_as_their_canonical_names() {
+        let args = serde_json::json!({ "command": "rm -rf / --no-preserve-root" });
+        for (legacy, canonical) in [
+            (tool_names::BASH_COMMAND_LEGACY, tool_names::BASH_COMMAND),
+            (tool_names::RUN_TERMINAL_COMMAND_LEGACY, tool_names::RUN_TERMINAL_COMMAND),
+            (tool_names::EXECUTE_MANAGED_COMMAND_LEGACY, tool_names::EXECUTE_MANAGED_COMMAND),
+        ] {
+            assert_eq!(classify_tool_call(legacy, &args), classify_tool_call(canonical, &args), "{legacy}");
+            assert_eq!(
+                security_level_for_tool_call(&config_with(SecurityLevel::Yolo), legacy, &args),
+                SecurityLevel::Yolo,
+                "{legacy}"
+            );
+        }
     }
 
     #[test]

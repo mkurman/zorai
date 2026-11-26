@@ -128,6 +128,55 @@ pub(super) enum AgentBridgeCommand {
         #[serde(default)]
         recent_subjects: Vec<String>,
     },
+    GenerateCodeFix {
+        path: String,
+        language: String,
+        before: String,
+        target: String,
+        after: String,
+        #[serde(default)]
+        diagnostics: Vec<String>,
+        #[serde(default)]
+        instruction: String,
+        #[serde(default)]
+        request_id: String,
+        #[serde(default)]
+        reasoning: Option<bool>,
+        #[serde(default)]
+        images: Vec<String>,
+    },
+    ListProjectRules {
+        root: String,
+        #[serde(default)]
+        targets: Vec<String>,
+    },
+    CodeSymbols {
+        root: String,
+        path: String,
+        #[serde(default)]
+        content: Option<String>,
+    },
+    CodeIndex {
+        action: String,
+        root: String,
+        #[serde(default)]
+        query: String,
+        #[serde(default)]
+        limit: Option<usize>,
+        #[serde(default)]
+        options_json: Option<String>,
+    },
+    CodeComplete {
+        request_id: String,
+        path: String,
+        language: String,
+        prefix: String,
+        suffix: String,
+        #[serde(default)]
+        kind: String,
+        #[serde(default)]
+        recent_edits: Vec<String>,
+    },
     AddTask {
         title: String,
         description: String,

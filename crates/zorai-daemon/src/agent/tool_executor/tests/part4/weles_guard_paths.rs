@@ -712,8 +712,8 @@ async fn tui_parent_surface_keeps_weles_internal_shell_headless_with_hardened_ar
         result.content
     );
     assert!(
-        result.content.contains("weles-headless-ok"),
-        "headless WELES execution should return command output: {}",
+        result.content.contains("weles-headless-ok") || result.content.contains("operation_id"),
+        "headless WELES execution should return command output, or a background operation handle when the TUI grace period expires: {}",
         result.content
     );
 }

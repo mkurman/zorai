@@ -107,6 +107,46 @@ fn bridge_event_from_daemon_message(message: &DaemonMessage) -> Option<serde_jso
             "type": "commit-message",
             "data": { "message": message, "error": error },
         })),
+        DaemonMessage::AgentCodeFixGenerated { replacement, error } => Some(serde_json::json!({
+            "type": "code-fix",
+            "data": { "replacement": replacement, "error": error },
+        })),
+        DaemonMessage::AgentCodeFixDelta {
+            request_id,
+            text,
+            reasoning,
+        } => Some(serde_json::json!({
+            "type": "code-fix-delta",
+            "data": { "request_id": request_id, "text": text, "reasoning": reasoning },
+        })),
+        DaemonMessage::AgentCodeCompletion {
+            request_id,
+            completion,
+            error,
+        } => Some(serde_json::json!({
+            "type": "code-completion",
+            "data": { "request_id": request_id, "completion": completion, "error": error },
+        })),
+        DaemonMessage::AgentProjectRules { rules_json } => Some(serde_json::json!({
+            "type": "project-rules",
+            "data": serde_json::from_str::<serde_json::Value>(rules_json).unwrap_or_default(),
+        })),
+        DaemonMessage::AgentCodeSymbolsResult { graph_json } => Some(serde_json::json!({
+            "type": "code-symbols",
+            "data": serde_json::from_str::<serde_json::Value>(graph_json).unwrap_or_default(),
+        })),
+        DaemonMessage::AgentCodeIndexResult {
+            action,
+            result_json,
+            error,
+        } => Some(serde_json::json!({
+            "type": "code-index",
+            "data": {
+                "action": action,
+                "result": serde_json::from_str::<serde_json::Value>(result_json).unwrap_or_default(),
+                "error": error,
+            },
+        })),
         DaemonMessage::AgentUiColors { colors_json } => Some(serde_json::json!({
             "type": "ui-colors",
             "data": serde_json::from_str::<serde_json::Value>(colors_json).unwrap_or_default(),

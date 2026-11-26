@@ -10,6 +10,7 @@ import { threadIsUnread } from "./sessionCooperation";
 import { threadReadKey, useThreadReadStateStore } from "./threadReadStateStore";
 import { ThreadNeedsActionIcon, useThreadIdsNeedingAction } from "./threadNeedsAction";
 import { useThreadRailTabStore } from "./threadRailTabStore";
+import { useDragScroll } from "./useDragScroll";
 import { resolveThreadCreationAgent } from "./threadFilterModel";
 import { MAX_SPLIT_PANES, splitLayoutsFor, splitPaneIds, useThreadSplitStore, type ThreadSplitDropZone, type ThreadSplitLayout } from "./threadSplitModel";
 import { consumePendingThreadCommand, ZORAI_THREAD_COMMAND_EVENT, type ZoraiThreadCommand } from "@/zorai/shell/zoraiAppCommands";
@@ -57,6 +58,12 @@ export function SessionTabStrip({
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [drop, setDrop] = useState<SessionTabDrop | null>(null);
+  const [stripElement, setStripElement] = useState<HTMLElement | null>(null);
+  useDragScroll(stripElement, { ignore: '[draggable="true"]' });
+  const activeTabId = tabs.find((tab) => tab.active)?.id ?? null;
+  useEffect(() => {
+    stripElement?.querySelector(".zorai-session-tab--active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeTabId, stripElement]);
   if (tabs.length === 0 && !onNew) return null;
 
   const endDrag = () => {
@@ -80,6 +87,16 @@ export function SessionTabStrip({
         onStripContextMenu(event.clientX, event.clientY);
       } : undefined}
     >
+      <div
+        ref={setStripElement}
+        className="zorai-session-tabs__scroll zorai-drag-scroll"
+        onDragOver={draggingId ? (event) => {
+          const rect = event.currentTarget.getBoundingClientRect();
+          const edge = 48;
+          if (event.clientX < rect.left + edge) event.currentTarget.scrollLeft -= 12;
+          else if (event.clientX > rect.right - edge) event.currentTarget.scrollLeft += 12;
+        } : undefined}
+      >
       {tabs.map((tab) => {
         const classes = ["zorai-session-tab"];
         if (tab.active) classes.push("zorai-session-tab--active");
@@ -154,6 +171,7 @@ export function SessionTabStrip({
           </div>
         );
       })}
+      </div>
       {onNew ? (
         <button type="button" className="zorai-session-tabs__new" title="New thread" aria-label="New thread" onClick={onNew}>
           <span aria-hidden="true">+</span> New

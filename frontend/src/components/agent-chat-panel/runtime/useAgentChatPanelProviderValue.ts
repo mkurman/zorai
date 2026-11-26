@@ -471,6 +471,7 @@ export function useAgentChatPanelProviderValue(): {
       state.subAgents,
       state.agentSettings,
       state.conciergeConfig,
+      state.coderConfig,
     );
     const id = storeCreateThread({ ...opts, ...profile });
     if (opts.activate !== false) {

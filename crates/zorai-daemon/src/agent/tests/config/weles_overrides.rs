@@ -64,7 +64,7 @@ async fn set_sub_agent_clears_weles_overrides_when_reverted_to_inherited_values(
         .expect("missing builtin weles entry");
     assert_eq!(effective.provider, PROVIDER_ID_GROQ);
     assert_eq!(effective.model, "llama-3.3-70b-versatile");
-    assert_eq!(effective.system_prompt.as_deref(), Some("Main prompt B"));
+    assert_eq!(effective.system_prompt, None);
     assert_eq!(effective.reasoning_effort.as_deref(), Some("medium"));
 }
 
@@ -185,4 +185,18 @@ async fn set_sub_agent_sanitizes_in_memory_weles_system_prompt_overrides() {
     assert!(!prompt.contains(crate::agent::weles_governance::WELES_SCOPE_MARKER));
     assert!(!prompt.contains(crate::agent::weles_governance::WELES_BYPASS_MARKER));
     assert!(!prompt.contains(crate::agent::weles_governance::WELES_CONTEXT_MARKER));
+}
+
+#[test]
+fn weles_never_runs_on_svarogs_operator_prompt_while_other_agents_still_inherit_it() {
+    let mut config = AgentConfig::default();
+    config.system_prompt = "Svarog operator prompt".to_string();
+
+    assert_eq!(build_effective_weles_definition(&config).system_prompt, None);
+    assert_eq!(inherited_base_prompt(Some("weles_builtin"), &config), "");
+    assert_eq!(
+        inherited_base_prompt(Some("custom_reviewer"), &config),
+        "Svarog operator prompt"
+    );
+    assert_eq!(inherited_base_prompt(None, &config), "Svarog operator prompt");
 }

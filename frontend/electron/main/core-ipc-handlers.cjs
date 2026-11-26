@@ -1,5 +1,8 @@
 const { execFile } = require('child_process');
 const { listSkillDocuments } = require('./skill-documents.cjs');
+const { loadSnippets } = require('./snippet-loader.cjs');
+const { getZoraiDataDir } = require('./app-data.cjs');
+const path = require('path');
 
 function registerCoreIpcHandlers(ipcMain, options) {
     const {
@@ -55,6 +58,11 @@ function registerCoreIpcHandlers(ipcMain, options) {
         stopWorkspaceWatch,
         lspRuntime,
         testRuntime,
+        localHistory,
+        workspaceSearchStreams,
+        dapRuntime,
+        taskRuntime,
+        notebookKernels,
     } = options;
 
     ipcMain.handle('getSocketPath', getSocketPath);
@@ -128,7 +136,21 @@ function registerCoreIpcHandlers(ipcMain, options) {
     ipcMain.handle('workspace-list-directory', (_event, rootPath, relativePath, runtimeOptions) => workspaceService.listWorkspaceDirectory(rootPath, relativePath, runtimeOptions));
     ipcMain.handle('workspace-stat-file', (_event, rootPath, relativePath) => workspaceService.statWorkspaceFile(rootPath, relativePath));
     ipcMain.handle('workspace-read-file', (_event, rootPath, relativePath, runtimeOptions) => workspaceService.readWorkspaceFile(rootPath, relativePath, runtimeOptions));
-    ipcMain.handle('workspace-write-file', (_event, rootPath, relativePath, content, expectedHash) => workspaceService.writeWorkspaceFile(rootPath, relativePath, content, expectedHash));
+    ipcMain.handle('workspace-read-optional-file', async (_event, rootPath, relativePath, runtimeOptions) => {
+        try {
+            return await workspaceService.readWorkspaceFile(rootPath, relativePath, runtimeOptions);
+        } catch (error) {
+            if (error?.code === 'WORKSPACE_PATH_NOT_FOUND') return null;
+            throw error;
+        }
+    });
+    ipcMain.handle('workspace-write-file', async (_event, rootPath, relativePath, content, expectedHash) => {
+        const saved = await workspaceService.writeWorkspaceFile(rootPath, relativePath, content, expectedHash);
+        void localHistory?.record(saved?.root ?? rootPath, saved?.path ?? relativePath, saved?.content ?? content).catch(() => null);
+        return saved;
+    });
+    ipcMain.handle('workspace-local-history-list', (_event, rootPath, relativePath) => localHistory?.list(rootPath, relativePath) ?? []);
+    ipcMain.handle('workspace-local-history-read', (_event, rootPath, relativePath, id) => localHistory?.read(rootPath, relativePath, id) ?? '');
     ipcMain.handle('workspace-create-directory', (_event, rootPath, relativePath) => workspaceService.createWorkspaceDirectory(rootPath, relativePath));
     ipcMain.handle('workspace-rename-path', (_event, rootPath, fromPath, toPath) => workspaceService.renameWorkspacePath(rootPath, fromPath, toPath));
     ipcMain.handle('workspace-delete-path', (_event, rootPath, relativePath, runtimeOptions) => workspaceService.deleteWorkspacePath(rootPath, relativePath, runtimeOptions));
@@ -157,19 +179,46 @@ function registerCoreIpcHandlers(ipcMain, options) {
     ipcMain.handle('workspace-git-discard', (_event, rootPath, relativePath) => workspaceService.workspaceGitDiscard(rootPath, relativePath));
     ipcMain.handle('workspace-git-hunks', (_event, rootPath, relativePath, runtimeOptions) => workspaceService.workspaceGitHunks(rootPath, relativePath, runtimeOptions));
     ipcMain.handle('workspace-git-apply-hunk', (_event, rootPath, relativePath, hunkId, action) => workspaceService.workspaceGitApplyHunk(rootPath, relativePath, hunkId, action));
-    ipcMain.handle('workspace-search', (_event, rootPath, query, runtimeOptions) => workspaceService.searchWorkspace(rootPath, query, runtimeOptions));
+    ipcMain.handle('workspace-search', async (event, rootPath, query, runtimeOptions) => {
+        const streamId = typeof runtimeOptions?.streamId === 'string' ? runtimeOptions.streamId : null;
+        if (streamId) workspaceSearchStreams?.set(streamId, event.sender);
+        try {
+            return await workspaceService.searchWorkspace(rootPath, query, runtimeOptions);
+        } finally {
+            if (streamId) workspaceSearchStreams?.delete(streamId);
+        }
+    });
     ipcMain.handle('workspace-replace', (_event, rootPath, query, replacement, runtimeOptions, targets) => workspaceService.replaceInWorkspace(rootPath, query, replacement, runtimeOptions, targets));
     ipcMain.handle('workspace-list-files', (_event, rootPath) => workspaceService.listWorkspaceFiles(rootPath));
     ipcMain.handle('workspace-search-file-names', (_event, rootPath, query, runtimeOptions) => workspaceService.searchWorkspaceFileNames(rootPath, query, runtimeOptions));
     ipcMain.handle('workspace-git-diff', (_event, rootPath, relativePath, runtimeOptions) => workspaceService.workspaceGitDiff(rootPath, relativePath, runtimeOptions));
+    ipcMain.handle('workspace-git-changed-ranges', (_event, rootPath, baseRef) => workspaceService.workspaceGitChangedRanges(rootPath, baseRef));
+    ipcMain.handle('workspace-read-bytes', (_event, rootPath, relativePath, offset, length) => workspaceService.readWorkspaceBytes(rootPath, relativePath, offset, length));
+    ipcMain.handle('workspace-git-stage-content', (_event, rootPath, relativePath, content) => workspaceService.workspaceGitStageContent(rootPath, relativePath, content));
+    ipcMain.handle('workspace-git-blame', (_event, rootPath, relativePath) => workspaceService.workspaceGitBlame(rootPath, relativePath));
     ipcMain.handle('workspace-git-show', (_event, rootPath, relativePath, revision) => workspaceService.workspaceGitShow(rootPath, relativePath, revision));
     ipcMain.handle('workspace-watch-start', (event, rootPath, runtimeOptions) => startWorkspaceWatch(event.sender, rootPath, runtimeOptions));
     ipcMain.handle('workspace-watch-stop', (_event, subscriptionId) => stopWorkspaceWatch(subscriptionId));
+    ipcMain.handle('snippets-load', (_event, rootPath) => loadSnippets(rootPath || null, path.join(getZoraiDataDir(), 'snippets')));
+    ipcMain.handle('notebook-execute', (_event, rootPath, notebookPath, code) => notebookKernels.execute(rootPath, notebookPath, code));
+    ipcMain.handle('notebook-restart', (_event, rootPath, notebookPath) => notebookKernels.restart(rootPath, notebookPath));
+    ipcMain.handle('tasks-discover', (_event, rootPath) => taskRuntime.discover(rootPath));
+    ipcMain.handle('tasks-run', (event, rootPath, task) => taskRuntime.run(event.sender, rootPath, task));
+    ipcMain.handle('tasks-stop', (_event, runId) => taskRuntime.stop(runId));
+    ipcMain.handle('debug-configurations', (_event, rootPath, file) => dapRuntime.configurations(rootPath, file));
+    ipcMain.handle('debug-start', (event, rootPath, file, config, breakpoints, exceptionFilters) => dapRuntime.start(event.sender, rootPath, file, config, breakpoints, exceptionFilters));
+    ipcMain.handle('debug-request', (_event, sessionId, command, args) => dapRuntime.request(sessionId, command, args));
+    ipcMain.handle('debug-set-breakpoints', (_event, sessionId, absolutePath, breakpoints) => dapRuntime.setBreakpoints(sessionId, absolutePath, breakpoints));
+    ipcMain.handle('debug-stop', (_event, sessionId) => dapRuntime.stop(sessionId));
     ipcMain.handle('workspace-lsp-status', (_event, rootPath, language) => lspRuntime.status(rootPath, language));
     ipcMain.handle('workspace-lsp-open', (event, rootPath, relativePath, language, content, version) => lspRuntime.open(event.sender, rootPath, relativePath, language, content, version));
     ipcMain.handle('workspace-lsp-change', (event, rootPath, relativePath, language, content, version) => lspRuntime.change(event.sender, rootPath, relativePath, language, content, version));
-    ipcMain.handle('workspace-lsp-request', (event, rootPath, relativePath, language, method, position) => lspRuntime.request(event.sender, rootPath, relativePath, language, method, position));
+    ipcMain.handle('workspace-lsp-request', (event, rootPath, relativePath, language, method, position, extra) => lspRuntime.request(event.sender, rootPath, relativePath, language, method, position, extra));
+    ipcMain.handle('workspace-lsp-save', (_event, rootPath, relativePath, language) => lspRuntime.save(rootPath, relativePath, language));
     ipcMain.handle('workspace-lsp-close', (_event, rootPath, relativePath, language) => lspRuntime.close(rootPath, relativePath, language));
+    ipcMain.handle('workspace-lsp-servers', () => lspRuntime.servers());
+    ipcMain.handle('workspace-lsp-log', () => lspRuntime.logs());
+    ipcMain.handle('workspace-lsp-install', (_event, id) => lspRuntime.install(id));
     ipcMain.handle('workspace-lsp-unsubscribe', (event, rootPath, language) => lspRuntime.unsubscribe(event.sender, rootPath, language));
     ipcMain.handle('workspace-tests-discover', (_event, rootPath, runtimeOptions) => testRuntime.discover(rootPath, runtimeOptions));
     ipcMain.handle('workspace-tests-run', (event, rootPath, request) => testRuntime.run(event.sender, rootPath, request));

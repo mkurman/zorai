@@ -60,14 +60,11 @@ impl AgentEngine {
             anyhow::bail!("there are no changes to describe");
         }
         let config = self.config.read().await.clone();
-        let resolved = crate::agent::concierge::resolve_concierge_provider(&config)?;
-        let provider_id = config
-            .concierge
-            .provider
-            .as_deref()
-            .unwrap_or(&config.provider)
-            .to_string();
-        let provider_config = crate::agent::concierge::fast_concierge_provider_config(&resolved);
+        let (provider_id, mut provider_config) =
+            crate::agent::coder::resolve_coder_provider(&config)?;
+        crate::agent::coder::ensure_answer_room(&mut provider_config, 1024);
+        let system_prompt =
+            crate::agent::coder::coder_system_prompt(&config, COMMIT_MESSAGE_SYSTEM_PROMPT);
         drop(config);
 
         self.check_circuit_breaker(&provider_id).await?;
@@ -83,7 +80,7 @@ impl AgentEngine {
             &self.http_client,
             &provider_id,
             &provider_config,
-            COMMIT_MESSAGE_SYSTEM_PROMPT,
+            &system_prompt,
             &messages,
             &[],
             provider_config.api_transport,
@@ -124,7 +121,7 @@ impl AgentEngine {
             }
         }
         sanitize_commit_message(&content)
-            .ok_or_else(|| anyhow::anyhow!("Rarog returned an empty commit message"))
+            .ok_or_else(|| anyhow::anyhow!("Leszy returned an empty commit message"))
     }
 }
 

@@ -24,13 +24,13 @@ export function isBinaryFileError(reason: unknown): boolean {
   return /binary files cannot be opened/i.test(message);
 }
 
-export function CodeUnsupportedFileNotice({ path, onOpenExternal, onReveal, onDismiss }: {
-  path: string; onOpenExternal: () => void; onReveal: () => void; onDismiss: () => void;
+export function CodeUnsupportedFileNotice({ path, onOpenExternal, onReveal, onDismiss, onOpenHex }: {
+  path: string; onOpenExternal: () => void; onReveal: () => void; onDismiss: () => void; onOpenHex?: () => void;
 }) {
   const name = path.split(/[\\/]/).pop() || path;
   return <div className="zorai-code-large-file" role="status">
     <strong>{name} can't be opened here</strong>
-    <p>This is a binary file, and the editor only opens text. You can open it in another app instead.</p>
-    <div><button type="button" onClick={onOpenExternal}>Open externally</button><button type="button" onClick={onReveal}>Reveal</button><button type="button" onClick={onDismiss}>Dismiss</button></div>
+    <p>This is a binary file, and the editor only opens text. You can inspect its bytes or open it in another app.</p>
+    <div>{onOpenHex ? <button type="button" onClick={onOpenHex}>View as hex</button> : null}<button type="button" onClick={onOpenExternal}>Open externally</button><button type="button" onClick={onReveal}>Reveal</button><button type="button" onClick={onDismiss}>Dismiss</button></div>
   </div>;
 }

@@ -46,6 +46,10 @@ impl ConnectionWriter {
         Self { tx }
     }
 
+    pub(crate) fn sender(&self) -> mpsc::Sender<DaemonMessage> {
+        self.tx.clone()
+    }
+
     /// Must be non-blocking: the read loop calls this on the same task that
     /// reads client messages. A blocking `await` here would deadlock the
     /// connection if the socket is slow.
@@ -201,6 +205,8 @@ fn client_message_requires_startup_readiness(msg: &ClientMessage) -> bool {
             | ClientMessage::AgentGetOperationStatus { .. }
             | ClientMessage::AgentListThreadOperations { .. }
             | ClientMessage::AgentGenerateCommitMessage { .. }
+            | ClientMessage::AgentGenerateCodeFix { .. }
+            | ClientMessage::AgentCodeComplete { .. }
             | ClientMessage::AgentHandoffThread { .. }
             | ClientMessage::AgentGetHealthStatus
     )
@@ -247,6 +253,9 @@ fn client_message_variant_name(msg: &ClientMessage) -> &'static str {
         AgentGetOperationStatus { .. } => "AgentGetOperationStatus",
         AgentListThreadOperations { .. } => "AgentListThreadOperations",
         AgentGenerateCommitMessage { .. } => "AgentGenerateCommitMessage",
+        AgentGenerateCodeFix { .. } => "AgentGenerateCodeFix",
+        AgentCodeComplete { .. } => "AgentCodeComplete",
+        AgentListProjectRules { .. } => "AgentListProjectRules",
         AgentHandoffThread { .. } => "AgentHandoffThread",
         AgentHeartbeatGetItems => "AgentHeartbeatGetItems",
         ListAgentEvents { .. } => "ListAgentEvents",

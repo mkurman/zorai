@@ -2,6 +2,22 @@ import type { ReactNode } from "react";
 import type { ZoraiSettingsIconId } from "./settingsTabs";
 
 const ICON_PATHS: Record<ZoraiSettingsIconId, ReactNode> = {
+  code: (
+    <>
+      <path d="m8 7-5 5 5 5" />
+      <path d="m16 7 5 5-5 5" />
+      <path d="m13.5 5-3 14" />
+    </>
+  ),
+  scale: (
+    <>
+      <path d="M12 3v18" />
+      <path d="M7 21h10" />
+      <path d="M4 7h16" />
+      <path d="m4 7-3 7a3 3 0 0 0 6 0z" />
+      <path d="m20 7-3 7a3 3 0 0 0 6 0z" />
+    </>
+  ),
   key: (
     <>
       <circle cx="8" cy="15" r="4" />

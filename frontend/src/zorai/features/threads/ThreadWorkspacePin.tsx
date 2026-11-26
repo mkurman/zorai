@@ -5,12 +5,33 @@ import { useWorkspaceContextStore } from "@/lib/workspaceContextStore";
 import { useCodeWorkspaceBindingStore } from "../code/codeWorkspaceBindingStore";
 import { ComposerIcon } from "./ThreadComposer";
 
-export function ThreadWorkspacePin() {
+export function useThreadWorkspace() {
   const runtime = useAgentChatPanelRuntime();
   const activeThreadId = runtime.activeThreadId;
   const workspaceContext = useWorkspaceContextStore((state) => activeThreadId ? state.byThreadId[activeThreadId] : undefined);
   const clearWorkspaceRoot = useWorkspaceContextStore((state) => state.clearRoot);
   const bindWorkspaceRoot = useWorkspaceContextStore((state) => state.bindRoot);
+  const pick = async () => {
+    if (!activeThreadId || !window.zorai?.workspaceSelectFolder) return;
+    const selection = await window.zorai.workspaceSelectFolder().catch(() => null);
+    if (!selection || selection.canceled || !selection.root) return;
+    bindWorkspaceRoot(activeThreadId, selection.root.root);
+  };
+  const unpin = () => {
+    if (!activeThreadId || !workspaceContext) return;
+    const unpinnedRoot = workspaceContext.root;
+    clearWorkspaceRoot(activeThreadId);
+    const daemonThreadId = runtime.activeThread?.daemonThreadId;
+    const bindings = useCodeWorkspaceBindingStore.getState();
+    bindings.forgetProjectThread(unpinnedRoot, activeThreadId);
+    if (daemonThreadId) bindings.forgetProjectThread(unpinnedRoot, daemonThreadId);
+    if (daemonThreadId) void window.zorai?.agentSetThreadWorkspaceContext?.(daemonThreadId, null);
+  };
+  return { activeThreadId, workspaceContext, pick, unpin };
+}
+
+export function ThreadWorkspacePin() {
+  const { activeThreadId, workspaceContext, pick: pickWorkspaceRoot, unpin } = useThreadWorkspace();
   const [previewOpen, setPreviewOpen] = useState(false);
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
@@ -37,13 +58,6 @@ export function ThreadWorkspacePin() {
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [previewOpen]);
-  const pickWorkspaceRoot = async () => {
-    if (!activeThreadId || !window.zorai?.workspaceSelectFolder) return;
-    const selection = await window.zorai.workspaceSelectFolder().catch(() => null);
-    if (!selection || selection.canceled || !selection.root) return;
-    bindWorkspaceRoot(activeThreadId, selection.root.root);
-  };
-
   if (!activeThreadId) return null;
   if (!workspaceContext) {
     return (
@@ -76,14 +90,8 @@ export function ThreadWorkspacePin() {
           aria-label="Unpin workspace from thread"
           title="Unpin workspace from thread"
           onClick={() => {
-            const unpinnedRoot = workspaceContext.root;
-            clearWorkspaceRoot(activeThreadId);
+            unpin();
             setPreviewOpen(false);
-            const daemonThreadId = runtime.activeThread?.daemonThreadId;
-            const bindings = useCodeWorkspaceBindingStore.getState();
-            bindings.forgetProjectThread(unpinnedRoot, activeThreadId);
-            if (daemonThreadId) bindings.forgetProjectThread(unpinnedRoot, daemonThreadId);
-            if (daemonThreadId) void window.zorai?.agentSetThreadWorkspaceContext?.(daemonThreadId, null);
           }}
         ><ComposerIcon kind="cancel" /></button>
       </div>

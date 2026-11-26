@@ -146,6 +146,10 @@ fn quiet_hour(config: &ConfigState, key: &str) -> String {
         .unwrap_or_else(|| "off".to_string())
 }
 
+fn leszy_value(config: &ConfigState, key: &str) -> String {
+    raw_str(config, &["coder", key], "(use Svarog)").to_string()
+}
+
 fn or_default(value: String, default: &str) -> String {
     if value.trim().is_empty() {
         default.to_string()
@@ -480,12 +484,11 @@ const COMPACTION_PAGE: SettingsPageSpec = SettingsPageSpec {
                 field!(Number, "max_context_messages", "Heuristic max messages", c => c.max_context_messages.to_string()),
             ]
         ),
-        section!("Strategy settings", note c => (c.compaction_strategy != "weles" && c.compaction_strategy != "custom_model")
-            .then(|| "Heuristic compaction uses the built-in rule based summary path.".to_string()), [
-            field!(Picker, "compaction_weles_provider", "WELES provider", c => c.compaction_weles_provider.as_str(), if c => c.compaction_strategy == "weles"),
-            field!(Picker, "compaction_weles_model", "WELES model", c => c.compaction_weles_model.as_str(), if c => c.compaction_strategy == "weles"),
-            field!(Picker, "compaction_weles_reasoning_effort", "WELES reasoning", c => c.compaction_weles_reasoning_effort.as_str(), if c => c.compaction_strategy == "weles"),
-            field!(Choice, "compaction_weles_api_transport", "WELES transport", c => or_default(c.compaction_weles_api_transport.clone(), "(inherit)"), if c => c.compaction_strategy == "weles"),
+        section!("Strategy settings", note c => match c.compaction_strategy.as_str() {
+            "weles" => Some("WELES compaction provider and model are set in the Weles tab.".to_string()),
+            "custom_model" => None,
+            _ => Some("Heuristic compaction uses the built-in rule based summary path.".to_string()),
+        }, [
             field!(Picker, "compaction_custom_provider", "Custom provider", c => c.compaction_custom_provider.as_str(), if c => c.compaction_strategy == "custom_model"),
             field!(Text, "compaction_custom_base_url", "Custom base URL", c => c.compaction_custom_base_url.as_str(), if c => c.compaction_strategy == "custom_model"),
             field!(Choice, "compaction_custom_auth_source", "Custom auth", c => c.compaction_custom_auth_source.as_str(), if c => c.compaction_strategy == "custom_model"),
@@ -521,12 +524,6 @@ const EXECUTION_PAGE: SettingsPageSpec = SettingsPageSpec {
                 field!(Number, "llm_stream_chunk_timeout_secs", "Stream timeout (s)", c => c.llm_stream_chunk_timeout_secs.to_string()),
             ]
         ),
-        section!(
-            "Reviews",
-            [
-                field!(Number, "weles_max_concurrent_reviews", "WELES reviews", c => c.weles_max_concurrent_reviews.to_string()),
-            ]
-        ),
     ],
 };
 
@@ -538,7 +535,6 @@ const SAFETY_PAGE: SettingsPageSpec = SettingsPageSpec {
             "Managed commands",
             [
                 field!(Toggle, "managed_sandbox_enabled", "Sandbox managed commands", c => c.managed_sandbox_enabled),
-                field!(Choice, "managed_security_level", "Security level", c => c.managed_security_level.as_str()),
             ]
         ),
         section!(
@@ -549,6 +545,51 @@ const SAFETY_PAGE: SettingsPageSpec = SettingsPageSpec {
                 field!(Toggle, "compliance_sign_all_events", "Sign all events", c => c.compliance_sign_all_events),
             ]
         ),
+    ],
+};
+
+const LESZY_PAGE: SettingsPageSpec = SettingsPageSpec {
+    title: "Leszy",
+    description: "Coding agent. Empty values inherit from Svarog.",
+    sections: &[section!(
+        "Model",
+        [
+            field!(Text, "leszy_provider", "Provider", c => leszy_value(c, "provider")),
+            field!(Text, "leszy_model", "Model", c => leszy_value(c, "model")),
+            field!(Choice, "leszy_reasoning_effort", "Reasoning", c => leszy_value(c, "reasoning_effort")),
+            field!(Text, "leszy_base_url", "Base URL", c => leszy_value(c, "base_url")),
+            field!(Textarea, "leszy_system_prompt", "System prompt", c => leszy_value(c, "system_prompt")),
+        ]
+    )],
+};
+
+const WELES_PAGE: SettingsPageSpec = SettingsPageSpec {
+    title: "Weles",
+    description: "Guardian agent: command governance, reviews, and WELES compaction.",
+    sections: &[
+        section!(
+            "Agent",
+            [
+                field!(Action, "weles_agent_editor", "Edit WELES agent", _c => "provider, model, role, prompt"),
+            ]
+        ),
+        section!(
+            "Governance",
+            [
+                field!(Choice, "managed_security_level", "Security level", c => c.managed_security_level.as_str()),
+                field!(Number, "weles_max_concurrent_reviews", "WELES reviews", c => c.weles_max_concurrent_reviews.to_string()),
+            ]
+        ),
+        section!("Compaction", note c => Some(if c.compaction_strategy == "weles" {
+            "Used by the WELES compaction strategy.".to_string()
+        } else {
+            "Used when the compaction strategy is WELES (currently it is not).".to_string()
+        }), [
+            field!(Picker, "compaction_weles_provider", "WELES provider", c => c.compaction_weles_provider.as_str()),
+            field!(Picker, "compaction_weles_model", "WELES model", c => c.compaction_weles_model.as_str()),
+            field!(Picker, "compaction_weles_reasoning_effort", "WELES reasoning", c => c.compaction_weles_reasoning_effort.as_str()),
+            field!(Choice, "compaction_weles_api_transport", "WELES transport", c => or_default(c.compaction_weles_api_transport.clone(), "(inherit)")),
+        ]),
     ],
 };
 
@@ -584,6 +625,8 @@ pub fn settings_page_spec(tab: SettingsTab) -> Option<&'static SettingsPageSpec>
         SettingsTab::Execution => Some(&EXECUTION_PAGE),
         SettingsTab::Safety => Some(&SAFETY_PAGE),
         SettingsTab::Storage => Some(&STORAGE_PAGE),
+        SettingsTab::Leszy => Some(&LESZY_PAGE),
+        SettingsTab::Weles => Some(&WELES_PAGE),
         _ => None,
     }
 }

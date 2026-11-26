@@ -1,13 +1,14 @@
 import { isGatewayAgentThread, isInternalAgentThread } from "@/lib/agentStore/history";
 import type { AgentThread, SubAgentDefinition } from "@/lib/agentStore";
 
-export type ThreadFilterTab = "svarog" | "rarog" | "weles" | "goals" | "workspace" | "playgrounds" | "internal" | "gateway" | `agent:${string}`;
+export type ThreadFilterTab = "svarog" | "rarog" | "leszy" | "weles" | "goals" | "workspace" | "playgrounds" | "internal" | "gateway" | `agent:${string}`;
 export type DateFilterId = "all" | "today" | "7d" | "30d" | "custom";
 export const DEFAULT_THREAD_DATE_FILTER: DateFilterId = "7d";
 
 export const fixedThreadTabs: Array<{ id: ThreadFilterTab; label: string }> = [
   { id: "svarog", label: "Svarog" },
   { id: "rarog", label: "Rarog" },
+  { id: "leszy", label: "Leszy" },
   { id: "weles", label: "Weles" },
   { id: "goals", label: "Goals" },
   { id: "workspace", label: "Workspace" },
@@ -155,6 +156,7 @@ export function buildThreadFilterTabs(
       matchesThreadTab(thread, "goals", goalThreadIds)
       || matchesThreadTab(thread, "workspace", goalThreadIds)
       || matchesThreadTab(thread, "weles", goalThreadIds)
+      || matchesThreadTab(thread, "leszy", goalThreadIds)
       || matchesThreadTab(thread, "rarog", goalThreadIds)
       || matchesThreadTab(thread, "playgrounds", goalThreadIds)
       || matchesThreadTab(thread, "internal", goalThreadIds)
@@ -209,6 +211,7 @@ export function resolveThreadCreationAgent(
   if (tab === "svarog") return { id: "swarog", name: "Svarog" };
   if (tab === "rarog") return { id: "rarog", name: "Rarog" };
   if (tab === "weles") return { id: "weles", name: "Weles" };
+  if (tab === "leszy") return { id: "leszy", name: "Leszy" };
   if (!tab.startsWith("agent:")) return null;
 
   const id = tab.slice("agent:".length).trim();
@@ -227,6 +230,7 @@ export function daemonAgentFilterForThreadTab(
   if (tab === "svarog") return "svarog";
   if (tab === "rarog") return "rarog";
   if (tab === "weles") return "weles";
+  if (tab === "leszy") return "leszy";
   if (!tab.startsWith("agent:")) return null;
   const id = tab.slice("agent:".length).trim();
   if (!id) return null;
@@ -250,6 +254,7 @@ function matchesThreadTab(
   if (tab === "goals") return flags.isGoal;
   if (tab === "workspace") return flags.isWorkspace;
   if (tab === "weles") return flags.isWeles;
+  if (tab === "leszy") return flags.agentId === "leszy";
   if (tab === "rarog") return flags.isRarog;
   if (tab === "playgrounds") return flags.isPlayground;
   if (tab === "internal") return flags.isInternal;
@@ -327,7 +332,7 @@ export function canonicalThreadAgentId(value: string | null | undefined): string
 
 function normalizeAgentTabId(value: string | null | undefined): string | null {
   const normalized = (value ?? "").trim().toLowerCase();
-  if (!normalized || ["svarog", "swarog", "main", "zorai", "zorai", "rarog", "concierge", "weles"].includes(normalized)) {
+  if (!normalized || ["svarog", "swarog", "main", "zorai", "zorai", "rarog", "concierge", "weles", "leszy"].includes(normalized)) {
     return null;
   }
   return normalized.replace(/_builtin$/, "");

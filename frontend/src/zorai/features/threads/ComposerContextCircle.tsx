@@ -49,41 +49,16 @@ function currentContextTokens(thread: AgentThread | null, messages: AgentMessage
 type Props = {
   thread?: AgentThread | null;
   messages: AgentMessage[];
+  compact?: boolean;
 };
 
-export const ComposerContextCircle = memo(function ComposerContextCircle({ thread, messages }: Props) {
-  const agentSettings = useAgentStore((state) => state.agentSettings);
-  const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
-  const subAgents = useAgentStore((state) => state.subAgents);
+export const ComposerContextCircle = memo(function ComposerContextCircle({ thread, messages, compact = false }: Props) {
   const [open, setOpen] = useState(false);
   const presence = usePresence(open);
-  const [autoBusy, setAutoBusy] = useState(false);
-  const compactionStatus = useThreadCompaction(thread?.daemonThreadId);
-  const compacting = Boolean(compactionStatus);
-  const breakdown = useThreadContextBreakdown(thread?.daemonThreadId);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const btnRef = useRef<HTMLButtonElement | null>(null);
-
-  const contextWindowTokens = useMemo(() => {
-    if (breakdown && breakdown.context_window_tokens > 0) return breakdown.context_window_tokens;
-    if (!thread) return Math.max(1, Math.trunc((agentSettings as unknown as Record<string, unknown>).context_window_tokens as number || 256000));
-    const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig);
-    return profile.contextWindowTokens;
-  }, [breakdown, thread, subAgents, agentSettings, conciergeConfig]);
-
-  const used = useMemo(
-    () => (breakdown ? contextBreakdownUsedTokens(breakdown) : currentContextTokens(thread ?? null, messages)),
-    [breakdown, messages, thread],
-  );
-  const breakdownRows = useMemo(() => (breakdown ? contextBreakdownRows(breakdown) : []), [breakdown]);
-  const pct = contextWindowTokens > 0 ? Math.min(100, Math.round((used / contextWindowTokens) * 100)) : 0;
-  const tone: "ok" | "warn" | "danger" = pct >= 90 ? "danger" : pct >= 75 ? "warn" : "ok";
-  const autoCompact = (agentSettings as unknown as Record<string, unknown>).auto_compact_context === true;
-  const sessionUsage = useMemo(() => summarizeSessionUsage(messages), [messages]);
-  const resolvedCost = useMemo(() => resolveComposerThreadCost(thread, messages, sessionUsage), [messages, sessionUsage, thread]);
-  const sessionCost = resolvedCost.totalCost;
-  const sessionHasCost = resolvedCost.hasCost;
-  const sessionAvgTps = sessionUsage.avgTps;
+  const usage = useContextUsage(thread ?? null, messages);
+  const { pct, tone, used, contextWindowTokens, sessionHasCost, sessionCost } = usage;
 
   const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties | undefined>(undefined);
 
@@ -131,8 +106,93 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
     return () => document.removeEventListener("pointerdown", onDown);
   }, [open]);
 
+  const radius = 14;
+  const circ = 2 * Math.PI * radius;
+  const dash = (pct / 100) * circ;
+
+  return (
+    <div ref={rootRef} className="zorai-composer-context-circle" style={{ position: "relative" }}>
+      <button
+        ref={btnRef}
+        type="button"
+        className={`zorai-composer-context-circle__btn is-${tone}`}
+        aria-label={`Context ${pct}% — ${formatTokens(used)} of ${formatTokens(contextWindowTokens)} — show details`}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={() => setOpen((v) => !v)}
+        title={`${pct}% · ${formatTokens(used)} / ${formatTokens(contextWindowTokens)}${sessionHasCost ? ` · $${sessionCost.toFixed(4)} session` : ""}`}
+      >
+        <svg width={compact ? 18 : 36} height={compact ? 18 : 36} viewBox="0 0 36 36" aria-hidden="true">
+          <circle cx={18} cy={18} r={radius} fill="none" stroke="var(--zorai-border)" strokeWidth={2} opacity={0.9} />
+          <circle
+            cx={18} cy={18} r={radius} fill="none"
+            stroke={tone === "danger" ? "var(--danger, var(--danger))" : tone === "warn" ? "var(--warning)" : "var(--zorai-accent, var(--reasoning))"}
+            strokeWidth={2.5} strokeLinecap="round"
+            strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ * 0.25}
+            style={{ transition: "stroke-dasharray 260ms ease" }}
+          />
+          {compact ? null : <text x={18} y={21} textAnchor="middle" fontSize={8} fontWeight={700} fill="var(--zorai-text)" fontFamily="var(--font-mono)">{pct}%</text>}
+        </svg>
+      </button>
+
+      {presence.mounted
+        ? createPortal(
+            <div data-closing={presence.closing || undefined}
+              id="zorai-cc-popover"
+          className="zorai-composer-context-circle__popover"
+          role="dialog"
+          aria-label="Context details"
+          style={popoverStyle as React.CSSProperties}
+          onMouseEnter={() => setOpen(true)}
+        >
+          <ContextUsageDetails usage={usage} thread={thread ?? null} onCompactStart={() => setOpen(false)} />
+            </div>,
+            document.body
+          )
+        : null}
+    </div>
+  );
+});
+
+type ContextUsage = ReturnType<typeof useContextUsage>;
+
+export function useContextUsage(thread: AgentThread | null, messages: AgentMessage[]) {
+  const [autoBusy, setAutoBusy] = useState(false);
+  const agentSettings = useAgentStore((state) => state.agentSettings);
+  const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
+  const coderConfig = useAgentStore((state) => state.coderConfig);
+  const subAgents = useAgentStore((state) => state.subAgents);
+  const compactionStatus = useThreadCompaction(thread?.daemonThreadId);
+  const compacting = Boolean(compactionStatus);
+  const breakdown = useThreadContextBreakdown(thread?.daemonThreadId);
+  const contextWindowTokens = useMemo(() => {
+    if (breakdown && breakdown.context_window_tokens > 0) return breakdown.context_window_tokens;
+    if (!thread) return Math.max(1, Math.trunc((agentSettings as unknown as Record<string, unknown>).context_window_tokens as number || 256000));
+    const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig, coderConfig);
+    return profile.contextWindowTokens;
+  }, [breakdown, thread, subAgents, agentSettings, conciergeConfig, coderConfig]);
+
+  const used = useMemo(
+    () => (breakdown ? contextBreakdownUsedTokens(breakdown) : currentContextTokens(thread ?? null, messages)),
+    [breakdown, messages, thread],
+  );
+  const breakdownRows = useMemo(() => (breakdown ? contextBreakdownRows(breakdown) : []), [breakdown]);
+  const pct = contextWindowTokens > 0 ? Math.min(100, Math.round((used / contextWindowTokens) * 100)) : 0;
+  const tone: "ok" | "warn" | "danger" = pct >= 90 ? "danger" : pct >= 75 ? "warn" : "ok";
+  const autoCompact = (agentSettings as unknown as Record<string, unknown>).auto_compact_context === true;
+  const sessionUsage = useMemo(() => summarizeSessionUsage(messages), [messages]);
+  const resolvedCost = useMemo(() => resolveComposerThreadCost(thread, messages, sessionUsage), [messages, sessionUsage, thread]);
+  const sessionCost = resolvedCost.totalCost;
+  const sessionHasCost = resolvedCost.hasCost;
+  const sessionAvgTps = sessionUsage.avgTps;
+
+  return { autoBusy, setAutoBusy, compacting, breakdown, contextWindowTokens, used, breakdownRows, pct, tone, autoCompact, sessionCost, sessionHasCost, sessionAvgTps };
+}
+
+export function ContextUsageDetails({ usage, thread, onCompactStart }: { usage: ContextUsage; thread: AgentThread | null; onCompactStart?: () => void }) {
+  const { autoBusy, setAutoBusy, compacting, breakdown, contextWindowTokens, used, breakdownRows, pct, tone, autoCompact, sessionCost, sessionHasCost, sessionAvgTps } = usage;
   const doCompact = async () => {
-    setOpen(false);
+    onCompactStart?.();
     await requestManualCompaction(thread?.daemonThreadId);
   };
 
@@ -150,45 +210,8 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
     }
   };
 
-  const radius = 14;
-  const circ = 2 * Math.PI * radius;
-  const dash = (pct / 100) * circ;
-
   return (
-    <div ref={rootRef} className="zorai-composer-context-circle" style={{ position: "relative" }}>
-      <button
-        ref={btnRef}
-        type="button"
-        className={`zorai-composer-context-circle__btn is-${tone}`}
-        aria-label={`Context ${pct}% — ${formatTokens(used)} of ${formatTokens(contextWindowTokens)} — show details`}
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        onClick={() => setOpen((v) => !v)}
-        title={`${pct}% · ${formatTokens(used)} / ${formatTokens(contextWindowTokens)}${sessionHasCost ? ` · $${sessionCost.toFixed(4)} session` : ""}`}
-      >
-        <svg width={36} height={36} viewBox="0 0 36 36" aria-hidden="true">
-          <circle cx={18} cy={18} r={radius} fill="none" stroke="var(--zorai-border)" strokeWidth={2} opacity={0.9} />
-          <circle
-            cx={18} cy={18} r={radius} fill="none"
-            stroke={tone === "danger" ? "var(--danger, var(--danger))" : tone === "warn" ? "var(--warning)" : "var(--zorai-accent, var(--reasoning))"}
-            strokeWidth={2.5} strokeLinecap="round"
-            strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ * 0.25}
-            style={{ transition: "stroke-dasharray 260ms ease" }}
-          />
-          <text x={18} y={21} textAnchor="middle" fontSize={8} fontWeight={700} fill="var(--zorai-text)" fontFamily="var(--font-mono)">{pct}%</text>
-        </svg>
-      </button>
-
-      {presence.mounted
-        ? createPortal(
-            <div data-closing={presence.closing || undefined}
-              id="zorai-cc-popover"
-          className="zorai-composer-context-circle__popover"
-          role="dialog"
-          aria-label="Context details"
-          style={popoverStyle as React.CSSProperties}
-          onMouseEnter={() => setOpen(true)}
-        >
+    <>
           <div className="zorai-composer-context-circle__popover-head">
             <strong>Context</strong>
             <span className={`zorai-composer-context-circle__pct is-${tone}`}>{pct}% · {formatTokens(used)} / {formatTokens(contextWindowTokens)}</span>
@@ -248,10 +271,6 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
               {compacting ? "Compacting…" : "Compact"}
             </button>
           </div>
-            </div>,
-            document.body
-          )
-        : null}
-    </div>
+    </>
   );
-});
+}

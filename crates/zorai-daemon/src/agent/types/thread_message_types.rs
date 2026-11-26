@@ -28,6 +28,8 @@ pub struct ThreadWorkspaceContext {
     pub isolate_agent_tasks: bool,
     #[serde(default)]
     pub isolated_worktree_states: std::collections::BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
 }
 
 impl ThreadWorkspaceContext {
@@ -116,6 +118,48 @@ pub struct ThreadExecutionProfile {
     pub context_window_tokens: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub generation_settings: Option<GenerationSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sandbox_enabled: Option<bool>,
+}
+
+pub fn keep_thread_sandbox_choice(
+    incoming: &mut ThreadExecutionProfile,
+    existing: Option<&ThreadExecutionProfile>,
+) {
+    if incoming.sandbox_enabled.is_none() {
+        incoming.sandbox_enabled = existing.and_then(|profile| profile.sandbox_enabled);
+    }
+}
+
+#[cfg(test)]
+mod sandbox_choice_tests {
+    use super::*;
+
+    #[test]
+    fn a_model_change_that_omits_the_sandbox_keeps_the_threads_choice() {
+        let existing = ThreadExecutionProfile {
+            sandbox_enabled: Some(false),
+            ..Default::default()
+        };
+        let mut incoming: ThreadExecutionProfile =
+            serde_json::from_str(r#"{"provider":"openai","model":"gpt-6"}"#).unwrap();
+        keep_thread_sandbox_choice(&mut incoming, Some(&existing));
+        assert_eq!(incoming.sandbox_enabled, Some(false));
+    }
+
+    #[test]
+    fn an_explicit_sandbox_choice_replaces_the_previous_one() {
+        let existing = ThreadExecutionProfile {
+            sandbox_enabled: Some(false),
+            ..Default::default()
+        };
+        let mut incoming = ThreadExecutionProfile {
+            sandbox_enabled: Some(true),
+            ..Default::default()
+        };
+        keep_thread_sandbox_choice(&mut incoming, Some(&existing));
+        assert_eq!(incoming.sandbox_enabled, Some(true));
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -187,6 +231,7 @@ mod workspace_context_tests {
             updated_at: 42,
             isolate_agent_tasks: false,
             isolated_worktree_states: std::collections::BTreeMap::new(),
+            mode: None,
         };
 
         let prompt = context.prompt_block().expect("workspace prompt");

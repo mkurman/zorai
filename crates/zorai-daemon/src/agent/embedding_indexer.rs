@@ -346,6 +346,10 @@ impl AgentEngine {
             )
             .await?;
 
+        if let Err(error) = self.sync_code_indexes().await {
+            tracing::warn!(error = %error, "code index sync failed");
+        }
+
         Ok(SemanticDocumentIndexSyncSummary { skills, guidelines })
     }
 
@@ -549,6 +553,7 @@ impl AgentEngine {
         let vector_source_kind = match source_kind {
             "skill" => crate::history::vector_index::VectorSourceKind::Skill,
             "guideline" => crate::history::vector_index::VectorSourceKind::Guideline,
+            "code" => crate::history::vector_index::VectorSourceKind::Code,
             other => anyhow::bail!("unsupported semantic document kind '{other}'"),
         };
         let query_embeddings =

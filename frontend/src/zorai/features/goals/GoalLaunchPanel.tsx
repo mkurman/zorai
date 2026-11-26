@@ -14,7 +14,7 @@ type GoalLaunchPanelProps = {
 };
 
 const MAIN_ROLE_ID = "svarog";
-const personaRoles = ["swarozyc", "radogost", "domowoj", "swietowit", "perun", "mokosh", "dazhbog", "rod"];
+const personaRoles = ["swarozyc", "radogost", "domowoj", "swietowit", "perun", "mokosh", "dazhbog", "rod", "kikimora", "bannik", "ovinnik", "dziad"];
 const reasoningOptions = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 export function GoalLaunchPanel({

@@ -252,6 +252,10 @@ impl Default for AgentConfig {
             sub_agents: Vec::new(),
             builtin_sub_agents: BuiltinSubAgentOverrides::default(),
             concierge: ConciergeConfig::default(),
+            coder: CoderConfig::default(),
+            code_completion: CodeCompletionConfig::default(),
+            code_index: CodeIndexConfig::default(),
+            verify: VerifyConfig::default(),
             anticipatory: AnticipatoryConfig::default(),
             operator_model: OperatorModelConfig::default(),
             collaboration: CollaborationConfig::default(),
@@ -548,6 +552,98 @@ pub struct ConciergeAction {
     pub action_type: ConciergeActionType,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thread_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CoderConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_effort: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_transport: Option<ApiTransport>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub system_prompt: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generation_settings: Option<GenerationSettings>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodeCompletionConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_effort: Option<String>,
+    #[serde(default = "default_code_completion_ignore_globs")]
+    pub ignore_globs: Vec<String>,
+}
+
+impl Default for CodeCompletionConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            provider: None,
+            model: None,
+            reasoning_effort: None,
+            ignore_globs: default_code_completion_ignore_globs(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerifyConfig {
+    #[serde(default)]
+    pub roots: Vec<String>,
+    #[serde(default = "default_verify_max_retries")]
+    pub max_retries: u8,
+    #[serde(default = "default_true")]
+    pub run_tests: bool,
+    #[serde(default)]
+    pub browser_check: bool,
+}
+
+fn default_verify_max_retries() -> u8 {
+    2
+}
+
+impl Default for VerifyConfig {
+    fn default() -> Self {
+        Self {
+            roots: Vec::new(),
+            max_retries: default_verify_max_retries(),
+            run_tests: true,
+            browser_check: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CodeIndexConfig {
+    #[serde(default)]
+    pub roots: Vec<String>,
+}
+
+pub(crate) fn default_code_completion_ignore_globs() -> Vec<String> {
+    [
+        ".env",
+        ".env.*",
+        "*.pem",
+        "*.key",
+        "*.p12",
+        "id_rsa*",
+        "*.keystore",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect()
 }
 
 /// Configuration for the concierge agent.

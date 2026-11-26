@@ -219,4 +219,10 @@ pub enum DaemonMessage {
     AgentAnalyzeImageResult { content: String },
     AgentUiColors { colors_json: String },
     AgentMemoryFiles { result_json: String },
+    AgentCodeFixGenerated { replacement: String, #[serde(default)] error: Option<String> },
+    AgentCodeFixDelta { request_id: String, text: String, #[serde(default)] reasoning: bool },
+    AgentCodeCompletion { request_id: String, completion: String, #[serde(default)] error: Option<String> },
+    AgentProjectRules { rules_json: String },
+    AgentCodeSymbolsResult { graph_json: String },
+    AgentCodeIndexResult { action: String, result_json: String, #[serde(default)] error: Option<String> },
 }

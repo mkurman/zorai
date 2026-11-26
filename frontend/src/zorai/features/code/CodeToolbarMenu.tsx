@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePresence } from "@/hooks/usePresence";
-import { getBridge } from "@/lib/bridge";
 import { clampMenuPosition } from "@/zorai/shell/contextMenuModel";
 import { CodeIcon } from "./CodeIcon";
 import { codeCommandById, displayCodeBinding, type CodeCommandId } from "./codeCommands";
 import { useCodeEditorSettingsStore } from "./codeEditorSettingsStore";
+import { takeScreenshotAfterMenuCloses } from "@/zorai/shell/menuScreenshot";
+import { useExclusivePopup } from "@/lib/exclusivePopup";
 
 export type CodeToolbarMenuItem = {
   key: string;
@@ -70,13 +71,14 @@ export function CodeToolbarMenu({ items, label = "More editor actions" }: { item
   );
 }
 
-export function CodeContextMenu({ x, y, items, label, onClose }: { x: number; y: number; items: CodeToolbarMenuItem[]; label: string; onClose: () => void }) {
+export function CodeContextMenu({ x, y, items, label, onClose, screenshot = true }: { x: number; y: number; items: CodeToolbarMenuItem[]; label: string; onClose: () => void; screenshot?: boolean }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  useExclusivePopup(onClose);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
 
   useLayoutEffect(() => {
-    const rect = rootRef.current?.getBoundingClientRect();
-    if (rect) setPosition(clampMenuPosition(x, y, rect, { width: window.innerWidth, height: window.innerHeight }));
+    const root = rootRef.current;
+    if (root) setPosition(clampMenuPosition(x, y, { width: root.offsetWidth, height: root.offsetHeight }, { width: window.innerWidth, height: window.innerHeight }));
   }, [x, y]);
 
   useEffect(() => {
@@ -106,7 +108,7 @@ export function CodeContextMenu({ x, y, items, label, onClose }: { x: number; y:
         event.stopPropagation();
       }}
     >
-      <CodeToolbarMenuList items={withScreenshotItem(items)} label={label} onDone={onClose} />
+      <CodeToolbarMenuList items={screenshot ? withScreenshotItem(items) : items} label={label} onDone={onClose} />
     </div>,
     document.body,
   );
@@ -114,7 +116,7 @@ export function CodeContextMenu({ x, y, items, label, onClose }: { x: number; y:
 
 export function withScreenshotItem(items: CodeToolbarMenuItem[]): CodeToolbarMenuItem[] {
   if (items.some((item) => item.key === "screenshot")) return items;
-  return [...items, { key: "screenshot", label: "Take Screenshot", separatorBefore: items.length > 0, onSelect: () => void getBridge()?.contextMenuAction?.("screenshot") }];
+  return [...items, { key: "screenshot", label: "Take Screenshot", separatorBefore: items.length > 0, onSelect: takeScreenshotAfterMenuCloses }];
 }
 
 export function submenuPlacement(rect: { right: number; bottom: number; width: number }, parentLeft: number, viewport: { width: number; height: number }): { flipX: boolean; shiftY: number } {

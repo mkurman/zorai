@@ -53,6 +53,10 @@ impl TuiModel {
                     | "mokosh"
                     | "dazhbog"
                     | "rod"
+                    | "kikimora"
+                    | "bannik"
+                    | "ovinnik"
+                    | "dziad"
             ) && !self.builtin_persona_configured(&directive.agent_alias)
             {
                 self.open_builtin_persona_prompt_setup_flow(

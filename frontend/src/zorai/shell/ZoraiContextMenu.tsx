@@ -2,8 +2,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePresence } from "@/hooks/usePresence";
 import type { editor as MonacoEditorApi } from "monaco-editor";
 import { getBridge } from "@/lib/bridge";
-import { buildContextMenuEntries, clampMenuPosition, codeEditorMenuRequest, selectAllScope, type ContextMenuEntry } from "./contextMenuModel";
+import { buildContextMenuEntries, clampMenuPosition, CODE_EDITOR_COMMAND_ONLY_IDS, codeEditorMenuRequest, selectAllScope, type ContextMenuEntry } from "./contextMenuModel";
 import { stepMenuIndex } from "./ZoraiTitleBar";
+import { MENU_EXIT_MS, takeScreenshotAfterMenuCloses } from "./menuScreenshot";
 
 type OpenMenu = {
   request: ZoraiContextMenuRequest;
@@ -23,7 +24,7 @@ export function ZoraiContextMenu() {
   const [menu, setMenu] = useState<OpenMenu | null>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
   const [highlighted, setHighlighted] = useState(-1);
-  const presence = usePresence(menu !== null);
+  const presence = usePresence(menu !== null, MENU_EXIT_MS);
   const lastMenuRef = useRef<{ menu: OpenMenu; position: { left: number; top: number } | null } | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -40,15 +41,21 @@ export function ZoraiContextMenu() {
         : request;
       setPosition(null);
       setHighlighted(-1);
-      setMenu({ request: effectiveRequest, target, entries: buildContextMenuEntries(effectiveRequest), codeEditor });
+      const editorActionAvailable = codeEditor
+        ? (id: string) => {
+          const action = codeEditor.getAction(id);
+          return action ? action.isSupported() : CODE_EDITOR_COMMAND_ONLY_IDS.has(id);
+        }
+        : undefined;
+      setMenu({ request: effectiveRequest, target, entries: buildContextMenuEntries(effectiveRequest, editorActionAvailable), codeEditor });
     });
     return () => unsubscribe?.();
   }, [bridge]);
 
   useLayoutEffect(() => {
     if (!menu || !menuRef.current) return;
-    const rect = menuRef.current.getBoundingClientRect();
-    setPosition(clampMenuPosition(menu.request.x, menu.request.y, rect, { width: window.innerWidth, height: window.innerHeight }));
+    const size = { width: menuRef.current.offsetWidth, height: menuRef.current.offsetHeight };
+    setPosition(clampMenuPosition(menu.request.x, menu.request.y, size, { width: window.innerWidth, height: window.innerHeight }));
   }, [menu]);
 
   const run = (entry: ContextMenuEntry) => {
@@ -59,10 +66,19 @@ export function ZoraiContextMenu() {
     if (codeEditor) {
       codeEditor.focus();
       const model = codeEditor.getModel();
+      if (entry.action === "editorAction" && entry.payload) {
+        codeEditor.trigger("zorai.contextMenu", entry.payload, null);
+        return;
+      }
       if (entry.action === "selectAll" && model) {
         codeEditor.setSelection(model.getFullModelRange());
         return;
       }
+    }
+    if (entry.action === "editorAction") return;
+    if (entry.action === "screenshot") {
+      takeScreenshotAfterMenuCloses();
+      return;
     }
     if (entry.action === "selectScope") {
       const scope = selectAllScope(target);
@@ -137,6 +153,7 @@ export function ZoraiContextMenu() {
             onClick={() => run(entry)}
           >
             <span>{entry.label}</span>
+            {entry.shortcut ? <kbd>{entry.shortcut}</kbd> : null}
           </button>
         ),
       )}

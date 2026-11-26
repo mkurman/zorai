@@ -300,6 +300,13 @@ impl<'a> SendMessageRunner<'a> {
             )
             .await;
         self.provider_final_result = provider_final_result.clone();
+        if !continue_for_report_back
+            && self.subagent_report.is_none()
+            && self.report_back_phase.is_none()
+            && self.verify_turn_needs_fix().await
+        {
+            return Ok(LoopDisposition::Continue);
+        }
         if !super::report_back::should_emit_turn_done_on_text_completion(continue_for_report_back) {
             self.needs_turn_done = true;
             return Ok(LoopDisposition::Continue);
@@ -328,6 +335,113 @@ impl<'a> SendMessageRunner<'a> {
             persisted_message_id,
         );
         Ok(LoopDisposition::Break)
+    }
+
+    async fn verify_browser_page(&self) -> Option<crate::code_intel::verify::VerifyOutcome> {
+        use zorai_protocol::tool_names;
+        let engine = &self.engine;
+        let tid = self.tid.as_str();
+        let browser = |name: &'static str, args: serde_json::Value| async move {
+            tokio::time::timeout(
+                std::time::Duration::from_secs(20),
+                crate::agent::browser::execute_browser_tool(name, &args, engine, tid),
+            )
+            .await
+            .ok()
+            .and_then(Result::ok)
+        };
+        let tabs = browser(tool_names::BROWSER_TABS, serde_json::json!({ "action": "list" })).await?;
+        if !crate::code_intel::verify::local_page(&tabs) {
+            return None;
+        }
+        browser(tool_names::BROWSER_RELOAD, serde_json::json!({})).await?;
+        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+        let evaluated = browser(
+            tool_names::BROWSER_EVAL_JS,
+            serde_json::json!({ "script": crate::code_intel::verify::BROWSER_OVERLAY_SCRIPT }),
+        )
+        .await?;
+        let screenshot = browser(tool_names::BROWSER_TAKE_SCREENSHOT, serde_json::json!({}))
+            .await
+            .and_then(|text| text.split(" to ").nth(1).map(|rest| rest.split(". ").next().unwrap_or(rest).to_string()));
+        Some(crate::code_intel::verify::overlay_outcome(&evaluated, screenshot))
+    }
+
+    async fn verify_turn_needs_fix(&mut self) -> bool {
+        let Some(state) = self.verify_turn.as_ref() else {
+            return false;
+        };
+        let root = state.root.clone();
+        let baseline = state.baseline.clone();
+        let run_tests = state.run_tests;
+        let changed = tokio::task::spawn_blocking(move || {
+            let after = crate::code_intel::verify::snapshot(&root);
+            let changed = crate::code_intel::verify::changed_since(&baseline, &after);
+            let checks = crate::code_intel::verify::plan_checks(&root, &changed, run_tests);
+            (changed, checks)
+        })
+        .await;
+        let Ok((changed, checks)) = changed else {
+            return false;
+        };
+        if changed.is_empty() || checks.is_empty() {
+            return false;
+        }
+        self.engine.emit_workflow_notice(
+            &self.tid,
+            "verify-running",
+            &format!(
+                "Verifying {} changed file(s): {}",
+                changed.len(),
+                checks
+                    .iter()
+                    .map(|check| check.label.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+            None,
+        );
+        let mut outcomes = crate::code_intel::verify::run_checks(&checks).await;
+        let browser_check = self.verify_turn.as_ref().is_some_and(|state| state.browser_check);
+        if browser_check && crate::code_intel::verify::touches_ui(&changed) {
+            if let Some(outcome) = self.verify_browser_page().await {
+                outcomes.push(outcome);
+            }
+        }
+        let Some(state) = self.verify_turn.as_mut() else {
+            return false;
+        };
+        let next_attempt = state.attempts + 1;
+        match crate::code_intel::verify::failure_prompt(&outcomes, next_attempt, state.max_retries)
+        {
+            None => {
+                self.engine.emit_workflow_notice(
+                    &self.tid,
+                    "verify-passed",
+                    "Verified: all checks passed for the changed files.",
+                    None,
+                );
+                false
+            }
+            Some(_) if state.attempts >= state.max_retries => {
+                self.engine.emit_workflow_notice(
+                    &self.tid,
+                    "verify-failed",
+                    &format!(
+                        "Verification still fails after {} fix attempt(s); review the changes.",
+                        state.max_retries
+                    ),
+                    None,
+                );
+                false
+            }
+            Some(prompt) => {
+                state.attempts = next_attempt;
+                self.engine
+                    .append_system_thread_message(&self.tid, prompt)
+                    .await
+            }
+        }
     }
 
     pub(super) async fn finish(mut self) -> Result<SendMessageOutcome> {

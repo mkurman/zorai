@@ -18,6 +18,7 @@ import { resolveThreadOwnerRuntimeProfile } from "./threadOwnerRuntime";
 export function ThreadRuntimeBar({ thread }: { thread: AgentThread }) {
   const agentSettings = useAgentStore((state) => state.agentSettings);
   const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
+  const coderConfig = useAgentStore((state) => state.coderConfig);
   const subAgents = useAgentStore((state) => state.subAgents);
   const refreshProviderAuthStates = useAgentStore((state) => state.refreshProviderAuthStates);
   useAgentStore((state) => state.providerAuthStates);
@@ -36,7 +37,7 @@ export function ThreadRuntimeBar({ thread }: { thread: AgentThread }) {
     });
     return () => { active = false; };
   }, [thread.id, thread.daemonThreadId]);
-  const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig);
+  const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig, coderConfig);
   const providers = useMemo(() => threadProviderIds(profile.provider), [agentSettings, profile.provider]);
   const ownerId = profile.ownerId;
   const providerId = (profile.provider || providers[0] || "") as AgentProviderId;

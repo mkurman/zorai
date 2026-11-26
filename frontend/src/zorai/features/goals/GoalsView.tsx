@@ -33,6 +33,7 @@ import {
   type GoalFilterId,
   type GoalSortId,
 } from "./goalPresentation";
+import { ContextRow } from "@/zorai/features/threads/ThreadContextRow";
 
 const activeStatuses = new Set(["queued", "planning", "running", "awaiting_approval", "awaiting_review", "paused"]);
 const GOAL_LAUNCH_EVENT = "zorai-goal-launch";
@@ -90,49 +91,41 @@ export function GoalsContext() {
     : "";
 
   return (
-    <div className="zorai-context-summary">
-      <div className="zorai-section-label">Overview</div>
-      <div className="zorai-context-stat-grid">
-        <div className="zorai-context-stat"><strong>{active}</strong><span>Active</span></div>
-        <div className="zorai-context-stat zorai-context-stat--warning"><strong>{waiting}</strong><span>Review</span></div>
-        <div className="zorai-context-stat zorai-context-stat--danger"><strong>{failed}</strong><span>Failed</span></div>
+    <div className="zorai-thread-context-stack">
+      <div className="zorai-context-group">
+        <div className="zorai-context-group__title">Overview</div>
+        <ContextRow icon="active" label="Active" value={active} />
+        <ContextRow icon="review" label="Waiting for review" value={waiting} />
+        <ContextRow icon="failed" label="Failed" value={failed} />
       </div>
-      {selectedRun ? (
-        <>
-          <div className="zorai-section-label">Selected Run</div>
-          <div className="zorai-context-block">
-            <strong>{selectedRun.title || selectedRun.goal}</strong>
-            <div className="zorai-context-pills">
-              <span className={`zorai-status-pill zorai-status-pill--${goalStatusTone(selectedRun.status)}`}>
-                {formatGoalRunStatus(selectedRun.status)}
-              </span>
-              <span className="zorai-status-pill">{formatGoalRunDuration(selectedRun.duration_ms)}</span>
-            </div>
-          </div>
-          <div className="zorai-context-actions">
-            <button
-              type="button"
-              className="zorai-ghost-button zorai-ghost-button--primary-soft"
-              onClick={() => dispatchGoalSelect(selectedRun.id, true)}
-            >
-              Open goal view
-            </button>
-          </div>
-          {detailText ? (
-            <div className="zorai-context-block">
-              <div className="zorai-section-label">
-                {selectedRun.status === "failed" ? "Rejection / Error" : "Summary"}
+      <div className="zorai-context-group">
+        <div className="zorai-context-group__title">Selected run</div>
+        {selectedRun ? (
+          <>
+            <div className="zorai-context-heading">
+              <strong>{selectedRun.title || selectedRun.goal}</strong>
+              <div className="zorai-context-pills">
+                <span className={`zorai-status-pill zorai-status-pill--${goalStatusTone(selectedRun.status)}`}>
+                  {formatGoalRunStatus(selectedRun.status)}
+                </span>
+                <span className="zorai-status-pill">{formatGoalRunDuration(selectedRun.duration_ms)}</span>
               </div>
-              <p className="zorai-context-prose">{detailText}</p>
             </div>
-          ) : null}
-        </>
-      ) : (
-        <div className="zorai-context-block">
-          <strong>Workspace modes</strong>
-          <span>Worker thread plus Accept / Soft reject / Hard reject</span>
-        </div>
-      )}
+            <div className="zorai-context-inline-actions">
+              <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" onClick={() => dispatchGoalSelect(selectedRun.id, true)}>
+                Open goal view
+              </button>
+            </div>
+            {detailText ? (
+              <ContextRow key={selectedRun.id} icon={selectedRun.status === "failed" ? "failed" : "text"} label={selectedRun.status === "failed" ? "Rejection / error" : "Summary"} defaultOpen>
+                <p className="zorai-context-prose">{detailText}</p>
+              </ContextRow>
+            ) : null}
+          </>
+        ) : (
+          <p className="zorai-context-hint">Select a goal run to see its status, summary and controls.</p>
+        )}
+      </div>
     </div>
   );
 }

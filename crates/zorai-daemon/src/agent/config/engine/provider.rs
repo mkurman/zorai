@@ -25,6 +25,9 @@ impl AgentEngine {
             | crate::agent::agent_identity::WELES_BUILTIN_SUBAGENT_ID => {
                 crate::agent::agent_identity::WELES_AGENT_ID.to_string()
             }
+            crate::agent::agent_identity::LESZY_AGENT_ID => {
+                crate::agent::agent_identity::LESZY_AGENT_ID.to_string()
+            }
             crate::agent::agent_identity::SWAROZYC_AGENT_ID => {
                 crate::agent::agent_identity::SWAROZYC_AGENT_ID.to_string()
             }
@@ -48,6 +51,18 @@ impl AgentEngine {
             }
             crate::agent::agent_identity::ROD_AGENT_ID => {
                 crate::agent::agent_identity::ROD_AGENT_ID.to_string()
+            }
+            crate::agent::agent_identity::KIKIMORA_AGENT_ID => {
+                crate::agent::agent_identity::KIKIMORA_AGENT_ID.to_string()
+            }
+            crate::agent::agent_identity::BANNIK_AGENT_ID => {
+                crate::agent::agent_identity::BANNIK_AGENT_ID.to_string()
+            }
+            crate::agent::agent_identity::OVINNIK_AGENT_ID => {
+                crate::agent::agent_identity::OVINNIK_AGENT_ID.to_string()
+            }
+            crate::agent::agent_identity::DZIAD_AGENT_ID => {
+                crate::agent::agent_identity::DZIAD_AGENT_ID.to_string()
             }
             _ if normalized
                 == crate::agent::agent_identity::WELES_AGENT_NAME.to_ascii_lowercase() =>
@@ -169,6 +184,13 @@ impl AgentEngine {
                 let mut updated = current;
                 updated.builtin_sub_agents.weles.provider = Some(provider_id.to_string());
                 updated.builtin_sub_agents.weles.model = Some(model.to_string());
+                Ok(updated)
+            }
+            crate::agent::agent_identity::LESZY_AGENT_ID => {
+                self.validate_non_main_agent_provider_model(&current, provider_id, model)?;
+                let mut updated = current;
+                updated.coder.provider = Some(provider_id.to_string());
+                updated.coder.model = Some(model.to_string());
                 Ok(updated)
             }
             _ => {

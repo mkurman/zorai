@@ -4,6 +4,7 @@ import { LoadingState } from "@/components/LoadingState";
 import { createPortal } from "react-dom";
 import { getBridge } from "@/lib/bridge";
 import { useAgentStore } from "@/lib/agentStore";
+import { useAgentMissionStore } from "@/lib/agentMissionStore";
 import { useWorkspaceStore } from "@/lib/workspaceStore";
 import { toDaemonWorkspaceContext, useWorkspaceContextStore } from "@/lib/workspaceContextStore";
 import { extractWorkspaceSymbols } from "@/lib/workspaceSymbols";
@@ -13,6 +14,9 @@ import { ThreadSplitDivider, dropBox } from "@/zorai/features/threads/ThreadSpli
 import { MAX_SPLIT_PANES, mapSplitPaneIds, removeSplitPaneNode, setSplitSizesAt, splitChildSizes, splitDropZone, splitEdgeDropZone, splitLayoutsFor, splitOrNull, splitPaneIds, type ThreadSplitDropZone, type ThreadSplitLayout, type ThreadSplitNode } from "@/zorai/features/threads/threadSplitModel";
 import { CODE_FILE_DRAG_TYPE, useCodeSplitStore } from "@/zorai/features/code/codeSplitStore";
 import { CodeFileIcon } from "@/zorai/features/code/CodeFileIcon";
+import { CommitSplitButton, type CommitMode } from "@/zorai/features/code/CommitSplitButton";
+import { extraRootOf, joinExtraRoot } from "@/zorai/features/code/extraRoots";
+import { ExtraRootSourceControl } from "@/zorai/features/code/ExtraRootSourceControl";
 import { RefreshIcon } from "@/zorai/shell/RefreshButton";
 import { SkillIcon } from "@/zorai/features/skills/SkillIcons";
 import { codeMediaKind, shouldRestoreWorkspaceDocument } from "@/zorai/features/code/workspaceDocumentRestore";
@@ -21,10 +25,15 @@ import { useWorkspaceEditorRequestStore } from "@/lib/workspaceEditorRequestStor
 import { openExternalFileInWorkspace } from "@/zorai/features/code/workspaceExternalFile";
 import { CodeQuickOpen } from "@/zorai/features/code/CodeQuickOpen";
 import { CodeSearchPanel } from "@/zorai/features/code/CodeSearchPanel";
+import { workspaceExplorerControllerFor } from "@/zorai/features/code/workspaceExplorerController";
+import { searchSeedFromSelection } from "@/zorai/features/code/codeSearchResults";
 import { monacoModelPath } from "@/zorai/features/code/codeLanguages";
 import { subscribeCodeRailActions } from "@/zorai/features/code/codeRailActions";
+import { SettingsGearIcon } from "@/zorai/features/code/SettingsGearIcon";
+import { applyLspTextEdits, describeLspEditSteps, type LspEditStep, type LspFileEdits } from "@/zorai/features/code/codeLspEdits";
+import { claimLanguageServerPrompt, useLanguageServerStore } from "@/zorai/features/code/codeLanguageServers";
+import { pushToast } from "@/lib/toastStore";
 import { setCommandPaletteOverride } from "@/zorai/shell/zoraiAppCommands";
-import { CodeCommandPalette } from "@/zorai/features/code/CodeCommandPalette";
 import { RUNNABLE_CODE_COMMANDS, matchesCodeBinding, shouldLeaveKeyToTerminal, shouldPassthroughCodeCommand, type CodeCommandId } from "@/zorai/features/code/codeCommands";
 import { CodeBottomPanel } from "@/zorai/features/code/CodeBottomPanel";
 import { useCodeBottomPanelStore } from "@/zorai/features/code/codeBottomPanelStore";
@@ -34,7 +43,24 @@ import { createCodeFileOpenTrace } from "@/zorai/features/code/codeEditorPerform
 import { applyCodeSaveTransforms, createCodeAutoSaveController } from "@/zorai/features/code/codeAutoSave";
 import { DirtyFileCloseDialog } from "@/zorai/features/code/DirtyFileCloseDialog";
 import { formatCodeText, prettierParserForLanguage } from "@/zorai/features/code/codeFormatter";
+import { resolvePrettierOptions } from "@/zorai/features/code/codePrettierConfig";
+import { effectiveCodeSettings, parseWorkspaceSettings, type WorkspaceSettingsLayer } from "@/zorai/features/code/workspaceSettingsLoader";
+import { stageSelectedLines, type GutterChange } from "@/zorai/features/code/codeGitGutter";
+import { provenanceContext, type ProvenanceOperation } from "@/zorai/features/code/codeProvenanceGutter";
+import { CodeTimelinePanel } from "@/zorai/features/code/CodeTimelinePanel";
+import { CodeCallHierarchyPanel } from "@/zorai/features/code/CodeCallHierarchyPanel";
+import { CodeHexViewer } from "@/zorai/features/code/CodeHexViewer";
+import { WorktreeMissionControl } from "@/zorai/features/code/WorktreeMissionControl";
+import { CodeVerifyToggle } from "@/zorai/features/code/CodeVerifyToggle";
+import { subscribeCodeLocations } from "@/zorai/features/code/codeLocationRequests";
+import { addWorkspaceFolder, CodeWorkspaceFolders } from "@/zorai/features/code/CodeWorkspaceFolders";
+import { isWorkspaceFile, workspaceFileFolders } from "@/zorai/features/code/codeWorkspaceFile";
+import { useDebugStore } from "@/zorai/features/code/debug/debugStore";
+import { DebugPanel } from "@/zorai/features/code/debug/DebugPanel";
+import { debugTestConfig } from "@/zorai/features/code/debug/debugTestConfig";
+import { defaultBuildTask, useCodeTaskStore } from "@/zorai/features/code/codeTaskStore";
 import { CodeSettingsView } from "@/zorai/features/code/CodeSettingsView";
+import type { CodeSettingsTab } from "@/zorai/features/code/codeSettingsTabs";
 import {
   getCachedWorkspaceFiles,
   getWorkspaceFiles,
@@ -71,6 +97,19 @@ import { ImageLightbox } from "@/zorai/features/threads/ImageLightbox";
 import { MediaLightbox } from "@/zorai/features/threads/MediaLightbox";
 import { mediaUrlForPath } from "@/zorai/features/threads/ThreadFilePreviewOverlay";
 import { Presence } from "@/components/Presence";
+import { hydrateCodeWorkspaceContexts } from "@/zorai/features/code/hydrateCodeWorkspace";
+import { useShellLayoutStore } from "@/zorai/shell/shellLayoutStore";
+import { rememberClosedEditor, takeReopenableEditor } from "@/zorai/features/code/codeClosedEditors";
+import { codeViewStateKey, loadCodeViewState, saveCodeViewState } from "@/zorai/features/code/codeViewState";
+import { CodeProblemsPanel } from "@/zorai/features/code/CodeProblemsPanel";
+import { countProblems, problemSeverity, publishCodeProblems, type CodeProblem } from "@/zorai/features/code/codeProblems";
+import { useAgentDiffReview } from "@/zorai/features/code/useAgentDiffReview";
+import { setTerminalFileLinkHandler, workspaceRelativeLinkPath } from "@/zorai/features/terminal/terminalFileLinks";
+import { CodeStatusBar } from "@/zorai/features/code/CodeStatusBar";
+import { emptyNavHistory, isNavJump, navigateBack, navigateForward, recordNavLocation, type CodeNavLocation } from "@/zorai/features/code/codeNavHistory";
+import { flattenLspSymbols, type QuickOpenSymbol } from "@/zorai/features/code/codeQuickOpenProviders";
+import { CodeBreadcrumbs } from "@/zorai/features/code/CodeBreadcrumbs";
+import { threadTurnIsActive } from "@/components/agent-chat-panel/runtime/threadTurnState";
 
 const LSP_OPEN_DELAY_MS = 200;
 const FILE_INDEX_START_DELAY_MS = 4000;
@@ -78,6 +117,8 @@ const WATCHER_START_DELAY_MS = 3000;
 
 const WorkspaceCodeEditor = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.WorkspaceCodeEditor })));
 const WorkspaceDiffEditor = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.WorkspaceDiffEditor })));
+
+const OUTLINE_RENDER_LIMIT = 300;
 
 type OpenDocument = ZoraiWorkspaceFile & { original: string; dirty: boolean; gitBaseContent?: string; externalContent?: string; externalHash?: string; external?: { absolutePath: string } };
 
@@ -97,7 +138,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const activeThreadId = useAgentStore((state) => state.activeThreadId);
   const activeDaemonThreadId = useAgentStore((state) => state.threads.find((thread) => thread.id === state.activeThreadId)?.daemonThreadId ?? state.activeThreadId);
   const activeWorkspace = useWorkspaceStore((state) => state.activeWorkspace());
-  const context = useWorkspaceContextStore((state) => activeThreadId ? state.byThreadId[activeThreadId] : undefined);
+  const context = useWorkspaceContextStore((state) => (activeThreadId && state.byThreadId[activeThreadId]?.root ? state.byThreadId[activeThreadId] : undefined));
   const bindRoot = useWorkspaceContextStore((state) => state.bindRoot);
   const setActiveFile = useWorkspaceContextStore((state) => state.setActiveFile);
   const setSelection = useWorkspaceContextStore((state) => state.setSelection);
@@ -106,6 +147,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const togglePinnedFile = useWorkspaceContextStore((state) => state.togglePinnedFile);
   const moveOpenFile = useWorkspaceContextStore((state) => state.moveOpenFile);
   const setIsolateAgentTasks = useWorkspaceContextStore((state) => state.setIsolateAgentTasks);
+  const setExtraRoots = useWorkspaceContextStore((state) => state.setExtraRoots);
   const setIsolatedWorktreeState = useWorkspaceContextStore((state) => state.setIsolatedWorktreeState);
   const [rootInput, setRootInput] = useState(context?.root ?? activeWorkspace?.cwd ?? "");
   const [initialRootState] = useState(() => cachedWorkspaceRootState(context?.root));
@@ -132,7 +174,15 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const [committing, setCommitting] = useState(false);
   const [reviewedChange, setReviewedChange] = useState<{ path: string; staged: boolean; hunks: ZoraiWorkspaceGitHunk[] } | null>(null);
   const [documents, setDocuments] = useState<Record<string, OpenDocument>>({});
-  const documentControllerRef = useRef(createCodeDocumentController({ maxCachedDocuments: 32 }));
+  const documentControllerRef = useRef(createCodeDocumentController({ maxCachedDocuments: useCodeEditorSettingsStore.getState().settings.cacheDocuments }));
+  const closedEditorsRef = useRef<{ root: string; paths: string[] }>({ root: "", paths: [] });
+  const reopenClosedEditorRef = useRef<() => void>(() => {});
+  const navHistoryRef = useRef(emptyNavHistory());
+  const lastNavLocationRef = useRef<CodeNavLocation | null>(null);
+  const navTargetRef = useRef<{ location: CodeNavLocation; until: number } | null>(null);
+  const navigateHistoryRef = useRef<(direction: "back" | "forward") => void>(() => {});
+  const openTerminalLinkRef = useRef<(link: { path: string; line: number; column: number }) => void>(() => {});
+  useEffect(() => setTerminalFileLinkHandler((link) => openTerminalLinkRef.current(link)), []);
   const [diff, setDiff] = useState<string | null>(null);
   const [mode, setMode] = useState<"edit" | "diff" | "external">("edit");
   const [error, setError] = useState<string | null>(null);
@@ -141,15 +191,45 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const [dirtyCloseError, setDirtyCloseError] = useState<string | null>(null);
   const [largeFileGate, setLargeFileGate] = useState<{ path: string; sizeBytes: number } | null>(null);
   const [unsupportedFile, setUnsupportedFile] = useState<string | null>(null);
+  const [hexFile, setHexFile] = useState<string | null>(null);
+  const [missionControlOpen, setMissionControlOpen] = useState(false);
   const [mediaPreview, setMediaPreview] = useState<{ path: string; kind: "image" | "video" | "audio" } | null>(null);
   const reducedModePathsRef = useRef(new Set<string>());
-  const [codeOverlay, setCodeOverlay] = useState<"quickOpen" | "commands" | null>(null);
+  const [codeOverlay, setCodeOverlay] = useState<"quickOpen" | "commands" | "symbols" | "workspaceSymbols" | null>(null);
+  const [callHierarchy, setCallHierarchy] = useState<{ root: string; path: string; language: string; line: number; column: number } | null>(null);
+  const breadcrumbSymbolsRef = useRef<() => Promise<QuickOpenSymbol[]>>(async () => []);
+  const getBreadcrumbSymbols = useRef(() => breadcrumbSymbolsRef.current()).current;
   const [searchFocusToken, setSearchFocusToken] = useState(0);
+  const [searchSeed, setSearchSeed] = useState("");
   const [settingsTabOpen, setSettingsTabOpen] = useState(false);
   const [settingsTabPinned, setSettingsTabPinned] = useState(false);
   const [activeEditorTabId, setActiveEditorTabId] = useState<string | null>(null);
+  const [diffTabs, setDiffTabs] = useState<string[]>([]);
+  const openDiffTab = (path: string) => {
+    setDiffTabs((current) => (current.includes(path) ? current : [...current, path]));
+    setActiveEditorTabId(`diff:${path}`);
+  };
+  useEffect(() => {
+    setMode((current) => (activeEditorTabId?.startsWith("diff:") ? "diff" : current === "diff" ? "edit" : current));
+  }, [activeEditorTabId]);
+  const closeDiffTab = (path: string) => {
+    setDiffTabs((current) => current.filter((entry) => entry !== path));
+    const fileOpen = Boolean(context?.openFiles.includes(path)) || Boolean(documents[path]?.dirty);
+    if (activeEditorTabId !== `diff:${path}`) return;
+    if (fileOpen) {
+      if (activeThreadId && !context?.openFiles.includes(path)) setActiveFile(activeThreadId, path);
+      setActiveEditorTabId(`file:${path}`);
+      return;
+    }
+    const fallback = context?.openFiles.at(-1) ?? null;
+    if (activeThreadId) setActiveFile(activeThreadId, fallback);
+    setActiveEditorTabId(fallback ? `file:${fallback}` : null);
+  };
   const previousFileTabIdRef = useRef<string | null>(null);
-  const editorSettings = useCodeEditorSettingsStore((state) => state.settings);
+  const userEditorSettings = useCodeEditorSettingsStore((state) => state.settings);
+  const [workspaceSettingsLayer, setWorkspaceSettingsLayer] = useState<WorkspaceSettingsLayer | null>(null);
+  const editorSettings = useMemo(() => effectiveCodeSettings(userEditorSettings, workspaceSettingsLayer, null, null), [userEditorSettings, workspaceSettingsLayer]);
+  const settingsFor = (language: string | null, path: string | null) => effectiveCodeSettings(userEditorSettings, workspaceSettingsLayer, language, path);
   const workspaceSyncTimer = useRef<number | null>(null);
   const [daemonContextLoadedFor, setDaemonContextLoadedFor] = useState<string | null>(null);
   const [newPath, setNewPath] = useState("");
@@ -168,15 +248,27 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const [pathDialogError, setPathDialogError] = useState<string | null>(null);
   const [agentChanges, setAgentChanges] = useState<ZoraiWorkContextEntry[]>([]);
   const [operationSnapshots, setOperationSnapshots] = useState<Record<string, { available: boolean; revertible: boolean; stale_paths: string[]; retained_bytes: number; reason: string | null }>>({});
+  const languageServerRevision = useLanguageServerStore((state) => state.revision);
+  const [editorFullscreen, setEditorFullscreen] = useState(false);
+  const [codeSettingsTab, setCodeSettingsTab] = useState<CodeSettingsTab>("editor");
   const [lspStatus, setLspStatus] = useState<{ available: boolean; command?: string | null; reason?: string } | null>(null);
   const [diagnosticsByPath, setDiagnosticsByPath] = useState<Record<string, ZoraiLspDiagnostic[]>>({});
-  const [workspaceTests, setWorkspaceTests] = useState<ZoraiWorkspaceTest[]>([]);
+  const [workspaceTests, setWorkspaceTests] = useState<Array<ZoraiWorkspaceTest & { root?: string }>>([]);
   const [testRun, setTestRun] = useState<{ runId: string; status: "running" | "passed" | "failed" | "cancelled" | "error"; output: string; durationMs?: number; evidence?: ZoraiWorkspaceTestEvidence } | null>(null);
   const lspVersionRef = useRef<Record<string, number>>({});
+  useEffect(() => { documentControllerRef.current.setMaxCachedDocuments(editorSettings.cacheDocuments); }, [editorSettings.cacheDocuments]);
+  const lspOpenedRef = useRef(new Map<string, { root: string; language: string }>());
+  const lspSyncedContentRef = useRef(new Map<string, string>());
+  const openFileRef = useRef<(path: string, location?: { line: number; column: number }) => Promise<unknown>>(async () => undefined);
+  const prettierOptionsCacheRef = useRef(new Map<string, { at: number; options: Record<string, string | number | boolean> }>());
+  const prettierOptionsForRef = useRef<(root: string, path: string) => Promise<Record<string, string | number | boolean>>>(async () => ({}));
   const lspChangeTimer = useRef<number | null>(null);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
   const monacoEditorRef = useRef<MonacoEditorApi.IStandaloneCodeEditor | null>(null);
+  const getActiveEditor = useRef(() => monacoEditorRef.current).current;
+  const agentWorking = useAgentStore((state) => (activeThreadId ? threadTurnIsActive(state.messages[activeThreadId] ?? []) : false));
   const monacoUriRef = useRef<{ parse: (value: string) => { toString: () => string } } | null>(null);
+  const monacoModelsRef = useRef<{ getModel: (uri: never) => { dispose: () => void } | null } | null>(null);
   const pendingNavigationRef = useRef<{ path: string; line: number; column: number } | null>(null);
   const saveCommandRef = useRef<() => Promise<boolean>>(async () => false);
   const fileCommandsRef = useRef<Partial<Record<CodeCommandId, () => void>>>({});
@@ -201,9 +293,38 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     }
     return [...groups.entries()].sort((left, right) => Math.max(...right[1].map((entry) => entry.updated_at)) - Math.max(...left[1].map((entry) => entry.updated_at)));
   }, [agentChanges]);
-  const symbols = useMemo(() => activeDocument ? extractWorkspaceSymbols(activeDocument.content) : [], [activeDocument]);
+  const [outlineOpen, setOutlineOpen] = useState(false);
+  const scannedOutline = useMemo(() => outlineOpen && activeDocument ? extractWorkspaceSymbols(activeDocument.content).map((symbol) => ({ ...symbol, container: "" })) : [], [activeDocument, outlineOpen]);
+  const [lspOutline, setLspOutline] = useState<{ path: string; symbols: Array<{ name: string; kind: string; container: string; line: number; column: number }> } | null>(null);
+  const [outlineFilter, setOutlineFilter] = useState("");
+  const outlineRequestRef = useRef<((method: "documentSymbol" | "workspaceSymbol", extra?: Record<string, unknown>) => Promise<QuickOpenSymbol[] | null>) | null>(null);
+  const outlineSource = lspOutline && lspOutline.path === activeDocument?.path && lspOutline.symbols.length > 0 ? lspOutline.symbols : scannedOutline;
+  const symbols = outlineFilter.trim() ? outlineSource.filter((symbol) => symbol.name.toLowerCase().includes(outlineFilter.trim().toLowerCase())) : outlineSource;
   const testProblems = useMemo(() => testRun?.evidence?.results.filter((result) => result.status === "failed" && result.location) ?? [], [testRun?.evidence]);
   const workspaceDiagnostics = useMemo(() => Object.entries(diagnosticsByPath).flatMap(([path, diagnostics]) => diagnostics.map((diagnostic) => ({ path, ...diagnostic }))), [diagnosticsByPath]);
+  const taskProblems = useCodeTaskStore((state) => state.problems);
+  const codeProblems = useMemo<CodeProblem[]>(() => [
+    ...workspaceDiagnostics.map((diagnostic) => ({ path: diagnostic.path, line: diagnostic.startLine, column: diagnostic.startColumn, message: diagnostic.message, severity: problemSeverity(diagnostic.severity), source: diagnostic.source ?? null, code: diagnostic.code ?? null })),
+    ...testProblems.flatMap((result) => result.location ? [{ path: result.location.path, line: result.location.line, column: result.location.column || 1, message: `${result.name}: ${result.message ?? "Test failed"}`, severity: "error" as const, source: "test", code: null }] : []),
+    ...Object.values(taskProblems).flat().map((problem) => ({ path: problem.path, line: problem.line, column: problem.column, message: problem.message, severity: problem.severity, source: problem.source, code: problem.code })),
+  ], [taskProblems, testProblems, workspaceDiagnostics]);
+  const problemCounts = useMemo(() => countProblems(codeProblems), [codeProblems]);
+  const agentReview = useAgentDiffReview({
+    root: context?.root ?? null,
+    threadId: activeDaemonThreadId ?? null,
+    changes: agentChanges,
+    activePath: activeDocument?.path ?? null,
+    openFile: (path) => void openFile(path),
+    onFileRewritten: (path, file) => setDocuments((current) => {
+      if (!current[path]) return current;
+      if (file) return { ...current, [path]: { ...current[path], ...file, original: file.content, dirty: false } };
+      const next = { ...current };
+      delete next[path];
+      return next;
+    }),
+    saveFile: (path) => void saveDocumentRef.current(path),
+  });
+  useEffect(() => { publishCodeProblems(codeProblems); }, [codeProblems]);
   const statusMap = useMemo(() => new Map(gitStatus.map((entry) => [entry.path, statusLabel(entry)])), [gitStatus]);
 
   const refreshGenRef = useRef(0);
@@ -284,7 +405,17 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     }
   }, [bridge]);
 
-  useEffect(() => { void useWorkspaceContextStore.getState().hydrate(); }, []);
+  useEffect(() => { void hydrateCodeWorkspaceContexts(); }, []);
+  useEffect(() => {
+    const root = context?.root;
+    if (!root || !bridge?.workspaceReadOptionalFile) { setWorkspaceSettingsLayer(null); return; }
+    let cancelled = false;
+    const read = (path: string) => bridge.workspaceReadOptionalFile!(root, path).then((file) => file?.content ?? null, () => null);
+    void Promise.all([read(".zorai/settings.json"), read(".vscode/settings.json"), read(".editorconfig")]).then(([zorai, vscode, editorconfig]) => {
+      if (!cancelled) setWorkspaceSettingsLayer(zorai || vscode || editorconfig ? parseWorkspaceSettings(zorai, vscode, editorconfig) : null);
+    });
+    return () => { cancelled = true; };
+  }, [bridge, context?.root, gitStatus]);
   useEffect(() => {
     const path = context?.activeFile;
     const root = context?.root;
@@ -324,6 +455,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             isolateAgentTasks: daemonContext.isolate_agent_tasks ?? false,
             isolatedWorktreeStates: daemonContext.isolated_worktree_states ?? current?.isolatedWorktreeStates ?? {},
             pinnedFiles: current?.pinnedFiles ?? [],
+            mode: daemonContext.mode ?? current?.mode,
           } },
         }));
       }
@@ -502,36 +634,51 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
 
   useEffect(() => {
     if (!context?.root || !bridge?.onWorkspaceLspDiagnostics) return;
+    const extraRoots = context.extraRoots ?? [];
     const unsubscribe = bridge.onWorkspaceLspDiagnostics((payload) => {
-      if (payload.root !== context.root) return;
-      setDiagnosticsByPath((current) => ({ ...current, [payload.path]: payload.diagnostics }));
+      const extra = payload.root !== context.root && extraRoots.some((root) => root.replace(/[\\/]+$/, "") === payload.root.replace(/[\\/]+$/, ""));
+      if (payload.root !== context.root && !extra) return;
+      const key = extra ? joinExtraRoot(payload.root, payload.path) : payload.path;
+      setDiagnosticsByPath((current) => ({ ...current, [key]: payload.diagnostics }));
     });
     return () => { if (typeof unsubscribe === "function") unsubscribe(); };
-  }, [bridge, context?.root]);
+  }, [bridge, context?.root, context?.extraRoots]);
   useEffect(() => {
     if (!editorSettings.lspEnabled || !context?.root || !activeDocument || !bridge?.workspaceLspOpen || reducedModePathsRef.current.has(activeDocument.path)) {
       setLspStatus(null);
       return;
     }
     let disposed = false;
-    let opened = false;
     const openTimer = window.setTimeout(() => {
       if (disposed) return;
-      opened = true;
       const version = (lspVersionRef.current[activeDocument.path] ?? 0) + 1;
       lspVersionRef.current[activeDocument.path] = version;
       void bridge.workspaceLspOpen!(context.root, activeDocument.path, activeDocument.language, activeDocument.content, version).then((result) => {
+        if (result.available) lspOpenedRef.current.set(activeDocument.path, { root: context.root, language: activeDocument.language });
         if (!disposed) setLspStatus({ available: result.available, command: result.command ?? null, reason: result.reason });
+        if (!result.available && result.missing && result.server && claimLanguageServerPrompt(result.server)) void promptLanguageServerInstall(result.server);
       }).catch((reason) => { if (!disposed) setLspStatus({ available: false, reason: reason?.message ?? String(reason) }); });
     }, LSP_OPEN_DELAY_MS);
     return () => {
       disposed = true;
       window.clearTimeout(openTimer);
-      if (opened) void bridge.workspaceLspClose?.(context.root, activeDocument.path, activeDocument.language);
     };
   // Document open/close follows identity; incremental content changes use the debounced effect below.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDocument?.language, activeDocument?.path, activeDocument?.hash, bridge, context?.root, editorSettings.lspEnabled]);
+  }, [activeDocument?.language, activeDocument?.path, activeDocument?.hash, bridge, context?.root, editorSettings.lspEnabled, languageServerRevision]);
+  const openFilesKey = context?.openFiles.join("\0") ?? "";
+  useEffect(() => {
+    const keep = new Set(openFilesKey ? openFilesKey.split("\0") : []);
+    for (const [path, opened] of lspOpenedRef.current) {
+      if (editorSettings.lspEnabled && opened.root === context?.root && keep.has(path)) continue;
+      lspOpenedRef.current.delete(path);
+      void bridge?.workspaceLspClose?.(opened.root, path, opened.language);
+    }
+  }, [bridge, context?.root, editorSettings.lspEnabled, openFilesKey]);
+  useEffect(() => () => {
+    for (const [path, opened] of lspOpenedRef.current) void bridge?.workspaceLspClose?.(opened.root, path, opened.language);
+    lspOpenedRef.current.clear();
+  }, [bridge]);
   useEffect(() => {
     if (!editorSettings.lspEnabled || !context?.root || !activeDocument || !lspStatus?.available || !bridge?.workspaceLspChange || reducedModePathsRef.current.has(activeDocument.path)) return;
     if (lspChangeTimer.current !== null) window.clearTimeout(lspChangeTimer.current);
@@ -546,6 +693,22 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   }, [activeDocument?.content, activeDocument?.language, activeDocument?.path, activeDocument?.hash, bridge, context?.root, editorSettings.diagnosticsDelayMs, editorSettings.lspEnabled, lspStatus?.available]);
 
   useEffect(() => {
+    if (!editorSettings.lspEnabled || !context?.root || !bridge?.workspaceLspChange) return;
+    const root = context.root;
+    const timer = window.setTimeout(() => {
+      for (const [path, opened] of lspOpenedRef.current) {
+        const doc = documents[path];
+        if (!doc || path === activeDocument?.path || opened.root !== root || lspSyncedContentRef.current.get(path) === doc.content) continue;
+        lspSyncedContentRef.current.set(path, doc.content);
+        const version = (lspVersionRef.current[path] ?? 0) + 1;
+        lspVersionRef.current[path] = version;
+        void bridge.workspaceLspChange!(root, path, opened.language, doc.content, version).catch(() => {});
+      }
+    }, editorSettings.diagnosticsDelayMs);
+    return () => window.clearTimeout(timer);
+  }, [activeDocument?.path, bridge, context?.root, documents, editorSettings.diagnosticsDelayMs, editorSettings.lspEnabled]);
+
+  useEffect(() => {
     if (!bridge?.onWorkspaceTestEvent) return;
     const unsubscribe = bridge.onWorkspaceTestEvent((event) => {
       setTestRun((current) => {
@@ -557,12 +720,12 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     return () => { if (typeof unsubscribe === "function") unsubscribe(); };
   }, [bridge]);
 
-  const runWorkspaceTest = async (test?: ZoraiWorkspaceTest) => {
+  const runWorkspaceTest = async (test?: ZoraiWorkspaceTest & { root?: string }) => {
     if (!context?.root || !bridge?.workspaceTestsRun) return;
     const framework = test?.framework ?? workspaceTests[0]?.framework;
     if (!framework) return;
     try {
-      const started = await bridge.workspaceTestsRun(context.root, { framework, path: test?.path, selector: test?.selector });
+      const started = await bridge.workspaceTestsRun(test?.root ?? context.root, { framework, path: test?.path, selector: test?.selector });
       setTestRun({ runId: started.runId, status: "running", output: `$ ${started.command} ${started.args.join(" ")}\n` });
       setError(null);
     } catch (reason: any) { setError(reason?.message ?? String(reason)); }
@@ -597,8 +760,8 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     const cacheHit = Boolean(controller.get(context.root, filePath)); // rootAtOpen === context.root at this point
     const trace = createCodeFileOpenTrace({ root: rootAtOpen, path: filePath, cacheHit });
     trace.mark("start");
-    setActiveFile(activeThreadId, filePath);
-    setActiveEditorTabId(`file:${filePath}`);
+    setActiveFile(activeThreadId, filePath, view !== "diff" || context.openFiles.includes(filePath));
+    setActiveEditorTabId(view === "diff" ? `diff:${filePath}` : `file:${filePath}`);
     trace.mark("tab-active");
     try {
       setError(null);
@@ -714,7 +877,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       [filePath]: { ...(current[filePath] ?? document), gitBaseContent: gitBase },
     }));
     setDiff(patch);
-    setMode("diff");
+    openDiffTab(filePath);
   };
 
   const showDiff = async () => {
@@ -733,7 +896,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     void openFile(editorRequest.path, undefined, editorRequest.view);
   }, [activeThreadId, editorRequest]);
 
-  const openExternalFile = async (absolutePath: string) => {
+  const openExternalFile = async (absolutePath: string, location?: { line: number; column: number }) => {
     if (!activeThreadId || !bridge?.readFsText) return;
     setError(null);
     try {
@@ -756,6 +919,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         };
         return { ...current, [seed.path]: doc };
       });
+      if (location) pendingNavigationRef.current = { path: seed.path, ...location };
       setActiveFile(activeThreadId, seed.path);
       setActiveEditorTabId(`file:${seed.path}`);
       setMode("edit");
@@ -766,12 +930,14 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
 
   const [operationDiff, setOperationDiff] = useState<AgentOperationDiffTarget | null>(null);
   const [previewPaths, setPreviewPaths] = useState<Record<string, boolean>>({});
+  const previewShown = (path: string) => Boolean(codePreviewKind(path)) && (previewPaths[path] ?? codePreviewKind(path) === "notebook");
   const [railTab, setRailTab] = useCodeRailTab();
   const testsWanted = railTab === "testing";
   const discoveredTestsRootRef = useRef<string | null>(null);
   const [testsDiscovering, setTestsDiscovering] = useState(false);
+  const testRootsKey = [context?.root ?? "", ...(context?.extraRoots ?? [])].join("\n");
   useEffect(() => {
-    const root = context?.root ?? null;
+    const root = context?.root ? testRootsKey : null;
     if (discoveredTestsRootRef.current !== root) {
       discoveredTestsRootRef.current = null;
       setWorkspaceTests([]);
@@ -780,14 +946,19 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     if (!testsWanted || !root || !bridge?.workspaceTestsDiscover || discoveredTestsRootRef.current === root) return;
     discoveredTestsRootRef.current = root;
     setTestsDiscovering(true);
-    void bridge.workspaceTestsDiscover(root, { maxTests: 2000 }).then((result) => {
-      if (discoveredTestsRootRef.current === root) setWorkspaceTests(result.tests);
+    const [primary, ...extras] = root.split("\n");
+    const discover = bridge.workspaceTestsDiscover;
+    void Promise.all([
+      discover(primary, { maxTests: 2000 }).then((result) => result.tests),
+      ...extras.map((extra) => discover(extra, { maxTests: 2000 }).then((result) => result.tests.map((test) => ({ ...test, id: `${extra}:${test.id}`, root: extra })), () => [])),
+    ]).then((groups) => {
+      if (discoveredTestsRootRef.current === root) setWorkspaceTests(groups.flat());
     }).catch(() => {
       if (discoveredTestsRootRef.current === root) setWorkspaceTests([]);
     }).finally(() => {
       if (discoveredTestsRootRef.current === root) setTestsDiscovering(false);
     });
-  }, [bridge, context?.root, testsWanted]);
+  }, [bridge, context?.root, testRootsKey, testsWanted]);
   const codeReviewAgentId = useAgentStore((state) => state.agentSettings.code_review_agent);
   const codeReviewCommitWindow = useAgentStore((state) => state.agentSettings.code_review_commit_window) || 5;
   const reviewSubAgents = useAgentStore((state) => state.subAgents);
@@ -802,6 +973,28 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     void openExternalFile(path);
   };
 
+  const formatForSave = async (root: string, path: string, language: string, content: string): Promise<string> => {
+    if (prettierParserForLanguage(language)) return formatCodeText(content, language, await prettierOptionsFor(root, path));
+    const opened = lspOpenedRef.current.get(path);
+    if (!opened || opened.root !== root || !bridge?.workspaceLspRequest || !bridge.workspaceLspChange) return content;
+    const version = (lspVersionRef.current[path] ?? 0) + 1;
+    lspVersionRef.current[path] = version;
+    await bridge.workspaceLspChange(root, path, language, content, version);
+    const response = await bridge.workspaceLspRequest(root, path, language, "formatting", { line: 0, character: 0 }, { tabSize: settingsFor(language, path).tabSize, insertSpaces: settingsFor(language, path).insertSpaces });
+    return Array.isArray(response?.result) ? applyLspTextEdits(content, response.result as Parameters<typeof applyLspTextEdits>[1]) : content;
+  };
+  const prettierOptionsFor = async (root: string, path: string) => {
+    const cached = prettierOptionsCacheRef.current.get(`${root}\0${path}`);
+    if (cached && Date.now() - cached.at < 10_000) return cached.options;
+    const options = await resolvePrettierOptions(path, async (relativePath) => {
+      const file = await bridge?.workspaceReadOptionalFile?.(root, relativePath).catch(() => null);
+      return file?.content ?? null;
+    });
+    prettierOptionsCacheRef.current.set(`${root}\0${path}`, { at: Date.now(), options });
+    return options;
+  };
+  prettierOptionsForRef.current = prettierOptionsFor;
+
   const saveDocument = async (path: string): Promise<boolean> => {
     if (!activeThreadId) return false;
     const document = documents[path];
@@ -811,11 +1004,12 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     // workspace service and doesn't apply to an absolute host path.
     if (document.external) {
       if (!bridge?.writeFsText) return false;
+      const fileSettings = settingsFor(document.language, null);
       let content = applyCodeSaveTransforms(document.content, {
-        trimTrailingWhitespace: editorSettings.trimTrailingWhitespaceOnSave,
-        finalNewline: editorSettings.finalNewlineOnSave,
+        trimTrailingWhitespace: fileSettings.trimTrailingWhitespaceOnSave,
+        finalNewline: fileSettings.finalNewlineOnSave,
       });
-      if (editorSettings.formatOnSave && prettierParserForLanguage(document.language) && !reducedModePathsRef.current.has(path)) {
+      if (fileSettings.formatOnSave && prettierParserForLanguage(document.language) && !reducedModePathsRef.current.has(path)) {
         try { content = await formatCodeText(content, document.language); }
         catch (reason) {
           const message = reason instanceof Error ? reason.message : String(reason);
@@ -844,12 +1038,13 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     }
 
     if (!context?.root || !bridge?.workspaceWriteFile) return false;
+    const fileSettings = settingsFor(document.language, path);
     let content = applyCodeSaveTransforms(document.content, {
-      trimTrailingWhitespace: editorSettings.trimTrailingWhitespaceOnSave,
-      finalNewline: editorSettings.finalNewlineOnSave,
+      trimTrailingWhitespace: fileSettings.trimTrailingWhitespaceOnSave,
+      finalNewline: fileSettings.finalNewlineOnSave,
     });
-    if (editorSettings.formatOnSave && prettierParserForLanguage(document.language) && !reducedModePathsRef.current.has(path)) {
-      try { content = await formatCodeText(content, document.language); }
+    if (fileSettings.formatOnSave && !reducedModePathsRef.current.has(path)) {
+      try { content = await formatForSave(context.root, path, document.language, content); }
       catch (reason) {
         const message = reason instanceof Error ? reason.message : String(reason);
         setError(`Format on save failed: ${message}`);
@@ -881,6 +1076,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         return { ...current, [saved.path]: { ...saved, original: saved.content, dirty: false } };
       });
       autoSaveControllerRef.current.cancel(path);
+      if (lspOpenedRef.current.has(saved.path)) void bridge.workspaceLspSave?.(context.root, saved.path, document.language)?.catch(() => false);
       documentControllerRef.current.invalidate(context.root, path);
       await documentControllerRef.current.open(context.root, saved.path, async () => ({
         root: context.root, path: saved.path, content: saved.content, original: saved.content, hash: saved.hash,
@@ -1013,9 +1209,25 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     setReviewedChange(null);
   };
 
-  const commitStagedChanges = async () => {
-    if (!context?.root || !bridge?.workspaceGitCommit || !commitMessage.trim()) return;
+  const commitStagedChanges = async (mode: CommitMode = "commit") => {
+    if (!context?.root) return;
+    if (mode === "amend") {
+      if (!bridge?.workspaceGitAction) return;
+      setCommitting(true);
+      try {
+        const result = await bridge.workspaceGitAction(context.root, "commitAmend", { message: commitMessage });
+        setGitStatus(result.status);
+        setGitOverview(result.overview);
+        setCommitMessage("");
+        setReviewedChange(null);
+        setError(null);
+      } catch (reason: any) { setError(reason?.message ?? String(reason)); }
+      finally { setCommitting(false); }
+      return;
+    }
+    if (!bridge?.workspaceGitCommit || !commitMessage.trim()) return;
     setCommitting(true);
+    let committed = false;
     try {
       const result = await bridge.workspaceGitCommit(context.root, commitMessage);
       setGitStatus(result.status);
@@ -1023,8 +1235,10 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       setCommitMessage("");
       setReviewedChange(null);
       setError(null);
+      committed = true;
     } catch (reason: any) { setError(reason?.message ?? String(reason)); }
     finally { setCommitting(false); }
+    if (committed && (mode === "push" || mode === "sync")) await runGitCommand(mode);
   };
 
   const applyGitResult = (result: { overview: ZoraiWorkspaceGitOverview; status: ZoraiWorkspaceGitStatus[] }) => {
@@ -1097,7 +1311,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       const diff = staged.trim() ? staged : await bridge.workspaceGitDiff(context.root, null, { includeUntracked: true });
       const result = await bridge.agentGenerateCommitMessage(diff, gitHistory.slice(0, 10).map((entry) => entry.subject));
       if (result.error || !result.message.trim()) {
-        setError(`Rarog could not write a commit message: ${result.error || "empty reply"}`);
+        setError(`Leszy could not write a commit message: ${result.error || "empty reply"}`);
         return;
       }
       setCommitMessage(result.message.trim());
@@ -1158,14 +1372,34 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   };
 
   const searchRoot = context?.root;
-  const searchProjectFiles = useCallback(async (query: string, options: { caseSensitive: boolean; wholeWord: boolean; regex: boolean; include: string; exclude: string; maxResults: number }) => {
+  const extraRootsKey = (context?.extraRoots ?? []).join("\n");
+  const searchProjectFiles = useCallback(async (query: string, options: { caseSensitive: boolean; wholeWord: boolean; regex: boolean; include: string; exclude: string; maxResults: number; useIgnoreFiles: boolean; fresh?: boolean; streamId?: string }) => {
     if (!searchRoot || !bridge?.workspaceSearch) return [];
-    return bridge.workspaceSearch(searchRoot, query, options);
-  }, [bridge, searchRoot]);
+    const extra = extraRootsKey ? extraRootsKey.split("\n") : [];
+    const [primary, ...others] = await Promise.all([
+      bridge.workspaceSearch(searchRoot, query, options),
+      ...extra.map((root) => bridge.workspaceSearch!(root, query, { ...options, streamId: undefined }).then((hits) => hits.map((hit) => ({ ...hit, path: `${root.replace(/[\\/]+$/, "")}/${hit.path}` })), () => [])),
+    ]);
+    return [...primary, ...others.flat()];
+  }, [bridge, searchRoot, extraRootsKey]);
   const replaceProjectFiles = useCallback(async (query: string, replacement: string, options: { caseSensitive: boolean; wholeWord: boolean; regex: boolean }, targets: Array<{ path: string; line?: number; column?: number }>) => {
     if (!searchRoot || !bridge?.workspaceReplace) throw new Error("Replace needs the desktop app.");
-    return bridge.workspaceReplace(searchRoot, query, replacement, options, targets);
-  }, [bridge, searchRoot]);
+    const extra = extraRootsKey ? extraRootsKey.split("\n") : [];
+    const byRoot = new Map<string, Array<{ path: string; line?: number; column?: number }>>();
+    for (const target of targets) {
+      const root = extra.find((candidate) => target.path.startsWith(`${candidate.replace(/[\\/]+$/, "")}/`));
+      const key = root ?? searchRoot;
+      byRoot.set(key, [...(byRoot.get(key) ?? []), root ? { ...target, path: target.path.slice(root.replace(/[\\/]+$/, "").length + 1) } : target]);
+    }
+    let files = 0;
+    let replacements = 0;
+    for (const [root, rootTargets] of byRoot) {
+      const result = await bridge.workspaceReplace(root, query, replacement, options, rootTargets);
+      files += result.files;
+      replacements += result.replacements;
+    }
+    return { files, replacements };
+  }, [bridge, searchRoot, extraRootsKey]);
   const searchProjectFileNames = useCallback(async (query: string) => {
     if (!searchRoot || !bridge?.workspaceSearchFileNames) return [];
     return bridge.workspaceSearchFileNames(searchRoot, query, { maxResults: 200 });
@@ -1330,6 +1564,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   };
 
   saveCommandRef.current = save;
+  openFileRef.current = openFile;
   reloadCommandRef.current = reloadActiveFile;
   activeFileTargetRef.current = context?.root && activeDocument ? { root: context.root, path: activeDocument.path } : null;
 
@@ -1351,13 +1586,55 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
 
   const runCodeCommand = useCallback((id: CodeCommandId) => {
     if (id === "view.settings") { openSettingsTab(); return; }
+    if (id === "view.toggleExplorer") { useShellLayoutStore.getState().setRailOpen((open) => !open); return; }
+    if (id === "view.toggleAgent") { useShellLayoutStore.getState().setContextOpen((open) => !open); return; }
+    if (id === "file.reopenClosed") { reopenClosedEditorRef.current(); return; }
+    if (id === "navigation.back" || id === "navigation.forward") { navigateHistoryRef.current(id === "navigation.back" ? "back" : "forward"); return; }
     if (id === "view.togglePanel") { useCodeBottomPanelStore.getState().toggle(); return; }
     if (id === "view.toggleTerminal") { useCodeBottomPanelStore.getState().toggle("terminal"); return; }
     if (id === "file.quickOpen") { setCodeOverlay("quickOpen"); return; }
+    if (id === "navigation.workspaceSymbol") { setCodeOverlay("workspaceSymbols"); return; }
+    if (id === "tasks.run" || id === "tasks.build" || id === "tasks.rerun") {
+      const root = activeFileTargetRef.current?.root ?? useCodeTaskStore.getState().root;
+      const panel = useCodeBottomPanelStore.getState();
+      panel.show("tasks");
+      if (!root || id === "tasks.run") return;
+      void useCodeTaskStore.getState().discover(root).then((tasks) => {
+        const target = id === "tasks.build" ? defaultBuildTask(tasks) : tasks.find((task) => task.label === useCodeTaskStore.getState().lastTaskLabel) ?? null;
+        if (target) void useCodeTaskStore.getState().run(root, target);
+      });
+      return;
+    }
+    if (id.startsWith("debug.") && id !== "debug.toggleBreakpoint") {
+      const debug = useDebugStore.getState();
+      const paused = debug.status === "stopped";
+      if (id === "debug.start") {
+        if (paused) void debug.command("continue");
+        else if (debug.status !== "running" && debug.status !== "starting") { setRailTab("debug"); useCodeBottomPanelStore.getState().show("debug"); }
+      } else if (id === "debug.stop") void debug.stop();
+      else if (id === "debug.restart") void debug.restart();
+      else if (id === "debug.pause") void debug.command("pause");
+      else if (paused) void debug.command(id === "debug.stepOver" ? "next" : id === "debug.stepInto" ? "stepIn" : "stepOut");
+      return;
+    }
+    if (id === "navigation.callHierarchy") {
+      const target = activeFileTargetRef.current;
+      const position = monacoEditorRef.current?.getPosition();
+      const language = monacoEditorRef.current?.getModel()?.getLanguageId();
+      if (target && position && language) setCallHierarchy({ root: target.root, path: target.path, language, line: position.lineNumber, column: position.column });
+      return;
+    }
     if (id === "view.commandPalette") { setCodeOverlay("commands"); return; }
     if (id === "file.save") { void saveCommandRef.current(); return; }
     if (id === "file.reload") { void reloadCommandRef.current(); return; }
-    if (id === "search.project") { setRailTab("search"); setSearchFocusToken((value) => value + 1); return; }
+    if (id === "search.project") {
+      const editor = monacoEditorRef.current;
+      const selection = editor?.getSelection();
+      setSearchSeed(searchSeedFromSelection(selection && !selection.isEmpty() ? editor?.getModel()?.getValueInRange(selection) : ""));
+      setRailTab("search");
+      setSearchFocusToken((value) => value + 1);
+      return;
+    }
     if (id === "file.openExternal" || id === "file.reveal") {
       const target = activeFileTargetRef.current;
       if (!target) return;
@@ -1428,6 +1705,30 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     return [...merged];
   }, [context?.openFiles, rootEntries, indexedFiles]);
 
+  const closeEditor = useCallback((threadId: string, path: string) => {
+    const root = context?.root ?? "";
+    const previous = closedEditorsRef.current.root === root ? closedEditorsRef.current.paths : [];
+    closedEditorsRef.current = { root, paths: rememberClosedEditor(previous, path) };
+    closeFile(threadId, path);
+  }, [closeFile, context?.root]);
+
+  navigateHistoryRef.current = (direction) => {
+    const current = lastNavLocationRef.current;
+    if (!current) return;
+    const { history, target } = direction === "back" ? navigateBack(navHistoryRef.current, current) : navigateForward(navHistoryRef.current, current);
+    navHistoryRef.current = history;
+    if (!target) return;
+    navTargetRef.current = { location: target, until: Date.now() + 3000 };
+    void openFile(target.path, { line: target.line, column: target.column });
+  };
+
+  reopenClosedEditorRef.current = () => {
+    if (!context?.root || closedEditorsRef.current.root !== context.root) return;
+    const { path, rest } = takeReopenableEditor(closedEditorsRef.current.paths, context.openFiles);
+    closedEditorsRef.current = { root: context.root, paths: rest };
+    if (path) void openFile(path);
+  };
+
   const requestCloseFile = useCallback((path: string) => {
     if (!activeThreadId) return;
     const document = documents[path];
@@ -1437,28 +1738,31 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       return;
     }
     autoSaveControllerRef.current.cancel(path);
-    closeFile(activeThreadId, path);
-  }, [activeThreadId, closeFile, documents]);
+    closeEditor(activeThreadId, path);
+  }, [activeThreadId, closeEditor, documents]);
 
   const discardAndCloseFile = useCallback((path: string) => {
     if (!activeThreadId) return;
     autoSaveControllerRef.current.cancel(path);
+    const uri = monacoUriRef.current?.parse(monacoModelPath("zorai-workspace", path));
+    if (uri) monacoModelsRef.current?.getModel(uri as never)?.dispose();
     setDocuments((current) => {
       const next = { ...current };
       delete next[path];
       return next;
     });
-    closeFile(activeThreadId, path);
+    closeEditor(activeThreadId, path);
     setPendingDirtyClosePath(null);
     setDirtyCloseError(null);
-  }, [activeThreadId, closeFile]);
+  }, [activeThreadId, closeEditor]);
 
   fileCommandsRef.current = {
+    "file.addFolder": () => { if (activeThreadId && context) addWorkspaceFolder(context.extraRoots ?? [], (roots) => setExtraRoots(activeThreadId, roots)); },
     "file.close": () => { if (activeDocument) requestCloseFile(activeDocument.path); },
     "file.closeOthers": () => {
       if (!activeThreadId || !activeDocument || !context) return;
       for (const path of context.openFiles) {
-        if (path !== activeDocument.path && !documents[path]?.dirty && !context.pinnedFiles.includes(path)) closeFile(activeThreadId, path);
+        if (path !== activeDocument.path && !documents[path]?.dirty && !context.pinnedFiles.includes(path)) closeEditor(activeThreadId, path);
       }
     },
     "file.saveAll": () => {
@@ -1478,7 +1782,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     const index = files.indexOf(path);
     const closeQuietly = (targets: string[]) => {
       for (const target of targets) {
-        if (!documents[target]?.dirty && !context.pinnedFiles.includes(target)) closeFile(activeThreadId, target);
+        if (!documents[target]?.dirty && !context.pinnedFiles.includes(target)) closeEditor(activeThreadId, target);
       }
     };
     const pinned = context.pinnedFiles.includes(path);
@@ -1614,6 +1918,31 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const panelTab = useCodeBottomPanelStore((state) => state.tab);
   const togglePanel = useCodeBottomPanelStore((state) => state.toggle);
 
+  useEffect(() => {
+    const path = activeDocument?.path;
+    if (!path || !outlineOpen) return;
+    const root = context?.root;
+    const content = activeDocument?.content;
+    const timer = window.setTimeout(() => {
+      if (lspStatus?.available) {
+        void outlineRequestRef.current?.("documentSymbol").then((result) => {
+          if (result) setLspOutline({ path, symbols: result.filter((symbol) => symbol.path === path) });
+        });
+        return;
+      }
+      if (!root || !bridge?.agentCodeSymbols) return;
+      void bridge.agentCodeSymbols(root, path, content ?? null).then((graph) => {
+        if (graph) setLspOutline({ path, symbols: graph.symbols.map((symbol) => ({ name: symbol.name, kind: symbol.kind, container: symbol.container ?? "", line: symbol.line, column: symbol.column })) });
+      }).catch(() => undefined);
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [activeDocument?.path, activeDocument?.content, lspStatus?.available, outlineOpen, context?.root, bridge]);
+  useEffect(() => subscribeCodeLocations((request) => void openFileRef.current(request.path, { line: request.line, column: request.column ?? 1 })), []);
+  useEffect(() => useDebugStore.subscribe((state, previous) => {
+    if (state.frameId === previous.frameId || state.frameId === null || state.status !== "stopped") return;
+    const frame = state.frames.find((entry) => entry.id === state.frameId);
+    if (frame?.path && frame.line > 0) void openFileRef.current(frame.path, { line: frame.line, column: frame.column });
+  }), []);
   if (!activeThreadId) return <div className="zorai-tool-empty"><strong>Select a thread</strong><span>Workspace roots and editor context are bound to an agent thread.</span></div>;
   if (rootLoading) return <WorkspaceLoadingSkeleton root={openedRoot ?? context?.root ?? rootInput} />;
 
@@ -1634,7 +1963,10 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
               value={railTab}
               onChange={(tab) => {
                 setRailTab(tab);
-                if (tab === "search") setSearchFocusToken((value) => value + 1);
+                if (tab === "search") {
+                  setSearchSeed("");
+                  setSearchFocusToken((value) => value + 1);
+                }
               }}
               badges={{
                 scm: { count: (gitOverview?.stagedFiles ?? 0) + (gitOverview?.unstagedFiles ?? 0) + gitConflicts.length },
@@ -1644,68 +1976,95 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             />
             {railTab === "explorer" ? (
               <>
-                <details className="zorai-code-open-editors">
-                  <summary>Open Editors ({context.openFiles.length})</summary>
-                  {context.openFiles.map((filePath) => {
-                    const doc = documents[filePath];
-                    const isExternal = doc?.external !== undefined;
-                    const reactivate = () => {
-                      if (isExternal) {
-                        setActiveFile(activeThreadId, filePath);
-                        setActiveEditorTabId(`file:${filePath}`);
-                        setMode("edit");
-                        return;
-                      }
-                      void openFile(filePath);
-                    };
-                    return (
-                      <button type="button" key={filePath} className={filePath === context.activeFile ? "active" : ""} onClick={reactivate} title={isExternal ? filePath : undefined}>
-                        {isExternal ? `${filePath.split(/[\\/]/).slice(-1)[0]} ⬈` : filePath.split(/[\\/]/).slice(-1)[0]}
-                      </button>
-                    );
-                  })}
-                </details>
                 <details className="zorai-code-files" open>
                   <summary className="zorai-code-files-heading">
                     <span>Files</span>
                     <span className="zorai-code-explorer-actions">
                       <button type="button" title="New file" aria-label="New file" onClick={(event) => { event.preventDefault(); setPathDialogError(null); setPathDialog({ operation: "file", initialPath: newPath }); }}><SkillIcon name="newSkill" /></button>
                       <button type="button" title="New folder" aria-label="New folder" onClick={(event) => { event.preventDefault(); setPathDialogError(null); setPathDialog({ operation: "directory", initialPath: newPath }); }}><SkillIcon name="newFolder" /></button>
+                      <button type="button" title="Add folder to workspace" aria-label="Add folder to workspace" onClick={(event) => { event.preventDefault(); addWorkspaceFolder(context.extraRoots ?? [], (roots) => setExtraRoots(activeThreadId, roots)); }}><SkillIcon name="importFolder" /></button>
                       <button type="button" title="Refresh Explorer" aria-label="Refresh Explorer" onClick={(event) => { event.preventDefault(); void refreshRoot(); }}><RefreshIcon /></button>
                     </span>
                   </summary>
                   <WorkspaceExplorerTree root={context.root} entries={rootEntries} status={statusMap} onOpen={(path) => void openFile(path)} refreshToken={explorerRefreshToken} allFiles={indexedFiles} onEntryContextMenu={(entry, x, y) => setExplorerMenu({ entry, x, y })} onEntryShortcut={(entry, action) => { if (action === "rename") { setPathDialogError(null); setPathDialog({ operation: "rename", initialPath: entry.path, sourcePath: entry.path }); } else void deleteWorkspacePath(entry.path, entry.isDirectory); }} />
                 </details>
+                <CodeWorkspaceFolders
+                  roots={context.extraRoots ?? []}
+                  onOpen={(absolutePath) => void openExternalFile(absolutePath)}
+                  onChange={(roots) => setExtraRoots(activeThreadId, roots)}
+                />
+                {activeDocument && isWorkspaceFile(activeDocument.path) ? (
+                  <button type="button" className="zorai-code-add-folder" onClick={() => setExtraRoots(activeThreadId, [...(context.extraRoots ?? []), ...workspaceFileFolders(activeDocument.content, activeDocument.path, context.root)])}>
+                    Open the folders listed in {activeDocument.path.split("/").pop()}
+                  </button>
+                ) : null}
+                <details className="zorai-code-outline" open={outlineOpen} onToggle={(event) => setOutlineOpen((event.currentTarget as HTMLDetailsElement).open)}>
+                  <summary>
+                    <span>Outline</span>
+                    {outlineOpen && activeDocument ? <span className="zorai-code-outline__meta">{symbols.length}{outlineSource !== scannedOutline ? (lspStatus?.available ? " · LSP" : " · tree-sitter") : ""}</span> : null}
+                  </summary>
+                  {outlineOpen && !activeDocument ? <p className="zorai-code-timeline__empty">Open a file to see its symbols.</p> : null}
+                  {outlineOpen && activeDocument ? (
+                    <>
+                      <input className="zorai-code-outline__filter" value={outlineFilter} placeholder="Filter symbols" aria-label="Filter outline symbols" onChange={(event) => setOutlineFilter(event.target.value)} />
+                      {symbols.length === 0 ? <p className="zorai-code-timeline__empty">No symbols found.</p> : null}
+                      {symbols.slice(0, OUTLINE_RENDER_LIMIT).map((symbol) => (
+                        <button
+                          type="button"
+                          key={`${symbol.line}:${symbol.column}:${symbol.name}`}
+                          className="zorai-code-outline__item"
+                          title={symbol.container ? `${symbol.container} › ${symbol.name}` : symbol.name}
+                          onClick={() => void openFile(activeDocument.path, { line: symbol.line, column: symbol.column })}
+                        >
+                          <span className="zorai-code-outline__kind">{symbol.kind}</span>
+                          <span className="zorai-code-outline__name">{symbol.container ? <small>{symbol.container} › </small> : null}{symbol.name}</span>
+                          <span className="zorai-code-outline__line">{symbol.line}</span>
+                        </button>
+                      ))}
+                      {symbols.length > OUTLINE_RENDER_LIMIT ? <p className="zorai-code-timeline__empty">Showing {OUTLINE_RENDER_LIMIT} of {symbols.length}. Filter to narrow down.</p> : null}
+                    </>
+                  ) : null}
+                </details>
+                <CodeTimelinePanel
+                  root={context.root}
+                  path={activeDocument && !activeDocument.external ? activeDocument.path : null}
+                  refreshToken={gitStatus}
+                  onCompare={(content) => {
+                    if (!activeDocument) return;
+                    const path = activeDocument.path;
+                    setDocuments((current) => (current[path] ? { ...current, [path]: { ...current[path], gitBaseContent: content } } : current));
+                    openDiffTab(path);
+                  }}
+                  onRestore={(content) => {
+                    if (!activeDocument) return;
+                    const doc = activeDocument;
+                    if (context.root) documentControllerRef.current.updateContent(context.root, doc.path, content);
+                    setDocuments((current) => ({ ...current, [doc.path]: { ...(current[doc.path] ?? doc), content, dirty: content !== doc.original } }));
+                    setActiveEditorTabId(`file:${doc.path}`);
+                    setMode("edit");
+                  }}
+                />
                 <details className="zorai-code-workspace-actions">
                   <summary>Workspace Actions</summary>
                   <label className="zorai-workspace-isolation-toggle"><input type="checkbox" checked={context.isolateAgentTasks} onChange={(event) => setIsolateAgentTasks(activeThreadId, event.target.checked)} /><span>Isolate agent tasks in worktrees</span></label>
+                  <CodeVerifyToggle root={context.root} />
                   <div className="zorai-workspace-create-row">
                     <input value={newPath} onChange={(event) => setNewPath(event.target.value)} placeholder="relative/path" />
                     <button type="button" title="New file" onClick={() => void createPath("file")}>+F</button>
                     <button type="button" title="New directory" onClick={() => void createPath("directory")}>+D</button>
                   </div>
                 </details>
-                {workspaceDiagnostics.length > 0 ? (
-                  <details className="zorai-workspace-problems">
-                    <summary>Problems ({workspaceDiagnostics.length})</summary>
-                    {workspaceDiagnostics.slice(0, 500).map((diagnostic, index) => (
-                      <button type="button" key={`${diagnostic.path}:${diagnostic.startLine}:${diagnostic.startColumn}:${diagnostic.code ?? index}`} onClick={() => void openFile(diagnostic.path, { line: diagnostic.startLine, column: diagnostic.startColumn })}>
-                        <span className={`severity-${diagnostic.severity}`}>{diagnostic.severity === 1 ? "E" : diagnostic.severity === 2 ? "W" : "I"}</span>
-                        <strong>{diagnostic.message}</strong>
-                        <code>{diagnostic.path}:{diagnostic.startLine}{diagnostic.source ? ` · ${diagnostic.source}` : ""}</code>
-                      </button>
-                    ))}
-                  </details>
-                ) : null}
               </>
             ) : null}
             <div hidden={railTab !== "search"}>
               <CodeSearchPanel
                 root={context.root}
                 focusToken={searchFocusToken}
+                seedQuery={searchSeed}
+                openFiles={context.openFiles}
                 search={searchProjectFiles}
                 replace={replaceProjectFiles}
-                onOpen={(hit) => void openFile(hit.path, { line: hit.line, column: hit.column })}
+                onOpen={(hit) => void (/^([A-Za-z]:)?[\\/]/.test(hit.path) ? openExternalFile(hit.path) : openFile(hit.path, { line: hit.line, column: hit.column }))}
               />
             </div>
             {railTab === "scm" ? (
@@ -1737,8 +2096,8 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                           <button
                             type="button"
                             className="zorai-scm-generate"
-                            title={gitOverview.stagedFiles > 0 ? "Generate a commit message from staged changes with Rarog" : "Generate a commit message from all changes with Rarog"}
-                            aria-label="Generate commit message with Rarog"
+                            title={gitOverview.stagedFiles > 0 ? "Generate a commit message from staged changes with Leszy" : "Generate a commit message from all changes with Leszy"}
+                            aria-label="Generate commit message with Leszy"
                             aria-busy={generatingCommitMessage || undefined}
                             disabled={generatingCommitMessage || gitOverview.stagedFiles + gitOverview.unstagedFiles === 0}
                             onClick={() => void generateCommitMessage()}
@@ -1751,7 +2110,13 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                           </button>
                         ) : null}
                       </div>
-                      <button type="button" className="zorai-scm-commit" disabled={committing || !commitMessage.trim() || gitOverview.stagedFiles === 0} onClick={() => void commitStagedChanges()}>{committing ? "Committing…" : "Commit staged"}</button>
+                      <CommitSplitButton
+                        busy={committing || Boolean(gitRemoteBusy)}
+                        canCommit={Boolean(commitMessage.trim()) && gitOverview.stagedFiles > 0}
+                        canAmend={Boolean(bridge?.workspaceGitAction)}
+                        canPush={Boolean(bridge?.workspaceGitAction)}
+                        onCommit={(mode) => void commitStagedChanges(mode)}
+                      />
                       {bridge?.workspaceGitAction && (gitOverview.ahead > 0 || gitOverview.behind > 0 || gitRemoteBusy) ? (
                         <button type="button" className="zorai-scm-sync-button" disabled={Boolean(gitRemoteBusy)} title={`Pull ${gitOverview.behind} and push ${gitOverview.ahead} commit(s)`} onClick={() => void runGitCommand("sync")}>
                           <RefreshIcon />
@@ -1763,6 +2128,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                   </>
                 ) : null}
                 <WorkspaceSourceControlChanges status={gitStatus} onOpen={(path) => openFile(path, undefined, "diff")} onReview={reviewHunks} onAction={runGitAction} onBulkAction={runBulkGitAction} onRefresh={() => refreshGitOnly(context?.root)} />
+                <ExtraRootSourceControl roots={context.extraRoots ?? []} refreshToken={gitStatus} onOpen={(absolutePath) => void openExternalFile(absolutePath)} onReview={(absolutePath) => void openExternalFile(absolutePath)} />
                 {gitOverview?.isRepository && bridge?.agentSpawnSubagent ? (
                   <AgentReviewPanel
                     root={context.root}
@@ -1829,6 +2195,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                     ))}
                   </details>
                 ) : null}
+                <button type="button" className="zorai-code-add-folder" onClick={() => setMissionControlOpen(true)}>Mission Control · {isolatedTaskWorktrees.length} agent worktree{isolatedTaskWorktrees.length === 1 ? "" : "s"}</button>
                 {isolatedTaskWorktrees.length > 0 ? (
                   <details className="zorai-workspace-isolated-reviews">
                     <summary>Awaiting isolated review ({isolatedTaskWorktrees.length})</summary>
@@ -1853,6 +2220,13 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                 ) : null}
               </>
             ) : null}
+            {railTab === "debug" && context?.root ? (
+              <DebugPanel
+                root={context.root}
+                activeFile={activeDocument && !activeDocument.external ? activeDocument.path : null}
+                onOpenLocation={(path, line, column) => void openFile(path, { line, column })}
+              />
+            ) : null}
             {railTab === "testing" ? (
               <>
                 {testsDiscovering && workspaceTests.length === 0 ? (
@@ -1876,8 +2250,14 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                     </div>
                     {workspaceTests.slice(0, 500).map((test) => (
                       <div key={test.id}>
-                        <button type="button" onClick={() => void openFile(test.path, { line: test.line, column: 1 })}><span>{test.framework}</span><strong>{test.name}</strong><code>{test.path}:{test.line}</code></button>
+                        <button type="button" onClick={() => void (test.root ? openExternalFile(joinExtraRoot(test.root, test.path), { line: test.line, column: 1 }) : openFile(test.path, { line: test.line, column: 1 }))}><span>{test.framework}</span><strong>{test.name}</strong><code>{test.root ? `${test.root.replace(/[\\/]+$/, "").split(/[\\/]/).pop()}/` : ""}{test.path}:{test.line}</code></button>
                         <button type="button" disabled={testRun?.status === "running"} onClick={() => void runWorkspaceTest(test)}>Run</button>
+                        {debugTestConfig(test) ? <button type="button" title="Debug this test (breakpoints apply)" onClick={() => {
+                          const config = debugTestConfig(test);
+                          if (!config || !context?.root) return;
+                          useCodeBottomPanelStore.getState().show("debug");
+                          void useDebugStore.getState().start(test.root ?? context.root, test.path, config).catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)));
+                        }}>Debug</button> : null}
                       </div>
                     ))}
                     {testRun?.output ? <pre>{testRun.output}</pre> : null}
@@ -1931,59 +2311,404 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       </aside>
   );
 
+  openTerminalLinkRef.current = ({ path, line, column }) => {
+    const root = context?.root;
+    if (!root) return;
+    const relative = workspaceRelativeLinkPath(path, root);
+    if (!relative) {
+      pushToast(`${path} is outside this workspace.`, "info");
+      return;
+    }
+    const known = indexedFiles ?? [];
+    const suffixMatches = known.includes(relative) ? [] : known.filter((candidate) => candidate.endsWith(`/${relative}`));
+    void openFile(suffixMatches.length === 1 ? suffixMatches[0] : relative, { line, column });
+  };
+
+  const lspSymbolRequest = async (method: "documentSymbol" | "workspaceSymbol", extra?: Record<string, unknown>) => {
+    if (!context?.root || !activeDocument || !lspStatus?.available || !bridge?.workspaceLspRequest) return null;
+    const response = await bridge.workspaceLspRequest(context.root, activeDocument.path, activeDocument.language, method, { line: 0, character: 0 }, extra).catch(() => null);
+    return response?.result ? flattenLspSymbols(response.result, activeDocument.path, context.root) : null;
+  };
+  outlineRequestRef.current = lspSymbolRequest;
+  const scannedSymbols = (doc: OpenDocument): QuickOpenSymbol[] => extractWorkspaceSymbols(doc.content).map((symbol) => ({ name: symbol.name, kind: symbol.kind, container: "", path: doc.path, line: symbol.line, column: symbol.column }));
+  breadcrumbSymbolsRef.current = async () => {
+    const lspSymbols = await lspSymbolRequest("documentSymbol");
+    return lspSymbols && lspSymbols.length > 0 ? lspSymbols : activeDocument ? scannedSymbols(activeDocument) : [];
+  };
+  const quickOpenProps = {
+    files: explorerFiles,
+    searchFiles: searchProjectFileNames,
+    openEditors: context?.openFiles ?? [],
+    hasActiveFile: Boolean(activeDocument),
+    getSymbols: async () => {
+      const lspSymbols = await lspSymbolRequest("documentSymbol");
+      return lspSymbols && lspSymbols.length > 0 ? lspSymbols : activeDocument ? scannedSymbols(activeDocument) : [];
+    },
+    searchWorkspaceSymbols: async (query: string) => {
+      const lspSymbols = await lspSymbolRequest("workspaceSymbol", { query });
+      if (lspSymbols) return lspSymbols;
+      const needle = query.toLowerCase();
+      return Object.values(documents).flatMap(scannedSymbols).filter((symbol) => symbol.name.toLowerCase().includes(needle));
+    },
+    onOpen: (path: string, line?: number, column?: number) => void openFile(path, line ? { line, column: column ?? 1 } : undefined),
+    onRunCommand: (id: CodeCommandId) => runCodeCommand(id),
+    onGoToLine: (line: number, column: number) => { if (activeDocument) void openFile(activeDocument.path, { line, column }); },
+    onClose: () => setCodeOverlay(null),
+  };
+
+  const fixProblemWithLeszy = (problem: CodeProblem) => {
+    void openFile(problem.path, { line: problem.line, column: problem.column });
+    let frames = 0;
+    const tryOpenPrompt = () => {
+      const editor = monacoEditorRef.current;
+      const onTarget = editor?.getModel()?.uri.path.replace(/^\/+/, "") === problem.path && editor?.getPosition()?.lineNumber === problem.line;
+      if (onTarget && editor) {
+        editor.focus();
+        void editor.getAction("zorai.rarog.fix")?.run();
+        return;
+      }
+      if (++frames < 120) requestAnimationFrame(tryOpenPrompt);
+    };
+    requestAnimationFrame(tryOpenPrompt);
+  };
+
   const bottomPanel = panelOpen ? (
     <CodeBottomPanel
       terminalSessionKey={context?.root ? `code:${context.root}` : null}
       cwd={context?.root ?? undefined}
+      problemCount={problemCounts.error + problemCounts.warning}
+      problems={context?.root ? (
+        <CodeProblemsPanel
+          problems={codeProblems}
+          activePath={activeDocument?.path ?? null}
+          onOpen={(problem) => void (extraRootOf(problem.path, context?.extraRoots ?? []) ? openExternalFile(problem.path, { line: problem.line, column: problem.column }) : openFile(problem.path, { line: problem.line, column: problem.column }))}
+          onFix={fixProblemWithLeszy}
+          onAddToChat={(problem) => {
+            if (!activeThreadId) { pushToast("Open a thread to add problems to the chat.", "error"); return; }
+            prefillAgentInput(`\`${problem.path}:${problem.line}\` ${problem.severity}: ${problem.message}`, "append");
+          }}
+        />
+      ) : undefined}
     />
   ) : null;
-  const statusToggles = (
-    <span className="zorai-code-statusbar-toggles">
-      <button type="button" className={panelOpen && panelTab === "terminal" ? "is-active" : undefined} title="Toggle Terminal (Ctrl+`)" onClick={() => togglePanel("terminal")}>
-        <span aria-hidden="true">›_</span> Terminal
-      </button>
+  const openLanguageServerSettings = () => {
+    setCodeSettingsTab("language-servers");
+    openSettingsTab();
+  };
+
+  const revealInExplorer = (path: string) => {
+    if (!context?.root) return;
+    setRailTab("explorer");
+    void workspaceExplorerControllerFor(bridge, context.root).reveal(path);
+  };
+
+  const lspIndicator = !lspStatus ? null : lspStatus.available ? (
+    <span className="zorai-lsp-status is-ready" title={`Language server running\n${lspStatus.command ?? "ready"}`}>
+      <span className="zorai-lsp-status__dot" aria-hidden="true" />
+      LSP
     </span>
+  ) : (
+    <button
+      type="button"
+      className="zorai-lsp-status is-unavailable"
+      title={`Language server unavailable${lspStatus.reason ? `\n${lspStatus.reason}` : ""}\nOpen Code Settings → Language Servers`}
+      aria-label="Language server unavailable. Open Code Settings."
+      onClick={openLanguageServerSettings}
+    >
+      <span className="zorai-lsp-status__dot" aria-hidden="true" />
+      LSP
+      <SettingsGearIcon />
+    </button>
   );
 
-  const renderWorkspaceEditor = (doc: OpenDocument, paned: boolean) => (
-    <WorkspaceCodeEditor
-      settings={reducedModePathsRef.current.has(doc.path) ? { ...editorSettings, minimap: false, stickyScroll: false, formatOnPaste: false, formatOnType: false } : editorSettings}
-      path={doc.path}
-      value={doc.content}
-      language={doc.language}
-      textareaRef={editorRef}
-      onMount={(editor, monaco) => {
-        monacoUriRef.current = monaco.Uri;
-        if (paned) {
-          paneEditorsRef.current.set(doc.path, editor);
-          editor.onDidDispose(() => {
-            if (paneEditorsRef.current.get(doc.path) === editor) paneEditorsRef.current.delete(doc.path);
+  const changeDocumentLanguage = (path: string, language: string) => {
+    setDocuments((current) => current[path] ? { ...current, [path]: { ...current[path], language } } : current);
+  };
+
+  const promptLanguageServerInstall = async (serverId: string) => {
+    await useLanguageServerStore.getState().refresh();
+    const server = useLanguageServerStore.getState().servers.find((candidate) => candidate.id === serverId);
+    if (!server || server.installedCommand) return;
+    const install = () => void useLanguageServerStore.getState().install(server.id).then((ok) => pushToast(
+      ok ? `${server.server} installed. ${server.label} language features are starting.` : `${server.server} installation failed. Details are in Code Settings → Language Servers.`,
+      ok ? "success" : "error",
+      ok ? undefined : { actions: [{ label: "Code Settings", run: openLanguageServerSettings }] },
+    ));
+    pushToast(
+      `${server.label} Go to Definition, rename and refactoring need ${server.server}, which isn't installed. ${server.installable ? "Install it now?" : server.hint ?? ""} You can also do this any time in Code Settings → Language Servers.`,
+      "info",
+      { durationMs: 30000, actions: [...(server.installable ? [{ label: "Install", run: install }] : []), { label: "Code Settings", run: openLanguageServerSettings }] },
+    );
+  };
+
+  const addEditorContextToChat = (doc: OpenDocument, snippet: { startLine: number; endLine: number; text: string } | null) => {
+    if (!activeThreadId) {
+      pushToast("Open a thread to add code to the chat.", "error");
+      return;
+    }
+    if (!snippet) {
+      if (!context?.attachedFiles.includes(doc.path)) toggleAttachedFile(activeThreadId, doc.path);
+      pushToast(`${doc.path} is attached to the chat.`, "success", { durationMs: 2500 });
+      return;
+    }
+    const fence = snippet.text.includes("```") ? "````" : "```";
+    prefillAgentInput(`\`${doc.path}:${snippet.startLine}-${snippet.endLine}\`\n${fence}${doc.language}\n${snippet.text}\n${fence}`, "append");
+  };
+
+  const applyWorkspaceEdits = async (files: LspFileEdits[], skipped: number, extraRoot?: string) => {
+    const root = extraRoot ?? context?.root;
+    if (!root) return;
+    const failed: string[] = [];
+    for (const file of files) {
+      const key = extraRoot ? joinExtraRoot(extraRoot, file.path) : file.path;
+      const open = documents[key];
+      if (open) {
+        const value = applyLspTextEdits(open.content, file.edits);
+        if (!extraRoot) documentControllerRef.current.updateContent(root, file.path, value);
+        setDocuments((current) => current[key] ? { ...current, [key]: { ...current[key], content: value, dirty: value !== current[key].original } } : current);
+        continue;
+      }
+      try {
+        if (!bridge?.workspaceReadFile || !bridge.workspaceWriteFile) throw new Error("Workspace file access is unavailable.");
+        const disk = await bridge.workspaceReadFile(root, file.path);
+        await bridge.workspaceWriteFile(root, file.path, applyLspTextEdits(disk.content, file.edits), disk.hash);
+      } catch {
+        failed.push(file.path);
+      }
+    }
+    const problems = [
+      failed.length > 0 ? `could not update ${failed.join(", ")}` : "",
+      skipped > 0 ? `skipped ${skipped} change(s) the language server proposed (file create/rename/delete or outside the workspace)` : "",
+    ].filter(Boolean);
+    if (problems.length > 0) setError(`Refactoring incomplete: ${problems.join("; ")}.`);
+  };
+
+  const applyWorkspaceSteps = async (steps: LspEditStep[], skipped: number) => {
+    const root = context?.root;
+    if (!root || !activeThreadId || !bridge?.workspaceWriteFile) return;
+    const moved = steps.filter((step) => (step.kind === "rename" || step.kind === "delete") && documents[step.path]?.dirty).map((step) => step.path);
+    if (moved.length > 0) {
+      setError(`Save ${moved.join(", ")} before running a refactor that moves or deletes it.`);
+      return;
+    }
+    if (!window.confirm(`This refactor also changes files on disk:\n\n${describeLspEditSteps(steps).join("\n")}\n\nApply it?`)) return;
+    const failed: string[] = [];
+    for (const step of steps) {
+      try {
+        if (step.kind === "edit") await applyWorkspaceEdits([{ path: step.path, edits: step.edits }], 0);
+        else if (step.kind === "create") {
+          const exists = await bridge.workspaceReadOptionalFile?.(root, step.path).then((file) => file !== null, () => false);
+          if (!exists || step.overwrite) await bridge.workspaceWriteFile(root, step.path, "");
+        } else if (step.kind === "rename") {
+          if (!bridge.workspaceRenamePath) throw new Error("rename unavailable");
+          await bridge.workspaceRenamePath(root, step.path, step.newPath);
+          if (documents[step.path]) {
+            const renamed = await bridge.workspaceReadFile?.(root, step.newPath).catch(() => null);
+            setDocuments((current) => {
+              const next = { ...current };
+              delete next[step.path];
+              if (renamed) next[step.newPath] = { ...renamed, original: renamed.content, dirty: false };
+              return next;
+            });
+            closeFile(activeThreadId, step.path);
+            if (renamed && context.activeFile === step.path) setActiveFile(activeThreadId, step.newPath);
+          }
+        } else {
+          if (!bridge.workspaceDeletePath) throw new Error("delete unavailable");
+          await bridge.workspaceDeletePath(root, step.path, { recursive: step.recursive });
+          setDocuments((current) => {
+            const next = { ...current };
+            delete next[step.path];
+            return next;
           });
-          if (doc.path !== activeDocument?.path) return;
+          closeFile(activeThreadId, step.path);
         }
-        monacoEditorRef.current = editor;
-        requestAnimationFrame(() => revealPendingNavigation(editor));
-      }}
-      onSave={() => void saveCommandRef.current()}
-      onFormatError={(message) => setError(`Formatting failed: ${message}`)}
-      onBlur={() => {
-        if (editorSettings.autoSave === "editor_focus_lost" && doc.dirty && doc.externalContent === undefined) void saveDocumentRef.current(doc.path);
-      }}
-      diagnostics={reducedModePathsRef.current.has(doc.path) ? [] : diagnosticsByPath[doc.path] ?? []}
-      testResults={(testRun?.evidence?.results ?? []).map((result) => {
-        const known = workspaceTests.find((test) => test.name === result.name || result.name.endsWith(test.name));
-        const location = result.location?.path === doc.path ? result.location : known?.path === doc.path ? { line: known.line } : null;
-        return location ? { line: location.line, status: result.status, message: result.message } : null;
-      }).filter((result): result is { line: number; status: "passed" | "failed" | "skipped"; message: string | null } => result !== null)}
-      lsp={context?.root && lspStatus ? { root: context.root, path: doc.path, language: doc.language, available: !reducedModePathsRef.current.has(doc.path) && editorSettings.lspEnabled && lspStatus.available } : undefined}
-      onNavigateLocation={(targetPath, line, column) => void openFile(targetPath, { line, column })}
-      onSelect={recordEditorSelection}
-      onChange={(value) => {
-        if (context?.root) documentControllerRef.current.updateContent(context.root, doc.path, value);
-        setDocuments((current) => ({ ...current, [doc.path]: { ...doc, content: value, dirty: value !== doc.original } }));
-      }}
-    />
-  );
+      } catch {
+        failed.push(step.kind === "rename" ? `${step.path} → ${step.newPath}` : step.path);
+      }
+    }
+    await refreshRoot();
+    const problems = [
+      failed.length > 0 ? `could not apply ${failed.join(", ")}` : "",
+      skipped > 0 ? `skipped ${skipped} change(s) outside the workspace` : "",
+    ].filter(Boolean);
+    if (problems.length > 0) setError(`Refactoring incomplete: ${problems.join("; ")}.`);
+  };
+
+  const updateDocumentText = (doc: OpenDocument, value: string) => {
+    if (context?.root) documentControllerRef.current.updateContent(context.root, doc.path, value);
+    setDocuments((current) => ({ ...current, [doc.path]: { ...(current[doc.path] ?? doc), content: value, dirty: value !== doc.original } }));
+  };
+
+  const loadProvenance = async (path: string): Promise<{ operations: ProvenanceOperation[]; befores: string[] } | null> => {
+    const entries = agentChanges.filter((entry) => entry.path === path && entry.operation_id && entry.is_text !== false).sort((left, right) => left.updated_at - right.updated_at);
+    const seen = new Set<string>();
+    const operations: ProvenanceOperation[] = [];
+    const befores: string[] = [];
+    for (const entry of entries) {
+      const operationId = entry.operation_id as string;
+      if (seen.has(operationId)) continue;
+      seen.add(operationId);
+      const before = await bridge?.agentGetFileOperationBefore?.(operationId, path).catch(() => null);
+      if (!before?.available || before.binary) continue;
+      operations.push({
+        operationId,
+        at: entry.updated_at,
+        ...provenanceContext(
+          activeThreadId ? useAgentStore.getState().messages[activeThreadId] ?? [] : [],
+          useAgentMissionStore.getState().operationalEvents.filter((event) => event.sessionId === activeDaemonThreadId),
+          entry.updated_at,
+        ),
+        label: [entry.source, entry.change_kind].filter(Boolean).join(" · ") || "agent edit",
+        detail: [entry.goal_run_id ? `Goal ${entry.goal_run_id}${entry.step_index != null ? ` step ${entry.step_index + 1}` : ""}` : "", entry.task_id ? `Task ${entry.task_id}` : ""].filter(Boolean).join(" · "),
+      });
+      befores.push(before.content ?? "");
+    }
+    return operations.length > 0 ? { operations, befores } : null;
+  };
+
+  const stageGutterChange = async (path: string, change: GutterChange) => {
+    const root = context?.root;
+    if (!root || !bridge?.workspaceGitHunks || !bridge.workspaceGitApplyHunk) return;
+    if (documents[path]?.dirty) {
+      setError("Save the file before staging a change.");
+      return;
+    }
+    try {
+      const hunks = await bridge.workspaceGitHunks(root, path);
+      const match = hunks.find((hunk) => hunk.newStart <= change.endLine && hunk.newStart + Math.max(hunk.newLines, 1) - 1 >= change.startLine);
+      if (!match) {
+        setError("That change is no longer in the Git diff. Refresh and try again.");
+        return;
+      }
+      setGitStatus((await bridge.workspaceGitApplyHunk(root, path, match.id, "stage")).status);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    }
+  };
+
+  const renderWorkspaceEditor = (doc: OpenDocument, paned: boolean) => {
+    const docExtraRoot = doc.external ? extraRootOf(doc.path, context?.extraRoots ?? []) : null;
+    return (
+      <WorkspaceCodeEditor
+        agentReview={agentReview.reviewForPath(doc.path)}
+        settings={reducedModePathsRef.current.has(doc.path) ? { ...settingsFor(doc.language, doc.path), minimap: false, stickyScroll: false, formatOnPaste: false, formatOnType: false } : settingsFor(doc.language, doc.external ? null : doc.path)}
+        path={doc.path}
+        value={doc.content}
+        language={doc.language}
+        textareaRef={editorRef}
+        onMount={(editor, monaco) => {
+          monacoUriRef.current = monaco.Uri;
+          monacoModelsRef.current = monaco.editor as never;
+          const root = context?.root;
+          if (root) {
+            const viewStateKeyFor = () => {
+              const model = editor.getModel();
+              return model ? codeViewStateKey(root, model.uri.path.replace(/^\/+/, "")) : null;
+            };
+            const restore = () => {
+              const key = viewStateKeyFor();
+              const saved = key && useCodeEditorSettingsStore.getState().settings.restoreViewState ? loadCodeViewState(key) : null;
+              if (saved) editor.restoreViewState(saved as MonacoEditorApi.ICodeEditorViewState);
+            };
+            let pending: { key: string; state: unknown } | null = null;
+            let saveTimer: number | null = null;
+            const flush = () => {
+              if (saveTimer !== null) window.clearTimeout(saveTimer);
+              saveTimer = null;
+              if (pending) saveCodeViewState(pending.key, pending.state);
+              pending = null;
+            };
+            const scheduleSave = () => {
+              const key = viewStateKeyFor();
+              if (!key) return;
+              pending = { key, state: editor.saveViewState() };
+              if (saveTimer !== null) window.clearTimeout(saveTimer);
+              saveTimer = window.setTimeout(flush, 300);
+            };
+            restore();
+            editor.onDidChangeCursorPosition((event) => {
+              const model = editor.getModel();
+              if (!model) return;
+              const location = { path: model.uri.path.replace(/^\/+/, ""), line: event.position.lineNumber, column: event.position.column };
+              const navTarget = navTargetRef.current;
+              if (navTarget && Date.now() < navTarget.until) {
+                if (navTarget.location.path === location.path && navTarget.location.line === location.line) navTargetRef.current = null;
+              } else {
+                navTargetRef.current = null;
+                const previous = lastNavLocationRef.current;
+                if (previous && isNavJump(previous, location)) navHistoryRef.current = recordNavLocation(navHistoryRef.current, previous);
+              }
+              lastNavLocationRef.current = location;
+            });
+            editor.onDidChangeModel(() => { flush(); restore(); });
+            editor.onDidChangeCursorPosition(scheduleSave);
+            editor.onDidScrollChange(scheduleSave);
+            editor.onDidDispose(flush);
+          }
+          if (paned) {
+            paneEditorsRef.current.set(doc.path, editor);
+            editor.onDidDispose(() => {
+              if (paneEditorsRef.current.get(doc.path) === editor) paneEditorsRef.current.delete(doc.path);
+            });
+            if (doc.path !== activeDocument?.path) return;
+          }
+          monacoEditorRef.current = editor;
+          requestAnimationFrame(() => revealPendingNavigation(editor));
+        }}
+        onSave={() => void saveCommandRef.current()}
+        onFormatError={(message) => setError(`Formatting failed: ${message}`)}
+        resolveFormatOptions={() => (context?.root && !doc.external ? prettierOptionsForRef.current(context.root, doc.path) : Promise.resolve({}))}
+        gitGutter={context?.root && gitOverview?.isRepository && !doc.external && !reducedModePathsRef.current.has(doc.path) ? {
+          loadBase: () => bridge?.workspaceGitShow ? bridge.workspaceGitShow(context.root, doc.path, "") : Promise.resolve(null),
+          onStage: (change) => stageGutterChange(doc.path, change),
+        } : null}
+        gitRevision={gitStatus}
+        provenance={!doc.external && bridge?.agentGetFileOperationBefore ? {
+          enabled: editorSettings.provenanceGutter,
+          load: () => loadProvenance(doc.path),
+          onRevert: (operationId) => void revertAgentOperation(operationId),
+          onAskWhy: (_operationId, startLine, endLine) => {
+            const editor = monacoEditorRef.current;
+            const model = editor?.getModel();
+            if (!editor || !model) return;
+            editor.setSelection({ startLineNumber: startLine, startColumn: 1, endLineNumber: endLine, endColumn: model.getLineMaxColumn(endLine) });
+            void editor.getAction("zorai.chat.add")?.run();
+            pushToast("The agent's change is attached to the chat. Ask why it was made.", "info");
+          },
+        } : null}
+        gitBlame={context?.root && gitOverview?.isRepository && !doc.external && bridge?.workspaceGitBlame ? {
+          enabled: editorSettings.inlineBlame,
+          load: async () => ({ lines: await bridge.workspaceGitBlame!(context.root, doc.path), content: doc.original }),
+        } : null}
+        onBlur={() => {
+          if (editorSettings.autoSave === "editor_focus_lost" && doc.dirty && doc.externalContent === undefined) void saveDocumentRef.current(doc.path);
+        }}
+        diagnostics={reducedModePathsRef.current.has(doc.path) ? [] : diagnosticsByPath[doc.path] ?? []}
+        testResults={(testRun?.evidence?.results ?? []).map((result) => {
+          const known = workspaceTests.find((test) => test.name === result.name || result.name.endsWith(test.name));
+          const location = result.location?.path === doc.path ? result.location : known?.path === doc.path ? { line: known.line } : null;
+          return location ? { line: location.line, status: result.status, message: result.message } : null;
+        }).filter((result): result is { line: number; status: "passed" | "failed" | "skipped"; message: string | null } => result !== null)}
+        lsp={context?.root && lspStatus && (!doc.external || docExtraRoot) ? { root: docExtraRoot?.root ?? context.root, path: docExtraRoot?.relative ?? doc.path, language: doc.language, available: !reducedModePathsRef.current.has(doc.path) && editorSettings.lspEnabled && lspStatus.available } : undefined}
+        onNavigateLocation={(targetPath, line, column) => void (docExtraRoot ? openExternalFile(joinExtraRoot(docExtraRoot.root, targetPath), { line, column }) : openFile(targetPath, { line, column }))}
+        onApplyWorkspaceEdit={(files, skipped) => void applyWorkspaceEdits(files, skipped, docExtraRoot?.root)}
+        onApplyWorkspaceSteps={(steps, skipped) => {
+          if (docExtraRoot) setError("Refactors that create, move or delete files work only in the main workspace folder.");
+          else void applyWorkspaceSteps(steps, skipped);
+        }}
+        onAddToChat={(snippet) => addEditorContextToChat(doc, snippet)}
+        onCodeFixError={(message) => pushToast(message, "error")}
+        onClose={() => requestCloseFile(doc.path)}
+        workspaceRoot={context?.root}
+        onSelect={recordEditorSelection}
+        onChange={(value) => {
+          if (context?.root) documentControllerRef.current.updateContent(context.root, doc.path, value);
+          setDocuments((current) => ({ ...current, [doc.path]: { ...doc, content: value, dirty: value !== doc.original } }));
+        }}
+      />
+    );
+  };
 
   const focusSplitPane = (path: string) => {
     if (!activeThreadId) return;
@@ -2089,8 +2814,8 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             <button type="button" className="zorai-thread-split__close" aria-label={`Close ${node.id} pane`} title="Close pane" onClick={() => closeSplitPane(node.id)}>×</button>
           </div>
           <div className="zorai-code-split__body">
-            {previewPaths[node.id] && codePreviewKind(node.id) ? (
-              <CodeDocumentPreview path={node.id} content={doc.content} root={context?.root ?? null} />
+            {previewShown(node.id) ? (
+              <CodeDocumentPreview path={node.id} content={doc.content} root={context?.root ?? null} onChange={(value) => updateDocumentText(doc, value)} />
             ) : (
               <Suspense fallback={<div className="zorai-workspace-editor-loading">Loading Monaco editor…</div>}>
                 {renderWorkspaceEditor(doc, true)}
@@ -2122,7 +2847,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   };
 
   const editor = (
-      <section className="zorai-workspace-editor-area">
+      <section className={editorFullscreen ? "zorai-workspace-editor-area is-fullscreen" : "zorai-workspace-editor-area"}>
         {operationDiff ? (
           <AgentOperationDiffView
             target={operationDiff}
@@ -2146,23 +2871,33 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
               working: false,
               unread: false,
             })),
+            ...diffTabs.filter((path) => Boolean(documents[path]) || context?.openFiles.includes(path)).map((path) => ({ id: `diff:${path}`, title: `${path.split(/[\\/]/).slice(-1)[0]} (diff)`, pinned: false, active: activeEditorTabId === `diff:${path}`, working: false, unread: false })),
             ...(settingsTabOpen ? [{ id: "code-settings", title: "Code Settings", pinned: settingsTabPinned, active: activeEditorTabId === "code-settings", working: false, unread: false }] : []),
           ]}
           onSelect={(tabId) => {
             if (tabId === "code-settings") { setActiveEditorTabId(tabId); return; }
+            if (tabId.startsWith("diff:")) {
+              const diffPath = tabId.slice(5);
+              setActiveFile(activeThreadId, diffPath, Boolean(context?.openFiles.includes(diffPath)));
+              setActiveEditorTabId(tabId);
+              if (!documents[diffPath]) void openFile(diffPath, undefined, "diff");
+              return;
+            }
             const filePath = tabId.replace(/^file:/, "");
             setActiveEditorTabId(tabId);
             void openFile(filePath);
           }}
           onClose={(tabId) => {
             if (tabId === "code-settings") { closeSettingsTab(); return; }
+            if (tabId.startsWith("diff:")) { closeDiffTab(tabId.slice(5)); return; }
             requestCloseFile(tabId.replace(/^file:/, ""));
           }}
           onTogglePin={(tabId) => {
             if (tabId === "code-settings") { setSettingsTabPinned((pinned) => !pinned); return; }
+            if (tabId.startsWith("diff:")) return;
             togglePinnedFile(activeThreadId, tabId.replace(/^file:/, ""));
           }}
-          onTabContextMenu={(tabId, x, y) => setTabMenu({ tabId, x, y })}
+          onTabContextMenu={(tabId, x, y) => { if (!tabId.startsWith("diff:")) setTabMenu({ tabId, x, y }); }}
           selectedIds={selectedTabIds}
           onToggleSelect={(tabId) => setSelectedTabIds((current) => {
             const next = new Set(current);
@@ -2171,22 +2906,35 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             return next;
           })}
           onMove={(tabId, targetId, placeAfter) => {
-            if (tabId === "code-settings" || targetId === "code-settings") return;
+            if (tabId === "code-settings" || targetId === "code-settings" || tabId.startsWith("diff:") || targetId.startsWith("diff:")) return;
             moveOpenFile(activeThreadId, tabId.replace(/^file:/, ""), targetId.replace(/^file:/, ""), placeAfter);
           }}
         />
+        <CodeIconButton icon={editorFullscreen ? "collapse" : "expand"} label={editorFullscreen ? "Exit full screen" : "Full screen editor"} onClick={() => setEditorFullscreen((current) => !current)} />
         </div>
-        {settingsTabOpen && activeEditorTabId === "code-settings" ? <CodeSettingsView /> : activeDocument ? (
+        {settingsTabOpen && activeEditorTabId === "code-settings" ? <CodeSettingsView tab={codeSettingsTab} onTabChange={setCodeSettingsTab} /> : activeDocument ? (
           <>
             {/* <nav className="zorai-workspace-breadcrumbs" aria-label="File breadcrumbs">
               {activeDocument.path.split(/[\\/]/).map((part, index, parts) => <span key={`${index}:${part}`}>{part}{index < parts.length - 1 ? " › " : ""}</span>)}
             </nav> */}
             <div className="zorai-workspace-actionbar">
-              <span>{activeDocument.path}{lspStatus ? ` · LSP ${lspStatus.available ? lspStatus.command ?? "ready" : "unavailable"}` : ""}</span>
+              <span className="zorai-code-path-bar">
+                <CodeBreadcrumbs
+                  root={context?.root ?? null}
+                  path={activeDocument.path}
+                  getEditor={getActiveEditor}
+                  getSymbols={getBreadcrumbSymbols}
+                  listDirectory={(folder) => (context?.root && bridge?.workspaceListDirectory ? bridge.workspaceListDirectory(context.root, folder) : Promise.resolve([]))}
+                  onReveal={revealInExplorer}
+                  onOpenFile={(target) => void openFile(target)}
+                  onOpenSymbolPicker={() => setCodeOverlay("symbols")}
+                />
+                {lspIndicator}
+              </span>
               {codePreviewKind(activeDocument.path) && mode === "edit" ? (
                 <ViewModeToggle
                   modes={CODE_PREVIEW_MODES}
-                  value={previewPaths[activeDocument.path] ? "preview" : "code"}
+                  value={previewShown(activeDocument.path) ? "preview" : "code"}
                   onChange={(next) => setPreviewPaths((current) => ({ ...current, [activeDocument.path]: next === "preview" }))}
                   label="Editor view"
                 />
@@ -2217,16 +2965,33 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                 </div>
               </div>
             </div>
-            {symbols.length > 0 ? (
-              <details className="zorai-workspace-symbols">
-                <summary>Outline ({symbols.length})</summary>
-                {symbols.map((symbol) => <button type="button" key={`${symbol.line}:${symbol.column}:${symbol.name}`} onClick={() => activeDocument && void openFile(activeDocument.path, { line: symbol.line, column: symbol.column })}><span>{symbol.kind}</span><strong>{symbol.name}</strong><code>{symbol.line}</code></button>)}
-              </details>
-            ) : null}
             <div className="zorai-workspace-editor" {...editorDropProps}>
               {mode === "diff" ? (
                 <Suspense fallback={<div className="zorai-workspace-diff-grid"><pre>{activeDocument.gitBaseContent ?? activeDocument.original}</pre><pre>{activeDocument.content}</pre></div>}>
-                  <WorkspaceDiffEditor original={activeDocument.gitBaseContent ?? activeDocument.original} modified={activeDocument.content} language={activeDocument.language} />
+                  <WorkspaceDiffEditor
+                    original={activeDocument.gitBaseContent ?? activeDocument.original}
+                    modified={activeDocument.content}
+                    language={activeDocument.language}
+                    readOnly={reducedModePathsRef.current.has(activeDocument.path)}
+                    onChange={(value) => {
+                      const doc = activeDocument;
+                      if (context?.root) documentControllerRef.current.updateContent(context.root, doc.path, value);
+                      setDocuments((current) => ({ ...current, [doc.path]: { ...(current[doc.path] ?? doc), content: value, dirty: value !== doc.original } }));
+                    }}
+                    onSave={() => void saveCommandRef.current()}
+                    onStageSelection={context?.root && gitOverview?.isRepository && bridge?.workspaceGitStageContent ? (startLine, endLine) => {
+                      const root = context.root;
+                      const doc = activeDocument;
+                      void (async () => {
+                        try {
+                          const index = await bridge.workspaceGitShow!(root, doc.path, "");
+                          setGitStatus(await bridge.workspaceGitStageContent!(root, doc.path, stageSelectedLines(index, doc.content, startLine, endLine)));
+                        } catch (reason) {
+                          setError(reason instanceof Error ? reason.message : String(reason));
+                        }
+                      })();
+                    } : undefined}
+                  />
                 </Suspense>
               ) : mode === "external" ? (
                 <Suspense fallback={<div className="zorai-workspace-diff-grid"><pre>{activeDocument.content}</pre><pre>{activeDocument.externalContent}</pre></div>}>
@@ -2234,13 +2999,14 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                 </Suspense>
               ) : splitTree ? (
                 <div className="zorai-code-split__grid">{renderSplitNode(splitTree, "root", [])}</div>
-              ) : previewPaths[activeDocument.path] && codePreviewKind(activeDocument.path) ? (
-                <CodeDocumentPreview path={activeDocument.path} content={activeDocument.content} root={context?.root ?? null} />
+              ) : previewShown(activeDocument.path) ? (
+                <CodeDocumentPreview path={activeDocument.path} content={activeDocument.content} root={context?.root ?? null} onChange={(value) => updateDocumentText(activeDocument, value)} />
               ) : (
                 <Suspense fallback={<div className="zorai-workspace-editor-loading">Loading Monaco editor…</div>}>
                   {renderWorkspaceEditor(activeDocument, false)}
                 </Suspense>
               )}
+              {agentReview.bar}
               {editorDrop ? <div className={`zorai-thread-split__drop zorai-thread-split__drop--${editorDrop.zone}`} style={editorDrop.box} aria-hidden="true" /> : null}
             </div>
             {mode === "diff" && diff !== null ? <details className="zorai-workspace-raw-diff"><summary>Git patch</summary><pre>{diff || "No working-tree diff for this file."}</pre></details> : null}
@@ -2294,20 +3060,23 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
           </>
         )}
         {bottomPanel}
-        <div className="zorai-workspace-statusbar">
-          {statusToggles}
-          {activeDocument ? (
-            <>
-              <span>{activeDocument.path}</span>
-              <span>{activeDocument.language}{lspStatus ? ` · LSP ${lspStatus.available ? lspStatus.command ?? "ready" : "unavailable"}` : ""}</span>
-            </>
-          ) : (
-            <>
-              <span>Ready · Select a file from Explorer</span>
-              <span>No language mode</span>
-            </>
-          )}
-        </div>
+        <CodeStatusBar
+          getEditor={getActiveEditor}
+          documentPath={activeDocument && !previewShown(activeDocument.path) && mode === "edit" ? activeDocument.path : null}
+          language={activeDocument?.language ?? null}
+          lspIndicator={lspIndicator}
+          git={gitOverview?.isRepository ? { branch: gitOverview.branch, ahead: gitOverview.ahead, behind: gitOverview.behind } : null}
+          problems={problemCounts}
+          problemsActive={panelOpen && panelTab === "problems"}
+          onToggleProblems={() => togglePanel("problems")}
+          terminalActive={panelOpen && panelTab === "terminal"}
+          onToggleTerminal={() => togglePanel("terminal")}
+          onOpenScm={() => setRailTab("scm")}
+          onSync={() => void runGitCommand("sync")}
+          onChangeLanguage={(language) => { if (activeDocument) changeDocumentLanguage(activeDocument.path, language); }}
+          agentWorking={agentWorking}
+          onShowAgent={() => useShellLayoutStore.getState().setContextOpen(true)}
+        />
         <Presence value={mediaPreview}>
           {(preview, closing) => preview.kind === "image" ? (
             <ImageLightbox src={mediaUrlForPath(preview.path)} name={preview.path.split("/").pop() || preview.path} closing={closing} onClose={() => setMediaPreview(null)} />
@@ -2321,22 +3090,45 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         <Presence value={explorerMenu}>{(menu) => <CodeContextMenu x={menu.x} y={menu.y} label={menu.entry ? `Actions for ${menu.entry.name}` : "Workspace actions"} items={menu.entry || !context?.root ? explorerMenuItems(menu.entry) : [...explorerMenuItems(null), tintMenuItem(rootTint, (tint) => setRootTint(context.root!, tint), true)]} onClose={closeExplorerMenu} />}</Presence>
         <Presence value={pathDialog}>{(dialog) => <WorkspacePathDialog operation={dialog.operation} initialPath={dialog.initialPath} busy={pathDialogBusy} error={pathDialogError} onSubmit={submitPathDialog} onClose={() => { setPathDialog(null); setPathDialogError(null); }} />}</Presence>
         <Presence value={codeOverlay === "quickOpen"}>{() => (
-          <CodeQuickOpen
-            files={explorerFiles}
-            searchFiles={searchProjectFileNames}
-            onOpen={(path, line, column) => void openFile(path, line ? { line, column: column ?? 1 } : undefined)}
-            onClose={() => setCodeOverlay(null)}
-          />
+          <CodeQuickOpen {...quickOpenProps} />
         )}</Presence>
         <Presence value={codeOverlay === "commands"}>{() => (
-          <CodeCommandPalette onRun={runCodeCommand} onClose={() => setCodeOverlay(null)} />
+          <CodeQuickOpen {...quickOpenProps} initialQuery=">" />
+        )}</Presence>
+        <Presence value={codeOverlay === "symbols"}>{() => (
+          <CodeQuickOpen {...quickOpenProps} initialQuery="@" />
+        )}</Presence>
+        <Presence value={callHierarchy}>{(target) => (
+          <CodeCallHierarchyPanel {...target} onClose={() => setCallHierarchy(null)} onOpen={(path, line, column) => void openFile(path, { line, column })} />
+        )}</Presence>
+        <Presence value={codeOverlay === "workspaceSymbols"}>{() => (
+          <CodeQuickOpen {...quickOpenProps} initialQuery="#" />
         )}</Presence>
         {unsupportedFile && context?.root ? <CodeUnsupportedFileNotice
           path={unsupportedFile}
           onOpenExternal={() => { const root = context.root; void bridge?.openFsPath?.(`${root.replace(/[\\/]$/, "")}/${unsupportedFile}`); }}
           onReveal={() => { const root = context.root; void bridge?.revealFsPath?.(`${root.replace(/[\\/]$/, "")}/${unsupportedFile}`); }}
           onDismiss={() => setUnsupportedFile(null)}
+          onOpenHex={() => { setHexFile(unsupportedFile); setUnsupportedFile(null); }}
         /> : null}
+        {missionControlOpen && context?.root && activeThreadId ? (
+          <div className="zorai-hex-overlay">
+            <WorktreeMissionControl
+              root={context.root}
+              cards={isolatedTaskWorktrees.map((worktree) => ({ worktree, review: worktreeReviews[worktree.path], lifecycle: context.isolatedWorktreeStates[worktree.path] ?? (worktreeReviews[worktree.path]?.commits.length === 0 ? "integrated" : "awaiting_review") }))}
+              mainChanged={gitStatus.map((entry) => entry.path)}
+              onOpenWorktree={(path) => { setMissionControlOpen(false); switchThreadWorktree(path); }}
+              onOpenFile={(worktreePath, file) => void openExternalFile(`${worktreePath.replace(/[\\/]+$/, "")}/${file}`)}
+              onIntegrate={(path) => void integrateIsolatedWorktree(path)}
+              onClose={() => setMissionControlOpen(false)}
+            />
+          </div>
+        ) : null}
+        {hexFile && context?.root ? (
+          <div className="zorai-hex-overlay">
+            <CodeHexViewer root={context.root} path={hexFile} onClose={() => setHexFile(null)} />
+          </div>
+        ) : null}
         {largeFileGate && context?.root ? <CodeLargeFileGate
           path={largeFileGate.path}
           sizeBytes={largeFileGate.sizeBytes}

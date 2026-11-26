@@ -329,7 +329,7 @@ function rankFileNameMatches(files, query, limit = 200) {
 }
 
 function workspaceSearchPattern(query, options = {}) {
-    const source = options.regex === true ? query : query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const source = options.regex === true ? query : query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\r?\n/g, '\\r?\\n');
     const wrapped = options.wholeWord === true ? `\\b(?:${source})\\b` : source;
     try {
         return new RegExp(wrapped, options.caseSensitive === true ? 'g' : 'gi');
@@ -412,28 +412,109 @@ async function searchWorkspace(rootPath, query, options = {}) {
             let buffer;
             try { buffer = await fs.promises.readFile(absolutePath); } catch { continue; }
             if (isProbablyBinary(buffer)) continue;
-            const lines = buffer.toString('utf8').split(/\r?\n/);
-            for (let lineIndex = 0; lineIndex < lines.length && results.length < maxResults; lineIndex += 1) {
-                const line = lines[lineIndex];
-                for (const match of workspaceLineMatches(line, pattern)) {
-                    if (results.length >= maxResults) break;
-                    const indent = line.length - line.trimStart().length;
-                    const previewStart = match.index - indent > 80 ? match.index - 40 : indent;
-                    const preview = line.slice(previewStart, previewStart + 240).trimEnd();
-                    const matchStart = match.index - previewStart;
-                    results.push({
-                        path: path.relative(root, absolutePath),
-                        line: lineIndex + 1,
-                        column: match.index + 1,
-                        preview,
-                        matchStart,
-                        matchLength: Math.max(0, Math.min(match.length, preview.length - matchStart)),
-                    });
-                }
-            }
+            collectWorkspaceTextMatches(path.relative(root, absolutePath), buffer.toString('utf8'), pattern, results, maxResults);
         }
     }
     return results;
+}
+
+function isMultilinePattern(pattern) {
+    return /\\n|\n/.test(pattern.source);
+}
+
+function lineStartOffsets(text) {
+    const starts = [0];
+    for (let index = 0; index < text.length; index += 1) if (text[index] === '\n') starts.push(index + 1);
+    return starts;
+}
+
+function lineIndexForOffset(starts, offset) {
+    let low = 0;
+    let high = starts.length - 1;
+    while (low < high) {
+        const middle = (low + high + 1) >> 1;
+        if (starts[middle] <= offset) low = middle;
+        else high = middle - 1;
+    }
+    return low;
+}
+
+function collectMultilineMatches(relativePath, text, pattern, results, maxResults) {
+    const starts = lineStartOffsets(text);
+    for (const match of workspaceLineMatches(text, pattern)) {
+        if (results.length >= maxResults) break;
+        const lineIndex = lineIndexForOffset(starts, match.index);
+        const column = match.index - starts[lineIndex];
+        const lineEnd = text.indexOf('\n', starts[lineIndex]);
+        const line = text.slice(starts[lineIndex], lineEnd === -1 ? text.length : lineEnd).replace(/\r$/, '');
+        const preview = line.slice(0, 240).trimEnd();
+        const matchStart = Math.min(column, preview.length);
+        const endLine = lineIndexForOffset(starts, match.index + match.length - 1);
+        results.push({
+            path: relativePath,
+            line: lineIndex + 1,
+            column: column + 1,
+            preview,
+            matchStart,
+            matchLength: Math.max(0, preview.length - matchStart),
+            endLine: endLine + 1,
+        });
+    }
+    return results;
+}
+
+function applyReplacementCase(source, text) {
+    if (!/[a-z]/i.test(source)) return text;
+    if (source === source.toUpperCase()) return text.toUpperCase();
+    if (source === source.toLowerCase()) return text.toLowerCase();
+    if (source[0] === source[0].toUpperCase() && source.slice(1) === source.slice(1).toLowerCase()) return text.charAt(0).toUpperCase() + text.slice(1);
+    return text;
+}
+
+function workspaceReplacer(pattern, replacement, options) {
+    const single = new RegExp(pattern.source, pattern.flags.replace('g', ''));
+    return (matched) => {
+        const expanded = options.regex === true ? matched.replace(single, replacement) : replacement;
+        return options.preserveCase === true ? applyReplacementCase(matched, expanded) : expanded;
+    };
+}
+
+function collectWorkspaceTextMatches(relativePath, text, pattern, results, maxResults) {
+    if (isMultilinePattern(pattern)) return collectMultilineMatches(relativePath, text, pattern, results, maxResults);
+    const lines = text.split(/\r?\n/);
+    for (let lineIndex = 0; lineIndex < lines.length && results.length < maxResults; lineIndex += 1) {
+        const line = lines[lineIndex];
+        for (const match of workspaceLineMatches(line, pattern)) {
+            if (results.length >= maxResults) break;
+            const indent = line.length - line.trimStart().length;
+            const previewStart = match.index - indent > 80 ? match.index - 40 : indent;
+            const preview = line.slice(previewStart, previewStart + 240).trimEnd();
+            const matchStart = match.index - previewStart;
+            results.push({
+                path: relativePath,
+                line: lineIndex + 1,
+                column: match.index + 1,
+                preview,
+                matchStart,
+                matchLength: Math.max(0, Math.min(match.length, preview.length - matchStart)),
+            });
+        }
+    }
+    return results;
+}
+
+async function listSearchableWorkspaceFiles(rootPath, options = {}) {
+    const root = canonicalWorkspaceRoot(rootPath);
+    if (options.useIgnoreFiles !== false) {
+        try {
+            const { stdout } = await execFileAsync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { cwd: root, encoding: 'utf8', timeout: 30000, maxBuffer: 256 * 1024 * 1024 });
+            const files = [...new Set(stdout.split('\0').filter(Boolean))]
+                .filter((file) => !file.split('/').some((part) => IGNORED_DIRECTORY_NAMES.has(part)));
+            return { root, files, source: 'git' };
+        } catch {}
+    }
+    const listing = await listAllWorkspaceFiles(root);
+    return { root, files: listing.files, source: 'walk' };
 }
 
 async function replaceInWorkspace(rootPath, query, replacement, options = {}, targets = []) {
@@ -441,7 +522,8 @@ async function replaceInWorkspace(rootPath, query, replacement, options = {}, ta
     if (typeof query !== 'string' || !query.trim()) return { files: 0, replacements: 0 };
     if (typeof replacement !== 'string') throw workspaceError('WORKSPACE_CONTENT_INVALID', 'Replacement must be text.');
     const pattern = workspaceSearchPattern(query, options);
-    const replaceWith = options.regex === true ? replacement : () => replacement;
+    const replaceWith = workspaceReplacer(pattern, replacement, options);
+    const multiline = isMultilinePattern(pattern);
     const byPath = new Map();
     for (const target of Array.isArray(targets) ? targets : []) {
         if (!target || typeof target.path !== 'string') continue;
@@ -454,8 +536,21 @@ async function replaceInWorkspace(rootPath, query, replacement, options = {}, ta
     for (const [relativePath, fileTargets] of byPath) {
         const resolved = resolveWorkspacePath(root, relativePath);
         const buffer = await fs.promises.readFile(resolved.absolutePath);
-        const parts = buffer.toString('utf8').split(/(\r?\n)/);
         const wholeFile = fileTargets.some((target) => !Number.isInteger(target.line));
+        if (multiline) {
+            const text = buffer.toString('utf8');
+            const starts = lineStartOffsets(text);
+            const wanted = wholeFile ? null : new Set(fileTargets.map((target) => (starts[target.line - 1] ?? -1) + target.column - 1));
+            const matches = workspaceLineMatches(text, pattern).filter((match) => !wanted || wanted.has(match.index)).sort((left, right) => right.index - left.index);
+            let next = text;
+            for (const match of matches) next = next.slice(0, match.index) + replaceWith(next.slice(match.index, match.index + match.length)) + next.slice(match.index + match.length);
+            if (matches.length === 0) continue;
+            await writeWorkspaceFile(root, resolved.relativePath, next, sha256(buffer));
+            files += 1;
+            replacements += matches.length;
+            continue;
+        }
+        const parts = buffer.toString('utf8').split(/(\r?\n)/);
         let changed = 0;
         for (let index = 0; index < parts.length; index += 2) {
             const lineNumber = index / 2 + 1;
@@ -683,7 +778,10 @@ async function workspaceGitHistory(rootPath, options = {}) {
     const hasCommits = await execGit(['rev-parse', '--verify', '--quiet', 'HEAD'], { cwd: gitRoot, encoding: 'utf8', timeout: 5000 })
         .then(() => true, () => false);
     if (!hasCommits) return [];
-    const { stdout } = await execGit(['log', `-${limit}`, '--date=iso-strict', '--format=%H%x00%h%x00%an%x00%ad%x00%s'], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
+    const pathArgs = typeof options.path === 'string' && options.path
+        ? ['--follow', '--', gitPathFromWorkspace(gitRoot, resolveWorkspacePath(root, options.path, { allowMissing: true }).absolutePath)]
+        : [];
+    const { stdout } = await execGit(['log', `-${limit}`, '--date=iso-strict', '--format=%H%x00%h%x00%an%x00%ad%x00%s', ...pathArgs], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
     return stdout.split(/\r?\n/).filter(Boolean).map((line) => {
         const [hash, shortHash, author, date, subject] = line.split('\0');
         return { hash, shortHash, author, date, subject };
@@ -1001,6 +1099,70 @@ async function workspaceGitStage(rootPath, relativePath) {
     return workspaceGitStatus(root);
 }
 
+function parseChangedRanges(diff) {
+    const ranges = {};
+    let file = null;
+    for (const line of String(diff ?? '').split('\n')) {
+        const header = /^\+\+\+ (?:b\/)?(.+)$/.exec(line);
+        if (header) { file = header[1] === '/dev/null' ? null : header[1]; continue; }
+        const minus = /^--- a\/(.+)$/.exec(line);
+        if (minus) { file = minus[1]; continue; }
+        const hunk = /^@@ -(\d+)(?:,(\d+))? \+\d+(?:,\d+)? @@/.exec(line);
+        if (hunk && file) {
+            const start = Number(hunk[1]);
+            const count = hunk[2] === undefined ? 1 : Number(hunk[2]);
+            (ranges[file] ??= []).push([Math.max(1, start), Math.max(1, start + Math.max(count, 1) - 1)]);
+        }
+    }
+    return ranges;
+}
+
+async function workspaceGitChangedRanges(rootPath, baseRef = '') {
+    const root = canonicalWorkspaceRoot(rootPath);
+    const gitRoot = await resolveGitRoot(root);
+    if (!gitRoot) return {};
+    const committed = baseRef ? await gitStdout(['diff', '-U0', '--no-color', `${baseRef}...HEAD`], gitRoot) : '';
+    const working = await gitStdout(['diff', '-U0', '--no-color', 'HEAD'], gitRoot);
+    const merged = parseChangedRanges(committed);
+    for (const [file, list] of Object.entries(parseChangedRanges(working))) merged[file] = [...(merged[file] ?? []), ...list];
+    return merged;
+}
+
+async function readWorkspaceBytes(rootPath, relativePath, offset = 0, length = 65536) {
+    const resolved = resolveWorkspacePath(rootPath, relativePath);
+    const start = Math.max(0, Math.floor(Number(offset) || 0));
+    const size = Math.max(0, Math.min(Math.floor(Number(length) || 0), 1024 * 1024));
+    const handle = await fs.promises.open(resolved.absolutePath, 'r');
+    try {
+        const stats = await handle.stat();
+        const buffer = Buffer.alloc(Math.max(0, Math.min(size, stats.size - start)));
+        if (buffer.length > 0) await handle.read(buffer, 0, buffer.length, start);
+        return { offset: start, totalBytes: stats.size, base64: buffer.toString('base64') };
+    } finally {
+        await handle.close();
+    }
+}
+
+async function workspaceGitStageContent(rootPath, relativePath, content) {
+    if (typeof content !== 'string') throw workspaceError('WORKSPACE_CONTENT_INVALID', 'Staged content must be text.');
+    const root = canonicalWorkspaceRoot(rootPath);
+    const gitRoot = await resolveGitRoot(root);
+    if (!gitRoot) throw workspaceError('WORKSPACE_NOT_GIT_REPOSITORY', 'Workspace is not inside a Git repository.');
+    const resolved = resolveWorkspacePath(root, relativePath, { allowMissing: true });
+    const gitPath = gitPathFromWorkspace(gitRoot, resolved.absolutePath);
+    const temp = path.join(require('os').tmpdir(), `zorai-stage-${process.pid}-${Date.now()}`);
+    await fs.promises.writeFile(temp, content, 'utf8');
+    try {
+        const { stdout: blob } = await execFileAsync('git', ['hash-object', '-w', `--path=${gitPath}`, temp], { cwd: gitRoot, encoding: 'utf8', timeout: 10000 });
+        const { stdout: staged } = await execFileAsync('git', ['ls-files', '-s', '--', gitPath], { cwd: gitRoot, encoding: 'utf8', timeout: 10000 });
+        const mode = /^(\d{6}) /.exec(staged)?.[1] ?? '100644';
+        await execGit(['update-index', '--add', '--cacheinfo', `${mode},${blob.trim()},${gitPath}`], { cwd: gitRoot, encoding: 'utf8', timeout: 10000, maxBuffer: GIT_MAX_BUFFER });
+    } finally {
+        await fs.promises.rm(temp, { force: true });
+    }
+    return workspaceGitStatus(root);
+}
+
 function relativeGitPathsOrThrow(rootPath, relativePaths) {
     const root = canonicalWorkspaceRoot(rootPath);
     if (!Array.isArray(relativePaths) || relativePaths.length === 0) {
@@ -1182,6 +1344,41 @@ async function gitStdout(args, cwd) {
     return stdout;
 }
 
+function parseGitBlamePorcelain(output) {
+    const commits = new Map();
+    const lines = [];
+    let current = null;
+    for (const raw of String(output ?? '').split('\n')) {
+        const header = /^([0-9a-f]{40}) (\d+) (\d+)/.exec(raw);
+        if (header) {
+            current = commits.get(header[1]) ?? { hash: header[1], author: '', time: 0, summary: '' };
+            commits.set(header[1], current);
+            lines[Number(header[3]) - 1] = current;
+            continue;
+        }
+        if (!current) continue;
+        if (raw.startsWith('author ')) current.author = raw.slice(7);
+        else if (raw.startsWith('author-time ')) current.time = Number(raw.slice(12)) * 1000;
+        else if (raw.startsWith('summary ')) current.summary = raw.slice(8);
+    }
+    return lines.map((commit) => (commit ? {
+        hash: commit.hash,
+        author: commit.author,
+        time: commit.time,
+        summary: commit.summary,
+        uncommitted: /^0+$/.test(commit.hash),
+    } : null));
+}
+
+async function workspaceGitBlame(rootPath, relativePath) {
+    const root = canonicalWorkspaceRoot(rootPath);
+    const gitRoot = await resolveGitRoot(root);
+    if (!gitRoot || !relativePath) return [];
+    const resolved = resolveWorkspacePath(root, relativePath);
+    const output = await gitStdout(['blame', '--porcelain', '--', gitPathFromWorkspace(gitRoot, resolved.absolutePath)], gitRoot);
+    return parseGitBlamePorcelain(output);
+}
+
 async function workspaceGitShow(rootPath, relativePath, revision = 'HEAD') {
     const root = canonicalWorkspaceRoot(rootPath);
     const gitRoot = await resolveGitRoot(root);
@@ -1258,6 +1455,12 @@ module.exports = {
     workspaceGitDiff,
     workspaceGitDiscard,
     workspaceGitShow,
+    workspaceGitBlame,
+    workspaceGitStageContent,
+    readWorkspaceBytes,
+    workspaceGitChangedRanges,
+    parseChangedRanges,
+    parseGitBlamePorcelain,
     workspaceGitHunks,
     workspaceGitHistory,
     workspaceGitIntegrateWorktree,
@@ -1271,4 +1474,9 @@ module.exports = {
     workspaceGitUnstage,
     workspaceGitUnstageMany,
     writeWorkspaceFile,
+    collectWorkspaceTextMatches,
+    isProbablyBinary,
+    listSearchableWorkspaceFiles,
+    workspaceGlobMatcher,
+    workspaceSearchPattern,
 };

@@ -519,8 +519,12 @@ impl TuiModel {
                     self.modal
                         .reduce(modal::ModalAction::Push(modal::ModalKind::Settings));
                 }
-                self.settings
-                    .reduce(SettingsAction::SwitchTab(SettingsTab::SubAgents));
+                let tab = if editor.id.as_deref() == Some("weles_builtin") {
+                    SettingsTab::Weles
+                } else {
+                    SettingsTab::SubAgents
+                };
+                self.settings.reduce(SettingsAction::SwitchTab(tab));
                 self.settings.start_editing("subagent_model", &editor.model);
                 self.status_line = "Enter sub-agent model ID".to_string();
             }

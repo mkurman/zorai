@@ -11,7 +11,7 @@ export type CodeEditorSettings = {
   reopenEditors: boolean; restoreViewState: boolean; maxFileSizeMb: number; preloadMonaco: boolean; cacheDocuments: number;
   performanceLogging: boolean; minimap: boolean; stickyScroll: boolean; renderWhitespace: "none" | "boundary" | "selection" | "trailing" | "all";
   lineNumbers: "on" | "off" | "relative"; bracketGuides: boolean; smoothScrolling: boolean; glyphMargin: boolean;
-  lspEnabled: boolean; diagnosticsDelayMs: number; semanticHighlighting: boolean; keybindings: Record<string, string | null>;
+  lspEnabled: boolean; diagnosticsDelayMs: number; semanticHighlighting: boolean; inlayHints: "on" | "off" | "offUnlessPressed"; inlineBlame: boolean; keymap: "default" | "vim" | "emacs"; lspCodeLens: boolean; provenanceGutter: boolean; keybindings: Record<string, string | null>;
 };
 
 export const CODE_EDITOR_SETTINGS_STORE_NAME = "zorai-code-editor-settings";
@@ -23,7 +23,7 @@ export const CODE_EDITOR_DEFAULTS: Readonly<CodeEditorSettings> = Object.freeze(
   reopenEditors: true, restoreViewState: true, maxFileSizeMb: 5, preloadMonaco: true, cacheDocuments: 32,
   performanceLogging: false, minimap: true, stickyScroll: true, renderWhitespace: "selection", lineNumbers: "on",
   bracketGuides: true, smoothScrolling: true, glyphMargin: true, lspEnabled: true, diagnosticsDelayMs: 250,
-  semanticHighlighting: true, keybindings: {},
+  semanticHighlighting: true, inlayHints: "on", inlineBlame: false, keymap: "default", lspCodeLens: false, provenanceGutter: false, keybindings: {},
 });
 
 const number = (value: unknown, fallback: number, min: number, max: number) => typeof value === "number" && Number.isFinite(value) ? Math.min(max, Math.max(min, Math.round(value))) : fallback;
@@ -44,7 +44,7 @@ export function normalizeCodeEditorSettings(input: unknown): CodeEditorSettings 
     preloadMonaco: boolean(raw.preloadMonaco, true), cacheDocuments: number(raw.cacheDocuments, 32, 1, 200), performanceLogging: boolean(raw.performanceLogging, false),
     minimap: boolean(raw.minimap, true), stickyScroll: boolean(raw.stickyScroll, true), renderWhitespace: choice(raw.renderWhitespace, ["none", "boundary", "selection", "trailing", "all"], "selection"),
     lineNumbers: choice(raw.lineNumbers, ["on", "off", "relative"], "on"), bracketGuides: boolean(raw.bracketGuides, true), smoothScrolling: boolean(raw.smoothScrolling, true), glyphMargin: boolean(raw.glyphMargin, true),
-    lspEnabled: boolean(raw.lspEnabled, true), diagnosticsDelayMs: number(raw.diagnosticsDelayMs, 250, 0, 5000), semanticHighlighting: boolean(raw.semanticHighlighting, true), keybindings: bindings,
+    lspEnabled: boolean(raw.lspEnabled, true), diagnosticsDelayMs: number(raw.diagnosticsDelayMs, 250, 0, 5000), semanticHighlighting: boolean(raw.semanticHighlighting, true), inlayHints: choice(raw.inlayHints, ["on", "off", "offUnlessPressed"], "on"), inlineBlame: boolean(raw.inlineBlame, false), keymap: choice(raw.keymap, ["default", "vim", "emacs"], "default"), lspCodeLens: boolean(raw.lspCodeLens, false), provenanceGutter: boolean(raw.provenanceGutter, false), keybindings: bindings,
   };
 }
 
@@ -61,6 +61,8 @@ export function codeSettingsToggleState(id: string, settings: CodeEditorSettings
   if (id === "view.toggleWrap") return settings.wordWrap !== "off";
   if (id === "view.toggleWhitespace") return settings.renderWhitespace !== "none";
   if (id === "view.toggleStickyScroll") return settings.stickyScroll;
+  if (id === "view.toggleBlame") return settings.inlineBlame;
+  if (id === "view.toggleProvenance") return settings.provenanceGutter;
   return null;
 }
 
@@ -69,6 +71,8 @@ export function codeSettingsCommandPatch(id: string, settings: CodeEditorSetting
   if (id === "view.toggleWrap") return { wordWrap: settings.wordWrap === "off" ? CODE_EDITOR_DEFAULTS.wordWrap : "off" };
   if (id === "view.toggleWhitespace") return { renderWhitespace: settings.renderWhitespace === "none" ? "all" : "none" };
   if (id === "view.toggleStickyScroll") return { stickyScroll: !settings.stickyScroll };
+  if (id === "view.toggleBlame") return { inlineBlame: !settings.inlineBlame };
+  if (id === "view.toggleProvenance") return { provenanceGutter: !settings.provenanceGutter };
   if (id === "view.fontIncrease") return { fontSize: settings.fontSize + 1 };
   if (id === "view.fontDecrease") return { fontSize: settings.fontSize - 1 };
   if (id === "view.fontReset") return { fontSize: CODE_EDITOR_DEFAULTS.fontSize };

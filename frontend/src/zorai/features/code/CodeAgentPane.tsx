@@ -19,6 +19,7 @@ import {
 import { isCodeProjectThread, useCodeWorkspaceBindingStore } from "./codeWorkspaceBindingStore";
 import { CodeThreadHistoryMenu, type CodeThreadHistoryEntry } from "./CodeThreadHistoryMenu";
 import { threadTurnIsActive } from "@/components/agent-chat-panel/runtime/threadTurnState";
+import { hydrateCodeWorkspaceContexts } from "./hydrateCodeWorkspace";
 const ACTIVE_GOAL_STATUSES = new Set(["queued", "planning", "running", "paused"]);
 
 /**
@@ -54,7 +55,7 @@ export function CodeAgentPane() {
     setLoading(true);
     setError(null);
     try {
-      await useWorkspaceContextStore.getState().hydrate();
+      await hydrateCodeWorkspaceContexts();
       const storeThreads = useAgentStore.getState().threads;
       const relatedThreadIds = projectThreadIds.map((id) => (
         storeThreads.find((thread) => thread.id === id)?.daemonThreadId?.trim() || id

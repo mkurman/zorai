@@ -1,16 +1,18 @@
 import { useMemo } from "react";
+import { CodeNotebookEditor } from "./CodeNotebookEditor";
 import { MarkdownContent } from "@/components/agent-chat-panel/chat-view/markdown";
 import { DataTable } from "@/components/data-viewers/DataTable";
 import { MermaidDiagram } from "@/components/data-viewers/MermaidDiagram";
 import { parseTabular, tabularFormatForPath } from "@/components/data-viewers/tabularData";
 import { mediaUrlForPath } from "@/zorai/features/threads/ThreadFilePreviewOverlay";
 
-export type CodePreviewKind = "markdown" | "mermaid" | "table" | "html";
+export type CodePreviewKind = "markdown" | "mermaid" | "table" | "html" | "notebook";
 
 export function codePreviewKind(path: string): CodePreviewKind | null {
   if (/\.(md|markdown|mdx)$/i.test(path)) return "markdown";
   if (/\.(mmd|mermaid)$/i.test(path)) return "mermaid";
   if (/\.(html?|xhtml)$/i.test(path)) return "html";
+  if (/\.ipynb$/i.test(path)) return "notebook";
   const format = tabularFormatForPath(path);
   return format && format !== "json" ? "table" : null;
 }
@@ -21,7 +23,7 @@ export function htmlPreviewDocument(content: string, baseHref: string | null): s
   return /<head[^>]*>/i.test(content) ? content.replace(/<head[^>]*>/i, (head) => `${head}${base}`) : `${base}${content}`;
 }
 
-export function CodeDocumentPreview({ path, content, root }: { path: string; content: string; root?: string | null }) {
+export function CodeDocumentPreview({ path, content, root, onChange }: { path: string; content: string; root?: string | null; onChange?: (content: string) => void }) {
   const kind = codePreviewKind(path);
   const format = tabularFormatForPath(path);
   const table = useMemo(() => (kind === "table" && format ? parseTabular(content, format) : null), [content, format, kind]);
@@ -34,7 +36,9 @@ export function CodeDocumentPreview({ path, content, root }: { path: string; con
 
   return (
     <div className="zorai-code-preview">
-      {kind === "markdown" ? (
+      {kind === "notebook" ? (
+        <CodeNotebookEditor path={path} content={content} root={root ?? null} onChange={onChange} />
+      ) : kind === "markdown" ? (
         <div className="zorai-code-preview__markdown">
           <MarkdownContent content={content} filePreview />
         </div>

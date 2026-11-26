@@ -442,6 +442,10 @@ export function useDaemonAgentActions({
         "mokosh",
         "dazhbog",
         "rod",
+        "kikimora",
+        "bannik",
+        "ovinnik",
+        "dziad",
         ...useAgentStore.getState().subAgents.flatMap((agent) => [agent.id, agent.name]),
       ].filter(Boolean);
       const directive = parseLeadingAgentDirective(text, knownAgentAliases);

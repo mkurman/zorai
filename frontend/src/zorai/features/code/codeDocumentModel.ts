@@ -49,6 +49,11 @@ export function createCodeDocumentController(options: { maxCachedDocuments: numb
   };
 
   return {
+    setMaxCachedDocuments(max: number) {
+      options.maxCachedDocuments = max;
+      evict();
+    },
+
     get(root: string, path: string): CodeDocumentEntry | null {
       const entry = entries.get(codeDocumentKey(root, path)) ?? null;
       if (entry) touch(entry);

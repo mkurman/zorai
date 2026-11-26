@@ -14,7 +14,6 @@ import { useAgentStore } from "@/lib/agentStore";
 import { useAuditStore } from "@/lib/auditStore";
 import { useNotificationStore } from "@/lib/notificationStore";
 import { useWorkspaceStore } from "@/lib/workspaceStore";
-import { useWorkspaceContextStore } from "@/lib/workspaceContextStore";
 import { shouldAutoStartOperatorProfileFromConcierge } from "./conciergeEvents";
 import { useZoraiAppCommands } from "./shell/zoraiAppCommands";
 import { ZoraiShell } from "./shell/ZoraiShell";
@@ -22,13 +21,14 @@ import { ZoraiTitleBar } from "./shell/ZoraiTitleBar";
 import { ZoraiContextMenu } from "./shell/ZoraiContextMenu";
 import { ThreadBrowserHost } from "./features/browser/ThreadBrowserHost";
 import { ComputerControlBanner } from "./features/computer/ComputerControlBanner";
+import { hydrateCodeWorkspaceContexts } from "@/zorai/features/code/hydrateCodeWorkspace";
 
 export function ZoraiApp() {
   const operatorProfileAutoStartRequested = useRef(false);
   useZoraiAppCommands();
 
   useEffect(() => {
-    void useWorkspaceContextStore.getState().hydrate();
+    void hydrateCodeWorkspaceContexts();
     useWorkspaceStore.setState({ agentPanelOpen: true });
   }, []);
 

@@ -25,6 +25,7 @@ mod db_cli;
 mod git;
 mod governance;
 mod history;
+mod code_intel;
 mod lsp_client;
 mod network;
 mod notifications;

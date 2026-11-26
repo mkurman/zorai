@@ -22,6 +22,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   providerAuthStates: [],
   subAgents: [],
   conciergeConfig: DEFAULT_CONCIERGE_CONFIG,
+  coderConfig: {},
   conciergeWelcome: null,
   operatorProfile: DEFAULT_OPERATOR_PROFILE_STATE,
   gatewayStatuses: {},

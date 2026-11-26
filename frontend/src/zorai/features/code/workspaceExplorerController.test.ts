@@ -27,4 +27,28 @@ describe("cached explorer controller", () => {
     expect(sawLoading).not.toContain(true);
     expect(controller.getSnapshot().childrenByPath.get("lib")?.map((item) => item.path)).toEqual(["lib/a.ts", "lib/b.ts"]);
   });
+
+  it("reveal opens every parent folder so a breadcrumb click lands on a visible, highlighted row", async () => {
+    const listings: Record<string, ZoraiWorkspaceEntry[]> = {
+      frontend: [entry("frontend/src", true)],
+      "frontend/src": [entry("frontend/src/app.ts")],
+    };
+    const bridge = { workspaceListDirectory: async (_root: string, dir: string) => listings[dir] ?? [entry("frontend", true)] };
+    const controller = workspaceExplorerControllerFor(bridge, "/repo-reveal");
+    await controller.reveal("frontend/src/app.ts");
+    const snapshot = controller.getSnapshot();
+    expect([...snapshot.expandedPaths].sort()).toEqual(["frontend", "frontend/src"]);
+    expect(snapshot.revealedPath).toBe("frontend/src/app.ts");
+    const firstToken = snapshot.revealToken;
+    await controller.reveal("frontend/src/app.ts");
+    expect(controller.getSnapshot().revealToken).toBe(firstToken + 1);
+  });
+
+  it("revealing a folder opens its parents but leaves the folder itself as it was", async () => {
+    const bridge = { workspaceListDirectory: async (_root: string, dir: string) => dir === "a" ? [entry("a/b", true)] : [entry("a", true)] };
+    const controller = workspaceExplorerControllerFor(bridge, "/repo-reveal-folder");
+    await controller.reveal("a/b");
+    expect([...controller.getSnapshot().expandedPaths]).toEqual(["a"]);
+    expect(controller.getSnapshot().revealedPath).toBe("a/b");
+  });
 });

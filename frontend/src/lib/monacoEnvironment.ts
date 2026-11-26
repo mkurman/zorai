@@ -1,6 +1,14 @@
 import loader from "@monaco-editor/loader";
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 import "monaco-editor/esm/vs/editor/editor.all";
+import "monaco-editor/esm/vs/editor/standalone/browser/referenceSearch/standaloneReferenceSearch";
+import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneHelpQuickAccess";
+import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneGotoLineQuickAccess";
+import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneGotoSymbolQuickAccess";
+import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneCommandsQuickAccess";
+import { StandaloneServices } from "monaco-editor/esm/vs/editor/standalone/browser/standaloneServices";
+import { IStorageService } from "monaco-editor/esm/vs/platform/storage/common/storage";
+import { installBuiltInLanguageSuppression } from "./monacoBuiltInSuppression";
 import "monaco-editor/esm/vs/language/typescript/monaco.contribution";
 import "monaco-editor/esm/vs/language/json/monaco.contribution";
 import "monaco-editor/esm/vs/language/css/monaco.contribution";
@@ -66,6 +74,11 @@ if (!globalScope.MonacoEnvironment) {
 // @monaco-editor/react otherwise defaults to loading Monaco from a CDN.
 // Supplying the bundled module keeps the desktop editor fully offline.
 loader.config({ monaco });
+installBuiltInLanguageSuppression(monaco as never);
+
+const PEEK_VIEW_LAYOUT = { ratio: 0.55, heightInLines: 18 };
+StandaloneServices.get<{ store: (key: string, value: string, scope: number, target: number) => void }>(IStorageService)
+  .store("peekViewLayout", JSON.stringify(PEEK_VIEW_LAYOUT), 0, 1);
 
 const WARM_LANGUAGES = ["python", "rust", "go", "shell", "yaml", "markdown", "ini", "sql", "java", "cpp", "xml", "html", "css", "scss", "typescript", "javascript", "json", "dockerfile", "ruby", "php", "kotlin", "swift", "lua"];
 let languagesWarmed = false;

@@ -846,7 +846,7 @@ pub(crate) async fn execute_headless_shell_command(
     thread_id: Option<&str>,
 ) -> Result<(String, Option<ToolPendingApproval>)> {
     let marker = match agent {
-        Some(agent) => sandbox_result_marker(agent, args).await,
+        Some(agent) => sandbox_result_marker(agent, args, thread_id).await,
         None => None,
     };
     let Some(marker) = marker else {

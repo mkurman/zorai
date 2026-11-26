@@ -14,8 +14,9 @@ import { usePresence } from "@/hooks/usePresence";
 export function ThreadEffortGauge({ thread }: { thread: AgentThread }) {
   const agentSettings = useAgentStore((state) => state.agentSettings);
   const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
+  const coderConfig = useAgentStore((state) => state.coderConfig);
   const subAgents = useAgentStore((state) => state.subAgents);
-  const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig);
+  const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig, coderConfig);
   const effort = profile.effort || "medium";
   const ticks = threadReasoningEfforts();
   const [open, setOpen] = useState(false);

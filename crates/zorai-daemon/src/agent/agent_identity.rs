@@ -32,6 +32,8 @@ pub(crate) const SWAROZYC_AGENT_ID: &str = "swarozyc";
 pub(crate) const SWAROZYC_AGENT_NAME: &str = "Swarozyc";
 pub(crate) const RADOGOST_AGENT_ID: &str = "radogost";
 pub(crate) const RADOGOST_AGENT_NAME: &str = "Radogost";
+pub(crate) const LESZY_AGENT_ID: &str = "leszy";
+pub(crate) const LESZY_AGENT_NAME: &str = "Leszy";
 pub(crate) const DOMOWOJ_AGENT_ID: &str = "domowoj";
 pub(crate) const DOMOWOJ_AGENT_NAME: &str = "Domowoj";
 pub(crate) const SWIETOWIT_AGENT_ID: &str = "swietowit";
@@ -44,6 +46,14 @@ pub(crate) const DAZHBOG_AGENT_ID: &str = "dazhbog";
 pub(crate) const DAZHBOG_AGENT_NAME: &str = "Dazhbog";
 pub(crate) const ROD_AGENT_ID: &str = "rod";
 pub(crate) const ROD_AGENT_NAME: &str = "Rod";
+pub(crate) const KIKIMORA_AGENT_ID: &str = "kikimora";
+pub(crate) const KIKIMORA_AGENT_NAME: &str = "Kikimora";
+pub(crate) const BANNIK_AGENT_ID: &str = "bannik";
+pub(crate) const BANNIK_AGENT_NAME: &str = "Bannik";
+pub(crate) const OVINNIK_AGENT_ID: &str = "ovinnik";
+pub(crate) const OVINNIK_AGENT_NAME: &str = "Ovinnik";
+pub(crate) const DZIAD_AGENT_ID: &str = "dziad";
+pub(crate) const DZIAD_AGENT_NAME: &str = "Dziad";
 pub(crate) const WELES_AGENT_ID: &str = "weles";
 pub(crate) const WELES_AGENT_NAME: &str = "Weles";
 pub(crate) const WELES_BUILTIN_SUBAGENT_ID: &str = "weles_builtin";
@@ -69,7 +79,7 @@ pub(crate) struct ResolvedAgentTarget {
     pub(super) matched_sub_agent: Option<SubAgentDefinition>,
 }
 
-const SPAWNED_PERSONAS: [PersonaSeed; 8] = [
+const SPAWNED_PERSONAS: [PersonaSeed; 12] = [
     PersonaSeed {
         id: SWAROZYC_AGENT_ID,
         name: SWAROZYC_AGENT_NAME,
@@ -109,6 +119,26 @@ const SPAWNED_PERSONAS: [PersonaSeed; 8] = [
         id: ROD_AGENT_ID,
         name: ROD_AGENT_NAME,
         guidance: "You are continuity-minded. Prefer solutions that preserve durable structure, conventions, and long-term coherence.",
+    },
+    PersonaSeed {
+        id: KIKIMORA_AGENT_ID,
+        name: KIKIMORA_AGENT_NAME,
+        guidance: "You do the task you are given with a tester's eye. Probe edge cases, broken assumptions, and failure modes, and show what breaks before anyone relies on it.",
+    },
+    PersonaSeed {
+        id: BANNIK_AGENT_ID,
+        name: BANNIK_AGENT_NAME,
+        guidance: "You leave code cleaner than you found it. Favor refactors, lint fixes, dead-code removal, and simplification that keeps behavior identical.",
+    },
+    PersonaSeed {
+        id: OVINNIK_AGENT_ID,
+        name: OVINNIK_AGENT_NAME,
+        guidance: "You keep the record. Favor accurate documentation, changelogs, and notes that explain why things are the way they are.",
+    },
+    PersonaSeed {
+        id: DZIAD_AGENT_ID,
+        name: DZIAD_AGENT_NAME,
+        guidance: "You teach. Explain code, concepts, and decisions patiently, building the operator's understanding instead of only handing over answers.",
     },
 ];
 
@@ -405,6 +435,7 @@ fn builtin_agent_id(normalized: &str) -> Option<&'static str> {
             Some(CONCIERGE_AGENT_ID)
         }
         "veles" | WELES_AGENT_ID => Some(WELES_AGENT_ID),
+        LESZY_AGENT_ID => Some(LESZY_AGENT_ID),
         _ => persona_by_alias(normalized).map(|persona| persona.id),
     }
 }
@@ -427,7 +458,12 @@ pub(crate) fn canonical_agent_name(alias: &str) -> &'static str {
         MOKOSH_AGENT_ID => MOKOSH_AGENT_NAME,
         DAZHBOG_AGENT_ID => DAZHBOG_AGENT_NAME,
         ROD_AGENT_ID => ROD_AGENT_NAME,
+        KIKIMORA_AGENT_ID => KIKIMORA_AGENT_NAME,
+        BANNIK_AGENT_ID => BANNIK_AGENT_NAME,
+        OVINNIK_AGENT_ID => OVINNIK_AGENT_NAME,
+        DZIAD_AGENT_ID => DZIAD_AGENT_NAME,
         WELES_AGENT_ID => WELES_AGENT_NAME,
+        LESZY_AGENT_ID => LESZY_AGENT_NAME,
         _ => MAIN_AGENT_NAME,
     }
 }
@@ -485,6 +521,10 @@ pub(crate) fn is_explicit_builtin_persona_scope(alias: &str) -> bool {
             | MOKOSH_AGENT_ID
             | DAZHBOG_AGENT_ID
             | ROD_AGENT_ID
+            | KIKIMORA_AGENT_ID
+            | BANNIK_AGENT_ID
+            | OVINNIK_AGENT_ID
+            | DZIAD_AGENT_ID
     )
 }
 
@@ -504,6 +544,10 @@ pub(crate) fn builtin_persona_overrides<'a>(
         MOKOSH_AGENT_ID => Some(&config.builtin_sub_agents.mokosh),
         DAZHBOG_AGENT_ID => Some(&config.builtin_sub_agents.dazhbog),
         ROD_AGENT_ID => Some(&config.builtin_sub_agents.rod),
+        KIKIMORA_AGENT_ID => Some(&config.builtin_sub_agents.kikimora),
+        BANNIK_AGENT_ID => Some(&config.builtin_sub_agents.bannik),
+        OVINNIK_AGENT_ID => Some(&config.builtin_sub_agents.ovinnik),
+        DZIAD_AGENT_ID => Some(&config.builtin_sub_agents.dziad),
         _ => None,
     }
 }
@@ -524,6 +568,10 @@ pub(crate) fn builtin_persona_overrides_mut<'a>(
         MOKOSH_AGENT_ID => Some(&mut config.builtin_sub_agents.mokosh),
         DAZHBOG_AGENT_ID => Some(&mut config.builtin_sub_agents.dazhbog),
         ROD_AGENT_ID => Some(&mut config.builtin_sub_agents.rod),
+        KIKIMORA_AGENT_ID => Some(&mut config.builtin_sub_agents.kikimora),
+        BANNIK_AGENT_ID => Some(&mut config.builtin_sub_agents.bannik),
+        OVINNIK_AGENT_ID => Some(&mut config.builtin_sub_agents.ovinnik),
+        DZIAD_AGENT_ID => Some(&mut config.builtin_sub_agents.dziad),
         _ => None,
     }
 }
@@ -921,7 +969,7 @@ mod tests {
             assert!(!is_lead_only_persona(persona.id), "{}", persona.id);
             assert!(!is_lead_only_persona(persona.name), "{}", persona.name);
         }
-        assert_eq!(spawned_persona_count(), 8);
+        assert_eq!(spawned_persona_count(), 12);
         let assigned = spawned_persona_id("task-123");
         assert_ne!(assigned, WELES_AGENT_ID);
         assert_ne!(assigned, MAIN_AGENT_ID);

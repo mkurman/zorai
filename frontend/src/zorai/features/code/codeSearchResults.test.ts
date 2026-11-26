@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupCodeSearchHits, previewCodeSearchReplacement, splitCodeSearchPreview } from "./codeSearchResults";
+import { groupCodeSearchHits, previewCodeSearchReplacement, splitCodeSearchPreview, searchSeedFromSelection } from "./codeSearchResults";
 
 describe("code search results", () => {
   it("groups matches per file in path order with matches in reading order, so the tree reads like an editor search view", () => {
@@ -23,5 +23,23 @@ describe("code search results", () => {
   it("previews regex replacements with capture groups but keeps literal replacements verbatim", () => {
     expect(previewCodeSearchReplacement("foo", "(f)oo", "$1x", { caseSensitive: false, wholeWord: false, regex: true })).toBe("fx");
     expect(previewCodeSearchReplacement("foo", "foo", "$1x", { caseSensitive: false, wholeWord: false, regex: false })).toBe("$1x");
+  });
+
+  it("seeds Ctrl+Shift+F from a single-line selection only, like VS Code, and never wipes the query otherwise", () => {
+    expect(searchSeedFromSelection("parse_list_limit")).toBe("parse_list_limit");
+    expect(searchSeedFromSelection("  spaced text ")).toBe("  spaced text ");
+    expect(searchSeedFromSelection("fn a() {\n}")).toBe("");
+    expect(searchSeedFromSelection("   ")).toBe("");
+    expect(searchSeedFromSelection(null)).toBe("");
+  });
+});
+
+describe("preserve case replace preview", () => {
+  it("shows the replacement in the casing of each match, the same way the replace will write it", () => {
+    const options = { caseSensitive: false, wholeWord: false, regex: false, preserveCase: true };
+    expect(previewCodeSearchReplacement("User", "user", "account", options)).toBe("Account");
+    expect(previewCodeSearchReplacement("USER", "user", "account", options)).toBe("ACCOUNT");
+    expect(previewCodeSearchReplacement("user", "user", "Account", options)).toBe("account");
+    expect(previewCodeSearchReplacement("User", "user", "account", { ...options, preserveCase: false })).toBe("account");
   });
 });

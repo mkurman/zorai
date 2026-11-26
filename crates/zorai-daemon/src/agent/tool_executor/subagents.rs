@@ -893,6 +893,7 @@ pub(crate) async fn execute_spawn_subagent(
         .or_else(|| Some(default_provider_id));
     let reserved_thread_profile = ThreadExecutionProfile {
         generation_settings: None,
+        sandbox_enabled: None,
         provider: reserved_thread_provider,
         model: Some(effective_provider_config.model.clone()),
         reasoning_effort: (!effective_provider_config.reasoning_effort.trim().is_empty())
@@ -1167,6 +1168,48 @@ pub(crate) async fn execute_list_agents(agent: &AgentEngine) -> Result<String> {
             "builtin",
             listing_target_value(&config.builtin_sub_agents.rod.provider, &config.provider),
             listing_target_value(&config.builtin_sub_agents.rod.model, &config.model),
+            true,
+        ),
+        list_agents_target_row(
+            &config,
+            crate::agent::agent_identity::KIKIMORA_AGENT_ID,
+            crate::agent::agent_identity::KIKIMORA_AGENT_NAME,
+            "builtin",
+            listing_target_value(
+                &config.builtin_sub_agents.kikimora.provider,
+                &config.provider,
+            ),
+            listing_target_value(&config.builtin_sub_agents.kikimora.model, &config.model),
+            true,
+        ),
+        list_agents_target_row(
+            &config,
+            crate::agent::agent_identity::BANNIK_AGENT_ID,
+            crate::agent::agent_identity::BANNIK_AGENT_NAME,
+            "builtin",
+            listing_target_value(&config.builtin_sub_agents.bannik.provider, &config.provider),
+            listing_target_value(&config.builtin_sub_agents.bannik.model, &config.model),
+            true,
+        ),
+        list_agents_target_row(
+            &config,
+            crate::agent::agent_identity::OVINNIK_AGENT_ID,
+            crate::agent::agent_identity::OVINNIK_AGENT_NAME,
+            "builtin",
+            listing_target_value(
+                &config.builtin_sub_agents.ovinnik.provider,
+                &config.provider,
+            ),
+            listing_target_value(&config.builtin_sub_agents.ovinnik.model, &config.model),
+            true,
+        ),
+        list_agents_target_row(
+            &config,
+            crate::agent::agent_identity::DZIAD_AGENT_ID,
+            crate::agent::agent_identity::DZIAD_AGENT_NAME,
+            "builtin",
+            listing_target_value(&config.builtin_sub_agents.dziad.provider, &config.provider),
+            listing_target_value(&config.builtin_sub_agents.dziad.model, &config.model),
             true,
         ),
     ];
