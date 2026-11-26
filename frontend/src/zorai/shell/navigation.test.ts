@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getDefaultZoraiView, zoraiNavItems } from "./navigation";
+import { getDefaultZoraiView, viewHasContextPanel, zoraiNavItems, type ZoraiViewId } from "./navigation";
 
 describe("Zorai navigation", () => {
   it("opens to threads by default", () => {
@@ -43,5 +43,14 @@ describe("Zorai navigation", () => {
       expect(Object.hasOwn(item, "icon")).toBe(true);
       expect(Object.hasOwn(item, "shortLabel")).toBe(false);
     }
+  });
+});
+
+describe("context panel availability", () => {
+  it("offers the context panel only where it shows something beyond the view's own title", () => {
+    const withContext: ZoraiViewId[] = ["code", "threads", "goals", "workspaces", "tools"];
+    const withoutContext: ZoraiViewId[] = ["activity", "usage", "plugins", "skills", "database", "settings"];
+    expect(withContext.every(viewHasContextPanel)).toBe(true);
+    expect(withoutContext.some(viewHasContextPanel)).toBe(false);
   });
 });

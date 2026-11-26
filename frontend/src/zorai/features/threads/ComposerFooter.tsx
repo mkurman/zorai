@@ -10,12 +10,16 @@ import {
   applyManagedSecurityLevel,
   applyThreadProviderModel,
   applyThreadReasoningEffort,
+  applyThreadSandbox,
+  loadThreadSandbox,
+  threadHasDaemonRuntime,
   managedSecurityLevels,
   modelForThreadProviderChange,
   threadProviderIds,
   threadReasoningEfforts,
   type ThreadManagedSecurityLevel,
 } from "./threadRuntimeActions";
+import { useExclusivePopup } from "@/lib/exclusivePopup";
 
 function EffortSlider({ thread, effort }: { thread: AgentThread; effort: string }) {
   const ticks = threadReasoningEfforts();
@@ -48,8 +52,28 @@ function EffortSlider({ thread, effort }: { thread: AgentThread; effort: string 
   );
 }
 
-function SecurityMenu({ level, anchor, onClose }: { level: string; anchor: DOMRect; onClose: () => void }) {
+function SecurityMenu({ level, thread, anchor, onClose }: { level: string; thread: AgentThread | null; anchor: DOMRect; onClose: () => void }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  useExclusivePopup(onClose);
+  const globalSandbox = useAgentStore((state) => state.agentSettings.managed_sandbox_enabled);
+  const [threadSandbox, setThreadSandbox] = useState<boolean | null>(null);
+  const [sandboxBusy, setSandboxBusy] = useState(false);
+  const sandboxAvailable = Boolean(thread && threadHasDaemonRuntime(thread));
+  const sandboxOn = threadSandbox ?? globalSandbox;
+  useEffect(() => {
+    if (!thread) return;
+    let cancelled = false;
+    void loadThreadSandbox(thread).then((value) => { if (!cancelled) setThreadSandbox(value); });
+    return () => { cancelled = true; };
+  }, [thread]);
+  const toggleSandbox = () => {
+    if (!thread || sandboxBusy) return;
+    const next = !sandboxOn;
+    const previous = threadSandbox;
+    setThreadSandbox(next);
+    setSandboxBusy(true);
+    void applyThreadSandbox(thread, next).catch(() => setThreadSandbox(previous)).finally(() => setSandboxBusy(false));
+  };
   const levels = managedSecurityLevels();
   const choose = (next: ThreadManagedSecurityLevel) => {
     onClose();
@@ -102,6 +126,22 @@ function SecurityMenu({ level, anchor, onClose }: { level: string; anchor: DOMRe
           <span className="zorai-security-menu__key" aria-hidden="true">{index + 1}</span>
         </button>
       ))}
+      <div className="zorai-security-menu__separator" role="separator" />
+      <button
+        type="button"
+        role="menuitemcheckbox"
+        aria-checked={sandboxOn}
+        className="zorai-security-menu__item"
+        disabled={!sandboxAvailable || sandboxBusy}
+        title={sandboxAvailable ? undefined : "Send a message first; the sandbox choice is saved on the thread"}
+        onClick={toggleSandbox}
+      >
+        <span className="zorai-security-menu__text">
+          <span className="zorai-security-menu__name">Sandbox</span>
+          <span className="zorai-security-menu__desc">{threadSandbox === null ? `This thread follows Settings (${globalSandbox ? "on" : "off"})` : "Set for this thread only"}</span>
+        </span>
+        <span className={["zorai-plus-menu__switch", sandboxOn ? "is-on" : ""].filter(Boolean).join(" ")} aria-hidden="true"><span /></span>
+      </button>
     </div>,
     document.body,
   );
@@ -163,6 +203,7 @@ function ModelPopover({ thread, anchor, onClose }: { thread: AgentThread; anchor
   const providerConfig = agentSettings[providerId] as { base_url?: string; api_key?: string; auth_source?: "api_key" | "chatgpt_subscription" | "github_copilot" } | undefined;
   const [busy, setBusy] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  useExclusivePopup(onClose);
   const run = (action: () => Promise<void>) => {
     setBusy(true);
     void action().finally(() => setBusy(false));
@@ -283,7 +324,7 @@ export function ComposerFooter({ thread, messages, showEffort, showContext, show
         </button>
       ) : null}
       {showContext ? <ComposerContextCircle key={thread?.id ?? "none"} thread={thread} messages={messages} compact /> : null}
-      {securityAnchor ? <SecurityMenu level={level} anchor={securityAnchor} onClose={() => setSecurityAnchor(null)} /> : null}
+      {securityAnchor ? <SecurityMenu level={level} thread={thread} anchor={securityAnchor} onClose={() => setSecurityAnchor(null)} /> : null}
       {thread && modelAnchor ? <ModelPopover thread={thread} anchor={modelAnchor} onClose={() => setModelAnchor(null)} /> : null}
     </div>
   );

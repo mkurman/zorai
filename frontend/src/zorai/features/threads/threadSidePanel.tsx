@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { create } from "zustand";
+import { useExclusivePopup } from "@/lib/exclusivePopup";
 
 export type ThreadPanelId = "handoff" | "gateway" | "participants" | "operations";
 
@@ -30,6 +31,7 @@ export function ThreadSidePanel({ title, subtitle, onClose, closing, children }:
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  useExclusivePopup(onClose, "panel");
   const host = useContext(ThreadPanelHostContext);
   const [top, setTop] = useState<number | null>(null);
   const [right, setRight] = useState<number | null>(null);

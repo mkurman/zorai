@@ -1638,6 +1638,9 @@ impl<'a> SendMessageRunner<'a> {
                     generation_settings: thread_execution_profile
                         .as_ref()
                         .and_then(|profile| profile.generation_settings.clone()),
+                    sandbox_enabled: thread_execution_profile
+                        .as_ref()
+                        .and_then(|profile| profile.sandbox_enabled),
                     provider: Some(active_provider_id.clone()),
                     model: (!provider_config.model.trim().is_empty())
                         .then(|| provider_config.model.clone()),
@@ -2679,6 +2682,7 @@ mod tests {
         }];
         let profile = ThreadExecutionProfile {
             generation_settings: None,
+            sandbox_enabled: None,
             provider: Some("ollama".to_string()),
             model: Some("kimi-k3:cloud".to_string()),
             reasoning_effort: Some("high".to_string()),
@@ -2706,6 +2710,7 @@ mod tests {
         config.system_prompt = "Svarog system prompt".to_string();
         let profile = ThreadExecutionProfile {
             generation_settings: None,
+            sandbox_enabled: None,
             provider: Some("openai".to_string()),
             model: Some("gpt-5.6-sol".to_string()),
             reasoning_effort: Some("high".to_string()),
@@ -2788,6 +2793,7 @@ mod tests {
                 thread_id,
                 Some(ThreadExecutionProfile {
                     generation_settings: None,
+                    sandbox_enabled: None,
                     provider: Some("openai".to_string()),
                     model: Some("gpt-5.4-mini".to_string()),
                     reasoning_effort: Some("high".to_string()),
@@ -2997,6 +3003,7 @@ mod tests {
                 thread_id,
                 Some(ThreadExecutionProfile {
                     generation_settings: None,
+                    sandbox_enabled: None,
                     provider: Some("openai".to_string()),
                     model: Some("gpt-5.4-mini".to_string()),
                     reasoning_effort: Some("high".to_string()),

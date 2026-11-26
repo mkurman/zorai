@@ -2797,6 +2797,7 @@ async fn agent_thread_detail_json_skips_compaction_artifact_when_deriving_profil
         thread_id.to_string(),
         crate::agent::types::ThreadExecutionProfile {
             generation_settings: None,
+            sandbox_enabled: None,
             provider: Some("github-copilot".to_string()),
             model: Some("gpt-5.5".to_string()),
             reasoning_effort: None,
@@ -2840,6 +2841,7 @@ async fn sync_thread_execution_profiles_for_agent_updates_owned_threads() {
         thread_id.to_string(),
         crate::agent::types::ThreadExecutionProfile {
             generation_settings: None,
+            sandbox_enabled: None,
             provider: Some("openai".to_string()),
             model: Some("gpt-5.4".to_string()),
             reasoning_effort: Some("medium".to_string()),
@@ -2891,6 +2893,7 @@ async fn set_sub_agent_syncs_owned_thread_execution_profiles() {
         thread_id.to_string(),
         crate::agent::types::ThreadExecutionProfile {
             generation_settings: None,
+            sandbox_enabled: None,
             provider: Some("ollama".to_string()),
             model: Some("glm-5.3:cloud".to_string()),
             reasoning_effort: None,
@@ -2973,6 +2976,7 @@ async fn set_sub_agent_syncs_owned_thread_execution_profiles_for_rod_builtin_per
         thread_id.to_string(),
         crate::agent::types::ThreadExecutionProfile {
             generation_settings: None,
+            sandbox_enabled: None,
             provider: Some("ollama".to_string()),
             model: Some("glm-5.3:cloud".to_string()),
             reasoning_effort: None,
@@ -3080,6 +3084,7 @@ async fn paged_thread_reload_keeps_a_live_model_change() {
         thread_id.to_string(),
         crate::agent::types::ThreadExecutionProfile {
             generation_settings: None,
+            sandbox_enabled: None,
             provider: Some("openrouter".to_string()),
             model: Some("deepseek/deepseek-flash-latest".to_string()),
             reasoning_effort: Some("high".to_string()),
@@ -3153,6 +3158,7 @@ async fn commit_thread_execution_profile_if_unchanged_skips_newer_user_selection
     let thread_id = "thread-runtime-switch";
     let original = crate::agent::types::ThreadExecutionProfile {
         generation_settings: None,
+        sandbox_enabled: None,
         provider: Some("ollama".to_string()),
         model: Some("glm-5.3:cloud".to_string()),
         reasoning_effort: Some("high".to_string()),
@@ -3167,6 +3173,7 @@ async fn commit_thread_execution_profile_if_unchanged_skips_newer_user_selection
         thread_id.to_string(),
         crate::agent::types::ThreadExecutionProfile {
             generation_settings: None,
+            sandbox_enabled: None,
             provider: Some("z.ai-coding-plan".to_string()),
             model: Some("glm-5.3".to_string()),
             reasoning_effort: Some("high".to_string()),
@@ -3180,6 +3187,7 @@ async fn commit_thread_execution_profile_if_unchanged_skips_newer_user_selection
             Some(&original),
             crate::agent::types::ThreadExecutionProfile {
                 generation_settings: None,
+                sandbox_enabled: None,
                 provider: Some("ollama".to_string()),
                 model: Some("glm-5.3:cloud".to_string()),
                 reasoning_effort: Some("high".to_string()),

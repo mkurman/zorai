@@ -17,7 +17,7 @@ pub(crate) fn add_available_tools_part_a(
                     "session": { "type": "string", "description": "Optional terminal session ID or unique substring" },
                     "cwd": { "type": "string", "description": "Optional working directory" },
                     "allow_network": { "type": "boolean", "description": "Whether network access is expected" },
-                    "sandbox_enabled": { "type": "boolean", "description": "Whether sandboxing should be requested" },
+                    "sandbox_enabled": { "type": "boolean", "description": "Ignored: the operator's sandbox setting for this thread decides whether commands run sandboxed" },
                     "security_level": { "type": "string", "enum": ["highest", "moderate", "lowest", "yolo"], "description": "Approval strictness level" },
                     "language_hint": { "type": "string", "description": "Optional language hint for validation" },
                     "wait_for_completion": { "type": "boolean", "description": "Wait for quick-command result (default: true); non-quick commands always background" },

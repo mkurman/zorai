@@ -51,7 +51,7 @@ pub(crate) async fn execute_managed_command(
     thread_id: &str,
     cancel_token: Option<CancellationToken>,
 ) -> Result<(String, Option<ToolPendingApproval>)> {
-    let marker = sandbox_result_marker(agent, args).await;
+    let marker = sandbox_result_marker(agent, args, Some(thread_id)).await;
     let (output, pending) = run_managed_command(
         args,
         agent,
@@ -68,11 +68,30 @@ pub(crate) async fn execute_managed_command(
     })
 }
 
+pub(crate) async fn operator_sandbox_enabled(agent: &AgentEngine, thread_id: Option<&str>) -> bool {
+    let global = agent.config.read().await.managed_execution.sandbox_enabled;
+    let Some(thread_id) = thread_id else {
+        return global;
+    };
+    thread_sandbox_choice(
+        global,
+        agent
+            .get_thread_execution_profile(thread_id)
+            .await
+            .and_then(|profile| profile.sandbox_enabled),
+    )
+}
+
+pub(crate) fn thread_sandbox_choice(global: bool, thread_override: Option<bool>) -> bool {
+    thread_override.unwrap_or(global)
+}
+
 pub(crate) async fn sandbox_result_marker(
     agent: &AgentEngine,
     args: &serde_json::Value,
+    thread_id: Option<&str>,
 ) -> Option<String> {
-    let operator_enabled = agent.config.read().await.managed_execution.sandbox_enabled;
+    let operator_enabled = operator_sandbox_enabled(agent, thread_id).await;
     let requested = args
         .get("sandbox_enabled")
         .and_then(|value| value.as_bool());
@@ -132,15 +151,15 @@ async fn run_managed_command(
             session_id.unwrap_or(sessions[0].id)
         };
 
-    let (default_managed_execution, security_level) = {
+    let security_level = {
         let config = agent.config.read().await;
-        let security_level = crate::agent::weles_governance::security_level_for_tool_call(
+        crate::agent::weles_governance::security_level_for_tool_call(
             &config,
             tool_names::EXECUTE_MANAGED_COMMAND,
             args,
-        );
-        (config.managed_execution.clone(), security_level)
+        )
     };
+    let operator_sandbox = operator_sandbox_enabled(agent, Some(thread_id)).await;
     let requested_timeout = args
         .get("timeout_seconds")
         .and_then(|value| value.as_u64())
@@ -166,7 +185,7 @@ async fn run_managed_command(
             .and_then(|value| value.as_bool())
             .unwrap_or(false),
         sandbox_enabled: resolve_sandbox_enabled(
-            default_managed_execution.sandbox_enabled,
+            operator_sandbox,
             args.get("sandbox_enabled")
                 .and_then(|value| value.as_bool()),
         ),
@@ -530,17 +549,25 @@ async fn run_managed_command(
     }
 }
 
-pub(crate) fn resolve_sandbox_enabled(operator_enabled: bool, requested: Option<bool>) -> bool {
-    if operator_enabled {
-        requested.unwrap_or(true)
-    } else {
-        false
-    }
+pub(crate) fn resolve_sandbox_enabled(operator_enabled: bool, _requested: Option<bool>) -> bool {
+    operator_enabled
 }
 
 #[cfg(test)]
 mod tests {
-    use super::resolve_sandbox_enabled;
+    use super::{resolve_sandbox_enabled, thread_sandbox_choice};
+
+    #[test]
+    fn thread_choice_overrides_the_global_sandbox_setting_in_both_directions() {
+        assert!(!thread_sandbox_choice(true, Some(false)));
+        assert!(thread_sandbox_choice(false, Some(true)));
+    }
+
+    #[test]
+    fn threads_without_a_choice_follow_the_global_sandbox_setting() {
+        assert!(thread_sandbox_choice(true, None));
+        assert!(!thread_sandbox_choice(false, None));
+    }
 
     #[test]
     fn operator_sandbox_off_ignores_a_tool_request_to_enable_it() {
@@ -550,9 +577,9 @@ mod tests {
     }
 
     #[test]
-    fn operator_sandbox_on_defaults_on_and_still_allows_an_explicit_opt_out() {
+    fn operator_sandbox_on_cannot_be_switched_off_by_a_tool_call() {
         assert!(resolve_sandbox_enabled(true, None));
         assert!(resolve_sandbox_enabled(true, Some(true)));
-        assert!(!resolve_sandbox_enabled(true, Some(false)));
+        assert!(resolve_sandbox_enabled(true, Some(false)));
     }
 }

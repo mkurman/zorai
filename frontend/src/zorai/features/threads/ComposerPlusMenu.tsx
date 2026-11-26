@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useExclusivePopup } from "@/lib/exclusivePopup";
 
 export type ComposerPlusItem = {
   key: string;
@@ -15,6 +16,7 @@ export type ComposerPlusItem = {
 
 export function ComposerPlusMenu({ anchor, items, onClose }: { anchor: DOMRect; items: ComposerPlusItem[]; onClose: () => void }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  useExclusivePopup(onClose);
   const [position, setPosition] = useState({ left: anchor.left, bottom: window.innerHeight - anchor.top + 8 });
 
   useLayoutEffect(() => {

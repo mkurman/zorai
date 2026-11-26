@@ -53,39 +53,12 @@ type Props = {
 };
 
 export const ComposerContextCircle = memo(function ComposerContextCircle({ thread, messages, compact = false }: Props) {
-  const agentSettings = useAgentStore((state) => state.agentSettings);
-  const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
-  const coderConfig = useAgentStore((state) => state.coderConfig);
-  const subAgents = useAgentStore((state) => state.subAgents);
   const [open, setOpen] = useState(false);
   const presence = usePresence(open);
-  const [autoBusy, setAutoBusy] = useState(false);
-  const compactionStatus = useThreadCompaction(thread?.daemonThreadId);
-  const compacting = Boolean(compactionStatus);
-  const breakdown = useThreadContextBreakdown(thread?.daemonThreadId);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const btnRef = useRef<HTMLButtonElement | null>(null);
-
-  const contextWindowTokens = useMemo(() => {
-    if (breakdown && breakdown.context_window_tokens > 0) return breakdown.context_window_tokens;
-    if (!thread) return Math.max(1, Math.trunc((agentSettings as unknown as Record<string, unknown>).context_window_tokens as number || 256000));
-    const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig, coderConfig);
-    return profile.contextWindowTokens;
-  }, [breakdown, thread, subAgents, agentSettings, conciergeConfig, coderConfig]);
-
-  const used = useMemo(
-    () => (breakdown ? contextBreakdownUsedTokens(breakdown) : currentContextTokens(thread ?? null, messages)),
-    [breakdown, messages, thread],
-  );
-  const breakdownRows = useMemo(() => (breakdown ? contextBreakdownRows(breakdown) : []), [breakdown]);
-  const pct = contextWindowTokens > 0 ? Math.min(100, Math.round((used / contextWindowTokens) * 100)) : 0;
-  const tone: "ok" | "warn" | "danger" = pct >= 90 ? "danger" : pct >= 75 ? "warn" : "ok";
-  const autoCompact = (agentSettings as unknown as Record<string, unknown>).auto_compact_context === true;
-  const sessionUsage = useMemo(() => summarizeSessionUsage(messages), [messages]);
-  const resolvedCost = useMemo(() => resolveComposerThreadCost(thread, messages, sessionUsage), [messages, sessionUsage, thread]);
-  const sessionCost = resolvedCost.totalCost;
-  const sessionHasCost = resolvedCost.hasCost;
-  const sessionAvgTps = sessionUsage.avgTps;
+  const usage = useContextUsage(thread ?? null, messages);
+  const { pct, tone, used, contextWindowTokens, sessionHasCost, sessionCost } = usage;
 
   const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties | undefined>(undefined);
 
@@ -133,25 +106,6 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
     return () => document.removeEventListener("pointerdown", onDown);
   }, [open]);
 
-  const doCompact = async () => {
-    setOpen(false);
-    await requestManualCompaction(thread?.daemonThreadId);
-  };
-
-  const toggleAuto = async (next: boolean) => {
-    setAutoBusy(true);
-    try {
-      useAgentStore.getState().updateAgentSetting("auto_compact_context", next as never);
-      await (getBridge() as unknown as { agentSetConfigItem?: (k: string, v: unknown) => Promise<unknown> })?.agentSetConfigItem?.("/auto_compact_context", next);
-      pushToast(next ? "Auto-compact enabled." : "Auto-compact disabled.", "info");
-    } catch (error) {
-      useAgentStore.getState().updateAgentSetting("auto_compact_context", (!next) as never);
-      pushToast(error instanceof Error ? error.message : "Could not toggle auto-compact.", "error");
-    } finally {
-      setAutoBusy(false);
-    }
-  };
-
   const radius = 14;
   const circ = 2 * Math.PI * radius;
   const dash = (pct / 100) * circ;
@@ -191,6 +145,73 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
           style={popoverStyle as React.CSSProperties}
           onMouseEnter={() => setOpen(true)}
         >
+          <ContextUsageDetails usage={usage} thread={thread ?? null} onCompactStart={() => setOpen(false)} />
+            </div>,
+            document.body
+          )
+        : null}
+    </div>
+  );
+});
+
+type ContextUsage = ReturnType<typeof useContextUsage>;
+
+export function useContextUsage(thread: AgentThread | null, messages: AgentMessage[]) {
+  const [autoBusy, setAutoBusy] = useState(false);
+  const agentSettings = useAgentStore((state) => state.agentSettings);
+  const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
+  const coderConfig = useAgentStore((state) => state.coderConfig);
+  const subAgents = useAgentStore((state) => state.subAgents);
+  const compactionStatus = useThreadCompaction(thread?.daemonThreadId);
+  const compacting = Boolean(compactionStatus);
+  const breakdown = useThreadContextBreakdown(thread?.daemonThreadId);
+  const contextWindowTokens = useMemo(() => {
+    if (breakdown && breakdown.context_window_tokens > 0) return breakdown.context_window_tokens;
+    if (!thread) return Math.max(1, Math.trunc((agentSettings as unknown as Record<string, unknown>).context_window_tokens as number || 256000));
+    const profile = resolveThreadOwnerRuntimeProfile(thread, subAgents, agentSettings, conciergeConfig, coderConfig);
+    return profile.contextWindowTokens;
+  }, [breakdown, thread, subAgents, agentSettings, conciergeConfig, coderConfig]);
+
+  const used = useMemo(
+    () => (breakdown ? contextBreakdownUsedTokens(breakdown) : currentContextTokens(thread ?? null, messages)),
+    [breakdown, messages, thread],
+  );
+  const breakdownRows = useMemo(() => (breakdown ? contextBreakdownRows(breakdown) : []), [breakdown]);
+  const pct = contextWindowTokens > 0 ? Math.min(100, Math.round((used / contextWindowTokens) * 100)) : 0;
+  const tone: "ok" | "warn" | "danger" = pct >= 90 ? "danger" : pct >= 75 ? "warn" : "ok";
+  const autoCompact = (agentSettings as unknown as Record<string, unknown>).auto_compact_context === true;
+  const sessionUsage = useMemo(() => summarizeSessionUsage(messages), [messages]);
+  const resolvedCost = useMemo(() => resolveComposerThreadCost(thread, messages, sessionUsage), [messages, sessionUsage, thread]);
+  const sessionCost = resolvedCost.totalCost;
+  const sessionHasCost = resolvedCost.hasCost;
+  const sessionAvgTps = sessionUsage.avgTps;
+
+  return { autoBusy, setAutoBusy, compacting, breakdown, contextWindowTokens, used, breakdownRows, pct, tone, autoCompact, sessionCost, sessionHasCost, sessionAvgTps };
+}
+
+export function ContextUsageDetails({ usage, thread, onCompactStart }: { usage: ContextUsage; thread: AgentThread | null; onCompactStart?: () => void }) {
+  const { autoBusy, setAutoBusy, compacting, breakdown, contextWindowTokens, used, breakdownRows, pct, tone, autoCompact, sessionCost, sessionHasCost, sessionAvgTps } = usage;
+  const doCompact = async () => {
+    onCompactStart?.();
+    await requestManualCompaction(thread?.daemonThreadId);
+  };
+
+  const toggleAuto = async (next: boolean) => {
+    setAutoBusy(true);
+    try {
+      useAgentStore.getState().updateAgentSetting("auto_compact_context", next as never);
+      await (getBridge() as unknown as { agentSetConfigItem?: (k: string, v: unknown) => Promise<unknown> })?.agentSetConfigItem?.("/auto_compact_context", next);
+      pushToast(next ? "Auto-compact enabled." : "Auto-compact disabled.", "info");
+    } catch (error) {
+      useAgentStore.getState().updateAgentSetting("auto_compact_context", (!next) as never);
+      pushToast(error instanceof Error ? error.message : "Could not toggle auto-compact.", "error");
+    } finally {
+      setAutoBusy(false);
+    }
+  };
+
+  return (
+    <>
           <div className="zorai-composer-context-circle__popover-head">
             <strong>Context</strong>
             <span className={`zorai-composer-context-circle__pct is-${tone}`}>{pct}% · {formatTokens(used)} / {formatTokens(contextWindowTokens)}</span>
@@ -250,10 +271,6 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
               {compacting ? "Compacting…" : "Compact"}
             </button>
           </div>
-            </div>,
-            document.body
-          )
-        : null}
-    </div>
+    </>
   );
-});
+}

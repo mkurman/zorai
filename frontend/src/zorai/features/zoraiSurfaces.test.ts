@@ -763,10 +763,9 @@ describe("Zorai feature surfaces", () => {
     expect(contextSource).toContain("Spawned");
     expect(contextSource).toContain("resolveThreadOwnerRuntimeProfile");
     expect(readFeature("./threads/threadOwnerRuntime.ts")).toContain("profileContextWindowTokens");
-    expect(contextSource).toContain("activeContextWindowTokens");
-    expect(contextSource).toContain("tokens");
-    expect(contextSource).toContain("zorai-todo-context-list");
-    expect(contextSource).toContain("zorai-todo-checkbox");
+    expect(contextSource).toContain("useContextUsage(activeThread ?? null, runtime.messages)");
+    expect(readFeature("./threads/ComposerContextCircle.tsx")).toContain("activeContextWindowTokens");
+    expect(contextSource).toContain("<WorkTodoList todos={runtime.todos} />");
     expect(contextSource).toContain("}, [daemonThreadId]);");
     expect(contextSource).not.toContain("}, [activeThread, daemonThreadId]);");
     expect(contextSource).not.toContain("SpawnedAgentsPanel");

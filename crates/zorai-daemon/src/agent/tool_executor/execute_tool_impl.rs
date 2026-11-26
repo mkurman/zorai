@@ -115,7 +115,10 @@ async fn strongest_repeated_shell_fallback_evidence(
                 return None;
             }
             let (_, to_tool) = pair.split_once("->")?;
-            if to_tool.trim().eq_ignore_ascii_case(tool_name) {
+            let to_tool = to_tool.trim().to_ascii_lowercase();
+            if tool_names::canonical_tool_name(&to_tool)
+                == tool_names::canonical_tool_name(&tool_name.to_ascii_lowercase())
+            {
                 Some((pair.clone(), *count))
             } else {
                 None
@@ -2082,7 +2085,7 @@ async fn dispatch_tool_execution(
         }
         tool_names::JUSTIFY_SKILL_SKIP => execute_justify_skill_skip(args, agent, thread_id).await,
         tool_names::SYNTHESIZE_TOOL => {
-            synthesize_tool(args, agent, agent_data_dir, http_client).await
+            synthesize_tool(args, agent, agent_data_dir, http_client, Some(thread_id)).await
         }
         tool_names::LIST_GENERATED_TOOLS => list_generated_tools(agent_data_dir),
         tool_names::PROMOTE_GENERATED_TOOL => args

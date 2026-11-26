@@ -9,6 +9,7 @@ import { WebBrowserPanel } from "@/components/WebBrowserPanel";
 import type { Surface } from "@/lib/types";
 import { useWorkspaceStore } from "@/lib/workspaceStore";
 import { zoraiTools, type ZoraiToolId } from "./tools";
+import { ContextRow } from "@/zorai/features/threads/ThreadContextRow";
 
 type ToolsProps = {
   activeTool: ZoraiToolId;
@@ -97,52 +98,52 @@ export function ToolsContext({ activeTool, onSelectTool }: ToolsProps) {
   const closeWorkspace = useWorkspaceStore((state) => state.closeWorkspace);
 
   return (
-    <div className="zorai-context-summary">
-      <div className="zorai-section-label">Operational Workspaces</div>
-      <div className="zorai-context-block">
-        <strong>{activeToolLabel(activeTool)}</strong>
-        <span>Stored terminal and canvas workspaces.</span>
-      </div>
-      <div className="zorai-operational-workspaces">
+    <div className="zorai-thread-context-stack">
+      <div className="zorai-context-group">
+        <div className="zorai-context-group__title">{activeToolLabel(activeTool)} workspaces</div>
         {workspaces.length === 0 ? (
-          <div className="zorai-empty">No operational workspaces yet.</div>
+          <p className="zorai-context-hint">No operational workspaces yet.</p>
         ) : workspaces.map((workspace) => (
-          <div key={workspace.id} className={["zorai-context-block", workspace.id === activeWorkspaceId ? "zorai-context-block--active" : ""].filter(Boolean).join(" ")}>
-            <button
-              type="button"
-              className="zorai-context-link"
-              onClick={() => {
-                setActiveWorkspace(workspace.id);
-                onSelectTool("terminal");
-              }}
-            >
-              {workspace.name}
-            </button>
-            <span>{workspace.surfaces.length} surfaces / {workspace.cwd}</span>
-            <button
-              type="button"
-              className="zorai-context-chip"
-              onClick={() => closeWorkspace(workspace.id)}
-            >
-              Remove workspace
-            </button>
-            <div className="zorai-operational-surfaces">
-              {workspace.surfaces.map((surface) => (
+          <ContextRow
+            key={workspace.id}
+            icon="terminal"
+            label={workspace.name}
+            value={`${workspace.id === activeWorkspaceId ? "active · " : ""}${workspace.surfaces.length} surface${workspace.surfaces.length === 1 ? "" : "s"}`}
+            defaultOpen={workspace.id === activeWorkspaceId}
+          >
+            <div className="zorai-context-workspace">
+              <code title={workspace.cwd}>{workspace.cwd}</code>
+              <div className="zorai-context-chips">
+                {workspace.surfaces.map((surface) => (
+                  <button
+                    type="button"
+                    key={surface.id}
+                    className="zorai-context-chip"
+                    onClick={() => {
+                      setActiveWorkspace(workspace.id);
+                      setActiveSurface(surface.id);
+                      onSelectTool(surface.layoutMode === "canvas" ? "canvas" : "terminal");
+                    }}
+                  >
+                    {surface.name}
+                  </button>
+                ))}
+              </div>
+              <div className="zorai-context-workspace__actions">
                 <button
                   type="button"
-                  key={surface.id}
-                  className="zorai-context-chip"
+                  className="zorai-ghost-button zorai-ghost-button--compact"
                   onClick={() => {
                     setActiveWorkspace(workspace.id);
-                    setActiveSurface(surface.id);
-                    onSelectTool(surface.layoutMode === "canvas" ? "canvas" : "terminal");
+                    onSelectTool("terminal");
                   }}
                 >
-                  {surface.name}
+                  Open
                 </button>
-              ))}
+                <button type="button" className="zorai-ghost-button zorai-ghost-button--compact" aria-label={`Remove workspace ${workspace.name}`} onClick={() => closeWorkspace(workspace.id)}>Remove</button>
+              </div>
             </div>
-          </div>
+          </ContextRow>
         ))}
       </div>
     </div>

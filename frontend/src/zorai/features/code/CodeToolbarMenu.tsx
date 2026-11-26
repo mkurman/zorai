@@ -6,6 +6,7 @@ import { CodeIcon } from "./CodeIcon";
 import { codeCommandById, displayCodeBinding, type CodeCommandId } from "./codeCommands";
 import { useCodeEditorSettingsStore } from "./codeEditorSettingsStore";
 import { takeScreenshotAfterMenuCloses } from "@/zorai/shell/menuScreenshot";
+import { useExclusivePopup } from "@/lib/exclusivePopup";
 
 export type CodeToolbarMenuItem = {
   key: string;
@@ -72,6 +73,7 @@ export function CodeToolbarMenu({ items, label = "More editor actions" }: { item
 
 export function CodeContextMenu({ x, y, items, label, onClose, screenshot = true }: { x: number; y: number; items: CodeToolbarMenuItem[]; label: string; onClose: () => void; screenshot?: boolean }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  useExclusivePopup(onClose);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
 
   useLayoutEffect(() => {

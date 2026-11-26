@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { useDragScroll } from "@/zorai/features/threads/useDragScroll";
 
 export type CodeRailTab = "explorer" | "search" | "scm" | "debug" | "testing" | "agent";
 
@@ -32,64 +33,10 @@ export function CodeRailTabs({ value, onChange, badges }: {
   onChange: (tab: CodeRailTab) => void;
   badges: Partial<Record<CodeRailTab, { count: number; tone?: "danger" }>>;
 }) {
-  const drag = useRef<{ x: number; scrollLeft: number; moved: boolean } | null>(null);
-  const stripRef = useRef<HTMLDivElement | null>(null);
-  const [edges, setEdges] = useState({ left: false, right: false });
-  const updateEdges = () => {
-    const strip = stripRef.current;
-    if (!strip) return;
-    const left = strip.scrollLeft > 1;
-    const right = strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1;
-    setEdges((current) => (current.left === left && current.right === right ? current : { left, right }));
-  };
-  useEffect(() => {
-    const strip = stripRef.current;
-    if (!strip) return;
-    updateEdges();
-    const observer = new ResizeObserver(updateEdges);
-    observer.observe(strip);
-    return () => observer.disconnect();
-  }, []);
+  const [stripElement, setStripElement] = useState<HTMLDivElement | null>(null);
+  useDragScroll(stripElement);
   return (
-    <div
-      ref={stripRef}
-      className={["zorai-code-rail-tabs", edges.left ? "has-more-left" : "", edges.right ? "has-more-right" : ""].filter(Boolean).join(" ")}
-      onScroll={updateEdges}
-      role="tablist"
-      aria-label="Code sidebar"
-      onWheel={(event) => {
-        const strip = event.currentTarget;
-        if (strip.scrollWidth <= strip.clientWidth || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
-        strip.scrollLeft += event.deltaY;
-      }}
-      onPointerDown={(event) => {
-        if (event.button !== 0 || event.currentTarget.scrollWidth <= event.currentTarget.clientWidth) return;
-        drag.current = { x: event.clientX, scrollLeft: event.currentTarget.scrollLeft, moved: false };
-      }}
-      onPointerMove={(event) => {
-        const state = drag.current;
-        if (!state) return;
-        const delta = event.clientX - state.x;
-        if (!state.moved && Math.abs(delta) < 4) return;
-        if (!state.moved) {
-          state.moved = true;
-          event.currentTarget.setPointerCapture(event.pointerId);
-        }
-        event.currentTarget.scrollLeft = state.scrollLeft - delta;
-      }}
-      onPointerUp={() => {
-        if (!drag.current?.moved) drag.current = null;
-        else window.setTimeout(() => { drag.current = null; }, 0);
-      }}
-      onPointerCancel={() => { drag.current = null; }}
-      onClickCapture={(event) => {
-        if (drag.current?.moved) {
-          event.preventDefault();
-          event.stopPropagation();
-        }
-        drag.current = null;
-      }}
-    >
+    <div ref={setStripElement} className="zorai-code-rail-tabs zorai-drag-scroll" role="tablist" aria-label="Code sidebar">
       {TABS.map((tab) => {
         const badge = badges[tab.id];
         return (

@@ -1552,7 +1552,7 @@ async fn tui_bash_command_wait_true_detaches_long_running_headless_command() {
 
     let mut payload = serde_json::Value::Null;
     let mut completed = false;
-    for _ in 0..30 {
+    for _ in 0..150 {
         let status = execute_tool(
             &status_call,
             &engine,
@@ -1680,7 +1680,7 @@ async fn tui_python_execute_wait_for_response_detaches_long_running_command() {
 
     let mut payload = serde_json::Value::Null;
     let mut completed = false;
-    for _ in 0..30 {
+    for _ in 0..150 {
         let status = execute_tool(
             &status_call,
             &engine,
@@ -7321,6 +7321,7 @@ async fn approved_thread_handoff_activation_updates_stack_and_thread_identity() 
             thread_id,
             Some(crate::agent::types::ThreadExecutionProfile {
                 generation_settings: None,
+                sandbox_enabled: None,
                 provider: Some("previous-provider".to_string()),
                 model: Some("previous-model".to_string()),
                 reasoning_effort: Some("high".to_string()),

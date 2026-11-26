@@ -1501,13 +1501,15 @@ pub(crate) async fn dispatch_part4(
             };
             // Persist immediately, then wake any in-flight retry so the next LLM
             // attempt can rebuild against this profile instead of the snapshotted provider.
-            if let Some(profile) = parsed.clone() {
+            if let Some(mut profile) = parsed.clone() {
                 let mut map = agent.thread_execution_profiles.write().await;
+                crate::agent::types::keep_thread_sandbox_choice(&mut profile, map.get(&thread_id));
                 if profile.provider.is_none()
                     && profile.model.is_none()
                     && profile.reasoning_effort.is_none()
                     && profile.context_window_tokens.is_none()
                     && profile.generation_settings.is_none()
+                    && profile.sandbox_enabled.is_none()
                 {
                     map.remove(&thread_id);
                 } else {

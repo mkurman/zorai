@@ -372,14 +372,18 @@ async fn execute_tool_shell_python_bypass_under_yolo_never_downgrades_to_managed
 
     assert!(
         !result.is_error,
-        "yolo bypass should remain flag_only rather than being blocked downstream: {}",
+        "operator yolo must run risky shell python instead of blocking it downstream: {}",
         result.content
     );
+    assert!(marker.exists(), "the yolo shell python command should actually run");
     let review = result
         .weles_review
-        .expect("yolo bypass should carry governance metadata");
-    assert_eq!(review.verdict, crate::agent::types::WelesVerdict::FlagOnly);
-    assert_eq!(review.security_override_mode.as_deref(), Some("yolo"));
+        .expect("yolo execution should still carry governance metadata");
+    assert_eq!(review.verdict, crate::agent::types::WelesVerdict::Allow);
+    assert!(
+        !review.weles_reviewed,
+        "operator yolo is a no-supervision mode, so WELES must not review the call"
+    );
 }
 
 #[tokio::test]

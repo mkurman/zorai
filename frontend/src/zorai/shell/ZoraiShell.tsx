@@ -43,7 +43,7 @@ import { WorkspacesRail, WorkspacesView } from "../features/workspaces/Workspace
 import { WorkspacesContext } from "../features/workspaces/WorkspaceContextPanel";
 import { SkillsRail, SkillsView } from "../features/skills/SkillsView";
 import { InboxRailBadge, InboxThreadReadTracker } from "../features/activity/InboxShellParts";
-import { contextPanelLabels, getDefaultZoraiView, LAST_ZORAI_VIEW_STORAGE_KEY, normalizeZoraiToolNavigation, RAIL_ITEM_IDS, zoraiNavItems, type ZoraiNavItem, type ZoraiViewId } from "./navigation";
+import { contextPanelLabels, getDefaultZoraiView, LAST_ZORAI_VIEW_STORAGE_KEY, normalizeZoraiToolNavigation, RAIL_ITEM_IDS, viewHasContextPanel, zoraiNavItems, type ZoraiNavItem, type ZoraiViewId } from "./navigation";
 import { visibleItemIds } from "@/lib/itemLayout";
 import { useAppShortcuts } from "@/zorai/features/shortcuts/useAppShortcuts";
 import { openPinnedPlugin, PluginCommandHost, PluginIcon, PluginsRail, PluginsView } from "@/zorai/features/plugins/PluginsView";
@@ -64,6 +64,7 @@ import {
   resolveAppearance,
   systemPrefersDark,
 } from "@/lib/uiInterfacePrefs";
+import { claimExclusivePopup } from "@/lib/exclusivePopup";
 
 type GoalOpenRequest = {
   id: string;
@@ -117,7 +118,8 @@ export function ZoraiShell() {
   const setRailOpen = useShellLayoutStore((state) => state.setRailOpen);
   const [compactShell, setCompactShell] = useState(readCompactShell);
   const wasCompactShell = useRef(false);
-  const contextOpen = useShellLayoutStore((state) => state.contextOpen);
+  const viewHasContext = viewHasContextPanel(activeView);
+  const contextOpen = useShellLayoutStore((state) => state.contextOpen) && viewHasContext;
   const setContextOpen = useShellLayoutStore((state) => state.setContextOpen);
   useEffect(() => {
     void getBridge()?.appSetMenuState?.({ railOpen, contextOpen });
@@ -150,7 +152,11 @@ export function ZoraiShell() {
       setContextOpen(false);
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    const release = claimExclusivePopup(() => setContextOpen(false), "panel");
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      release();
+    };
   }, [contextOverlay, setContextOpen]);
   const threadsViewThreadRef = useRef<string | null>(null);
   const runtimeRef = useRef(runtime);
@@ -501,7 +507,7 @@ export function ZoraiShell() {
             onClick={() => setContextOpen(false)}
           />
         ) : null}
-        {contextOpen || activeView !== "threads" ? <ZoraiContextPanel
+        {viewHasContext && (contextOpen || activeView !== "threads") ? <ZoraiContextPanel
           title={contextLabels.title}
           subtitle={contextLabels.title === activeItem.railLabel ? undefined : activeItem.railLabel}
           collapsedLabel={contextLabels.collapsed}
@@ -573,18 +579,5 @@ function renderContext(
   if (view === "goals") return <GoalsContext />;
   if (view === "workspaces") return <WorkspacesContext />;
   if (view === "tools") return <ToolsContext activeTool={activeTool} onSelectTool={setActiveTool} />;
-  return <GenericContext view={view} />;
-}
-
-function GenericContext({ view }: { view: ZoraiViewId }) {
-  const item = zoraiNavItems.find((entry) => entry.id === view) ?? zoraiNavItems[0];
-  return (
-    <div className="zorai-context-summary">
-      <div className="zorai-section-label">{item.label}</div>
-      <div className="zorai-context-block">
-        <strong>{item.railLabel}</strong>
-        <span>{item.description}</span>
-      </div>
-    </div>
-  );
+  return null;
 }

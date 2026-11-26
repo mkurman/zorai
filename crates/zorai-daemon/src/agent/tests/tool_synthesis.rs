@@ -354,7 +354,7 @@ async fn cli_generated_tool_execution_is_blocked_when_filesystem_disabled() {
     let mut sandbox = ToolSynthesisSandboxConfig::default();
     sandbox.allow_filesystem = false;
 
-    let error = run_cli_generated_tool(&record, &serde_json::json!({}), &sandbox)
+    let error = run_cli_generated_tool(&record, &serde_json::json!({}), &sandbox, None)
         .await
         .expect_err("CLI generated tools should be blocked when filesystem access is disabled");
 
@@ -362,6 +362,63 @@ async fn cli_generated_tool_execution_is_blocked_when_filesystem_disabled() {
         error.to_string().contains("filesystem access"),
         "expected filesystem guard error, got: {error}"
     );
+}
+
+#[tokio::test]
+async fn sandboxed_cli_generated_tool_cannot_read_files_outside_its_folder() -> Result<()> {
+    if !std::process::Command::new("which")
+        .arg("bwrap")
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false)
+    {
+        return Ok(());
+    }
+    let outside = tempdir()?;
+    let secret = outside.path().join("secret.txt");
+    std::fs::write(&secret, "zorai-secret-value")?;
+    let sandbox_root = tempdir()?;
+    let record = GeneratedToolRecord {
+        id: "tool-cat".to_string(),
+        name: "tool-cat".to_string(),
+        description: "Cat test tool".to_string(),
+        kind: GeneratedToolKind::Cli,
+        parameters: Vec::new(),
+        status: "active".to_string(),
+        created_at: 1,
+        updated_at: 1,
+        last_used_at: None,
+        calls_total: 0,
+        calls_success: 0,
+        calls_failure: 0,
+        calls_timeout: 0,
+        sessions_used: 0,
+        last_session_key: None,
+        promoted_skill_path: None,
+        cli: Some(GeneratedCliSpec {
+            invocation: vec!["cat".to_string(), secret.to_string_lossy().to_string()],
+            help_source: "help".to_string(),
+        }),
+        openapi: None,
+    };
+    let mut sandbox = ToolSynthesisSandboxConfig::default();
+    sandbox.allow_filesystem = true;
+
+    let unsandboxed =
+        run_cli_generated_tool(&record, &serde_json::json!({}), &sandbox, None).await?;
+    assert!(unsandboxed.contains("zorai-secret-value"));
+    let sandboxed = run_cli_generated_tool(
+        &record,
+        &serde_json::json!({}),
+        &sandbox,
+        Some(sandbox_root.path()),
+    )
+    .await?;
+    assert!(
+        !sandboxed.contains("zorai-secret-value"),
+        "a sandboxed generated tool must not see files outside its folder: {sandboxed}"
+    );
+    Ok(())
 }
 
 #[test]

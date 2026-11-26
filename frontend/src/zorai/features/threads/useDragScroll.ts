@@ -10,7 +10,8 @@ export function scrollEdges(scrollLeft: number, scrollWidth: number, clientWidth
   return { start: scrollLeft > 1, end: scrollLeft + clientWidth < scrollWidth - 1 };
 }
 
-export function useDragScroll(element: HTMLElement | null): void {
+export function useDragScroll(element: HTMLElement | null, options: { ignore?: string } = {}): void {
+  const ignore = options.ignore;
   useEffect(() => {
     if (!element) return;
     const updateEdges = () => {
@@ -36,6 +37,7 @@ export function useDragScroll(element: HTMLElement | null): void {
     let dragged = false;
     const onPointerDown = (event: PointerEvent) => {
       if (event.button !== 0 || event.pointerType !== "mouse" || element.scrollWidth <= element.clientWidth) return;
+      if (ignore && event.target instanceof Element && event.target.closest(ignore)) return;
       start = { x: event.clientX, scrollLeft: element.scrollLeft, pointerId: event.pointerId };
       dragged = false;
     };
@@ -59,6 +61,12 @@ export function useDragScroll(element: HTMLElement | null): void {
       event.preventDefault();
       event.stopPropagation();
     };
+    const onWheel = (event: WheelEvent) => {
+      if (element.scrollWidth <= element.clientWidth || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+      element.scrollLeft += event.deltaY;
+      event.preventDefault();
+    };
+    element.addEventListener("wheel", onWheel, { passive: false });
     element.addEventListener("pointerdown", onPointerDown);
     element.addEventListener("pointermove", onPointerMove);
     element.addEventListener("pointerup", onPointerUp);
@@ -68,11 +76,12 @@ export function useDragScroll(element: HTMLElement | null): void {
       resizeObserver?.disconnect();
       mutationObserver?.disconnect();
       element.removeEventListener("scroll", updateEdges);
+      element.removeEventListener("wheel", onWheel);
       element.removeEventListener("pointerdown", onPointerDown);
       element.removeEventListener("pointermove", onPointerMove);
       element.removeEventListener("pointerup", onPointerUp);
       element.removeEventListener("pointercancel", onPointerUp);
       element.removeEventListener("click", onClickCapture, true);
     };
-  }, [element]);
+  }, [element, ignore]);
 }

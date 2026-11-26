@@ -150,6 +150,7 @@ pub(crate) async fn synthesize_tool(
     agent: &AgentEngine,
     agent_data_dir: &Path,
     http_client: &reqwest::Client,
+    thread_id: Option<&str>,
 ) -> Result<String> {
     let config = agent.config.read().await.clone();
     if !config.tool_synthesis.enabled {
@@ -173,7 +174,13 @@ pub(crate) async fn synthesize_tool(
         .unwrap_or(false);
 
     let record = match kind {
-        "cli" => synthesize_cli_tool(target, requested_name).await?,
+        "cli" => {
+            let os_sandbox_root =
+                crate::agent::tool_executor::operator_sandbox_enabled(agent, thread_id)
+                    .await
+                    .then(|| agent_data_dir.join("generated-tool-sandbox"));
+            synthesize_cli_tool(target, requested_name, os_sandbox_root.as_deref()).await?
+        }
         "openapi" => {
             let operation_id = args.get("operation_id").and_then(|value| value.as_str());
             if let Some(existing) =
@@ -307,8 +314,13 @@ pub(crate) async fn execute_generated_tool(
     }
 
     let sandbox = agent.config.read().await.tool_synthesis.sandbox.clone();
+    let os_sandbox_root = crate::agent::tool_executor::operator_sandbox_enabled(agent, session_key)
+        .await
+        .then(|| agent_data_dir.join("generated-tool-sandbox"));
     let output: Result<String> = match record.kind {
-        GeneratedToolKind::Cli => run_cli_generated_tool(&record, args, &sandbox).await,
+        GeneratedToolKind::Cli => {
+            run_cli_generated_tool(&record, args, &sandbox, os_sandbox_root.as_deref()).await
+        }
         GeneratedToolKind::OpenApi => {
             run_openapi_generated_tool(&record, args, &sandbox, http_client).await
         }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAgentChatPanelRuntime } from "@/components/agent-chat-panel/runtime/context";
 import {
   fetchGitDiff,
@@ -30,12 +30,9 @@ import { useThreadFilePreview } from "./ThreadFilePreviewContext";
 import { useDragScroll } from "./useDragScroll";
 import { SpawnedContext } from "./ThreadsSpawnedContext";
 import { pushToast } from "@/lib/toastStore";
-import { CodeFileIcon, CodeFolderChevron } from "@/zorai/features/code/CodeFileIcon";
-import { shortenHomePath } from "@/lib/workspaceStore";
-import { buildFileTree, type FileTreeNode } from "./fileTreeModel";
-import { useFileViewPrefsStore } from "./fileViewPrefsStore";
 import { usePresence } from "@/hooks/usePresence";
 import { ThreadWorkspacePin } from "./ThreadWorkspacePin";
+import { WorkFileList, WorkTodoList, type WorkFileRowExtras } from "./WorkFileList";
 import { ThreadGoalStatus, ThreadGoalStatusDot } from "./ThreadGoalStatus";
 import { goalRunForThread } from "./threadGoalModel";
 import { formatGoalRunStatus, isGoalRunTerminal } from "@/lib/goalRuns";
@@ -140,21 +137,6 @@ export function ThreadCompactSessionBar({ reviewActions = true }: { reviewAction
   }, [entries, workspaceRoot]);
 
   const filesPresence = usePresence(openSection === "files" && entries.length > 0);
-  const fileViewMode = useFileViewPrefsStore((state) => state.mode);
-  const setFileViewMode = useFileViewPrefsStore((state) => state.setMode);
-  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => new Set());
-  const fileTree = useMemo(
-    () => buildFileTree(
-      entries,
-      (entry) => {
-        const root = entry.repoRoot ?? workspaceRoot;
-        const relative = root ? workContextRelativePath(entry.path, root) : entry.path;
-        return relative === entry.path ? shortenHomePath(entry.path) : relative;
-      },
-      (entry) => `${entry.path}:${entry.updatedAt}`,
-    ),
-    [entries, workspaceRoot],
-  );
   const todosPresence = usePresence(openSection === "todos" && todos.length > 0);
   const spawnedPresence = usePresence(openSection === "spawned" && spawned.length > 0);
   const goalPresence = usePresence(openSection === "goal" && Boolean(goal));
@@ -281,66 +263,25 @@ export function ThreadCompactSessionBar({ reviewActions = true }: { reviewAction
     await refreshGitStatus();
   };
 
-  const entryFolder = (entry: WorkContextEntry) => {
-    const root = entry.repoRoot ?? workspaceRoot;
-    const relative = root ? workContextRelativePath(entry.path, root) : entry.path;
-    return relative.split(/[\\/]/).slice(0, -1).join("/");
-  };
-
-  const fileRow = (entry: WorkContextEntry, showFolder: boolean, depth: number) => {
+  const fileExtras = (entry: WorkContextEntry): WorkFileRowExtras => {
     const stats = statsByPath[entry.path];
-    const folder = showFolder ? entryFolder(entry) : "";
     const isPending = reviewActions && pending.some((item) => item.path === entry.path);
-    return (
-      <li key={`${entry.path}:${entry.updatedAt}`} className={["zorai-compact-session__file", isPending ? "is-pending" : ""].filter(Boolean).join(" ")} style={depth ? { paddingLeft: 6 + depth * 14 } : undefined}>
-        <button type="button" className="zorai-compact-session__name" title={entry.path} onClick={() => openFile(entry)}>
-          <CodeFileIcon path={entry.path} />
-          <span className="zorai-compact-session__filename">{workContextFileName(entry.path)}</span>
-          {folder ? <span className="zorai-compact-session__folder">{folder}</span> : null}
-        </button>
-        <span className="zorai-compact-session__stats">
-          {stats ? (
-            <>
-              <b className="zorai-compact-session__plus">+{stats.additions}</b>
-              <b className="zorai-compact-session__minus">−{stats.deletions}</b>
-            </>
-          ) : (
-            <span>{entry.changeKind ?? "changed"}</span>
-          )}
+    return {
+      className: isPending ? "is-pending" : undefined,
+      stats: stats ? (
+        <>
+          <b className="zorai-compact-session__plus">+{stats.additions}</b>
+          <b className="zorai-compact-session__minus">−{stats.deletions}</b>
+        </>
+      ) : undefined,
+      actions: reviewActions ? (
+        <span className="zorai-compact-session__file-actions">
+          <button type="button" className="zorai-compact-session__keep" disabled={busyPath === entry.path} onClick={() => void keepFile(entry).then(refreshGitStatus)}>Keep</button>
+          <button type="button" className="zorai-compact-session__reject" disabled={busyPath === entry.path} onClick={() => void rejectFile(entry)}>Reject</button>
         </span>
-        {reviewActions ? (
-          <span className="zorai-compact-session__file-actions">
-            <button type="button" className="zorai-compact-session__keep" disabled={busyPath === entry.path} onClick={() => void keepFile(entry).then(refreshGitStatus)}>Keep</button>
-            <button type="button" className="zorai-compact-session__reject" disabled={busyPath === entry.path} onClick={() => void rejectFile(entry)}>Reject</button>
-          </span>
-        ) : null}
-      </li>
-    );
+      ) : undefined,
+    };
   };
-
-  const renderFileTree = (nodes: FileTreeNode<WorkContextEntry>[], depth: number): ReactNode[] => nodes.flatMap((node) => {
-    if (node.kind === "file") return [fileRow(node.item, false, depth)];
-    const collapsed = collapsedFolders.has(node.key);
-    return [
-      <li key={node.key} className="zorai-compact-session__tree-folder" style={depth ? { paddingLeft: 6 + depth * 14 } : undefined}>
-        <button
-          type="button"
-          aria-expanded={!collapsed}
-          title={node.name}
-          onClick={() => setCollapsedFolders((current) => {
-            const next = new Set(current);
-            if (next.has(node.key)) next.delete(node.key);
-            else next.add(node.key);
-            return next;
-          })}
-        >
-          <CodeFolderChevron expanded={!collapsed} />
-          <span>{node.name}</span>
-        </button>
-      </li>,
-      ...(collapsed ? [] : renderFileTree(node.children, depth + 1)),
-    ];
-  });
 
   const percent = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
   const chevron = (section: CompactSessionSection) => (
@@ -398,33 +339,14 @@ export function ThreadCompactSessionBar({ reviewActions = true }: { reviewAction
 
       {filesPresence.mounted ? (
         <div data-closing={filesPresence.closing || undefined} className="zorai-compact-session__files zorai-reveal">
-          <div className="zorai-compact-session__view-toggle" role="group" aria-label="File view">
-            {(["list", "tree"] as const).map((mode) => (
-              <button key={mode} type="button" aria-pressed={fileViewMode === mode} className={fileViewMode === mode ? "is-active" : undefined} onClick={() => setFileViewMode(mode)}>
-                {mode === "list" ? "List" : "Tree"}
-              </button>
-            ))}
-          </div>
-          <ul className="zorai-compact-session__list">
-            {fileViewMode === "tree"
-              ? renderFileTree(fileTree, 0)
-              : entries.map((entry) => fileRow(entry, true, 0))}
-          </ul>
+          <WorkFileList entries={entries} workspaceRoot={workspaceRoot} onOpen={openFile} rowExtras={fileExtras} />
         </div>
       ) : null}
 
       {todosPresence.mounted ? (
-        <ul data-closing={todosPresence.closing || undefined} className="zorai-compact-session__list zorai-reveal">
-          {todos.map((todo) => (
-            <li key={todo.id} className={`zorai-compact-session__todo zorai-compact-session__todo--${todo.status}`}>
-              <span className={`zorai-compact-session__check zorai-compact-session__check--${todo.status}`} aria-hidden="true">
-                {todo.status === "completed" ? <svg viewBox="0 0 16 16"><path d="m4 8.5 2.5 2.5L12 5.5" /></svg> : null}
-              </span>
-              <span className="zorai-compact-session__todo-text">{todo.content}</span>
-              <span className="zorai-sr-only">{todo.status === "completed" ? "done" : todo.status === "in_progress" ? "in progress" : "to do"}</span>
-            </li>
-          ))}
-        </ul>
+        <div data-closing={todosPresence.closing || undefined} className="zorai-reveal">
+          <WorkTodoList todos={todos} />
+        </div>
       ) : null}
 
       {goalPresence.mounted && goal ? (
