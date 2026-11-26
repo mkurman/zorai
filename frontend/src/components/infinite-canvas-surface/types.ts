@@ -10,12 +10,6 @@ export type CanvasContextMenuState = {
   paneId: string;
 };
 
-export type CanvasIconPickerState = {
-  x: number;
-  y: number;
-  paneIds: string[];
-};
-
 export type CanvasMarqueeState = {
   startX: number;
   startY: number;

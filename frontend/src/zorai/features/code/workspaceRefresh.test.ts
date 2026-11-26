@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { loadWorkspaceRootState, runWorkspacePathMutation } from "./workspaceRefresh";
+import { loadWorkspaceRootState, rememberWorkspaceRootState, runWorkspacePathMutation } from "./workspaceRefresh";
 import { runWorkspaceGitMutation } from "./workspaceGitActions";
 
 const overview = { stagedFiles: 1, unstagedFiles: 2 } as ZoraiWorkspaceGitOverview;
@@ -86,6 +86,19 @@ describe("workspace refresh transaction", () => {
     expect(partial.entries).toEqual([{ path: "a.ts", name: "a.ts", isDirectory: false }]);
     expect(partial.overview).toBeNull();
     expect(partial.gitError).toBe("git status failed");
+  });
+
+  it("keeps the last known git status when a background refresh times out so the change list does not blank out", async () => {
+    const known = [{ path: "a.ts", previousPath: null, indexStatus: " ", worktreeStatus: "M" }];
+    rememberWorkspaceRootState("/slow-repo", { statuses: known });
+    const timedOut = {
+      workspaceListDirectory: vi.fn(async () => []),
+      workspaceGitStatus: vi.fn(async () => { throw new Error("Command failed: git status"); }),
+    };
+
+    const state = await loadWorkspaceRootState(timedOut as never, "/slow-repo");
+    expect(state.statuses).toEqual(known);
+    expect(state.gitError).toBe("Command failed: git status");
   });
 
   it("tolerates optional Git bridge channels being absent without failing the Explorer load", async () => {

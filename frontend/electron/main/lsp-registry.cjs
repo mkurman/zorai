@@ -82,6 +82,7 @@ function languageServerSpec(language) {
     if (normalized === 'go') return { id: 'go', languageId: 'go', candidates: [{ command: 'gopls', args: [] }] };
     if (['c', 'cpp', 'objective-c'].includes(normalized)) return { id: 'cpp', languageId: normalized === 'c' ? 'c' : 'cpp', candidates: [{ command: 'clangd', args: ['--background-index'] }] };
     if (normalized === 'json') return { id: 'json', installId: 'web', languageId: 'json', initializationOptions: { provideFormatter: true }, candidates: [{ command: 'vscode-json-language-server', args: ['--stdio'] }] };
+    if (normalized === 'markdown') return { id: 'markdown', languageId: 'markdown', candidates: [{ command: 'marksman', args: ['server'] }] };
     if (normalized === 'yaml') return { id: 'yaml', languageId: 'yaml', candidates: [{ command: 'yaml-language-server', args: ['--stdio'] }] };
     if (normalized === 'lua') return { id: 'lua', languageId: 'lua', candidates: [{ command: 'lua-language-server', args: [] }] };
     if (normalized === 'ruby') return { id: 'ruby', languageId: 'ruby', candidates: [{ command: 'ruby-lsp', args: [] }, { command: 'solargraph', args: ['stdio'] }] };
@@ -112,6 +113,7 @@ const LANGUAGE_SERVER_INSTALLS = [
     { id: 'web', probe: 'html', label: 'HTML / CSS', server: 'vscode-langservers-extracted', requires: 'npm', command: 'npm', args: () => ['install', '--no-audit', '--no-fund', '--prefix', path.join(getZoraiDataDir(), 'language-servers', 'web'), 'vscode-langservers-extracted'] },
     { id: 'python', label: 'Python', server: 'pyright', requires: 'npm', command: 'npm', args: () => ['install', '--no-audit', '--no-fund', '--prefix', path.join(getZoraiDataDir(), 'language-servers', 'pyright'), 'pyright'] },
     { id: 'go', label: 'Go', server: 'gopls', requires: 'go', command: 'go', args: () => ['install', 'golang.org/x/tools/gopls@latest'] },
+    { id: 'markdown', label: 'Markdown', server: 'marksman', requires: 'brew', command: 'brew', args: () => ['install', 'marksman'] },
     { id: 'cpp', label: 'C / C++', server: 'clangd', requires: null, hint: 'Install clangd with your system package manager (apt install clangd, brew install llvm, or the LLVM installer on Windows).' },
 ];
 

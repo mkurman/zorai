@@ -9,7 +9,6 @@ import { CanvasPanelShell } from "./infinite-canvas-surface/CanvasPanelShell";
 import { CanvasToolbar } from "./infinite-canvas-surface/CanvasToolbar";
 import type {
   CanvasContextMenuState,
-  CanvasIconPickerState,
   InfiniteCanvasSurfaceProps,
 } from "./infinite-canvas-surface/types";
 import { selectLiveCanvasPaneIds } from "./infinite-canvas-surface/canvasPanelVisibility";
@@ -22,7 +21,6 @@ export function InfiniteCanvasSurface({ surface }: InfiniteCanvasSurfaceProps) {
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [selectedPaneIds, setSelectedPaneIds] = useState<string[]>([]);
   const [contextMenu, setContextMenu] = useState<CanvasContextMenuState | null>(null);
-  const [iconPicker, setIconPicker] = useState<CanvasIconPickerState | null>(null);
   const [confirmClosePaneIds, setConfirmClosePaneIds] = useState<string[]>([]);
   const [showNewPanelMenu, setShowNewPanelMenu] = useState(false);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
@@ -81,7 +79,6 @@ export function InfiniteCanvasSurface({ surface }: InfiniteCanvasSurfaceProps) {
     surface,
     panels,
     setContextMenu,
-    setIconPicker,
     setSelectedPaneIds,
   });
 
@@ -101,17 +98,16 @@ export function InfiniteCanvasSurface({ surface }: InfiniteCanvasSurfaceProps) {
   );
 
   useEffect(() => {
-    if (!contextMenu && !iconPicker && !showNewPanelMenu) return;
+    if (!contextMenu && !showNewPanelMenu) return;
     const closeMenus = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
-      if (target?.closest("[data-canvas-menu='true']")) return;
+      if (target?.closest("[data-canvas-menu='true'], .zorai-code-context-menu")) return;
       setContextMenu(null);
-      setIconPicker(null);
       setShowNewPanelMenu(false);
     };
     window.addEventListener("mousedown", closeMenus);
     return () => window.removeEventListener("mousedown", closeMenus);
-  }, [contextMenu, iconPicker, showNewPanelMenu]);
+  }, [contextMenu, showNewPanelMenu]);
 
   const handleCreatePanel = () => {
     const createdPaneId = createCanvasPanel(surface.id);
@@ -161,7 +157,6 @@ export function InfiniteCanvasSurface({ surface }: InfiniteCanvasSurfaceProps) {
     if (toggle || additive) return;
     setActivePaneId(paneId);
     setContextMenu(null);
-    setIconPicker(null);
   };
 
   const handlePanelContextMenu = (paneId: string, event: ReactMouseEvent<HTMLDivElement>) => {
@@ -171,12 +166,10 @@ export function InfiniteCanvasSurface({ surface }: InfiniteCanvasSurfaceProps) {
     const additive = event.shiftKey;
     selectPanel(paneId, { toggle, additive, preserveIfAlreadySelected: !toggle && !additive });
     setContextMenu({ paneId, x: event.clientX, y: event.clientY });
-    setIconPicker(null);
   };
 
   const handlePanelMoveStart = (paneId: string) => {
     setContextMenu(null);
-    setIconPicker(null);
     if (selectedPaneSet.has(paneId) && selectedPaneIds.length > 1) {
       dragGroupBaseRef.current = new Map(
         panels
@@ -356,7 +349,6 @@ export function InfiniteCanvasSurface({ surface }: InfiniteCanvasSurfaceProps) {
 
       <CanvasMenus
         contextMenu={contextMenu}
-        iconPicker={iconPicker}
         contextPaneIds={contextPaneIds}
         confirmClosePaneIds={confirmClosePaneIds}
         panelByPane={panelByPane}
@@ -387,10 +379,8 @@ export function InfiniteCanvasSurface({ surface }: InfiniteCanvasSurfaceProps) {
           runSnippetForPanes(contextPaneIds);
           setContextMenu(null);
         }}
-        onOpenIconPicker={() => {
-          if (!contextMenu) return;
-          setIconPicker({ x: contextMenu.x, y: contextMenu.y, paneIds: contextPaneIds });
-          setContextMenu(null);
+        onSetIcon={(iconId) => {
+          for (const paneId of contextPaneIds) setCanvasPanelIcon(paneId, iconId);
         }}
         onMoveToWorkspace={(workspaceId) => movePaneIdsToWorkspace(contextPaneIds, workspaceId)}
         onRequestClosePanels={() => {
@@ -399,8 +389,7 @@ export function InfiniteCanvasSurface({ surface }: InfiniteCanvasSurfaceProps) {
           }
           setContextMenu(null);
         }}
-        onCloseIconPicker={() => setIconPicker(null)}
-        onSetCanvasPanelIcon={setCanvasPanelIcon}
+        onCloseContextMenu={() => setContextMenu(null)}
         onConfirmClosePanels={() => {
           if (confirmClosePaneIds.length === 0) return;
           for (const paneId of confirmClosePaneIds) {

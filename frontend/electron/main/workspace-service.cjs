@@ -9,6 +9,8 @@ const execFileAsync = promisify(execFile);
 const DEFAULT_MAX_FILE_BYTES = 2 * 1024 * 1024;
 const GIT_MAX_BUFFER = 8 * 1024 * 1024;
 const GIT_STATUS_TIMEOUT_MS = 30000;
+const GIT_STATUS_ALL_UNTRACKED_TIMEOUT_MS = 10000;
+const collapsedUntrackedRoots = new Set();
 const GIT_REPOSITORY_CHANGING_COMMANDS = new Set(['add', 'apply', 'branch', 'checkout', 'cherry-pick', 'clean', 'commit', 'merge', 'mv', 'rebase', 'reset', 'restore', 'rm', 'stash', 'switch', 'tag', 'worktree']);
 const GIT_READ_ONLY_FLAGS = new Set(['--show-current', '--list', '--format', '-l', 'list']);
 const INDEX_LOCK_RETRY_DELAYS_MS = [100, 250, 500, 1000];
@@ -600,12 +602,29 @@ async function workspaceGitStatus(rootPath) {
     return run;
 }
 
+function isGitStatusOverflow(error) {
+    return Boolean(error?.killed) || error?.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER';
+}
+
+async function readPorcelainStatus(root) {
+    const run = (mode, timeout) => execGit(['status', '--porcelain=v1', '-z', `--untracked-files=${mode}`], {
+        cwd: root, encoding: 'utf8', timeout, maxBuffer: GIT_MAX_BUFFER,
+    }).then(({ stdout }) => stdout);
+    if (!collapsedUntrackedRoots.has(root)) {
+        try {
+            return await run('all', GIT_STATUS_ALL_UNTRACKED_TIMEOUT_MS);
+        } catch (error) {
+            if (!isGitStatusOverflow(error)) throw error;
+            collapsedUntrackedRoots.add(root);
+        }
+    }
+    return run('normal', GIT_STATUS_TIMEOUT_MS);
+}
+
 async function readWorkspaceGitStatus(root) {
     const gitRoot = await resolveGitRoot(root);
     if (!gitRoot || !isWithinRoot(gitRoot, root)) return [];
-    const { stdout } = await execGit(['status', '--porcelain=v1', '-z', '--untracked-files=all'], {
-        cwd: root, encoding: 'utf8', timeout: GIT_STATUS_TIMEOUT_MS, maxBuffer: GIT_MAX_BUFFER,
-    });
+    const stdout = await readPorcelainStatus(root);
     const records = stdout.split('\0').filter(Boolean);
     const result = [];
     for (let index = 0; index < records.length; index += 1) {
@@ -619,7 +638,7 @@ async function readWorkspaceGitStatus(root) {
             filePath = records[index + 1] || filePath;
             index += 1;
         }
-        result.push({ path: filePath, previousPath, indexStatus, worktreeStatus });
+        result.push({ path: filePath.replace(/\/$/, ''), previousPath, indexStatus, worktreeStatus });
     }
     return result;
 }
@@ -1419,6 +1438,7 @@ async function workspaceGitDiff(rootPath, relativePath = null, options = {}) {
 
 module.exports = {
     forgetGitStatus,
+    isGitStatusOverflow,
     isUnmergedStatus,
     listAllWorkspaceFiles,
     rankFileNameMatches,

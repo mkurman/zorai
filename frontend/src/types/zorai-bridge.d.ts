@@ -1139,6 +1139,7 @@ declare global {
         windowMenuInvoke?: (label: string, indexPath: number | number[]) => Promise<boolean>;
         onWindowState?: (cb: (state: any) => void) => (() => void) | void;
         contextMenuAction?: (action: ZoraiContextMenuAction, payload?: string) => Promise<boolean>;
+        yieldZoomKeys?: (value: boolean) => void;
         onContextMenuRequest?: (cb: (request: ZoraiContextMenuRequest) => void) => () => void;
         getPlatform?: () => Promise<string>;
         resizeTerminalSession?: (paneId: string | null, cols: number, rows: number) => Promise<boolean>;

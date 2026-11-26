@@ -18,5 +18,9 @@ export function applyComposerTextareaSize(el: HTMLTextAreaElement): void {
   const safeLineHeight = Number.isFinite(lineHeight) && lineHeight > 0 ? lineHeight : 21;
   const safePadding = Number.isFinite(paddingY) ? paddingY : 18;
   el.style.height = "0px";
-  el.style.height = `${composerTextareaHeightPx(el.scrollHeight, safeLineHeight, safePadding)}px`;
+  const measurePlaceholder = el.value === "" && el.placeholder !== "";
+  if (measurePlaceholder) el.value = el.placeholder;
+  const scrollHeight = el.scrollHeight;
+  if (measurePlaceholder) el.value = "";
+  el.style.height = `${composerTextareaHeightPx(scrollHeight, safeLineHeight, safePadding)}px`;
 }

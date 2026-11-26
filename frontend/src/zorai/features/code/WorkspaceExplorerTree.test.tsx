@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { WorkspaceExplorerTreeView, WorkspaceExplorerTree } from "./WorkspaceExplorerTree";
+import { WorkspaceExplorerTreeView, WorkspaceExplorerTree, revealScrollDelta } from "./WorkspaceExplorerTree";
 import { createWorkspaceExplorerController, createWorkspaceExplorerLoader, type WorkspaceExplorerSnapshot } from "./workspaceExplorerController";
 
 const directory = { name: "src", path: "src", isDirectory: true } as ZoraiWorkspaceEntry;
@@ -141,5 +141,14 @@ describe("WorkspaceExplorerTree", () => {
     expect(html).toContain('role="tree"');
     expect(html).toContain("App.tsx");
     expect(html).toContain('aria-expanded="false"');
+  });
+});
+
+describe("revealing the open file", () => {
+  it("scrolls only the file list by the minimum amount, so the panel header and filter box never slide away", () => {
+    const tree = { top: 100, bottom: 500 };
+    expect(revealScrollDelta({ top: 200, bottom: 225 }, tree)).toBe(0);
+    expect(revealScrollDelta({ top: 520, bottom: 545 }, tree)).toBe(45);
+    expect(revealScrollDelta({ top: 60, bottom: 85 }, tree)).toBe(-40);
   });
 });

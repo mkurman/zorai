@@ -3,6 +3,7 @@ import { getBridge } from "./bridge";
 import type { Workspace } from "./types";
 import { findPaneIdsForSession } from "./workspace-store/helpers";
 import { useWorkspaceStore } from "./workspaceStore";
+import { useAgentStore } from "./agentStore";
 
 export type AgentWorkspaceProvision = {
     workspaceId: string;
@@ -14,6 +15,12 @@ export type AgentWorkspaceProvision = {
 
 function findWorkspaceById(workspaceId: string): Workspace | null {
     return useWorkspaceStore.getState().workspaces.find((workspace) => workspace.id === workspaceId) ?? null;
+}
+
+export function rememberThreadPane(threadId: string, pane: { paneId: string; surfaceId: string; workspaceId?: string }): void {
+    useAgentStore.setState((state) => ({
+        threads: state.threads.map((thread) => thread.id === threadId ? { ...thread, ...pane } : thread),
+    }));
 }
 
 export function resolvePaneSessionId(paneId: string): string | null {

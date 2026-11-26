@@ -371,6 +371,7 @@ const bridgeApi = {
     screenshotsSelectDirectory: (current) => ipcRenderer.invoke('screenshots-select-directory', current),
     saveVisionScreenshot: (payload) => ipcRenderer.invoke('vision-save-screenshot', payload),
     contextMenuAction: (action, payload) => ipcRenderer.invoke('context-menu-action', action, payload),
+    yieldZoomKeys: (value) => ipcRenderer.send('zoom-keys-yield', Boolean(value)),
     onContextMenuRequest: (cb) => {
         const listener = (_e, request) => cb(request);
         ipcRenderer.on('context-menu-request', listener);

@@ -371,6 +371,7 @@ function createWindowRuntime(options) {
                 void shell.openExternal(url);
             }
         });
+        require('./zoom-keys.cjs').attachZoomKeys(mainWindow.webContents);
         mainWindow.webContents.on('context-menu', (_event, params) => {
             mainWindow.webContents.send('context-menu-request', contextMenuRequest(params));
         });

@@ -95,7 +95,7 @@
   border-radius: 6px;
   background: transparent;
   color: var(--zorai-text);
-  font: inherit;
+  font: 13px var(--font-ui);
   text-align: left;
   cursor: default;
 }
@@ -119,7 +119,6 @@
   max-height: calc(100vh - 8px);
   overflow-y: auto;
   color: var(--zorai-text);
-  font-size: var(--text-base);
   user-select: none;
 }
 

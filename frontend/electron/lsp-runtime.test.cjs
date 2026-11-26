@@ -48,7 +48,9 @@ test('language server specifications cover Rust, Python, Go, and C++', () => {
     assert.equal(languageServerSpec('python').candidates.length, 2);
     assert.equal(languageServerSpec('go').candidates[0].command, 'gopls');
     assert.equal(languageServerSpec('cpp').candidates[0].command, 'clangd');
-    assert.equal(languageServerSpec('markdown'), null);
+    assert.equal(languageServerSpec('markdown').candidates[0].command, 'marksman');
+    assert.equal(languageServerSpec('markdown').candidates[0].args[0], 'server');
+    assert.equal(languageServerSpec('brainfuck'), null);
 });
 
 test('TypeScript server gets the JSX-aware language id so .tsx/.jsx files parse JSX', () => {

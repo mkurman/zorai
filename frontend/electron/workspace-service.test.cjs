@@ -777,6 +777,13 @@ test('concurrent git status requests share one scan of the working tree', async 
     fs.rmSync(root, { recursive: true, force: true });
 });
 
+test('only a timed-out or oversized untracked listing falls back to collapsed folders, so real git errors still surface', () => {
+    const { isGitStatusOverflow } = require('./main/workspace-service.cjs');
+    assert.equal(isGitStatusOverflow({ killed: true, signal: 'SIGTERM' }), true);
+    assert.equal(isGitStatusOverflow({ code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' }), true);
+    assert.equal(isGitStatusOverflow({ code: 128, stderr: 'fatal: not a git repository' }), false);
+});
+
 test('merge conflicts come from the same status scan instead of a second full diff', async () => {
     const { workspaceGitConflicts, isUnmergedStatus } = require('./main/workspace-service.cjs');
     const { execFileSync } = require('node:child_process');

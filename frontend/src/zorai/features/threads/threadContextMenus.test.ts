@@ -38,6 +38,14 @@ describe("message right-click menu", () => {
   });
 });
 
+describe("message menu with selected text", () => {
+  it("acts on the selection instead of the whole message so a highlighted passage can be copied, quoted or read aloud", () => {
+    const labels = messageMenu({ hasSelection: true }).map((item) => item.label);
+    expect(labels).toEqual(expect.arrayContaining(["Copy Selection", "Quote Selection in Reply", "Read Selection Aloud", "Copy as Markdown", "Fork from Here", "Delete Message"]));
+    expect(messageMenu().map((item) => item.label)).toEqual(expect.arrayContaining(["Copy Message", "Quote in Reply", "Read Aloud"]));
+  });
+});
+
 describe("quote in reply", () => {
   it("quotes every line and keeps what the user already typed above it", () => {
     expect(quoteForComposer("", "first\n\nsecond")).toBe("> first\n>\n> second\n\n");
