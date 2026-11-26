@@ -121,7 +121,7 @@ async fn list_sub_agents_always_includes_weles_builtin_with_main_defaults() {
             &[
                 "list_terminals".to_string(),
                 "read_active_terminal_content".to_string(),
-                "run_terminal_command".to_string(),
+                "run_terminal".to_string(),
                 "allocate_terminal".to_string(),
                 "type_in_terminal".to_string(),
             ][..]

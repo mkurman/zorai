@@ -135,7 +135,7 @@ async fn set_sub_agent_clears_optional_weles_overrides_when_reverted_to_defaults
             &[
                 "list_terminals".to_string(),
                 "read_active_terminal_content".to_string(),
-                "run_terminal_command".to_string(),
+                "run_terminal".to_string(),
                 "allocate_terminal".to_string(),
                 "type_in_terminal".to_string(),
             ][..]

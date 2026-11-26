@@ -11169,26 +11169,6 @@ button.zorai-composer-context-chip {
   line-height: 1.5;
 }
 
-.zorai-code-shortcuts button {
-  border: 1px solid var(--zorai-border-strong);
-  border-radius: 6px;
-  padding: 5px 12px;
-  background: transparent;
-  color: var(--zorai-text);
-  font: inherit;
-  font-size: var(--text-sm);
-  cursor: pointer;
-}
-
-.zorai-code-shortcuts button:hover:not(:disabled) {
-  background: var(--zorai-bg-elevated);
-}
-
-.zorai-code-shortcuts button:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
 .zorai-code-settings section {
   max-width: 820px;
   margin: 0 auto 16px;
@@ -11497,12 +11477,6 @@ button.zorai-lsp-status:hover {
   font-size: var(--text-sm);
 }
 
-.zorai-code-settings .zorai-code-shortcuts input {
-  width: 100%;
-  max-width: none;
-  font-family: var(--font-mono);
-}
-
 .zorai-code-settings input:focus-visible,
 .zorai-code-settings select:focus-visible,
 .zorai-code-settings button:focus-visible {
@@ -11510,58 +11484,153 @@ button.zorai-lsp-status:hover {
   outline-offset: 1px;
 }
 
-.zorai-code-settings-search {
-  grid-column: 1 / -1;
-  width: 100% !important;
-  max-width: none !important;
-  margin: 4px 0 8px;
-}
-
-.zorai-code-shortcuts {
-  grid-column: 1 / -1;
-  display: grid;
-  gap: 4px;
-}
-
-.zorai-code-shortcuts>div {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 200px auto 140px;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 2px;
-  border-top: 1px solid var(--zorai-border);
-  font-size: var(--text-sm);
-}
-
-.zorai-code-shortcuts span {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.zorai-code-shortcuts small {
-  color: var(--zorai-muted);
-}
-
-.zorai-code-shortcuts code {
-  overflow: hidden;
-  color: var(--zorai-muted);
-  text-align: right;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 @media (max-width: 800px) {
   .zorai-code-settings-grid {
     grid-template-columns: 1fr;
   }
+}
 
-  .zorai-code-shortcuts>div {
-    grid-template-columns: 1fr 130px auto;
+.zorai-keymap {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.zorai-keymap__search {
+  width: 100%;
+  margin: 4px 0;
+  padding: 6px 10px;
+  border: 1px solid var(--zorai-border-strong);
+  border-radius: 6px;
+  background: var(--zorai-bg-surface);
+  color: var(--zorai-text);
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
+.zorai-keymap__search:focus-visible {
+  outline: 2px solid var(--zorai-accent);
+  outline-offset: 1px;
+}
+
+.zorai-keymap__table {
+  display: grid;
+  font-size: var(--text-sm);
+}
+
+.zorai-keymap__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.4fr) 90px 70px 56px;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.zorai-keymap__row:nth-child(even):not(.is-head) {
+  background: color-mix(in srgb, var(--zorai-bg-elevated) 55%, transparent);
+}
+
+.zorai-keymap__row:not(.is-head):hover,
+.zorai-keymap__row.is-editing {
+  background: var(--zorai-bg-elevated);
+}
+
+.zorai-keymap__row.is-head {
+  color: var(--zorai-text);
+  font-weight: 600;
+  border-bottom: 1px solid var(--zorai-border);
+  border-radius: 0;
+}
+
+.zorai-keymap__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zorai-keymap__muted {
+  color: var(--zorai-muted);
+}
+
+.zorai-keymap__keys {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+}
+
+.zorai-keymap__keys kbd {
+  min-width: 18px;
+  padding: 1px 6px;
+  border: 1px solid var(--zorai-border-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--zorai-bg);
+  color: var(--zorai-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
+.zorai-keymap__recorder {
+  display: block;
+  padding: 3px 8px;
+  border: 1px solid var(--zorai-accent);
+  border-radius: 4px;
+  color: var(--zorai-muted);
+  font-size: var(--text-xs);
+  outline: none;
+}
+
+.zorai-keymap__conflict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--zorai-text);
+}
+
+.zorai-keymap button {
+  border: 1px solid var(--zorai-border-strong);
+  border-radius: 4px;
+  padding: 1px 8px;
+  background: transparent;
+  color: var(--zorai-text);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.zorai-keymap button:hover {
+  background: var(--zorai-bg);
+}
+
+.zorai-keymap__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  opacity: 0;
+}
+
+.zorai-keymap__row:hover .zorai-keymap__actions,
+.zorai-keymap__actions:focus-within {
+  opacity: 1;
+}
+
+.zorai-keymap__actions button {
+  border-color: transparent;
+}
+
+@media (max-width: 800px) {
+  .zorai-keymap__row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 56px;
   }
 
-  .zorai-code-shortcuts code {
+  .zorai-keymap__row> :nth-child(3),
+  .zorai-keymap__row> :nth-child(4) {
     display: none;
   }
 }
@@ -15560,38 +15629,6 @@ button.zorai-lsp-status:hover {
   color: var(--zorai-muted);
   font-size: var(--text-base);
   line-height: 1.5;
-}
-
-.zorai-shortcuts-clash {
-  color: var(--warning) !important;
-}
-
-.zorai-shortcut-key {
-  min-width: 120px;
-  padding: 5px 10px;
-  border: 1px solid var(--zorai-border-strong);
-  border-radius: 6px;
-  background: var(--zorai-bg-surface);
-  color: var(--zorai-text);
-  font: 12px var(--font-mono);
-  cursor: pointer;
-}
-
-.zorai-shortcut-key.is-empty {
-  color: var(--zorai-muted);
-  font-family: var(--font-ui);
-}
-
-.zorai-shortcut-key.is-capturing {
-  border-color: var(--zorai-accent);
-  color: var(--zorai-accent);
-}
-
-.zorai-shortcut-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
 }
 
 .zorai-remote-theme__form {

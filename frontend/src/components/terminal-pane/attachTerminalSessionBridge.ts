@@ -108,6 +108,7 @@ export function attachTerminalSessionBridge({
   writeWithPreservedAncestorScroll: (data: Uint8Array) => void;
 }) {
   let cancelled = false;
+  let replayingOutput = false;
   let cleanupTerminalSubscription: (() => void) | undefined;
   const handleTerminalEvent = createTerminalEventHandler({
     paneId,
@@ -201,9 +202,11 @@ export function attachTerminalSessionBridge({
 
       if (Array.isArray(bridge?.initialOutput)) {
         term.clear();
+        replayingOutput = true;
         for (const chunk of bridge.initialOutput) {
           writeWithPreservedAncestorScroll(decodeBase64ToBytes(chunk));
         }
+        term.write("", () => { replayingOutput = false; });
         scheduleRollingSnapshot();
         scheduleRepaintRecovery(80);
       }
@@ -237,6 +240,7 @@ export function attachTerminalSessionBridge({
   const dataDisposable = term.onData((data) => {
     const zorai = getBridge();
     if (!zorai?.sendTerminalInput || !sessionReadyRef.current) return;
+    if (replayingOutput && data.startsWith("\x1b")) return;
 
     if (pendingInlineApprovalPromptRef.current) {
       let response = "";

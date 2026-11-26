@@ -8,7 +8,7 @@ describe("Code Settings tabs", () => {
     const html = renderToStaticMarkup(<CodeSettingsView />);
     expect(html).toContain('role="tablist"');
     expect(html).toContain("Typography, indentation, wrapping");
-    expect(html).not.toContain("Overrides are Code-scoped");
+    expect(html).not.toContain("to record a new shortcut");
     expect(html).not.toContain("Power Go to Definition");
   });
 

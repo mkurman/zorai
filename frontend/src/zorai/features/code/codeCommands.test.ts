@@ -5,6 +5,9 @@ import {
   codeCommandConflicts,
   displayCodeBinding,
   matchesCodeBinding,
+  codeBindingFromEvent,
+  codeBindingOwner,
+  codeBindingKeys,
   shouldPassthroughCodeCommand,
  RUNNABLE_CODE_COMMANDS, UNWIRED_CODE_COMMANDS } from "./codeCommands";
 
@@ -79,5 +82,26 @@ describe("shortcut matching", () => {
     expect(matchesCodeBinding("Alt+ArrowLeft", key("ArrowLeft", { altKey: true, ctrlKey: true }))).toBe(false);
     expect(matchesCodeBinding("CtrlCmd+S", key("s", { metaKey: true }))).toBe(true);
   });
-});
 
+  it("records pressed keys as a binding that the dispatcher will match", () => {
+    const pressed = { key: "k", ctrlKey: true, metaKey: false, altKey: true, shiftKey: true };
+    const binding = codeBindingFromEvent(pressed);
+    expect(binding).toBe("CtrlCmd+Shift+Alt+K");
+    expect(matchesCodeBinding(binding!, pressed)).toBe(true);
+    expect(matchesCodeBinding(binding!, { ...pressed, altKey: false })).toBe(false);
+    expect(codeBindingFromEvent({ key: "F5", ctrlKey: false, metaKey: false, altKey: false, shiftKey: false })).toBe("F5");
+    expect(codeBindingFromEvent({ key: "Control", ctrlKey: true, metaKey: false, altKey: false, shiftKey: false })).toBeNull();
+  });
+
+  it("finds which command already owns a shortcut so reassigning can warn before stealing it", () => {
+    expect(codeBindingOwner("CtrlCmd+S", {}, "file.close")?.id).toBe("file.save");
+    expect(codeBindingOwner("ctrlcmd+s", {}, "file.save")).toBeUndefined();
+    expect(codeBindingOwner("CtrlCmd+S", { "file.save": null }, "file.close")).toBeUndefined();
+    expect(codeBindingOwner("F9", { "file.save": "F9" }, "file.close")?.id).toBe("file.save");
+  });
+
+  it("splits a binding into keycaps, keeping the plus key intact", () => {
+    expect(codeBindingKeys("CtrlCmd+Shift+S", "linux")).toEqual(["Ctrl", "Shift", "S"]);
+    expect(codeBindingKeys("CtrlCmd++", "darwin")).toEqual(["Cmd", "+"]);
+  });
+});

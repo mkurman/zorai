@@ -142,6 +142,27 @@ export function matchesCodeBinding(binding: string, event: CodeKeyboardEventLike
     && event.key.toLowerCase() === key;
 }
 
+export function codeBindingFromEvent(event: CodeKeyboardEventLike): string | null {
+  if (["Control", "Meta", "Alt", "Shift", "AltGraph", "CapsLock", "Dead", "Unidentified"].includes(event.key)) return null;
+  const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
+  if (key === "+" || key === " ") return null;
+  return [event.ctrlKey || event.metaKey ? "CtrlCmd" : "", event.shiftKey ? "Shift" : "", event.altKey ? "Alt" : "", key].filter(Boolean).join("+");
+}
+
+export function activeCodeBinding(command: CodeCommand, overrides: Record<string, string | null>): string | null {
+  return overrides[command.id] === undefined ? command.defaultKeybinding : overrides[command.id];
+}
+
+export function codeBindingOwner(binding: string, overrides: Record<string, string | null>, exceptId: CodeCommandId): CodeCommand | undefined {
+  const wanted = binding.toLowerCase();
+  return CODE_COMMANDS.find((item) => item.id !== exceptId && activeCodeBinding(item, overrides)?.toLowerCase() === wanted);
+}
+
+export function codeBindingKeys(binding: string, platform?: "darwin" | "linux" | "win32"): string[] {
+  const parts = binding.endsWith("++") ? [...binding.slice(0, -2).split("+"), "+"] : binding.split("+");
+  return parts.filter(Boolean).map((part) => displayCodeBinding(part, platform));
+}
+
 export function codeCommandConflicts(bindings: Record<string, string | null>) {
   const grouped = new Map<string, string[]>();
   for (const [id, binding] of Object.entries(bindings)) {
