@@ -91,7 +91,7 @@ export const CODE_COMMANDS: CodeCommand[] = [
   command("view.commandPalette", "Show Code Command Palette", "View", "palette", "F1"),
   command("view.toggleMinimap", "Toggle Minimap", "View", "minimap", null),
   command("view.toggleWrap", "Toggle Word Wrap", "View", "wrap", "Alt+Z"),
-  command("view.fontIncrease", "Increase Editor Font Size", "View", "text", "CtrlCmd++"),
+  command("view.fontIncrease", "Increase Editor Font Size", "View", "text", "CtrlCmd+="),
   command("view.fontDecrease", "Decrease Editor Font Size", "View", "text", "CtrlCmd+-"),
   command("view.fontReset", "Reset Editor Font Size", "View", "text", "CtrlCmd+0"),
   command("view.toggleWhitespace", "Toggle Whitespace Rendering", "View", "text", null),

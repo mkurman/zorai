@@ -28,6 +28,7 @@ export type WorkspaceRefreshBridge = Pick<ZoraiBridge,
 
 export async function loadWorkspaceRootState(bridge: WorkspaceRefreshBridge, root: string, onEntries?: (entries: ZoraiWorkspaceEntry[]) => void): Promise<WorkspaceRootState & { gitError: string | null }> {
   let gitError: string | null = null;
+  const previous = cachedWorkspaceRootState(root);
   const optional = <T,>(load: Promise<T> | undefined, fallback: T): Promise<T> => (load ?? Promise.resolve(fallback)).catch((reason) => {
     gitError ??= reason?.message ?? String(reason);
     return fallback;
@@ -37,11 +38,11 @@ export async function loadWorkspaceRootState(bridge: WorkspaceRefreshBridge, roo
       onEntries?.(entries);
       return entries;
     }),
-    optional(bridge.workspaceGitStatus?.(root), []),
-    optional(bridge.workspaceGitOverview?.(root), null),
-    optional(bridge.workspaceGitListWorktrees?.(root), []),
-    optional(bridge.workspaceGitHistory?.(root, { limit: 50 }), []),
-    optional(bridge.workspaceGitConflicts?.(root), []),
+    optional(bridge.workspaceGitStatus?.(root), previous?.statuses ?? []),
+    optional(bridge.workspaceGitOverview?.(root), previous?.overview ?? null),
+    optional(bridge.workspaceGitListWorktrees?.(root), previous?.worktrees ?? []),
+    optional(bridge.workspaceGitHistory?.(root, { limit: 50 }), previous?.history ?? []),
+    optional(bridge.workspaceGitConflicts?.(root), previous?.conflicts ?? []),
   ]);
   return { entries, statuses, overview, worktrees, history, conflicts, gitError };
 }

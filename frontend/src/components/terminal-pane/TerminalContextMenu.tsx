@@ -27,62 +27,32 @@ export function TerminalContextMenu({
 
     return createPortal(
         <div
+            className="zorai-code-context-menu"
             onPointerDown={(event) => event.stopPropagation()}
-            style={{
-                position: "fixed",
-                top: y,
-                left: x,
-                width: 220,
-                background: "var(--bg-secondary)",
-                border: "1px solid var(--border)",
-                boxShadow: "var(--shadow-sm)",
-                borderRadius: 0,
-                padding: 6,
-                zIndex: 4000,
-            }}
+            style={{ top: y, left: x }}
         >
-            {items.map((item, index) => {
-                if (item.separator) {
+            <div className="zorai-code-toolbar-menu__list" role="menu" aria-label="Terminal actions">
+                {items.map((item, index) => {
+                    if (item.separator) return null;
+                    const separatorBefore = index > 0 && Boolean(items[index - 1]?.separator);
                     return (
-                        <div
-                            key={`separator-${index}`}
-                            style={{
-                                height: 1,
-                                margin: "6px 4px",
-                                background: "var(--bg-secondary)",
+                        <button
+                            key={item.label}
+                            type="button"
+                            role="menuitem"
+                            disabled={item.disabled}
+                            className={[item.danger ? "is-danger" : "", separatorBefore ? "has-separator" : ""].filter(Boolean).join(" ") || undefined}
+                            onClick={() => {
+                                hideContextMenu();
+                                item.action?.();
                             }}
-                        />
+                        >
+                            <span className="zorai-code-toolbar-menu__label">{item.label}</span>
+                            {item.shortcut ? <kbd>{item.shortcut}</kbd> : null}
+                        </button>
                     );
-                }
-
-                return (
-                    <button
-                        key={item.label}
-                        type="button"
-                        disabled={item.disabled}
-                        onClick={() => {
-                            hideContextMenu();
-                            item.action?.();
-                        }}
-                        style={{
-                            width: "100%",
-                            border: 0,
-                            background: "transparent",
-                            color: item.danger ? "var(--danger)" : item.disabled ? "var(--text-muted)" : "var(--text-primary)",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            borderRadius: 0,
-                            padding: "8px 10px",
-                            fontSize: "var(--text-xs)",
-                            cursor: item.disabled ? "not-allowed" : "pointer",
-                        }}
-                    >
-                        <span>{item.label}</span>
-                        <span style={{ color: "var(--text-secondary)", fontSize: "var(--text-xs)" }}>{item.shortcut ?? ""}</span>
-                    </button>
-                );
-            })}
+                })}
+            </div>
         </div>,
         document.body,
     );

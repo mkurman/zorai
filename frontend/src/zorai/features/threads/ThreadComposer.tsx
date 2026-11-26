@@ -260,7 +260,7 @@ export function ThreadComposer({
   useEffect(() => {
     const el = inputRef.current;
     if (el) applyComposerTextareaSize(el);
-  }, [inputRef, input]);
+  }, [inputRef, input, nextReplyOffer]);
 
   const appendFiles = async (files: File[]) => {
     if (files.length === 0) return;

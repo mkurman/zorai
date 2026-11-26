@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWorkspaceStore } from "../../lib/workspaceStore";
 import type { Surface } from "../../lib/types";
-import type { CanvasContextMenuState, CanvasIconPickerState, CanvasMarqueeState, CanvasPanelRecord } from "./types";
+import type { CanvasContextMenuState, CanvasMarqueeState, CanvasPanelRecord } from "./types";
 
 const CANVAS_GRID_SIZE = 32;
 const MIN_CANVAS_ZOOM = 0.04;
@@ -19,7 +19,6 @@ type UseInfiniteCanvasViewportOptions = {
   surface: Surface;
   panels: CanvasPanelRecord[];
   setContextMenu: React.Dispatch<React.SetStateAction<CanvasContextMenuState | null>>;
-  setIconPicker: React.Dispatch<React.SetStateAction<CanvasIconPickerState | null>>;
   setSelectedPaneIds: React.Dispatch<React.SetStateAction<string[]>>;
 };
 
@@ -27,7 +26,6 @@ export function useInfiniteCanvasViewport({
   surface,
   panels,
   setContextMenu,
-  setIconPicker,
   setSelectedPaneIds,
 }: UseInfiniteCanvasViewportOptions) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -176,7 +174,6 @@ export function useInfiniteCanvasViewport({
     }
 
     setContextMenu(null);
-    setIconPicker(null);
     if (fromRightButton) {
       suppressContextMenuRef.current = true;
     }
@@ -219,7 +216,7 @@ export function useInfiniteCanvasViewport({
     window.addEventListener("pointercancel", onStop, true);
     window.addEventListener("contextmenu", suppressContextMenu, true);
     panCleanupRef.current = onStop;
-  }, [queueViewUpdate, setContextMenu, setIconPicker]);
+  }, [queueViewUpdate, setContextMenu]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -236,14 +233,12 @@ export function useInfiniteCanvasViewport({
         }
         if (!event.ctrlKey && !event.metaKey) {
           setContextMenu(null);
-          setIconPicker(null);
           return;
         }
 
         event.preventDefault();
         event.stopPropagation();
         setContextMenu(null);
-        setIconPicker(null);
 
         const rect = viewport.getBoundingClientRect();
         const toWorld = (clientX: number, clientY: number) => {
@@ -304,7 +299,6 @@ export function useInfiniteCanvasViewport({
         if (inToolbar || inPanel) return;
 
         setContextMenu(null);
-        setIconPicker(null);
         const startX = event.clientX;
         const startY = event.clientY;
         const pointerId = event.pointerId;
@@ -347,7 +341,7 @@ export function useInfiniteCanvasViewport({
     return () => {
       viewport.removeEventListener("pointerdown", onPointerDownCapture, true);
     };
-  }, [beginPan, panels, setContextMenu, setIconPicker, setSelectedPaneIds]);
+  }, [beginPan, panels, setContextMenu, setSelectedPaneIds]);
 
   useEffect(() => {
     const viewport = viewportRef.current;

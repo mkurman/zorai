@@ -3,7 +3,7 @@ import { useAgentStore } from "@/lib/agentStore";
 import { getProviderDefinition } from "@/lib/agentStore/providers";
 import type { AgentContentBlock, AgentProviderId } from "@/lib/agentStore/types";
 import { getAgentBridge, shouldUseDaemonRuntime } from "@/lib/agentDaemonConfig";
-import { provisionAgentWorkspaceTerminals, provisionTerminalPaneInWorkspace, resolvePaneSessionId } from "@/lib/agentWorkspace";
+import { provisionAgentWorkspaceTerminals, provisionTerminalPaneInWorkspace, rememberThreadPane, resolvePaneSessionId } from "@/lib/agentWorkspace";
 import { startGoalRun, goalRunSupportAvailable, type GoalRun } from "@/lib/goalRuns";
 import { useWorkspaceStore } from "@/lib/workspaceStore";
 import { toDaemonWorkspaceContext, useWorkspaceContextStore } from "@/lib/workspaceContextStore";
@@ -482,12 +482,14 @@ export function useDaemonAgentActions({
           reusePrimaryPane: true,
         });
         preferredSessionId = pane?.sessionId ?? null;
+        if (pane) rememberThreadPane(threadId, { paneId: pane.paneId, surfaceId: pane.surfaceId });
       } else if (!preferredSessionId) {
         const provision = await provisionAgentWorkspaceTerminals({
           title: thread?.title || text.slice(0, 50) || "Agent Conversation",
           cwd: boundWorkspaceRoot ?? activeWorkspace?.cwd ?? null,
         });
         preferredSessionId = provision?.coordinatorSessionId ?? null;
+        if (provision) rememberThreadPane(threadId, { paneId: provision.coordinatorPaneId, surfaceId: provision.surfaceId, workspaceId: provision.workspaceId });
       }
 
       if (useAgentStore.getState().activeThreadId !== threadId) {

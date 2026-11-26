@@ -1,11 +1,10 @@
-import { iconChoices, PANE_ICON_IDS } from "../../lib/iconRegistry";
+import { CodeContextMenu } from "@/zorai/features/code/CodeToolbarMenu";
 import { AppConfirmDialog } from "../AppConfirmDialog";
-import { contextMenuItemStyle, contextMenuSectionLabelStyle, dangerContextMenuItemStyle } from "./styles";
-import type { CanvasContextMenuState, CanvasIconPickerState, CanvasPanelRecord } from "./types";
+import { canvasPanelMenuItems } from "./canvasPanelMenu";
+import type { CanvasContextMenuState, CanvasPanelRecord } from "./types";
 
 type CanvasMenusProps = {
   contextMenu: CanvasContextMenuState | null;
-  iconPicker: CanvasIconPickerState | null;
   contextPaneIds: string[];
   confirmClosePaneIds: string[];
   panelByPane: Map<string, CanvasPanelRecord>;
@@ -16,18 +15,16 @@ type CanvasMenusProps = {
   onDuplicatePanels: () => void;
   onConvertToBsp: () => void;
   onRunSnippet: () => void;
-  onOpenIconPicker: () => void;
+  onSetIcon: (iconId: string) => void;
   onMoveToWorkspace: (workspaceId: string) => void;
   onRequestClosePanels: () => void;
-  onCloseIconPicker: () => void;
-  onSetCanvasPanelIcon: (paneId: string, iconId: string) => void;
+  onCloseContextMenu: () => void;
   onConfirmClosePanels: () => void;
   onCancelClosePanels: () => void;
 };
 
 export function CanvasMenus({
   contextMenu,
-  iconPicker,
   contextPaneIds,
   confirmClosePaneIds,
   panelByPane,
@@ -38,110 +35,35 @@ export function CanvasMenus({
   onDuplicatePanels,
   onConvertToBsp,
   onRunSnippet,
-  onOpenIconPicker,
+  onSetIcon,
   onMoveToWorkspace,
   onRequestClosePanels,
-  onCloseIconPicker,
-  onSetCanvasPanelIcon,
+  onCloseContextMenu,
   onConfirmClosePanels,
   onCancelClosePanels,
 }: CanvasMenusProps) {
   return (
     <>
       {contextMenu ? (
-        <div
-          data-canvas-menu="true"
-          style={{
-            position: "fixed",
-            left: contextMenu.x,
-            top: contextMenu.y,
-            zIndex: 120,
-            minWidth: 210,
-            border: "1px solid var(--glass-border)",
-            borderRadius: "var(--radius-md)",
-            background: "var(--zorai-bg)",
-            boxShadow: "var(--shadow-sm)",
-            padding: 4,
-            display: "grid",
-            gap: 2,
-          }}
-        >
-          <button type="button" style={contextMenuItemStyle} onClick={onZoomIn}>Zoom In</button>
-          {contextPaneIds.length === 1 ? (
-            <button type="button" style={contextMenuItemStyle} onClick={onRenamePanel}>Rename Panel</button>
-          ) : null}
-          <button type="button" style={contextMenuItemStyle} onClick={onDuplicatePanels}>
-            {contextPaneIds.length > 1 ? `Duplicate ${contextPaneIds.length} Panels` : "Duplicate Panel"}
-          </button>
-          {contextPaneIds.some((id) => panelByPane.get(id)?.panelType !== "browser") ? (
-            <button type="button" style={contextMenuItemStyle} onClick={onConvertToBsp}>
-              {contextPaneIds.length > 1 ? `Convert ${contextPaneIds.length} to BSP` : "Convert to BSP"}
-            </button>
-          ) : null}
-          {contextPaneIds.some((id) => panelByPane.get(id)?.panelType !== "browser") ? (
-            <button type="button" style={contextMenuItemStyle} onClick={onRunSnippet}>Run Snippet</button>
-          ) : null}
-          <button type="button" style={contextMenuItemStyle} onClick={onOpenIconPicker}>
-            {contextPaneIds.length > 1 ? `Change Icon (${contextPaneIds.length} Panels)` : "Change Icon"}
-          </button>
-          {workspaceMoveTargets.length > 0 ? (
-            <>
-              <div style={contextMenuSectionLabelStyle}>Move to workspace</div>
-              {workspaceMoveTargets.map((workspace) => (
-                <button
-                  key={workspace.id}
-                  type="button"
-                  style={contextMenuItemStyle}
-                  onClick={() => onMoveToWorkspace(workspace.id)}
-                >
-                  {workspace.name}
-                </button>
-              ))}
-            </>
-          ) : null}
-          <button type="button" style={dangerContextMenuItemStyle} onClick={onRequestClosePanels}>
-            {contextPaneIds.length > 1 ? `Close ${contextPaneIds.length} Panels` : "Close Panel"}
-          </button>
-        </div>
-      ) : null}
-
-      {iconPicker ? (
-        <div
-          data-canvas-menu="true"
-          style={{
-            position: "fixed",
-            left: iconPicker.x,
-            top: iconPicker.y,
-            zIndex: 130,
-            minWidth: 180,
-            border: "1px solid var(--glass-border)",
-            borderRadius: "var(--radius-md)",
-            background: "var(--bg-secondary)",
-            boxShadow: "var(--shadow-sm)",
-            padding: 4,
-            display: "grid",
-            gap: 2,
-          }}
-        >
-          {iconChoices(PANE_ICON_IDS).map((icon) => (
-            <button
-              key={icon.id}
-              type="button"
-              style={contextMenuItemStyle}
-              onClick={() => {
-                for (const paneId of iconPicker.paneIds) {
-                  onSetCanvasPanelIcon(paneId, icon.id);
-                }
-                onCloseIconPicker();
-              }}
-            >
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <span style={{ minWidth: 24, textAlign: "center", fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" }}>{icon.glyph}</span>
-                <span>{icon.label}</span>
-              </span>
-            </button>
-          ))}
-        </div>
+        <CodeContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          label="Panel actions"
+          onClose={onCloseContextMenu}
+          items={canvasPanelMenuItems({
+            count: contextPaneIds.length,
+            hasNonBrowser: contextPaneIds.some((id) => panelByPane.get(id)?.panelType !== "browser"),
+            workspaceTargets: workspaceMoveTargets,
+            onZoomIn,
+            onRename: onRenamePanel,
+            onDuplicate: onDuplicatePanels,
+            onConvertToBsp,
+            onRunSnippet,
+            onSetIcon,
+            onMoveToWorkspace,
+            onClose: onRequestClosePanels,
+          })}
+        />
       ) : null}
 
       <AppConfirmDialog

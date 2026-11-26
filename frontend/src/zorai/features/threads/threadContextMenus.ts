@@ -13,12 +13,13 @@ export function wantsNativeContextMenu(target: Element | null, selectionText: st
   return Boolean(selectionText.trim()) || Boolean(target?.closest("a[href], input, textarea, [contenteditable=true], .monaco-editor"));
 }
 
-export function messageMenuItems({ isAssistant, streaming, pinned, canSpeak, hasText, onCopy, onCopyMarkdown, onQuote, onFork, onRegenerate, onSpeak, onTogglePin, onDelete }: {
+export function messageMenuItems({ isAssistant, streaming, pinned, canSpeak, hasText, hasSelection = false, onCopy, onCopyMarkdown, onQuote, onFork, onRegenerate, onSpeak, onTogglePin, onDelete }: {
   isAssistant: boolean;
   streaming: boolean;
   pinned: boolean;
   canSpeak: boolean;
   hasText: boolean;
+  hasSelection?: boolean;
   onCopy: () => void;
   onCopyMarkdown: () => void;
   onQuote: () => void;
@@ -29,13 +30,13 @@ export function messageMenuItems({ isAssistant, streaming, pinned, canSpeak, has
   onDelete: () => void;
 }): CodeToolbarMenuItem[] {
   const items: CodeToolbarMenuItem[] = [
-    { key: "copy", label: "Copy Message", disabled: !hasText, onSelect: onCopy },
+    { key: "copy", label: hasSelection ? "Copy Selection" : "Copy Message", disabled: !hasText, onSelect: onCopy },
     { key: "copy-markdown", label: "Copy as Markdown", disabled: !hasText, onSelect: onCopyMarkdown },
-    { key: "quote", label: "Quote in Reply", disabled: !hasText, onSelect: onQuote },
+    { key: "quote", label: hasSelection ? "Quote Selection in Reply" : "Quote in Reply", disabled: !hasText, onSelect: onQuote },
     { key: "fork", label: "Fork from Here", separatorBefore: true, disabled: streaming, onSelect: onFork },
   ];
   if (isAssistant) items.push({ key: "regenerate", label: "Regenerate Response", disabled: streaming, onSelect: onRegenerate });
-  if (canSpeak) items.push({ key: "speak", label: "Read Aloud", disabled: !hasText, onSelect: onSpeak });
+  if (canSpeak) items.push({ key: "speak", label: hasSelection ? "Read Selection Aloud" : "Read Aloud", disabled: !hasText, onSelect: onSpeak });
   items.push(
     { key: "pin", label: pinned ? "Unpin from Compaction" : "Pin for Compaction", separatorBefore: true, onSelect: onTogglePin },
     { key: "delete", label: "Delete Message", danger: true, separatorBefore: true, onSelect: onDelete },

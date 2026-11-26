@@ -40,6 +40,12 @@ function explorerContextMenu(handler: ExplorerContextMenuHandler | undefined, en
   };
 }
 
+export function revealScrollDelta(row: { top: number; bottom: number }, container: { top: number; bottom: number }): number {
+  if (row.top < container.top) return row.top - container.top;
+  if (row.bottom > container.bottom) return row.bottom - container.bottom;
+  return 0;
+}
+
 function WorkspaceExplorerTreeNode({ entry, depth, status, onOpen, snapshot, onToggle, query = "", onEntryContextMenu, onEntryShortcut }: {
   entry: ZoraiWorkspaceEntry;
   depth: number;
@@ -60,7 +66,9 @@ function WorkspaceExplorerTreeNode({ entry, depth, status, onOpen, snapshot, onT
   const revealed = snapshot.revealedPath === entry.path;
   const rowRef = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
-    if (revealed) rowRef.current?.scrollIntoView({ block: "nearest" });
+    const row = rowRef.current;
+    const tree = row?.closest<HTMLElement>(".zorai-workspace-tree");
+    if (revealed && row && tree) tree.scrollTop += revealScrollDelta(row.getBoundingClientRect(), tree.getBoundingClientRect());
   }, [revealed, snapshot.revealToken]);
 
   return <div>

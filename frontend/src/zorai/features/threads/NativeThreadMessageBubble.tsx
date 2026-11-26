@@ -104,7 +104,7 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
   const sharedActions = Boolean(actionsRef);
   const [retryDismissed, setRetryDismissed] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [menu, setMenu] = useState<{ x: number; y: number; plainText: string } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; plainText: string; selection: string } | null>(null);
   const agentDisplayName = useAgentDisplayName();
   if (isCompactionArtifactMessage(message)) {
     return (
@@ -139,10 +139,12 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
       id={`zorai-message-${message.id}`}
       className={["zorai-message", fromUser ? "zorai-message--user" : "", message.pinnedForCompaction ? "zorai-message--pinned" : ""].filter(Boolean).join(" ")}
       onContextMenu={sharedActions ? (event) => {
-        if (wantsNativeContextMenu(event.target as Element, window.getSelection()?.toString() ?? "")) return;
+        const domSelection = window.getSelection();
+        const selection = domSelection && !domSelection.isCollapsed && event.currentTarget.contains(domSelection.anchorNode) && event.currentTarget.contains(domSelection.focusNode) ? domSelection.toString().trim() : "";
+        if (wantsNativeContextMenu(event.target as Element, selection ? "" : domSelection?.toString() ?? "")) return;
         event.preventDefault();
         const rendered = event.currentTarget.querySelector<HTMLElement>(".zorai-message__content")?.innerText ?? "";
-        setMenu({ x: event.clientX, y: event.clientY, plainText: rendered.trim() || displayText || message.content });
+        setMenu({ x: event.clientX, y: event.clientY, plainText: rendered.trim() || displayText || message.content, selection });
       } : undefined}
     >
       {reasoning ? (
@@ -339,13 +341,14 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
             streaming: Boolean(message.isStreaming),
             pinned: Boolean(message.pinnedForCompaction),
             canSpeak: ttsEnabled && isAssistant,
-            hasText: hasVisibleContent || Boolean(message.content.trim()),
-            onCopy: () => { void navigator.clipboard?.writeText(menu.plainText); },
+            hasText: hasVisibleContent || Boolean(message.content.trim()) || Boolean(menu.selection),
+            hasSelection: Boolean(menu.selection),
+            onCopy: () => { void navigator.clipboard?.writeText(menu.selection || menu.plainText); },
             onCopyMarkdown: () => { void navigator.clipboard?.writeText(displayText || message.content); },
-            onQuote: () => actionsRef?.current?.quote(menu.plainText),
+            onQuote: () => actionsRef?.current?.quote(menu.selection || menu.plainText),
             onFork: () => { void actionsRef?.current?.fork(message.id); },
             onRegenerate: () => actionsRef?.current?.regenerate(message.id),
-            onSpeak: () => actionsRef?.current?.speak(message),
+            onSpeak: () => actionsRef?.current?.speak(menu.selection ? { ...message, content: menu.selection } : message),
             onTogglePin: () => {
               const actions = actionsRef?.current;
               if (!actions) return;

@@ -379,7 +379,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       setGitWorktrees(state.worktrees);
       setGitHistory(state.history);
       setGitConflicts(state.conflicts);
-      if (gitError) setError(gitError);
+      if (gitError) console.warn("workspace git refresh failed; keeping last known git state", gitError);
       setExplorerRefreshToken((token) => token + 1);
     } finally {
       if (generation === refreshGenRef.current) setRootLoading(false);
@@ -1676,6 +1676,11 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [editorSettings.keybindings, runCodeCommand]);
+
+  useEffect(() => {
+    bridge?.yieldZoomKeys?.(true);
+    return () => bridge?.yieldZoomKeys?.(false);
+  }, [bridge]);
 
   const [indexedFiles, setIndexedFiles] = useState<string[] | null>(null);
   const quickOpenRequested = codeOverlay === "quickOpen";
