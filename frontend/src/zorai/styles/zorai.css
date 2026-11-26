@@ -8007,6 +8007,38 @@ button.zorai-composer-context-chip {
   cursor: default;
 }
 
+.zorai-workspace-git-overview .zorai-scm-commit-split {
+  display: flex;
+  align-items: stretch;
+}
+
+.zorai-workspace-git-overview .zorai-scm-commit-split .zorai-scm-commit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  border-radius: 4px 0 0 4px;
+}
+
+.zorai-workspace-git-overview .zorai-scm-commit-split .zorai-scm-commit__more {
+  flex: 0 0 28px;
+  padding: 5px 0;
+  border-left-color: color-mix(in srgb, var(--zorai-accent) 45%, transparent);
+  border-radius: 0 4px 4px 0;
+  margin-left: -1px;
+}
+
+.zorai-workspace-git-overview .zorai-scm-commit-split svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .zorai-workspace-git-overview .zorai-scm-sync-button {
   display: inline-flex;
   align-items: center;

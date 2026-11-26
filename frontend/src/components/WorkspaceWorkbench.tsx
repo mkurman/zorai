@@ -14,6 +14,7 @@ import { ThreadSplitDivider, dropBox } from "@/zorai/features/threads/ThreadSpli
 import { MAX_SPLIT_PANES, mapSplitPaneIds, removeSplitPaneNode, setSplitSizesAt, splitChildSizes, splitDropZone, splitEdgeDropZone, splitLayoutsFor, splitOrNull, splitPaneIds, type ThreadSplitDropZone, type ThreadSplitLayout, type ThreadSplitNode } from "@/zorai/features/threads/threadSplitModel";
 import { CODE_FILE_DRAG_TYPE, useCodeSplitStore } from "@/zorai/features/code/codeSplitStore";
 import { CodeFileIcon } from "@/zorai/features/code/CodeFileIcon";
+import { CommitSplitButton, type CommitMode } from "@/zorai/features/code/CommitSplitButton";
 import { RefreshIcon } from "@/zorai/shell/RefreshButton";
 import { SkillIcon } from "@/zorai/features/skills/SkillIcons";
 import { codeMediaKind, shouldRestoreWorkspaceDocument } from "@/zorai/features/code/workspaceDocumentRestore";
@@ -1187,9 +1188,25 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     setReviewedChange(null);
   };
 
-  const commitStagedChanges = async () => {
-    if (!context?.root || !bridge?.workspaceGitCommit || !commitMessage.trim()) return;
+  const commitStagedChanges = async (mode: CommitMode = "commit") => {
+    if (!context?.root) return;
+    if (mode === "amend") {
+      if (!bridge?.workspaceGitAction) return;
+      setCommitting(true);
+      try {
+        const result = await bridge.workspaceGitAction(context.root, "commitAmend", { message: commitMessage });
+        setGitStatus(result.status);
+        setGitOverview(result.overview);
+        setCommitMessage("");
+        setReviewedChange(null);
+        setError(null);
+      } catch (reason: any) { setError(reason?.message ?? String(reason)); }
+      finally { setCommitting(false); }
+      return;
+    }
+    if (!bridge?.workspaceGitCommit || !commitMessage.trim()) return;
     setCommitting(true);
+    let committed = false;
     try {
       const result = await bridge.workspaceGitCommit(context.root, commitMessage);
       setGitStatus(result.status);
@@ -1197,8 +1214,10 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       setCommitMessage("");
       setReviewedChange(null);
       setError(null);
+      committed = true;
     } catch (reason: any) { setError(reason?.message ?? String(reason)); }
     finally { setCommitting(false); }
+    if (committed && (mode === "push" || mode === "sync")) await runGitCommand(mode);
   };
 
   const applyGitResult = (result: { overview: ZoraiWorkspaceGitOverview; status: ZoraiWorkspaceGitStatus[] }) => {
@@ -2089,7 +2108,13 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                           </button>
                         ) : null}
                       </div>
-                      <button type="button" className="zorai-scm-commit" disabled={committing || !commitMessage.trim() || gitOverview.stagedFiles === 0} onClick={() => void commitStagedChanges()}>{committing ? "Committing…" : "Commit staged"}</button>
+                      <CommitSplitButton
+                        busy={committing || Boolean(gitRemoteBusy)}
+                        canCommit={Boolean(commitMessage.trim()) && gitOverview.stagedFiles > 0}
+                        canAmend={Boolean(bridge?.workspaceGitAction)}
+                        canPush={Boolean(bridge?.workspaceGitAction)}
+                        onCommit={(mode) => void commitStagedChanges(mode)}
+                      />
                       {bridge?.workspaceGitAction && (gitOverview.ahead > 0 || gitOverview.behind > 0 || gitRemoteBusy) ? (
                         <button type="button" className="zorai-scm-sync-button" disabled={Boolean(gitRemoteBusy)} title={`Pull ${gitOverview.behind} and push ${gitOverview.ahead} commit(s)`} onClick={() => void runGitCommand("sync")}>
                           <RefreshIcon />
