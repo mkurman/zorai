@@ -828,6 +828,25 @@ impl<'a> SendMessageRunner<'a> {
                 pending_approval: None,
             };
         }
+        let mode = crate::agent::composer_mode::composer_mode(
+            self.engine
+                .get_thread_workspace_context(&self.tid)
+                .await
+                .as_ref(),
+        );
+        if let Some(content) =
+            crate::agent::composer_mode::blocked_tool_message(mode, &tc.function.name)
+        {
+            self.previous_tool_signature = Some(current_tool_signature);
+            return ToolResult {
+                tool_call_id: tc.id.clone(),
+                name: tc.function.name.clone(),
+                content,
+                is_error: true,
+                weles_review: tc.weles_review.clone(),
+                pending_approval: None,
+            };
+        }
         let repeated = self
             .previous_tool_signature
             .as_deref()

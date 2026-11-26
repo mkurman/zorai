@@ -229,6 +229,10 @@ pub struct AgentConfig {
     pub coder: CoderConfig,
     #[serde(default)]
     pub code_completion: CodeCompletionConfig,
+    #[serde(default)]
+    pub code_index: CodeIndexConfig,
+    #[serde(default)]
+    pub verify: VerifyConfig,
     /// Anticipatory pre-loading and surfacing controls.
     #[serde(default)]
     pub anticipatory: AnticipatoryConfig,

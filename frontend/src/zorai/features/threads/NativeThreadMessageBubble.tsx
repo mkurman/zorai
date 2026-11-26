@@ -34,7 +34,7 @@ export type ThreadMessageActions = {
   feedback: (threadId: string, messageId: string, reaction: "up" | "down" | null) => void | Promise<void>;
   regenerate: (messageId: string) => void;
   fork: (messageId: string) => void | Promise<void>;
-  rewind: (messageId: string) => void;
+  rewind: (messageId: string, anchor?: { x: number; y: number }) => void;
   deleteMessage: (threadId: string, messageId: string) => void;
   retry: () => void;
   pin: (threadId: string, messageId: string) => void | Promise<void>;
@@ -207,9 +207,12 @@ export const NativeThreadMessageBubble = memo(function NativeThreadMessageBubble
           <button
             type="button"
             className="zorai-ghost-button zorai-message-action"
-            title="Rewind to here: takes this message and everything after it out of the thread"
-            aria-label="Rewind to here"
-            onClick={() => actionsRef?.current?.rewind(message.id)}
+            title="Rewind or restore a checkpoint: take this message and everything after it out of the thread, restore the code to before it, or both"
+            aria-label="Rewind or restore checkpoint"
+            onClick={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              actionsRef?.current?.rewind(message.id, { x: rect.left, y: rect.bottom + 2 });
+            }}
           >
             <MessageActionIcon kind="rewind" />
           </button>

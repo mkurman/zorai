@@ -6,7 +6,7 @@ function rebuildError(payload) {
     return error;
 }
 
-function createWorkspaceWorkerClient({ fork, entryPath = path.join(__dirname, 'workspace-worker.cjs'), askpassEnv = () => null, onWatchBatch = () => {}, log = () => {} }) {
+function createWorkspaceWorkerClient({ fork, entryPath = path.join(__dirname, 'workspace-worker.cjs'), askpassEnv = () => null, onWatchBatch = () => {}, onSearchBatch = () => {}, log = () => {} }) {
     let child = null;
     let nextId = 1;
     const pending = new Map();
@@ -21,6 +21,10 @@ function createWorkspaceWorkerClient({ fork, entryPath = path.join(__dirname, 'w
         const spawned = fork(entryPath, [], { serviceName: 'zorai-workspace' });
         child = spawned;
         spawned.on('message', (message) => {
+            if (message?.type === 'search-batch') {
+                onSearchBatch(message);
+                return;
+            }
             if (message?.type === 'watch-batch') {
                 onWatchBatch(message.batch);
                 return;

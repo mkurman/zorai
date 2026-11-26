@@ -187,6 +187,37 @@ pub(crate) fn add_available_tools_part_a(
                 "required": ["pattern"]
             }),
         ));
+
+        tools.push(tool_def(
+            tool_names::LSP_QUERY,
+            "Ask the workspace's language server (kept running between calls): compiler diagnostics for a file after you edit it, go-to-definition, type definition, implementations, references, hover type info, or workspace symbols. Faster and more exact than running a full build to check one file.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "action": { "type": "string", "enum": ["diagnostics", "definition", "type_definition", "implementation", "references", "hover", "symbols"] },
+                    "path": { "type": "string", "description": "File to ask about (absolute or relative to the working directory)" },
+                    "line": { "type": "integer", "description": "1-based line (position actions)" },
+                    "column": { "type": "integer", "description": "1-based column (position actions)" },
+                    "query": { "type": "string", "description": "Symbol name filter for action=symbols" },
+                    "wait_seconds": { "type": "integer", "description": "How long to wait for fresh diagnostics (default 20)" }
+                },
+                "required": ["action", "path"]
+            }),
+        ));
+
+        tools.push(tool_def(
+            tool_names::SEARCH_CODEBASE,
+            "Semantic search over the workspace's indexed code: describe behaviour in words (e.g. 'where failed uploads are retried') and get the most relevant functions. Works when the user enabled the code index for the workspace.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "query": { "type": "string", "description": "What the code does, in natural language" },
+                    "path": { "type": "string", "description": "Workspace directory (default: working directory)" },
+                    "limit": { "type": "integer", "description": "Max results (default 8, max 30)" }
+                },
+                "required": ["query"]
+            }),
+        ));
     }
 
     if config.tools.system_info {

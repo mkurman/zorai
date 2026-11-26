@@ -1397,11 +1397,60 @@ impl<'a> SendMessageRunner<'a> {
             engine.history.data_root(),
             &tid,
         ));
-        if let Some(workspace_context) = engine.get_thread_workspace_context(&tid).await {
+        let thread_workspace_context = engine.get_thread_workspace_context(&tid).await;
+        let thread_composer_mode =
+            crate::agent::composer_mode::composer_mode(thread_workspace_context.as_ref());
+        let verify_turn = match thread_workspace_context.as_ref() {
+            Some(workspace_context)
+                if thread_composer_mode == crate::agent::composer_mode::ComposerMode::Agent
+                    && config
+                        .verify
+                        .roots
+                        .iter()
+                        .any(|root| root == &workspace_context.root) =>
+            {
+                let root = std::path::PathBuf::from(&workspace_context.root);
+                let snapshot_root = root.clone();
+                let baseline = tokio::task::spawn_blocking(move || {
+                    crate::code_intel::verify::snapshot(&snapshot_root)
+                })
+                .await
+                .unwrap_or_default();
+                Some(crate::code_intel::verify::VerifyTurnState {
+                    root,
+                    baseline,
+                    attempts: 0,
+                    max_retries: config.verify.max_retries,
+                    run_tests: config.verify.run_tests,
+                    browser_check: config.verify.browser_check,
+                })
+            }
+            _ => None,
+        };
+        if let Some(workspace_context) = thread_workspace_context.as_ref() {
             if let Some(workspace_prompt) = workspace_context.prompt_block() {
                 system_prompt.push_str("\n\n");
                 system_prompt.push_str(&workspace_prompt);
             }
+            let rule_targets: Vec<String> = workspace_context
+                .active_file
+                .iter()
+                .chain(workspace_context.attached_files.iter())
+                .cloned()
+                .collect();
+            if let Some(rules) = crate::agent::project_rules::rules_prompt_block(
+                &workspace_context.root,
+                &rule_targets,
+            ) {
+                system_prompt.push_str("\n\n");
+                system_prompt.push_str(&rules);
+            }
+        }
+        if let Some(mode_prompt) =
+            crate::agent::composer_mode::mode_prompt_block(thread_composer_mode)
+        {
+            system_prompt.push_str("\n\n");
+            system_prompt.push_str(mode_prompt);
         }
         if let Some(injection_state) =
             crate::agent::memory_context::append_structured_memory_summary_if_needed(
@@ -1511,6 +1560,12 @@ impl<'a> SendMessageRunner<'a> {
         {
             tools = filter.filtered_tools(tools);
         }
+        tools.retain(|tool| {
+            crate::agent::composer_mode::tool_allowed_in_mode(
+                thread_composer_mode,
+                &tool.function.name,
+            )
+        });
         let participant_managed_thread = visible_thread_has_participants(engine, &tid).await;
         if participant_managed_thread {
             tools.retain(|tool| tool.function.name != zorai_protocol::tool_names::LIST_AGENTS);
@@ -1651,6 +1706,7 @@ impl<'a> SendMessageRunner<'a> {
             interrupted_for_approval: false,
             terminated_for_budget: false,
             report_back_phase: None,
+            verify_turn,
             tools_before_report_back: None,
             subagent_report: None,
             needs_turn_done: false,

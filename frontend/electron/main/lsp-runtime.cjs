@@ -4,6 +4,8 @@ const LSP_LOG_LIMIT = 1000;
 const { installLanguageServer, languageServerSpec, languageServerStatuses, resolveLanguageServer, typeScriptLanguageId, usableLanguageServerCommand } = require('./lsp-registry.cjs');
 const { LSP_METHOD_NOT_FOUND, LspMessageReader, LspSession, encodeLspMessage, normalizeDiagnostic, serverSupports } = require('./lsp-session.cjs');
 
+const LSP_REQUEST_METHODS = ['hover', 'definition', 'references', 'completion', 'completionResolve', 'rename', 'prepareRename', 'codeAction', 'formatting', 'rangeFormatting', 'documentSymbol', 'workspaceSymbol', 'signatureHelp', 'inlayHint', 'semanticTokens', 'typeDefinition', 'implementation', 'serverCapabilities', 'prepareCallHierarchy', 'incomingCalls', 'outgoingCalls', 'foldingRange', 'linkedEditingRange', 'onTypeFormatting', 'codeLens', 'codeLensResolve', 'executeCommand'];
+
 function createLspRuntime() {
     const sessions = new Map();
     const logEntries = [];
@@ -50,9 +52,10 @@ function createLspRuntime() {
         async request(webContents, rootPath, relativePath, language, method, position, extra) {
             const resolved = await getSession(webContents, rootPath, language);
             if (!resolved.available) return resolved;
-            if (!['hover', 'definition', 'references', 'completion', 'rename', 'codeAction', 'formatting', 'documentSymbol', 'workspaceSymbol'].includes(method)) throw new Error(`Unsupported LSP request: ${method}`);
+            if (!LSP_REQUEST_METHODS.includes(method)) throw new Error(`Unsupported LSP request: ${method}`);
             if (!serverSupports(resolved.session.capabilities, method)) return { available: true, root: resolved.root, server: resolved.server, result: null, unsupported: true };
             let result;
+            const startedAt = Date.now();
             try {
                 result = await resolved.session[method](relativePath, {
                     line: Math.max(0, Number(position?.line) || 0),
@@ -62,7 +65,22 @@ function createLspRuntime() {
                 if (error?.code !== LSP_METHOD_NOT_FOUND) throw error;
                 return { available: true, root: resolved.root, server: resolved.server, result: null, unsupported: true };
             }
+            const elapsed = Date.now() - startedAt;
+            const size = elapsed > 1000 || method === 'semanticTokens' || method === 'documentSymbol' ? JSON.stringify(result ?? null).length : 0;
+            if (elapsed > 1000 || size > 1024 * 1024) appendLog({ at: Date.now(), server: resolved.server, root: resolved.root, level: 'warning', text: `Slow ${method} for ${relativePath}: ${elapsed} ms, ${Math.round(size / 1024)} KB` });
             return { available: true, root: resolved.root, server: resolved.server, result };
+        },
+        save(rootPath, relativePath, language) {
+            const root = canonicalWorkspaceRoot(rootPath);
+            const server = resolveLanguageServer(language);
+            const session = server ? sessions.get(key(root, server.id)) : null;
+            return session ? session.saveDocument(relativePath) : false;
+        },
+        filesChanged(rootPath, changes) {
+            const root = canonicalWorkspaceRoot(rootPath);
+            for (const session of sessions.values()) {
+                if (session.root === root) session.filesChanged(changes);
+            }
         },
         close(rootPath, relativePath, language) {
             const root = canonicalWorkspaceRoot(rootPath);

@@ -28,6 +28,8 @@ pub struct ThreadWorkspaceContext {
     pub isolate_agent_tasks: bool,
     #[serde(default)]
     pub isolated_worktree_states: std::collections::BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
 }
 
 impl ThreadWorkspaceContext {
@@ -187,6 +189,7 @@ mod workspace_context_tests {
             updated_at: 42,
             isolate_agent_tasks: false,
             isolated_worktree_states: std::collections::BTreeMap::new(),
+            mode: None,
         };
 
         let prompt = context.prompt_block().expect("workspace prompt");

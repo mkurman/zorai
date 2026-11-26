@@ -33,3 +33,13 @@ describe("code search results", () => {
     expect(searchSeedFromSelection(null)).toBe("");
   });
 });
+
+describe("preserve case replace preview", () => {
+  it("shows the replacement in the casing of each match, the same way the replace will write it", () => {
+    const options = { caseSensitive: false, wholeWord: false, regex: false, preserveCase: true };
+    expect(previewCodeSearchReplacement("User", "user", "account", options)).toBe("Account");
+    expect(previewCodeSearchReplacement("USER", "user", "account", options)).toBe("ACCOUNT");
+    expect(previewCodeSearchReplacement("user", "user", "Account", options)).toBe("account");
+    expect(previewCodeSearchReplacement("User", "user", "account", { ...options, preserveCase: false })).toBe("account");
+  });
+});

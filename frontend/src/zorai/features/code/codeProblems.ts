@@ -44,3 +44,13 @@ export function groupProblemsByFile(problems: readonly CodeProblem[], activePath
     .map(([path, items]) => ({ path, problems: items.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] || a.line - b.line || a.column - b.column) }))
     .sort((a, b) => Number(b.path === activePath) - Number(a.path === activePath) || worst(a.problems) - worst(b.problems) || a.path.localeCompare(b.path));
 }
+
+let latestProblems: CodeProblem[] = [];
+
+export function publishCodeProblems(problems: CodeProblem[]) {
+  latestProblems = problems;
+}
+
+export function latestCodeProblems(): CodeProblem[] {
+  return latestProblems;
+}

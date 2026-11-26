@@ -652,6 +652,11 @@ declare global {
         prunable: boolean;
     };
 
+    type ZoraiTask = { id: string; label: string; command: string; args: string[]; cwd: string | null; env: Record<string, string> | null; shell: boolean; group: string | null; isDefault: boolean; dependsOn: string[]; source: string };
+    type ZoraiTaskProblem = { path: string; line: number; column: number; severity: "error" | "warning" | "info"; code: string | null; message: string; source: string };
+    type ZoraiDebugConfiguration = { name: string; type: string; request: string; source?: string; [key: string]: unknown };
+    type ZoraiDebugBreakpointSpec = { line: number; condition?: string; hitCondition?: string; logMessage?: string };
+
     type ZoraiWorkspaceGitOverview = {
         isRepository: boolean;
         root: string;
@@ -712,6 +717,7 @@ declare global {
         workspaceListDirectory?: (rootPath: string, relativePath?: string, options?: { includeIgnored?: boolean; fresh?: boolean }) => Promise<ZoraiWorkspaceEntry[]>;
         workspaceStatFile?: (rootPath: string, relativePath: string) => Promise<{ path: string; sizeBytes: number; modifiedAt: number }>;
         workspaceReadFile?: (rootPath: string, relativePath: string, options?: { maxBytes?: number }) => Promise<ZoraiWorkspaceFile>;
+        workspaceReadOptionalFile?: (rootPath: string, relativePath: string, options?: { maxBytes?: number }) => Promise<ZoraiWorkspaceFile | null>;
         workspaceWriteFile?: (rootPath: string, relativePath: string, content: string, expectedHash?: string | null) => Promise<ZoraiWorkspaceFile>;
         workspaceCreateDirectory?: (rootPath: string, relativePath: string) => Promise<{ path: string }>;
         workspaceRenamePath?: (rootPath: string, fromPath: string, toPath: string) => Promise<{ from: string; to: string }>;
@@ -719,7 +725,7 @@ declare global {
         workspaceGitStatus?: (rootPath: string) => Promise<ZoraiWorkspaceGitStatus[]>;
         workspaceGitOverview?: (rootPath: string) => Promise<ZoraiWorkspaceGitOverview>;
         workspaceGitCommit?: (rootPath: string, message: string) => Promise<{ commit: string; subject: string; overview: ZoraiWorkspaceGitOverview; status: ZoraiWorkspaceGitStatus[] }>;
-        workspaceGitHistory?: (rootPath: string, options?: { limit?: number; graph?: boolean }) => Promise<Array<{ hash: string; shortHash: string; author: string; date: string; subject: string; parents?: string[]; refs?: string[] }>>;
+        workspaceGitHistory?: (rootPath: string, options?: { limit?: number; graph?: boolean; path?: string }) => Promise<Array<{ hash: string; shortHash: string; author: string; date: string; subject: string; parents?: string[]; refs?: string[] }>>;
         workspaceGitCommitDetail?: (rootPath: string, commitHash: string) => Promise<{ hash: string; author: string; date: string; subject: string; body: string; files: Array<{ status: string; path: string }> }>;
         workspaceGitConflicts?: (rootPath: string) => Promise<Array<{ path: string }>>;
         workspaceGitListWorktrees?: (rootPath: string) => Promise<ZoraiGitWorktree[]>;
@@ -744,24 +750,45 @@ declare global {
         workspaceGitDiscard?: (rootPath: string, relativePath: string) => Promise<ZoraiWorkspaceGitStatus[]>;
         workspaceGitHunks?: (rootPath: string, relativePath: string, options?: { staged?: boolean }) => Promise<ZoraiWorkspaceGitHunk[]>;
         workspaceGitApplyHunk?: (rootPath: string, relativePath: string, hunkId: string, action: "stage" | "unstage" | "discard") => Promise<{ status: ZoraiWorkspaceGitStatus[]; hunks: ZoraiWorkspaceGitHunk[] }>;
-        workspaceSearch?: (rootPath: string, query: string, options?: { caseSensitive?: boolean; wholeWord?: boolean; regex?: boolean; include?: string; exclude?: string; maxResults?: number; maxFiles?: number; useIgnoreFiles?: boolean; fresh?: boolean }) => Promise<Array<{ path: string; line: number; column: number; preview: string; matchStart?: number; matchLength?: number }>>;
+        workspaceSearch?: (rootPath: string, query: string, options?: { caseSensitive?: boolean; wholeWord?: boolean; regex?: boolean; include?: string; exclude?: string; maxResults?: number; maxFiles?: number; useIgnoreFiles?: boolean; fresh?: boolean; streamId?: string }) => Promise<Array<{ path: string; line: number; column: number; preview: string; matchStart?: number; matchLength?: number }>>;
         workspaceReplace?: (rootPath: string, query: string, replacement: string, options: { caseSensitive?: boolean; wholeWord?: boolean; regex?: boolean }, targets: Array<{ path: string; line?: number; column?: number }>) => Promise<{ files: number; replacements: number }>;
         workspaceSearchFileNames?: (rootPath: string, query: string, options?: { maxResults?: number }) => Promise<string[]>;
         workspaceListFiles?: (rootPath: string) => Promise<string[]>;
         workspaceGitDiff?: (rootPath: string, relativePath?: string | null, options?: { staged?: boolean; againstHead?: boolean; includeUntracked?: boolean }) => Promise<string>;
         workspaceGitShow?: (rootPath: string, relativePath: string, revision?: string) => Promise<string>;
+        workspaceLocalHistoryList?: (rootPath: string, relativePath: string) => Promise<Array<{ id: string; at: number; size: number }>>;
+        workspaceLocalHistoryRead?: (rootPath: string, relativePath: string, id: string) => Promise<string>;
+        workspaceGitChangedRanges?: (rootPath: string, baseRef?: string) => Promise<Record<string, Array<[number, number]>>>;
+        workspaceReadBytes?: (rootPath: string, relativePath: string, offset: number, length: number) => Promise<{ offset: number; totalBytes: number; base64: string }>;
+        workspaceGitStageContent?: (rootPath: string, relativePath: string, content: string) => Promise<ZoraiWorkspaceGitStatus[]>;
+        workspaceGitBlame?: (rootPath: string, relativePath: string) => Promise<Array<{ hash: string; author: string; time: number; summary: string; uncommitted: boolean } | null>>;
         workspaceWatchStart?: (rootPath: string, options?: { debounceMs?: number; maxDirectories?: number }) => Promise<{ subscriptionId: string; root: string; watchedDirectoryCount: number }>;
         workspaceWatchStop?: (subscriptionId: string) => Promise<boolean>;
         onWorkspaceFilesChanged?: (cb: (batch: { subscriptionId: string; root: string; changes: Array<{ path: string; eventType: "change" | "rename"; observedAt: number }>; emittedAt: number }) => void) => (() => void) | void;
         workspaceLspStatus?: (rootPath: string, language: string) => Promise<{ root: string; language: string; configured: boolean; available: boolean; command: string | null; server: string | null }>;
         workspaceLspOpen?: (rootPath: string, relativePath: string, language: string, content: string, version: number) => Promise<{ available: boolean; reason?: string; root?: string; server?: string; missing?: boolean; command?: string; document?: { path: string; version: number } }>;
         workspaceLspChange?: (rootPath: string, relativePath: string, language: string, content: string, version: number) => Promise<unknown>;
-        workspaceLspRequest?: (rootPath: string, relativePath: string, language: string, method: "hover" | "definition" | "references" | "completion" | "rename" | "codeAction" | "formatting" | "documentSymbol" | "workspaceSymbol", position: { line: number; character: number }, extra?: Record<string, unknown>) => Promise<{ available: boolean; reason?: string; result?: unknown }>;
+        workspaceLspSave?: (rootPath: string, relativePath: string, language: string) => Promise<boolean>;
+        workspaceLspRequest?: (rootPath: string, relativePath: string, language: string, method: "hover" | "definition" | "references" | "completion" | "completionResolve" | "rename" | "prepareRename" | "codeAction" | "formatting" | "rangeFormatting" | "documentSymbol" | "workspaceSymbol" | "signatureHelp" | "inlayHint" | "semanticTokens" | "typeDefinition" | "implementation" | "serverCapabilities" | "prepareCallHierarchy" | "incomingCalls" | "outgoingCalls" | "foldingRange" | "linkedEditingRange" | "onTypeFormatting" | "codeLens" | "codeLensResolve" | "executeCommand", position: { line: number; character: number }, extra?: Record<string, unknown>) => Promise<{ available: boolean; reason?: string; result?: unknown }>;
         workspaceLspClose?: (rootPath: string, relativePath: string, language: string) => Promise<boolean>;
         workspaceLspUnsubscribe?: (rootPath: string, language: string) => Promise<boolean>;
         workspaceLspServers?: () => Promise<ZoraiLanguageServerStatus[]>;
         workspaceLspLog?: () => Promise<Array<{ at: number; server: string; root: string; level: "info" | "warning" | "error" | "stderr"; text: string }>>;
         workspaceLspInstall?: (id: string) => Promise<{ ok: boolean; output: string; installedCommand?: string | null }>;
+        snippetsLoad?: (rootPath: string | null) => Promise<Array<{ name: string; prefix: string; body: string; description: string; scope: string[]; source: string }>>;
+        notebookExecute?: (rootPath: string, notebookPath: string, code: string) => Promise<{ id: number; stdout: string; stderr: string; result: string | null; html: string | null; images: string[]; error: { ename: string; evalue: string; traceback: string[] } | null }>;
+        notebookRestart?: (rootPath: string, notebookPath: string) => Promise<boolean>;
+        tasksDiscover?: (rootPath: string) => Promise<ZoraiTask[]>;
+        tasksRun?: (rootPath: string, task: ZoraiTask) => Promise<{ runId: string }>;
+        tasksStop?: (runId: string) => Promise<boolean>;
+        onTaskEvent?: (cb: (payload: { runId: string; type: "start" | "output" | "exit"; label?: string; command?: string; text?: string; code?: number | null; error?: string; problems?: ZoraiTaskProblem[] }) => void) => (() => void) | void;
+        debugConfigurations?: (rootPath: string, file: string | null) => Promise<{ configurations: ZoraiDebugConfiguration[]; adapters: Array<{ id: string; label: string; available: boolean; hint: string }> }>;
+        debugStart?: (rootPath: string, file: string | null, config: ZoraiDebugConfiguration, breakpoints: Record<string, ZoraiDebugBreakpointSpec[]>, exceptionFilters: string[] | null) => Promise<{ sessionId: string }>;
+        debugRequest?: (sessionId: string, command: string, args?: Record<string, unknown>) => Promise<any>;
+        debugSetBreakpoints?: (sessionId: string, absolutePath: string, breakpoints: ZoraiDebugBreakpointSpec[]) => Promise<unknown>;
+        debugStop?: (sessionId: string) => Promise<boolean>;
+        onDebugEvent?: (cb: (payload: { sessionId: string; event: string; body: any }) => void) => (() => void) | void;
+        onWorkspaceSearchBatch?: (cb: (payload: { streamId: string; hits: Array<{ path: string; line: number; column: number; preview: string; matchStart?: number; matchLength?: number }> }) => void) => (() => void) | void;
         onWorkspaceLspDiagnostics?: (cb: (payload: ZoraiLspDiagnosticsPayload) => void) => (() => void) | void;
         workspaceTestsDiscover?: (rootPath: string, options?: { maxTests?: number }) => Promise<{ root: string; frameworks: Array<{ id: string; label: string; command: string }>; tests: ZoraiWorkspaceTest[]; truncated: boolean }>;
         workspaceTestsRun?: (rootPath: string, request: { framework: string; path?: string; selector?: string }) => Promise<{ runId: string; command: string; args: string[]; startedAt: number }>;
@@ -908,8 +935,11 @@ declare global {
         agentGetMemoryFiles?: (agentId: string) => Promise<unknown>;
         agentSaveMemoryFile?: (agentId: string, target: "soul" | "memory" | "user", content: string) => Promise<unknown>;
         agentGenerateCommitMessage?: (diff: string, recentSubjects: string[]) => Promise<{ message: string; error?: string | null }>;
-        agentGenerateCodeFix?: (request: { path: string; language: string; before: string; target: string; after: string; diagnostics: string[]; instruction?: string; requestId?: string; reasoning?: boolean }) => Promise<{ replacement: string; error?: string | null }>;
-        agentCodeComplete?: (request: { requestId: string; path: string; language: string; prefix: string; suffix: string }) => Promise<{ completion: string; error?: string | null }>;
+        agentGenerateCodeFix?: (request: { path: string; language: string; before: string; target: string; after: string; diagnostics: string[]; instruction?: string; requestId?: string; reasoning?: boolean; images?: string[] }) => Promise<{ replacement: string; error?: string | null }>;
+        agentCodeComplete?: (request: { requestId: string; path: string; language: string; prefix: string; suffix: string; kind?: "completion" | "next_edit"; recentEdits?: string[] }) => Promise<{ completion: string; error?: string | null }>;
+        agentListProjectRules?: (root: string, targets: string[]) => Promise<Array<{ name: string; description: string; globs: string[]; applied: boolean }>>;
+        agentCodeIndex?: (action: "status" | "sync" | "search" | "text-search" | "verify", root: string, query?: string, limit?: number, options?: Record<string, unknown>) => Promise<{ action: string; result: any; error: string | null }>;
+        agentCodeSymbols?: (root: string, path: string, content?: string | null) => Promise<{ language: string; symbols: Array<{ name: string; kind: string; line: number; end_line: number; column: number; container: string | null; calls: string[] }>; imports: string[] } | null>;
         agentCancelOperation?: (id: string) => Promise<{ ok?: boolean; error?: string } | unknown>;
         agentDismissParticipantSuggestion?: (payload: {
             threadId: string;

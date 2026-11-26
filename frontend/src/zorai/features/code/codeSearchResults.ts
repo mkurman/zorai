@@ -1,6 +1,6 @@
 export type CodeSearchHit = { path: string; line: number; column: number; preview: string; matchStart?: number; matchLength?: number };
 
-export type CodeSearchOptions = { caseSensitive: boolean; wholeWord: boolean; regex: boolean };
+export type CodeSearchOptions = { caseSensitive: boolean; wholeWord: boolean; regex: boolean; preserveCase?: boolean };
 
 export type CodeSearchGroup = { path: string; name: string; dir: string; hits: CodeSearchHit[] };
 
@@ -26,13 +26,22 @@ export function splitCodeSearchPreview(hit: CodeSearchHit): { before: string; ma
   return { before: hit.preview.slice(0, start), match: hit.preview.slice(start, end), after: hit.preview.slice(end) };
 }
 
+export function applyReplacementCase(source: string, text: string): string {
+  if (!/[a-z]/i.test(source)) return text;
+  if (source === source.toUpperCase()) return text.toUpperCase();
+  if (source === source.toLowerCase()) return text.toLowerCase();
+  if (source[0] === source[0].toUpperCase() && source.slice(1) === source.slice(1).toLowerCase()) return text.charAt(0).toUpperCase() + text.slice(1);
+  return text;
+}
+
 export function previewCodeSearchReplacement(match: string, query: string, replacement: string, options: CodeSearchOptions): string {
-  if (!options.regex) return replacement;
+  const cased = (text: string) => (options.preserveCase ? applyReplacementCase(match, text) : text);
+  if (!options.regex) return cased(replacement);
   try {
     const source = options.wholeWord ? `\\b(?:${query})\\b` : query;
-    return match.replace(new RegExp(source, options.caseSensitive ? "" : "i"), replacement);
+    return cased(match.replace(new RegExp(source, options.caseSensitive ? "" : "i"), replacement));
   } catch {
-    return replacement;
+    return cased(replacement);
   }
 }
 

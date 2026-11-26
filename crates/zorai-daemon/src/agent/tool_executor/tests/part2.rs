@@ -341,23 +341,6 @@ async fn search_files_surfaces_truncated_rg_stderr_failure() {
 }
 
 #[tokio::test]
-async fn search_files_reports_missing_rg() {
-    let error = execute_search_files_with_runner(
-        &serde_json::json!({ "pattern": "needle" }),
-        |_| async move {
-            Err::<super::SearchFilesCommandOutput, anyhow::Error>(
-                std::io::Error::new(std::io::ErrorKind::NotFound, "No such file or directory")
-                    .into(),
-            )
-        },
-    )
-    .await
-    .expect_err("missing rg should return an error");
-
-    assert!(error.to_string().contains("rg"));
-}
-
-#[tokio::test]
 async fn web_search_runtime_uses_default_timeout_on_caller_path() {
     let observed_timeout = Arc::new(Mutex::new(None));
     let observed_timeout_clone = observed_timeout.clone();
@@ -666,4 +649,28 @@ fn youcom_results_use_web_then_news_and_skip_empty_urls() {
 
     let empty = super::format_youcom_search_results("nothing", &serde_json::json!({}), 10);
     assert_eq!(empty, "No web results found for: nothing");
+}
+
+#[tokio::test]
+async fn search_files_still_works_without_ripgrep_installed() {
+    let root = tempdir().expect("tempdir");
+    fs::write(
+        root.path().join("lib.rs"),
+        "fn alpha() {}\nfn beta() { alpha(); }\n",
+    )
+    .expect("write");
+    let result = execute_search_files_with_runner(
+        &serde_json::json!({ "pattern": "alpha", "path": root.path().to_string_lossy() }),
+        |_request| async move {
+            Err::<super::SearchFilesCommandOutput, anyhow::Error>(anyhow::Error::new(
+                std::io::Error::new(std::io::ErrorKind::NotFound, "No such file or directory"),
+            ))
+        },
+    )
+    .await
+    .expect("native search should replace a missing rg");
+    let lines: Vec<&str> = result.lines().collect();
+    assert_eq!(lines.len(), 2);
+    assert!(lines[0].ends_with("lib.rs:1:fn alpha() {}"));
+    assert!(lines[1].ends_with("lib.rs:2:fn beta() { alpha(); }"));
 }

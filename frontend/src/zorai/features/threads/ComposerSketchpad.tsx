@@ -844,6 +844,19 @@ export function ComposerSketchpad({
           >
             {busy ? "Saving…" : primaryLabel}
           </button>
+          <button
+            type="button"
+            className="zorai-ghost-button zorai-ghost-button--compact zorai-sketchpad__close"
+            title="Close the sketchpad (keeps your drawing as a draft)"
+            aria-label="Close sketchpad"
+            disabled={busy}
+            onClick={() => {
+              commitEditor();
+              onSaveDraft();
+            }}
+          >
+            ×
+          </button>
         </div>
       </div>
       <div
@@ -978,6 +991,6 @@ function SketchActionIcon({ kind }: { kind: "undo" | "redo" | "fit" | "clear" | 
   if (kind === "image") return <svg {...iconProps}><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m21 16-5-5L5 20" /></svg>;
   if (kind === "undo") return <svg {...iconProps}><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></svg>;
   if (kind === "redo") return <svg {...iconProps}><path d="m15 14 5-5-5-5" /><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" /></svg>;
-  if (kind === "fit") return <svg {...iconProps}><path d="M3 8V5a2 2 0 0 1 2-2h3" /><path d="M16 3h3a2 2 0 0 1 2 2v3" /><path d="M21 16v3a2 2 0 0 1-2 2h-3" /><path d="M8 21H5a2 2 0 0 1-2-2v-3" /></svg>;
+  if (kind === "fit") return <svg {...iconProps}><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /><rect x="8" y="8" width="6" height="6" rx="1" /></svg>;
   return <svg {...iconProps}><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /></svg>;
 }

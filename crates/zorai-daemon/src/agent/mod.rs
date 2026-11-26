@@ -35,6 +35,8 @@ mod commit_message;
 pub(crate) mod code_fix;
 pub(crate) mod coder;
 pub(crate) mod code_complete;
+pub(crate) mod composer_mode;
+pub(crate) mod project_rules;
 mod compaction;
 mod config;
 mod consensus;

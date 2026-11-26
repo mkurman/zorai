@@ -73,11 +73,14 @@ export type InlineDiffSession = {
   reject: () => void;
   currentText: () => string;
   range: () => { startLine: number; endLine: number };
+  review: () => number;
 };
 
-export function createInlineDiffSession(editor: MonacoEditorApi.ICodeEditor, monaco: MonacoApi, startLine: number, original: string, onSettled?: () => void): InlineDiffSession {
+export type InlineDiffOptions = { review?: boolean; onEdit?: () => void };
+
+export function createInlineDiffSession(editor: MonacoEditorApi.ICodeEditor, monaco: MonacoApi, startLine: number, original: string, onSettled?: () => void, diffOptions: InlineDiffOptions = {}): InlineDiffSession {
   const model = editor.getModel()!;
-  let endLine = startLine + original.split("\n").length - 1;
+  let endLine = diffOptions.review ? editor.getModel()!.getLineCount() : startLine + original.split("\n").length - 1;
   let zoneIds: string[] = [];
   let baseline = original;
   let committed = original;
@@ -123,7 +126,7 @@ export function createInlineDiffSession(editor: MonacoEditorApi.ICodeEditor, mon
     const options = editor.getOptions();
     const fontInfo = options.get(monaco.editor.EditorOption.fontInfo);
     const lineHeight = options.get(monaco.editor.EditorOption.lineHeight);
-    const withToolbar = !previewing && hunks.length > 1;
+    const withToolbar = !previewing && (hunks.length > 1 || Boolean(diffOptions.review));
     decorations.set(hunks.filter((hunk) => hunk.added.length > 0).map((hunk) => ({
       range: new monaco.Range(startLine + hunk.start, 1, startLine + hunk.start + hunk.added.length - 1, 1),
       options: { isWholeLine: true, className: "zorai-inline-diff-added", linesDecorationsClassName: "zorai-inline-diff-added-gutter" },
@@ -167,6 +170,7 @@ export function createInlineDiffSession(editor: MonacoEditorApi.ICodeEditor, mon
       const lines = currentText().split("\n");
       lines.splice(hunk.start, hunk.added.length, ...hunk.removed);
       replace(lines.join("\n"));
+      diffOptions.onEdit?.();
     }
     committed = currentText();
     render(committed);
@@ -216,7 +220,14 @@ export function createInlineDiffSession(editor: MonacoEditorApi.ICodeEditor, mon
     },
     reject() {
       dispose();
-      if (currentText() !== baseline) replace(baseline);
+      if (currentText() === baseline) return;
+      replace(baseline);
+      diffOptions.onEdit?.();
+    },
+    review() {
+      committed = currentText();
+      render(committed);
+      return hunks.length;
     },
     currentText,
     range: () => ({ startLine, endLine }),

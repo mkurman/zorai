@@ -30,3 +30,20 @@ describe("LSP workspace edits", () => {
     expect(lspUriToRelativePath("file:///work/pkg/a%20b.py", "/work")).toBe("pkg/a b.py");
   });
 });
+
+describe("LSP refactors that move files", () => {
+  it("keeps file creates, renames and deletes in the server's order so edits land on the renamed file", async () => {
+    const { lspWorkspaceEditSteps, describeLspEditSteps } = await import("./codeLspEdits");
+    const { steps, skipped } = lspWorkspaceEditSteps({
+      documentChanges: [
+        { kind: "rename", oldUri: "file:///w/src/old.rs", newUri: "file:///w/src/new.rs" },
+        { textDocument: { uri: "file:///w/src/new.rs" }, edits: [edit(0, 0, 0, "// moved\n")] },
+        { kind: "create", uri: "file:///w/src/mod.rs" },
+        { kind: "delete", uri: "file:///outside/x.rs" },
+      ],
+    }, "/w");
+    expect(steps.map((step) => step.kind)).toEqual(["rename", "edit", "create"]);
+    expect(skipped).toBe(1);
+    expect(describeLspEditSteps(steps)).toEqual(["Rename src/old.rs → src/new.rs", "Create src/mod.rs"]);
+  });
+});

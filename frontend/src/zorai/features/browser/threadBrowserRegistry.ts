@@ -3,7 +3,7 @@ export type BrowserWebview = HTMLElement & {
   getURL: () => string;
   getTitle: () => string;
   executeJavaScript: (code: string, userGesture?: boolean) => Promise<unknown>;
-  capturePage: () => Promise<{ toDataURL: () => string; isEmpty?: () => boolean }>;
+  capturePage: (rect?: { x: number; y: number; width: number; height: number }) => Promise<{ toDataURL: () => string; isEmpty?: () => boolean }>;
   canGoBack: () => boolean;
   canGoForward: () => boolean;
   goBack: () => void;

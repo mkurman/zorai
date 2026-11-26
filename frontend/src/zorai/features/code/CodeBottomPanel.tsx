@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getBridge } from "@/lib/bridge";
 import { trackPointerDrag } from "@/lib/pointerDrag";
 import { TerminalSessions } from "../terminal/ComposerTerminalPanel";
+import { DebugConsole } from "./debug/DebugConsole";
+import { CodeTasksPanel } from "./CodeTasksPanel";
 import { clampCodePanelHeight, useCodeBottomPanelStore, type CodeBottomPanelTab } from "./codeBottomPanelStore";
 
 type GitOutputEntry = { cwd: string; command: string; ok: boolean; output: string; at: number };
@@ -10,6 +12,8 @@ const TABS: Array<{ id: CodeBottomPanelTab; label: string }> = [
   { id: "problems", label: "Problems" },
   { id: "output", label: "Output" },
   { id: "terminal", label: "Terminal" },
+  { id: "tasks", label: "Tasks" },
+  { id: "debug", label: "Debug Console" },
 ];
 
 export function CodeBottomPanel({ terminalSessionKey, cwd, problems, problemCount = 0 }: {
@@ -50,6 +54,8 @@ export function CodeBottomPanel({ terminalSessionKey, cwd, problems, problemCoun
       <div className="zorai-code-panel__body">
         {tab === "problems" ? problems ?? <p className="zorai-code-panel__empty">Open a folder to see its problems.</p> : null}
         {tab === "output" ? <OutputChannels /> : null}
+        {tab === "debug" ? <DebugConsole /> : null}
+        {tab === "tasks" ? <CodeTasksPanel root={cwd ?? null} /> : null}
         {tab === "terminal" ? (
           terminalSessionKey ? (
             <div className="zorai-code-panel__terminal">

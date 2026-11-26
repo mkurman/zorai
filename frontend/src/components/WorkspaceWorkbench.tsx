@@ -4,6 +4,7 @@ import { LoadingState } from "@/components/LoadingState";
 import { createPortal } from "react-dom";
 import { getBridge } from "@/lib/bridge";
 import { useAgentStore } from "@/lib/agentStore";
+import { useAgentMissionStore } from "@/lib/agentMissionStore";
 import { useWorkspaceStore } from "@/lib/workspaceStore";
 import { toDaemonWorkspaceContext, useWorkspaceContextStore } from "@/lib/workspaceContextStore";
 import { extractWorkspaceSymbols } from "@/lib/workspaceSymbols";
@@ -26,7 +27,7 @@ import { searchSeedFromSelection } from "@/zorai/features/code/codeSearchResults
 import { monacoModelPath } from "@/zorai/features/code/codeLanguages";
 import { subscribeCodeRailActions } from "@/zorai/features/code/codeRailActions";
 import { SettingsGearIcon } from "@/zorai/features/code/SettingsGearIcon";
-import { applyLspTextEdits, type LspFileEdits } from "@/zorai/features/code/codeLspEdits";
+import { applyLspTextEdits, describeLspEditSteps, type LspEditStep, type LspFileEdits } from "@/zorai/features/code/codeLspEdits";
 import { claimLanguageServerPrompt, useLanguageServerStore } from "@/zorai/features/code/codeLanguageServers";
 import { pushToast } from "@/lib/toastStore";
 import { setCommandPaletteOverride } from "@/zorai/shell/zoraiAppCommands";
@@ -39,6 +40,22 @@ import { createCodeFileOpenTrace } from "@/zorai/features/code/codeEditorPerform
 import { applyCodeSaveTransforms, createCodeAutoSaveController } from "@/zorai/features/code/codeAutoSave";
 import { DirtyFileCloseDialog } from "@/zorai/features/code/DirtyFileCloseDialog";
 import { formatCodeText, prettierParserForLanguage } from "@/zorai/features/code/codeFormatter";
+import { resolvePrettierOptions } from "@/zorai/features/code/codePrettierConfig";
+import { effectiveCodeSettings, parseWorkspaceSettings, type WorkspaceSettingsLayer } from "@/zorai/features/code/workspaceSettingsLoader";
+import { stageSelectedLines, type GutterChange } from "@/zorai/features/code/codeGitGutter";
+import { provenanceContext, type ProvenanceOperation } from "@/zorai/features/code/codeProvenanceGutter";
+import { CodeTimelinePanel } from "@/zorai/features/code/CodeTimelinePanel";
+import { CodeCallHierarchyPanel } from "@/zorai/features/code/CodeCallHierarchyPanel";
+import { CodeHexViewer } from "@/zorai/features/code/CodeHexViewer";
+import { WorktreeMissionControl } from "@/zorai/features/code/WorktreeMissionControl";
+import { CodeVerifyToggle } from "@/zorai/features/code/CodeVerifyToggle";
+import { subscribeCodeLocations } from "@/zorai/features/code/codeLocationRequests";
+import { CodeWorkspaceFolders } from "@/zorai/features/code/CodeWorkspaceFolders";
+import { isWorkspaceFile, workspaceFileFolders } from "@/zorai/features/code/codeWorkspaceFile";
+import { useDebugStore } from "@/zorai/features/code/debug/debugStore";
+import { DebugPanel } from "@/zorai/features/code/debug/DebugPanel";
+import { debugTestConfig } from "@/zorai/features/code/debug/debugTestConfig";
+import { defaultBuildTask, useCodeTaskStore } from "@/zorai/features/code/codeTaskStore";
 import { CodeSettingsView } from "@/zorai/features/code/CodeSettingsView";
 import type { CodeSettingsTab } from "@/zorai/features/code/codeSettingsTabs";
 import {
@@ -82,7 +99,8 @@ import { useShellLayoutStore } from "@/zorai/shell/shellLayoutStore";
 import { rememberClosedEditor, takeReopenableEditor } from "@/zorai/features/code/codeClosedEditors";
 import { codeViewStateKey, loadCodeViewState, saveCodeViewState } from "@/zorai/features/code/codeViewState";
 import { CodeProblemsPanel } from "@/zorai/features/code/CodeProblemsPanel";
-import { countProblems, problemSeverity, type CodeProblem } from "@/zorai/features/code/codeProblems";
+import { countProblems, problemSeverity, publishCodeProblems, type CodeProblem } from "@/zorai/features/code/codeProblems";
+import { useAgentDiffReview } from "@/zorai/features/code/useAgentDiffReview";
 import { setTerminalFileLinkHandler, workspaceRelativeLinkPath } from "@/zorai/features/terminal/terminalFileLinks";
 import { CodeStatusBar } from "@/zorai/features/code/CodeStatusBar";
 import { emptyNavHistory, isNavJump, navigateBack, navigateForward, recordNavLocation, type CodeNavLocation } from "@/zorai/features/code/codeNavHistory";
@@ -96,6 +114,8 @@ const WATCHER_START_DELAY_MS = 3000;
 
 const WorkspaceCodeEditor = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.WorkspaceCodeEditor })));
 const WorkspaceDiffEditor = lazy(() => import("@/components/WorkspaceCodeEditor").then((module) => ({ default: module.WorkspaceDiffEditor })));
+
+const OUTLINE_RENDER_LIMIT = 300;
 
 type OpenDocument = ZoraiWorkspaceFile & { original: string; dirty: boolean; gitBaseContent?: string; externalContent?: string; externalHash?: string; external?: { absolutePath: string } };
 
@@ -115,7 +135,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const activeThreadId = useAgentStore((state) => state.activeThreadId);
   const activeDaemonThreadId = useAgentStore((state) => state.threads.find((thread) => thread.id === state.activeThreadId)?.daemonThreadId ?? state.activeThreadId);
   const activeWorkspace = useWorkspaceStore((state) => state.activeWorkspace());
-  const context = useWorkspaceContextStore((state) => activeThreadId ? state.byThreadId[activeThreadId] : undefined);
+  const context = useWorkspaceContextStore((state) => (activeThreadId && state.byThreadId[activeThreadId]?.root ? state.byThreadId[activeThreadId] : undefined));
   const bindRoot = useWorkspaceContextStore((state) => state.bindRoot);
   const setActiveFile = useWorkspaceContextStore((state) => state.setActiveFile);
   const setSelection = useWorkspaceContextStore((state) => state.setSelection);
@@ -124,6 +144,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const togglePinnedFile = useWorkspaceContextStore((state) => state.togglePinnedFile);
   const moveOpenFile = useWorkspaceContextStore((state) => state.moveOpenFile);
   const setIsolateAgentTasks = useWorkspaceContextStore((state) => state.setIsolateAgentTasks);
+  const setExtraRoots = useWorkspaceContextStore((state) => state.setExtraRoots);
   const setIsolatedWorktreeState = useWorkspaceContextStore((state) => state.setIsolatedWorktreeState);
   const [rootInput, setRootInput] = useState(context?.root ?? activeWorkspace?.cwd ?? "");
   const [initialRootState] = useState(() => cachedWorkspaceRootState(context?.root));
@@ -167,9 +188,12 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const [dirtyCloseError, setDirtyCloseError] = useState<string | null>(null);
   const [largeFileGate, setLargeFileGate] = useState<{ path: string; sizeBytes: number } | null>(null);
   const [unsupportedFile, setUnsupportedFile] = useState<string | null>(null);
+  const [hexFile, setHexFile] = useState<string | null>(null);
+  const [missionControlOpen, setMissionControlOpen] = useState(false);
   const [mediaPreview, setMediaPreview] = useState<{ path: string; kind: "image" | "video" | "audio" } | null>(null);
   const reducedModePathsRef = useRef(new Set<string>());
-  const [codeOverlay, setCodeOverlay] = useState<"quickOpen" | "commands" | "symbols" | null>(null);
+  const [codeOverlay, setCodeOverlay] = useState<"quickOpen" | "commands" | "symbols" | "workspaceSymbols" | null>(null);
+  const [callHierarchy, setCallHierarchy] = useState<{ root: string; path: string; language: string; line: number; column: number } | null>(null);
   const breadcrumbSymbolsRef = useRef<() => Promise<QuickOpenSymbol[]>>(async () => []);
   const getBreadcrumbSymbols = useRef(() => breadcrumbSymbolsRef.current()).current;
   const [searchFocusToken, setSearchFocusToken] = useState(0);
@@ -177,8 +201,23 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const [settingsTabOpen, setSettingsTabOpen] = useState(false);
   const [settingsTabPinned, setSettingsTabPinned] = useState(false);
   const [activeEditorTabId, setActiveEditorTabId] = useState<string | null>(null);
+  const [diffTabs, setDiffTabs] = useState<string[]>([]);
+  const openDiffTab = (path: string) => {
+    setDiffTabs((current) => (current.includes(path) ? current : [...current, path]));
+    setActiveEditorTabId(`diff:${path}`);
+  };
+  useEffect(() => {
+    setMode((current) => (activeEditorTabId?.startsWith("diff:") ? "diff" : current === "diff" ? "edit" : current));
+  }, [activeEditorTabId]);
+  const closeDiffTab = (path: string) => {
+    setDiffTabs((current) => current.filter((entry) => entry !== path));
+    setActiveEditorTabId((current) => (current === `diff:${path}` ? `file:${path}` : current));
+  };
   const previousFileTabIdRef = useRef<string | null>(null);
-  const editorSettings = useCodeEditorSettingsStore((state) => state.settings);
+  const userEditorSettings = useCodeEditorSettingsStore((state) => state.settings);
+  const [workspaceSettingsLayer, setWorkspaceSettingsLayer] = useState<WorkspaceSettingsLayer | null>(null);
+  const editorSettings = useMemo(() => effectiveCodeSettings(userEditorSettings, workspaceSettingsLayer, null, null), [userEditorSettings, workspaceSettingsLayer]);
+  const settingsFor = (language: string | null, path: string | null) => effectiveCodeSettings(userEditorSettings, workspaceSettingsLayer, language, path);
   const workspaceSyncTimer = useRef<number | null>(null);
   const [daemonContextLoadedFor, setDaemonContextLoadedFor] = useState<string | null>(null);
   const [newPath, setNewPath] = useState("");
@@ -207,6 +246,10 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const lspVersionRef = useRef<Record<string, number>>({});
   useEffect(() => { documentControllerRef.current.setMaxCachedDocuments(editorSettings.cacheDocuments); }, [editorSettings.cacheDocuments]);
   const lspOpenedRef = useRef(new Map<string, { root: string; language: string }>());
+  const lspSyncedContentRef = useRef(new Map<string, string>());
+  const openFileRef = useRef<(path: string, location?: { line: number; column: number }) => Promise<unknown>>(async () => undefined);
+  const prettierOptionsCacheRef = useRef(new Map<string, { at: number; options: Record<string, string | number | boolean> }>());
+  const prettierOptionsForRef = useRef<(root: string, path: string) => Promise<Record<string, string | number | boolean>>>(async () => ({}));
   const lspChangeTimer = useRef<number | null>(null);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
   const monacoEditorRef = useRef<MonacoEditorApi.IStandaloneCodeEditor | null>(null);
@@ -238,14 +281,38 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     }
     return [...groups.entries()].sort((left, right) => Math.max(...right[1].map((entry) => entry.updated_at)) - Math.max(...left[1].map((entry) => entry.updated_at)));
   }, [agentChanges]);
-  const symbols = useMemo(() => activeDocument ? extractWorkspaceSymbols(activeDocument.content) : [], [activeDocument]);
+  const [outlineOpen, setOutlineOpen] = useState(false);
+  const scannedOutline = useMemo(() => outlineOpen && activeDocument ? extractWorkspaceSymbols(activeDocument.content).map((symbol) => ({ ...symbol, container: "" })) : [], [activeDocument, outlineOpen]);
+  const [lspOutline, setLspOutline] = useState<{ path: string; symbols: Array<{ name: string; kind: string; container: string; line: number; column: number }> } | null>(null);
+  const [outlineFilter, setOutlineFilter] = useState("");
+  const outlineRequestRef = useRef<((method: "documentSymbol" | "workspaceSymbol", extra?: Record<string, unknown>) => Promise<QuickOpenSymbol[] | null>) | null>(null);
+  const outlineSource = lspOutline && lspOutline.path === activeDocument?.path && lspOutline.symbols.length > 0 ? lspOutline.symbols : scannedOutline;
+  const symbols = outlineFilter.trim() ? outlineSource.filter((symbol) => symbol.name.toLowerCase().includes(outlineFilter.trim().toLowerCase())) : outlineSource;
   const testProblems = useMemo(() => testRun?.evidence?.results.filter((result) => result.status === "failed" && result.location) ?? [], [testRun?.evidence]);
   const workspaceDiagnostics = useMemo(() => Object.entries(diagnosticsByPath).flatMap(([path, diagnostics]) => diagnostics.map((diagnostic) => ({ path, ...diagnostic }))), [diagnosticsByPath]);
+  const taskProblems = useCodeTaskStore((state) => state.problems);
   const codeProblems = useMemo<CodeProblem[]>(() => [
     ...workspaceDiagnostics.map((diagnostic) => ({ path: diagnostic.path, line: diagnostic.startLine, column: diagnostic.startColumn, message: diagnostic.message, severity: problemSeverity(diagnostic.severity), source: diagnostic.source ?? null, code: diagnostic.code ?? null })),
     ...testProblems.flatMap((result) => result.location ? [{ path: result.location.path, line: result.location.line, column: result.location.column || 1, message: `${result.name}: ${result.message ?? "Test failed"}`, severity: "error" as const, source: "test", code: null }] : []),
-  ], [testProblems, workspaceDiagnostics]);
+    ...Object.values(taskProblems).flat().map((problem) => ({ path: problem.path, line: problem.line, column: problem.column, message: problem.message, severity: problem.severity, source: problem.source, code: problem.code })),
+  ], [taskProblems, testProblems, workspaceDiagnostics]);
   const problemCounts = useMemo(() => countProblems(codeProblems), [codeProblems]);
+  const agentReview = useAgentDiffReview({
+    root: context?.root ?? null,
+    threadId: activeDaemonThreadId ?? null,
+    changes: agentChanges,
+    activePath: activeDocument?.path ?? null,
+    openFile: (path) => void openFile(path),
+    onFileRewritten: (path, file) => setDocuments((current) => {
+      if (!current[path]) return current;
+      if (file) return { ...current, [path]: { ...current[path], ...file, original: file.content, dirty: false } };
+      const next = { ...current };
+      delete next[path];
+      return next;
+    }),
+    saveFile: (path) => void saveDocumentRef.current(path),
+  });
+  useEffect(() => { publishCodeProblems(codeProblems); }, [codeProblems]);
   const statusMap = useMemo(() => new Map(gitStatus.map((entry) => [entry.path, statusLabel(entry)])), [gitStatus]);
 
   const refreshGenRef = useRef(0);
@@ -328,6 +395,16 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
 
   useEffect(() => { void hydrateCodeWorkspaceContexts(); }, []);
   useEffect(() => {
+    const root = context?.root;
+    if (!root || !bridge?.workspaceReadOptionalFile) { setWorkspaceSettingsLayer(null); return; }
+    let cancelled = false;
+    const read = (path: string) => bridge.workspaceReadOptionalFile!(root, path).then((file) => file?.content ?? null, () => null);
+    void Promise.all([read(".zorai/settings.json"), read(".vscode/settings.json"), read(".editorconfig")]).then(([zorai, vscode, editorconfig]) => {
+      if (!cancelled) setWorkspaceSettingsLayer(zorai || vscode || editorconfig ? parseWorkspaceSettings(zorai, vscode, editorconfig) : null);
+    });
+    return () => { cancelled = true; };
+  }, [bridge, context?.root, gitStatus]);
+  useEffect(() => {
     const path = context?.activeFile;
     const root = context?.root;
     if (!path || !root || !bridge?.workspaceReadFile || !shouldRestoreWorkspaceDocument(path, documents)) return;
@@ -366,6 +443,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             isolateAgentTasks: daemonContext.isolate_agent_tasks ?? false,
             isolatedWorktreeStates: daemonContext.isolated_worktree_states ?? current?.isolatedWorktreeStates ?? {},
             pinnedFiles: current?.pinnedFiles ?? [],
+            mode: daemonContext.mode ?? current?.mode,
           } },
         }));
       }
@@ -600,6 +678,22 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   }, [activeDocument?.content, activeDocument?.language, activeDocument?.path, activeDocument?.hash, bridge, context?.root, editorSettings.diagnosticsDelayMs, editorSettings.lspEnabled, lspStatus?.available]);
 
   useEffect(() => {
+    if (!editorSettings.lspEnabled || !context?.root || !bridge?.workspaceLspChange) return;
+    const root = context.root;
+    const timer = window.setTimeout(() => {
+      for (const [path, opened] of lspOpenedRef.current) {
+        const doc = documents[path];
+        if (!doc || path === activeDocument?.path || opened.root !== root || lspSyncedContentRef.current.get(path) === doc.content) continue;
+        lspSyncedContentRef.current.set(path, doc.content);
+        const version = (lspVersionRef.current[path] ?? 0) + 1;
+        lspVersionRef.current[path] = version;
+        void bridge.workspaceLspChange!(root, path, opened.language, doc.content, version).catch(() => {});
+      }
+    }, editorSettings.diagnosticsDelayMs);
+    return () => window.clearTimeout(timer);
+  }, [activeDocument?.path, bridge, context?.root, documents, editorSettings.diagnosticsDelayMs, editorSettings.lspEnabled]);
+
+  useEffect(() => {
     if (!bridge?.onWorkspaceTestEvent) return;
     const unsubscribe = bridge.onWorkspaceTestEvent((event) => {
       setTestRun((current) => {
@@ -768,7 +862,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       [filePath]: { ...(current[filePath] ?? document), gitBaseContent: gitBase },
     }));
     setDiff(patch);
-    setMode("diff");
+    openDiffTab(filePath);
   };
 
   const showDiff = async () => {
@@ -820,6 +914,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
 
   const [operationDiff, setOperationDiff] = useState<AgentOperationDiffTarget | null>(null);
   const [previewPaths, setPreviewPaths] = useState<Record<string, boolean>>({});
+  const previewShown = (path: string) => Boolean(codePreviewKind(path)) && (previewPaths[path] ?? codePreviewKind(path) === "notebook");
   const [railTab, setRailTab] = useCodeRailTab();
   const testsWanted = railTab === "testing";
   const discoveredTestsRootRef = useRef<string | null>(null);
@@ -856,6 +951,28 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     void openExternalFile(path);
   };
 
+  const formatForSave = async (root: string, path: string, language: string, content: string): Promise<string> => {
+    if (prettierParserForLanguage(language)) return formatCodeText(content, language, await prettierOptionsFor(root, path));
+    const opened = lspOpenedRef.current.get(path);
+    if (!opened || opened.root !== root || !bridge?.workspaceLspRequest || !bridge.workspaceLspChange) return content;
+    const version = (lspVersionRef.current[path] ?? 0) + 1;
+    lspVersionRef.current[path] = version;
+    await bridge.workspaceLspChange(root, path, language, content, version);
+    const response = await bridge.workspaceLspRequest(root, path, language, "formatting", { line: 0, character: 0 }, { tabSize: settingsFor(language, path).tabSize, insertSpaces: settingsFor(language, path).insertSpaces });
+    return Array.isArray(response?.result) ? applyLspTextEdits(content, response.result as Parameters<typeof applyLspTextEdits>[1]) : content;
+  };
+  const prettierOptionsFor = async (root: string, path: string) => {
+    const cached = prettierOptionsCacheRef.current.get(`${root}\0${path}`);
+    if (cached && Date.now() - cached.at < 10_000) return cached.options;
+    const options = await resolvePrettierOptions(path, async (relativePath) => {
+      const file = await bridge?.workspaceReadOptionalFile?.(root, relativePath).catch(() => null);
+      return file?.content ?? null;
+    });
+    prettierOptionsCacheRef.current.set(`${root}\0${path}`, { at: Date.now(), options });
+    return options;
+  };
+  prettierOptionsForRef.current = prettierOptionsFor;
+
   const saveDocument = async (path: string): Promise<boolean> => {
     if (!activeThreadId) return false;
     const document = documents[path];
@@ -865,11 +982,12 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     // workspace service and doesn't apply to an absolute host path.
     if (document.external) {
       if (!bridge?.writeFsText) return false;
+      const fileSettings = settingsFor(document.language, null);
       let content = applyCodeSaveTransforms(document.content, {
-        trimTrailingWhitespace: editorSettings.trimTrailingWhitespaceOnSave,
-        finalNewline: editorSettings.finalNewlineOnSave,
+        trimTrailingWhitespace: fileSettings.trimTrailingWhitespaceOnSave,
+        finalNewline: fileSettings.finalNewlineOnSave,
       });
-      if (editorSettings.formatOnSave && prettierParserForLanguage(document.language) && !reducedModePathsRef.current.has(path)) {
+      if (fileSettings.formatOnSave && prettierParserForLanguage(document.language) && !reducedModePathsRef.current.has(path)) {
         try { content = await formatCodeText(content, document.language); }
         catch (reason) {
           const message = reason instanceof Error ? reason.message : String(reason);
@@ -898,12 +1016,13 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     }
 
     if (!context?.root || !bridge?.workspaceWriteFile) return false;
+    const fileSettings = settingsFor(document.language, path);
     let content = applyCodeSaveTransforms(document.content, {
-      trimTrailingWhitespace: editorSettings.trimTrailingWhitespaceOnSave,
-      finalNewline: editorSettings.finalNewlineOnSave,
+      trimTrailingWhitespace: fileSettings.trimTrailingWhitespaceOnSave,
+      finalNewline: fileSettings.finalNewlineOnSave,
     });
-    if (editorSettings.formatOnSave && prettierParserForLanguage(document.language) && !reducedModePathsRef.current.has(path)) {
-      try { content = await formatCodeText(content, document.language); }
+    if (fileSettings.formatOnSave && !reducedModePathsRef.current.has(path)) {
+      try { content = await formatForSave(context.root, path, document.language, content); }
       catch (reason) {
         const message = reason instanceof Error ? reason.message : String(reason);
         setError(`Format on save failed: ${message}`);
@@ -935,6 +1054,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         return { ...current, [saved.path]: { ...saved, original: saved.content, dirty: false } };
       });
       autoSaveControllerRef.current.cancel(path);
+      if (lspOpenedRef.current.has(saved.path)) void bridge.workspaceLspSave?.(context.root, saved.path, document.language)?.catch(() => false);
       documentControllerRef.current.invalidate(context.root, path);
       await documentControllerRef.current.open(context.root, saved.path, async () => ({
         root: context.root, path: saved.path, content: saved.content, original: saved.content, hash: saved.hash,
@@ -1212,14 +1332,34 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   };
 
   const searchRoot = context?.root;
-  const searchProjectFiles = useCallback(async (query: string, options: { caseSensitive: boolean; wholeWord: boolean; regex: boolean; include: string; exclude: string; maxResults: number; useIgnoreFiles: boolean; fresh?: boolean }) => {
+  const extraRootsKey = (context?.extraRoots ?? []).join("\n");
+  const searchProjectFiles = useCallback(async (query: string, options: { caseSensitive: boolean; wholeWord: boolean; regex: boolean; include: string; exclude: string; maxResults: number; useIgnoreFiles: boolean; fresh?: boolean; streamId?: string }) => {
     if (!searchRoot || !bridge?.workspaceSearch) return [];
-    return bridge.workspaceSearch(searchRoot, query, options);
-  }, [bridge, searchRoot]);
+    const extra = extraRootsKey ? extraRootsKey.split("\n") : [];
+    const [primary, ...others] = await Promise.all([
+      bridge.workspaceSearch(searchRoot, query, options),
+      ...extra.map((root) => bridge.workspaceSearch!(root, query, { ...options, streamId: undefined }).then((hits) => hits.map((hit) => ({ ...hit, path: `${root.replace(/[\\/]+$/, "")}/${hit.path}` })), () => [])),
+    ]);
+    return [...primary, ...others.flat()];
+  }, [bridge, searchRoot, extraRootsKey]);
   const replaceProjectFiles = useCallback(async (query: string, replacement: string, options: { caseSensitive: boolean; wholeWord: boolean; regex: boolean }, targets: Array<{ path: string; line?: number; column?: number }>) => {
     if (!searchRoot || !bridge?.workspaceReplace) throw new Error("Replace needs the desktop app.");
-    return bridge.workspaceReplace(searchRoot, query, replacement, options, targets);
-  }, [bridge, searchRoot]);
+    const extra = extraRootsKey ? extraRootsKey.split("\n") : [];
+    const byRoot = new Map<string, Array<{ path: string; line?: number; column?: number }>>();
+    for (const target of targets) {
+      const root = extra.find((candidate) => target.path.startsWith(`${candidate.replace(/[\\/]+$/, "")}/`));
+      const key = root ?? searchRoot;
+      byRoot.set(key, [...(byRoot.get(key) ?? []), root ? { ...target, path: target.path.slice(root.replace(/[\\/]+$/, "").length + 1) } : target]);
+    }
+    let files = 0;
+    let replacements = 0;
+    for (const [root, rootTargets] of byRoot) {
+      const result = await bridge.workspaceReplace(root, query, replacement, options, rootTargets);
+      files += result.files;
+      replacements += result.replacements;
+    }
+    return { files, replacements };
+  }, [bridge, searchRoot, extraRootsKey]);
   const searchProjectFileNames = useCallback(async (query: string) => {
     if (!searchRoot || !bridge?.workspaceSearchFileNames) return [];
     return bridge.workspaceSearchFileNames(searchRoot, query, { maxResults: 200 });
@@ -1384,6 +1524,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   };
 
   saveCommandRef.current = save;
+  openFileRef.current = openFile;
   reloadCommandRef.current = reloadActiveFile;
   activeFileTargetRef.current = context?.root && activeDocument ? { root: context.root, path: activeDocument.path } : null;
 
@@ -1412,6 +1553,37 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     if (id === "view.togglePanel") { useCodeBottomPanelStore.getState().toggle(); return; }
     if (id === "view.toggleTerminal") { useCodeBottomPanelStore.getState().toggle("terminal"); return; }
     if (id === "file.quickOpen") { setCodeOverlay("quickOpen"); return; }
+    if (id === "navigation.workspaceSymbol") { setCodeOverlay("workspaceSymbols"); return; }
+    if (id === "tasks.run" || id === "tasks.build" || id === "tasks.rerun") {
+      const root = activeFileTargetRef.current?.root ?? useCodeTaskStore.getState().root;
+      const panel = useCodeBottomPanelStore.getState();
+      panel.show("tasks");
+      if (!root || id === "tasks.run") return;
+      void useCodeTaskStore.getState().discover(root).then((tasks) => {
+        const target = id === "tasks.build" ? defaultBuildTask(tasks) : tasks.find((task) => task.label === useCodeTaskStore.getState().lastTaskLabel) ?? null;
+        if (target) void useCodeTaskStore.getState().run(root, target);
+      });
+      return;
+    }
+    if (id.startsWith("debug.") && id !== "debug.toggleBreakpoint") {
+      const debug = useDebugStore.getState();
+      const paused = debug.status === "stopped";
+      if (id === "debug.start") {
+        if (paused) void debug.command("continue");
+        else if (debug.status !== "running" && debug.status !== "starting") { setRailTab("debug"); useCodeBottomPanelStore.getState().show("debug"); }
+      } else if (id === "debug.stop") void debug.stop();
+      else if (id === "debug.restart") void debug.restart();
+      else if (id === "debug.pause") void debug.command("pause");
+      else if (paused) void debug.command(id === "debug.stepOver" ? "next" : id === "debug.stepInto" ? "stepIn" : "stepOut");
+      return;
+    }
+    if (id === "navigation.callHierarchy") {
+      const target = activeFileTargetRef.current;
+      const position = monacoEditorRef.current?.getPosition();
+      const language = monacoEditorRef.current?.getModel()?.getLanguageId();
+      if (target && position && language) setCallHierarchy({ root: target.root, path: target.path, language, line: position.lineNumber, column: position.column });
+      return;
+    }
     if (id === "view.commandPalette") { setCodeOverlay("commands"); return; }
     if (id === "file.save") { void saveCommandRef.current(); return; }
     if (id === "file.reload") { void reloadCommandRef.current(); return; }
@@ -1705,6 +1877,31 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const panelTab = useCodeBottomPanelStore((state) => state.tab);
   const togglePanel = useCodeBottomPanelStore((state) => state.toggle);
 
+  useEffect(() => {
+    const path = activeDocument?.path;
+    if (!path || !outlineOpen) return;
+    const root = context?.root;
+    const content = activeDocument?.content;
+    const timer = window.setTimeout(() => {
+      if (lspStatus?.available) {
+        void outlineRequestRef.current?.("documentSymbol").then((result) => {
+          if (result) setLspOutline({ path, symbols: result.filter((symbol) => symbol.path === path) });
+        });
+        return;
+      }
+      if (!root || !bridge?.agentCodeSymbols) return;
+      void bridge.agentCodeSymbols(root, path, content ?? null).then((graph) => {
+        if (graph) setLspOutline({ path, symbols: graph.symbols.map((symbol) => ({ name: symbol.name, kind: symbol.kind, container: symbol.container ?? "", line: symbol.line, column: symbol.column })) });
+      }).catch(() => undefined);
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [activeDocument?.path, activeDocument?.content, lspStatus?.available, outlineOpen, context?.root, bridge]);
+  useEffect(() => subscribeCodeLocations((request) => void openFileRef.current(request.path, { line: request.line, column: request.column ?? 1 })), []);
+  useEffect(() => useDebugStore.subscribe((state, previous) => {
+    if (state.frameId === previous.frameId || state.frameId === null || state.status !== "stopped") return;
+    const frame = state.frames.find((entry) => entry.id === state.frameId);
+    if (frame?.path && frame.line > 0) void openFileRef.current(frame.path, { line: frame.line, column: frame.column });
+  }), []);
   if (!activeThreadId) return <div className="zorai-tool-empty"><strong>Select a thread</strong><span>Workspace roots and editor context are bound to an agent thread.</span></div>;
   if (rootLoading) return <WorkspaceLoadingSkeleton root={openedRoot ?? context?.root ?? rootInput} />;
 
@@ -1770,9 +1967,66 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                   </summary>
                   <WorkspaceExplorerTree root={context.root} entries={rootEntries} status={statusMap} onOpen={(path) => void openFile(path)} refreshToken={explorerRefreshToken} allFiles={indexedFiles} onEntryContextMenu={(entry, x, y) => setExplorerMenu({ entry, x, y })} onEntryShortcut={(entry, action) => { if (action === "rename") { setPathDialogError(null); setPathDialog({ operation: "rename", initialPath: entry.path, sourcePath: entry.path }); } else void deleteWorkspacePath(entry.path, entry.isDirectory); }} />
                 </details>
+                <details className="zorai-code-outline" open={outlineOpen} onToggle={(event) => setOutlineOpen((event.currentTarget as HTMLDetailsElement).open)}>
+                  <summary>
+                    <span>Outline</span>
+                    {outlineOpen && activeDocument ? <span className="zorai-code-outline__meta">{symbols.length}{outlineSource !== scannedOutline ? (lspStatus?.available ? " · LSP" : " · tree-sitter") : ""}</span> : null}
+                  </summary>
+                  {outlineOpen && !activeDocument ? <p className="zorai-code-timeline__empty">Open a file to see its symbols.</p> : null}
+                  {outlineOpen && activeDocument ? (
+                    <>
+                      <input className="zorai-code-outline__filter" value={outlineFilter} placeholder="Filter symbols" aria-label="Filter outline symbols" onChange={(event) => setOutlineFilter(event.target.value)} />
+                      {symbols.length === 0 ? <p className="zorai-code-timeline__empty">No symbols found.</p> : null}
+                      {symbols.slice(0, OUTLINE_RENDER_LIMIT).map((symbol) => (
+                        <button
+                          type="button"
+                          key={`${symbol.line}:${symbol.column}:${symbol.name}`}
+                          className="zorai-code-outline__item"
+                          title={symbol.container ? `${symbol.container} › ${symbol.name}` : symbol.name}
+                          onClick={() => void openFile(activeDocument.path, { line: symbol.line, column: symbol.column })}
+                        >
+                          <span className="zorai-code-outline__kind">{symbol.kind}</span>
+                          <span className="zorai-code-outline__name">{symbol.container ? <small>{symbol.container} › </small> : null}{symbol.name}</span>
+                          <span className="zorai-code-outline__line">{symbol.line}</span>
+                        </button>
+                      ))}
+                      {symbols.length > OUTLINE_RENDER_LIMIT ? <p className="zorai-code-timeline__empty">Showing {OUTLINE_RENDER_LIMIT} of {symbols.length}. Filter to narrow down.</p> : null}
+                    </>
+                  ) : null}
+                </details>
+                <CodeWorkspaceFolders
+                  roots={context.extraRoots ?? []}
+                  onOpen={(absolutePath) => void openExternalFile(absolutePath)}
+                  onChange={(roots) => setExtraRoots(activeThreadId, roots)}
+                />
+                {activeDocument && isWorkspaceFile(activeDocument.path) ? (
+                  <button type="button" className="zorai-code-add-folder" onClick={() => setExtraRoots(activeThreadId, [...(context.extraRoots ?? []), ...workspaceFileFolders(activeDocument.content, activeDocument.path, context.root)])}>
+                    Open the folders listed in {activeDocument.path.split("/").pop()}
+                  </button>
+                ) : null}
+                <CodeTimelinePanel
+                  root={context.root}
+                  path={activeDocument && !activeDocument.external ? activeDocument.path : null}
+                  refreshToken={gitStatus}
+                  onCompare={(content) => {
+                    if (!activeDocument) return;
+                    const path = activeDocument.path;
+                    setDocuments((current) => (current[path] ? { ...current, [path]: { ...current[path], gitBaseContent: content } } : current));
+                    openDiffTab(path);
+                  }}
+                  onRestore={(content) => {
+                    if (!activeDocument) return;
+                    const doc = activeDocument;
+                    if (context.root) documentControllerRef.current.updateContent(context.root, doc.path, content);
+                    setDocuments((current) => ({ ...current, [doc.path]: { ...(current[doc.path] ?? doc), content, dirty: content !== doc.original } }));
+                    setActiveEditorTabId(`file:${doc.path}`);
+                    setMode("edit");
+                  }}
+                />
                 <details className="zorai-code-workspace-actions">
                   <summary>Workspace Actions</summary>
                   <label className="zorai-workspace-isolation-toggle"><input type="checkbox" checked={context.isolateAgentTasks} onChange={(event) => setIsolateAgentTasks(activeThreadId, event.target.checked)} /><span>Isolate agent tasks in worktrees</span></label>
+                  <CodeVerifyToggle root={context.root} />
                   <div className="zorai-workspace-create-row">
                     <input value={newPath} onChange={(event) => setNewPath(event.target.value)} placeholder="relative/path" />
                     <button type="button" title="New file" onClick={() => void createPath("file")}>+F</button>
@@ -1786,9 +2040,10 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                 root={context.root}
                 focusToken={searchFocusToken}
                 seedQuery={searchSeed}
+                openFiles={context.openFiles}
                 search={searchProjectFiles}
                 replace={replaceProjectFiles}
-                onOpen={(hit) => void openFile(hit.path, { line: hit.line, column: hit.column })}
+                onOpen={(hit) => void (/^([A-Za-z]:)?[\\/]/.test(hit.path) ? openExternalFile(hit.path) : openFile(hit.path, { line: hit.line, column: hit.column }))}
               />
             </div>
             {railTab === "scm" ? (
@@ -1912,6 +2167,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                     ))}
                   </details>
                 ) : null}
+                <button type="button" className="zorai-code-add-folder" onClick={() => setMissionControlOpen(true)}>Mission Control · {isolatedTaskWorktrees.length} agent worktree{isolatedTaskWorktrees.length === 1 ? "" : "s"}</button>
                 {isolatedTaskWorktrees.length > 0 ? (
                   <details className="zorai-workspace-isolated-reviews">
                     <summary>Awaiting isolated review ({isolatedTaskWorktrees.length})</summary>
@@ -1935,6 +2191,13 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                   </details>
                 ) : null}
               </>
+            ) : null}
+            {railTab === "debug" && context?.root ? (
+              <DebugPanel
+                root={context.root}
+                activeFile={activeDocument && !activeDocument.external ? activeDocument.path : null}
+                onOpenLocation={(path, line, column) => void openFile(path, { line, column })}
+              />
             ) : null}
             {railTab === "testing" ? (
               <>
@@ -1961,6 +2224,12 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                       <div key={test.id}>
                         <button type="button" onClick={() => void openFile(test.path, { line: test.line, column: 1 })}><span>{test.framework}</span><strong>{test.name}</strong><code>{test.path}:{test.line}</code></button>
                         <button type="button" disabled={testRun?.status === "running"} onClick={() => void runWorkspaceTest(test)}>Run</button>
+                        {debugTestConfig(test) ? <button type="button" title="Debug this test (breakpoints apply)" onClick={() => {
+                          const config = debugTestConfig(test);
+                          if (!config || !context?.root) return;
+                          useCodeBottomPanelStore.getState().show("debug");
+                          void useDebugStore.getState().start(context.root, test.path, config).catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)));
+                        }}>Debug</button> : null}
                       </div>
                     ))}
                     {testRun?.output ? <pre>{testRun.output}</pre> : null}
@@ -2032,6 +2301,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     const response = await bridge.workspaceLspRequest(context.root, activeDocument.path, activeDocument.language, method, { line: 0, character: 0 }, extra).catch(() => null);
     return response?.result ? flattenLspSymbols(response.result, activeDocument.path, context.root) : null;
   };
+  outlineRequestRef.current = lspSymbolRequest;
   const scannedSymbols = (doc: OpenDocument): QuickOpenSymbol[] => extractWorkspaceSymbols(doc.content).map((symbol) => ({ name: symbol.name, kind: symbol.kind, container: "", path: doc.path, line: symbol.line, column: symbol.column }));
   breadcrumbSymbolsRef.current = async () => {
     const lspSymbols = await lspSymbolRequest("documentSymbol");
@@ -2184,9 +2454,114 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     if (problems.length > 0) setError(`Refactoring incomplete: ${problems.join("; ")}.`);
   };
 
+  const applyWorkspaceSteps = async (steps: LspEditStep[], skipped: number) => {
+    const root = context?.root;
+    if (!root || !activeThreadId || !bridge?.workspaceWriteFile) return;
+    const moved = steps.filter((step) => (step.kind === "rename" || step.kind === "delete") && documents[step.path]?.dirty).map((step) => step.path);
+    if (moved.length > 0) {
+      setError(`Save ${moved.join(", ")} before running a refactor that moves or deletes it.`);
+      return;
+    }
+    if (!window.confirm(`This refactor also changes files on disk:\n\n${describeLspEditSteps(steps).join("\n")}\n\nApply it?`)) return;
+    const failed: string[] = [];
+    for (const step of steps) {
+      try {
+        if (step.kind === "edit") await applyWorkspaceEdits([{ path: step.path, edits: step.edits }], 0);
+        else if (step.kind === "create") {
+          const exists = await bridge.workspaceReadOptionalFile?.(root, step.path).then((file) => file !== null, () => false);
+          if (!exists || step.overwrite) await bridge.workspaceWriteFile(root, step.path, "");
+        } else if (step.kind === "rename") {
+          if (!bridge.workspaceRenamePath) throw new Error("rename unavailable");
+          await bridge.workspaceRenamePath(root, step.path, step.newPath);
+          if (documents[step.path]) {
+            const renamed = await bridge.workspaceReadFile?.(root, step.newPath).catch(() => null);
+            setDocuments((current) => {
+              const next = { ...current };
+              delete next[step.path];
+              if (renamed) next[step.newPath] = { ...renamed, original: renamed.content, dirty: false };
+              return next;
+            });
+            closeFile(activeThreadId, step.path);
+            if (renamed && context.activeFile === step.path) setActiveFile(activeThreadId, step.newPath);
+          }
+        } else {
+          if (!bridge.workspaceDeletePath) throw new Error("delete unavailable");
+          await bridge.workspaceDeletePath(root, step.path, { recursive: step.recursive });
+          setDocuments((current) => {
+            const next = { ...current };
+            delete next[step.path];
+            return next;
+          });
+          closeFile(activeThreadId, step.path);
+        }
+      } catch {
+        failed.push(step.kind === "rename" ? `${step.path} → ${step.newPath}` : step.path);
+      }
+    }
+    await refreshRoot();
+    const problems = [
+      failed.length > 0 ? `could not apply ${failed.join(", ")}` : "",
+      skipped > 0 ? `skipped ${skipped} change(s) outside the workspace` : "",
+    ].filter(Boolean);
+    if (problems.length > 0) setError(`Refactoring incomplete: ${problems.join("; ")}.`);
+  };
+
+  const updateDocumentText = (doc: OpenDocument, value: string) => {
+    if (context?.root) documentControllerRef.current.updateContent(context.root, doc.path, value);
+    setDocuments((current) => ({ ...current, [doc.path]: { ...(current[doc.path] ?? doc), content: value, dirty: value !== doc.original } }));
+  };
+
+  const loadProvenance = async (path: string): Promise<{ operations: ProvenanceOperation[]; befores: string[] } | null> => {
+    const entries = agentChanges.filter((entry) => entry.path === path && entry.operation_id && entry.is_text !== false).sort((left, right) => left.updated_at - right.updated_at);
+    const seen = new Set<string>();
+    const operations: ProvenanceOperation[] = [];
+    const befores: string[] = [];
+    for (const entry of entries) {
+      const operationId = entry.operation_id as string;
+      if (seen.has(operationId)) continue;
+      seen.add(operationId);
+      const before = await bridge?.agentGetFileOperationBefore?.(operationId, path).catch(() => null);
+      if (!before?.available || before.binary) continue;
+      operations.push({
+        operationId,
+        at: entry.updated_at,
+        ...provenanceContext(
+          activeThreadId ? useAgentStore.getState().messages[activeThreadId] ?? [] : [],
+          useAgentMissionStore.getState().operationalEvents.filter((event) => event.sessionId === activeDaemonThreadId),
+          entry.updated_at,
+        ),
+        label: [entry.source, entry.change_kind].filter(Boolean).join(" · ") || "agent edit",
+        detail: [entry.goal_run_id ? `Goal ${entry.goal_run_id}${entry.step_index != null ? ` step ${entry.step_index + 1}` : ""}` : "", entry.task_id ? `Task ${entry.task_id}` : ""].filter(Boolean).join(" · "),
+      });
+      befores.push(before.content ?? "");
+    }
+    return operations.length > 0 ? { operations, befores } : null;
+  };
+
+  const stageGutterChange = async (path: string, change: GutterChange) => {
+    const root = context?.root;
+    if (!root || !bridge?.workspaceGitHunks || !bridge.workspaceGitApplyHunk) return;
+    if (documents[path]?.dirty) {
+      setError("Save the file before staging a change.");
+      return;
+    }
+    try {
+      const hunks = await bridge.workspaceGitHunks(root, path);
+      const match = hunks.find((hunk) => hunk.newStart <= change.endLine && hunk.newStart + Math.max(hunk.newLines, 1) - 1 >= change.startLine);
+      if (!match) {
+        setError("That change is no longer in the Git diff. Refresh and try again.");
+        return;
+      }
+      setGitStatus((await bridge.workspaceGitApplyHunk(root, path, match.id, "stage")).status);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    }
+  };
+
   const renderWorkspaceEditor = (doc: OpenDocument, paned: boolean) => (
     <WorkspaceCodeEditor
-      settings={reducedModePathsRef.current.has(doc.path) ? { ...editorSettings, minimap: false, stickyScroll: false, formatOnPaste: false, formatOnType: false } : editorSettings}
+      agentReview={agentReview.reviewForPath(doc.path)}
+      settings={reducedModePathsRef.current.has(doc.path) ? { ...settingsFor(doc.language, doc.path), minimap: false, stickyScroll: false, formatOnPaste: false, formatOnType: false } : settingsFor(doc.language, doc.external ? null : doc.path)}
       path={doc.path}
       value={doc.content}
       language={doc.language}
@@ -2252,6 +2627,29 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       }}
       onSave={() => void saveCommandRef.current()}
       onFormatError={(message) => setError(`Formatting failed: ${message}`)}
+      resolveFormatOptions={() => (context?.root && !doc.external ? prettierOptionsForRef.current(context.root, doc.path) : Promise.resolve({}))}
+      gitGutter={context?.root && gitOverview?.isRepository && !doc.external && !reducedModePathsRef.current.has(doc.path) ? {
+        loadBase: () => bridge?.workspaceGitShow ? bridge.workspaceGitShow(context.root, doc.path, "") : Promise.resolve(null),
+        onStage: (change) => stageGutterChange(doc.path, change),
+      } : null}
+      gitRevision={gitStatus}
+      provenance={!doc.external && bridge?.agentGetFileOperationBefore ? {
+        enabled: editorSettings.provenanceGutter,
+        load: () => loadProvenance(doc.path),
+        onRevert: (operationId) => void revertAgentOperation(operationId),
+        onAskWhy: (_operationId, startLine, endLine) => {
+          const editor = monacoEditorRef.current;
+          const model = editor?.getModel();
+          if (!editor || !model) return;
+          editor.setSelection({ startLineNumber: startLine, startColumn: 1, endLineNumber: endLine, endColumn: model.getLineMaxColumn(endLine) });
+          void editor.getAction("zorai.chat.add")?.run();
+          pushToast("The agent's change is attached to the chat. Ask why it was made.", "info");
+        },
+      } : null}
+      gitBlame={context?.root && gitOverview?.isRepository && !doc.external && bridge?.workspaceGitBlame ? {
+        enabled: editorSettings.inlineBlame,
+        load: async () => ({ lines: await bridge.workspaceGitBlame!(context.root, doc.path), content: doc.original }),
+      } : null}
       onBlur={() => {
         if (editorSettings.autoSave === "editor_focus_lost" && doc.dirty && doc.externalContent === undefined) void saveDocumentRef.current(doc.path);
       }}
@@ -2264,6 +2662,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       lsp={context?.root && lspStatus ? { root: context.root, path: doc.path, language: doc.language, available: !reducedModePathsRef.current.has(doc.path) && editorSettings.lspEnabled && lspStatus.available } : undefined}
       onNavigateLocation={(targetPath, line, column) => void openFile(targetPath, { line, column })}
       onApplyWorkspaceEdit={(files, skipped) => void applyWorkspaceEdits(files, skipped)}
+      onApplyWorkspaceSteps={(steps, skipped) => void applyWorkspaceSteps(steps, skipped)}
       onAddToChat={(snippet) => addEditorContextToChat(doc, snippet)}
       onCodeFixError={(message) => pushToast(message, "error")}
       onClose={() => requestCloseFile(doc.path)}
@@ -2380,8 +2779,8 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             <button type="button" className="zorai-thread-split__close" aria-label={`Close ${node.id} pane`} title="Close pane" onClick={() => closeSplitPane(node.id)}>×</button>
           </div>
           <div className="zorai-code-split__body">
-            {previewPaths[node.id] && codePreviewKind(node.id) ? (
-              <CodeDocumentPreview path={node.id} content={doc.content} root={context?.root ?? null} />
+            {previewShown(node.id) ? (
+              <CodeDocumentPreview path={node.id} content={doc.content} root={context?.root ?? null} onChange={(value) => updateDocumentText(doc, value)} />
             ) : (
               <Suspense fallback={<div className="zorai-workspace-editor-loading">Loading Monaco editor…</div>}>
                 {renderWorkspaceEditor(doc, true)}
@@ -2437,23 +2836,33 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
               working: false,
               unread: false,
             })),
+            ...diffTabs.filter((path) => context?.openFiles.includes(path)).map((path) => ({ id: `diff:${path}`, title: `${path.split(/[\\/]/).slice(-1)[0]} (diff)`, pinned: false, active: activeEditorTabId === `diff:${path}`, working: false, unread: false })),
             ...(settingsTabOpen ? [{ id: "code-settings", title: "Code Settings", pinned: settingsTabPinned, active: activeEditorTabId === "code-settings", working: false, unread: false }] : []),
           ]}
           onSelect={(tabId) => {
             if (tabId === "code-settings") { setActiveEditorTabId(tabId); return; }
+            if (tabId.startsWith("diff:")) {
+              const diffPath = tabId.slice(5);
+              setActiveFile(activeThreadId, diffPath);
+              setActiveEditorTabId(tabId);
+              if (!documents[diffPath]) void openFile(diffPath, undefined, "diff");
+              return;
+            }
             const filePath = tabId.replace(/^file:/, "");
             setActiveEditorTabId(tabId);
             void openFile(filePath);
           }}
           onClose={(tabId) => {
             if (tabId === "code-settings") { closeSettingsTab(); return; }
+            if (tabId.startsWith("diff:")) { closeDiffTab(tabId.slice(5)); return; }
             requestCloseFile(tabId.replace(/^file:/, ""));
           }}
           onTogglePin={(tabId) => {
             if (tabId === "code-settings") { setSettingsTabPinned((pinned) => !pinned); return; }
+            if (tabId.startsWith("diff:")) return;
             togglePinnedFile(activeThreadId, tabId.replace(/^file:/, ""));
           }}
-          onTabContextMenu={(tabId, x, y) => setTabMenu({ tabId, x, y })}
+          onTabContextMenu={(tabId, x, y) => { if (!tabId.startsWith("diff:")) setTabMenu({ tabId, x, y }); }}
           selectedIds={selectedTabIds}
           onToggleSelect={(tabId) => setSelectedTabIds((current) => {
             const next = new Set(current);
@@ -2462,7 +2871,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             return next;
           })}
           onMove={(tabId, targetId, placeAfter) => {
-            if (tabId === "code-settings" || targetId === "code-settings") return;
+            if (tabId === "code-settings" || targetId === "code-settings" || tabId.startsWith("diff:") || targetId.startsWith("diff:")) return;
             moveOpenFile(activeThreadId, tabId.replace(/^file:/, ""), targetId.replace(/^file:/, ""), placeAfter);
           }}
         />
@@ -2490,7 +2899,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
               {codePreviewKind(activeDocument.path) && mode === "edit" ? (
                 <ViewModeToggle
                   modes={CODE_PREVIEW_MODES}
-                  value={previewPaths[activeDocument.path] ? "preview" : "code"}
+                  value={previewShown(activeDocument.path) ? "preview" : "code"}
                   onChange={(next) => setPreviewPaths((current) => ({ ...current, [activeDocument.path]: next === "preview" }))}
                   label="Editor view"
                 />
@@ -2521,16 +2930,33 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                 </div>
               </div>
             </div>
-            {symbols.length > 0 ? (
-              <details className="zorai-workspace-symbols">
-                <summary>Outline ({symbols.length})</summary>
-                {symbols.map((symbol) => <button type="button" key={`${symbol.line}:${symbol.column}:${symbol.name}`} onClick={() => activeDocument && void openFile(activeDocument.path, { line: symbol.line, column: symbol.column })}><span>{symbol.kind}</span><strong>{symbol.name}</strong><code>{symbol.line}</code></button>)}
-              </details>
-            ) : null}
             <div className="zorai-workspace-editor" {...editorDropProps}>
               {mode === "diff" ? (
                 <Suspense fallback={<div className="zorai-workspace-diff-grid"><pre>{activeDocument.gitBaseContent ?? activeDocument.original}</pre><pre>{activeDocument.content}</pre></div>}>
-                  <WorkspaceDiffEditor original={activeDocument.gitBaseContent ?? activeDocument.original} modified={activeDocument.content} language={activeDocument.language} />
+                  <WorkspaceDiffEditor
+                    original={activeDocument.gitBaseContent ?? activeDocument.original}
+                    modified={activeDocument.content}
+                    language={activeDocument.language}
+                    readOnly={reducedModePathsRef.current.has(activeDocument.path)}
+                    onChange={(value) => {
+                      const doc = activeDocument;
+                      if (context?.root) documentControllerRef.current.updateContent(context.root, doc.path, value);
+                      setDocuments((current) => ({ ...current, [doc.path]: { ...(current[doc.path] ?? doc), content: value, dirty: value !== doc.original } }));
+                    }}
+                    onSave={() => void saveCommandRef.current()}
+                    onStageSelection={context?.root && gitOverview?.isRepository && bridge?.workspaceGitStageContent ? (startLine, endLine) => {
+                      const root = context.root;
+                      const doc = activeDocument;
+                      void (async () => {
+                        try {
+                          const index = await bridge.workspaceGitShow!(root, doc.path, "");
+                          setGitStatus(await bridge.workspaceGitStageContent!(root, doc.path, stageSelectedLines(index, doc.content, startLine, endLine)));
+                        } catch (reason) {
+                          setError(reason instanceof Error ? reason.message : String(reason));
+                        }
+                      })();
+                    } : undefined}
+                  />
                 </Suspense>
               ) : mode === "external" ? (
                 <Suspense fallback={<div className="zorai-workspace-diff-grid"><pre>{activeDocument.content}</pre><pre>{activeDocument.externalContent}</pre></div>}>
@@ -2538,13 +2964,14 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                 </Suspense>
               ) : splitTree ? (
                 <div className="zorai-code-split__grid">{renderSplitNode(splitTree, "root", [])}</div>
-              ) : previewPaths[activeDocument.path] && codePreviewKind(activeDocument.path) ? (
-                <CodeDocumentPreview path={activeDocument.path} content={activeDocument.content} root={context?.root ?? null} />
+              ) : previewShown(activeDocument.path) ? (
+                <CodeDocumentPreview path={activeDocument.path} content={activeDocument.content} root={context?.root ?? null} onChange={(value) => updateDocumentText(activeDocument, value)} />
               ) : (
                 <Suspense fallback={<div className="zorai-workspace-editor-loading">Loading Monaco editor…</div>}>
                   {renderWorkspaceEditor(activeDocument, false)}
                 </Suspense>
               )}
+              {agentReview.bar}
               {editorDrop ? <div className={`zorai-thread-split__drop zorai-thread-split__drop--${editorDrop.zone}`} style={editorDrop.box} aria-hidden="true" /> : null}
             </div>
             {mode === "diff" && diff !== null ? <details className="zorai-workspace-raw-diff"><summary>Git patch</summary><pre>{diff || "No working-tree diff for this file."}</pre></details> : null}
@@ -2600,7 +3027,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         {bottomPanel}
         <CodeStatusBar
           getEditor={getActiveEditor}
-          documentPath={activeDocument && !previewPaths[activeDocument.path] && mode === "edit" ? activeDocument.path : null}
+          documentPath={activeDocument && !previewShown(activeDocument.path) && mode === "edit" ? activeDocument.path : null}
           language={activeDocument?.language ?? null}
           lspIndicator={lspIndicator}
           git={gitOverview?.isRepository ? { branch: gitOverview.branch, ahead: gitOverview.ahead, behind: gitOverview.behind } : null}
@@ -2636,12 +3063,37 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         <Presence value={codeOverlay === "symbols"}>{() => (
           <CodeQuickOpen {...quickOpenProps} initialQuery="@" />
         )}</Presence>
+        <Presence value={callHierarchy}>{(target) => (
+          <CodeCallHierarchyPanel {...target} onClose={() => setCallHierarchy(null)} onOpen={(path, line, column) => void openFile(path, { line, column })} />
+        )}</Presence>
+        <Presence value={codeOverlay === "workspaceSymbols"}>{() => (
+          <CodeQuickOpen {...quickOpenProps} initialQuery="#" />
+        )}</Presence>
         {unsupportedFile && context?.root ? <CodeUnsupportedFileNotice
           path={unsupportedFile}
           onOpenExternal={() => { const root = context.root; void bridge?.openFsPath?.(`${root.replace(/[\\/]$/, "")}/${unsupportedFile}`); }}
           onReveal={() => { const root = context.root; void bridge?.revealFsPath?.(`${root.replace(/[\\/]$/, "")}/${unsupportedFile}`); }}
           onDismiss={() => setUnsupportedFile(null)}
+          onOpenHex={() => { setHexFile(unsupportedFile); setUnsupportedFile(null); }}
         /> : null}
+        {missionControlOpen && context?.root && activeThreadId ? (
+          <div className="zorai-hex-overlay">
+            <WorktreeMissionControl
+              root={context.root}
+              cards={isolatedTaskWorktrees.map((worktree) => ({ worktree, review: worktreeReviews[worktree.path], lifecycle: context.isolatedWorktreeStates[worktree.path] ?? (worktreeReviews[worktree.path]?.commits.length === 0 ? "integrated" : "awaiting_review") }))}
+              mainChanged={gitStatus.map((entry) => entry.path)}
+              onOpenWorktree={(path) => { setMissionControlOpen(false); switchThreadWorktree(path); }}
+              onOpenFile={(worktreePath, file) => void openExternalFile(`${worktreePath.replace(/[\\/]+$/, "")}/${file}`)}
+              onIntegrate={(path) => void integrateIsolatedWorktree(path)}
+              onClose={() => setMissionControlOpen(false)}
+            />
+          </div>
+        ) : null}
+        {hexFile && context?.root ? (
+          <div className="zorai-hex-overlay">
+            <CodeHexViewer root={context.root} path={hexFile} onClose={() => setHexFile(null)} />
+          </div>
+        ) : null}
         {largeFileGate && context?.root ? <CodeLargeFileGate
           path={largeFileGate.path}
           sizeBytes={largeFileGate.sizeBytes}

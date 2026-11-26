@@ -1903,6 +1903,8 @@ async fn dispatch_tool_execution(
         tool_names::APPLY_FILE_PATCH => execute_apply_file_patch(args).await,
         tool_names::APPLY_PATCH => execute_apply_patch(args).await,
         tool_names::SEARCH_FILES => execute_search_files(args).await,
+        tool_names::LSP_QUERY => crate::code_intel::lsp_hub::execute_tool(args).await,
+        tool_names::SEARCH_CODEBASE => crate::code_intel::semantic_index::execute_search_codebase(args, agent).await,
         tool_names::GET_SYSTEM_INFO => execute_system_info().await,
         tool_names::GET_CURRENT_DATETIME => execute_current_datetime().await,
         tool_names::LIST_PROCESSES => execute_list_processes(args).await,

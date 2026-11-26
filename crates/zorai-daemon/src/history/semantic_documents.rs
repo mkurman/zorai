@@ -34,6 +34,82 @@ impl HistoryStore {
         validate_semantic_document_kind(source_kind)?;
         let root_path = normalized_root_path(root);
         let documents = collect_semantic_documents(source_kind, root, &root_path)?;
+        self.sync_semantic_document_inputs(
+            source_kind,
+            root_path,
+            documents,
+            embedding_model,
+            dimensions,
+        )
+        .await
+    }
+
+    pub(crate) async fn sync_code_chunks(
+        &self,
+        root: &Path,
+        chunks: Vec<(String, String, String)>,
+        embedding_model: &str,
+        dimensions: u32,
+    ) -> Result<SemanticDocumentSyncSummary> {
+        let root_path = normalized_root_path(root);
+        let now = now_ts() as i64;
+        let documents = chunks
+            .into_iter()
+            .map(|(key, title, body)| SemanticDocumentInput {
+                source_kind: "code".to_string(),
+                root_path: root_path.clone(),
+                source_id: format!("{root_path}::{key}"),
+                relative_path: key,
+                title,
+                content_hash: semantic_document_hash(&body),
+                body,
+                source_timestamp: now,
+            })
+            .collect();
+        self.sync_semantic_document_inputs(
+            "code",
+            root_path,
+            documents,
+            embedding_model,
+            dimensions,
+        )
+        .await
+    }
+
+    pub(crate) async fn code_chunks_by_source_id(
+        &self,
+        source_ids: &[String],
+    ) -> Result<Vec<(String, String, String, String)>> {
+        let mut found = Vec::new();
+        for source_id in source_ids {
+            let rows = self
+                .read_db
+                .query(
+                    "SELECT source_id, relative_path, title, body FROM semantic_documents
+                     WHERE source_kind = 'code' AND source_id = ?1 AND deleted_at IS NULL",
+                    db::db_params![source_id.clone()],
+                )
+                .await?;
+            for row in rows {
+                found.push((
+                    row.get::<String>(0)?,
+                    row.get::<String>(1)?,
+                    row.get::<String>(2)?,
+                    row.get::<String>(3)?,
+                ));
+            }
+        }
+        Ok(found)
+    }
+
+    async fn sync_semantic_document_inputs(
+        &self,
+        source_kind: &str,
+        root_path: String,
+        documents: Vec<SemanticDocumentInput>,
+        embedding_model: &str,
+        dimensions: u32,
+    ) -> Result<SemanticDocumentSyncSummary> {
         let source_kind = source_kind.to_string();
         let embedding_model = embedding_model.trim().to_string();
         let dimensions = dimensions as i64;
@@ -147,7 +223,7 @@ struct SemanticDocumentState {
 
 fn validate_semantic_document_kind(source_kind: &str) -> Result<()> {
     match source_kind {
-        "skill" | "guideline" => Ok(()),
+        "skill" | "guideline" | "code" => Ok(()),
         other => anyhow::bail!("unsupported semantic document kind '{other}'"),
     }
 }

@@ -49,6 +49,7 @@ export function CodeSettingsView({ tab: controlledTab, onTabChange }: { tab?: Co
       <ToggleSetting label="Format on paste" checked={settings.formatOnPaste} onChange={(value) => set("formatOnPaste", value)} />
       <ToggleSetting label="Format on type" checked={settings.formatOnType} onChange={(value) => set("formatOnType", value)} />
       <ToggleSetting label="Format on save" checked={settings.formatOnSave} onChange={(value) => set("formatOnSave", value)} />
+      <SelectSetting label="Keymap" value={settings.keymap} options={["default", "vim", "emacs"]} onChange={(value) => set("keymap", value as CodeEditorSettings["keymap"])} />
     </SettingSection> : null}
     {tab === "files" ? <SettingSection title="Files and Auto Save" description="Dirty files always use Save / Don't Save / Cancel when closed.">
       <SelectSetting label="Auto save" value={settings.autoSave} options={["off", "after_delay", "editor_focus_lost", "code_window_focus_lost"]} onChange={(value) => set("autoSave", value as CodeEditorSettings["autoSave"])} />
@@ -67,6 +68,8 @@ export function CodeSettingsView({ tab: controlledTab, onTabChange }: { tab?: Co
     {tab === "appearance" ? <SettingSection title="Appearance" description="Apply display changes immediately to the active Monaco editor.">
       <ToggleSetting label="Minimap" checked={settings.minimap} onChange={(value) => set("minimap", value)} />
       <ToggleSetting label="Sticky scroll" checked={settings.stickyScroll} onChange={(value) => set("stickyScroll", value)} />
+      <ToggleSetting label="Inline Git blame" checked={settings.inlineBlame} onChange={(value) => set("inlineBlame", value)} />
+      <ToggleSetting label="AI provenance gutter (agent-written lines)" checked={settings.provenanceGutter} onChange={(value) => set("provenanceGutter", value)} />
       <ToggleSetting label="Bracket guides" checked={settings.bracketGuides} onChange={(value) => set("bracketGuides", value)} />
       <ToggleSetting label="Glyph margin" checked={settings.glyphMargin} onChange={(value) => set("glyphMargin", value)} />
       <ToggleSetting label="Smooth scrolling" checked={settings.smoothScrolling} onChange={(value) => set("smoothScrolling", value)} />
@@ -81,6 +84,8 @@ export function CodeSettingsView({ tab: controlledTab, onTabChange }: { tab?: Co
       <ToggleSetting label="Language server support" checked={settings.lspEnabled} onChange={(value) => set("lspEnabled", value)} />
       <NumberSetting label="Diagnostics delay (ms)" value={settings.diagnosticsDelayMs} min={0} max={5000} onChange={(value) => set("diagnosticsDelayMs", value)} />
       <ToggleSetting label="Semantic highlighting" checked={settings.semanticHighlighting} onChange={(value) => set("semanticHighlighting", value)} />
+      <ToggleSetting label="CodeLens (reference counts; can be slow on large projects)" checked={settings.lspCodeLens} onChange={(value) => set("lspCodeLens", value)} />
+      <SelectSetting label="Inlay hints" value={settings.inlayHints} options={["on", "off", "offUnlessPressed"]} onChange={(value) => set("inlayHints", value as CodeEditorSettings["inlayHints"])} />
     </SettingSection> : null}
     {tab === "language-servers" ? <LanguageServerSettings /> : null}
     <AppConfirmDialog

@@ -212,6 +212,7 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
                 instruction: String(request?.instruction ?? ''),
                 request_id: String(request?.requestId ?? ''),
                 reasoning: typeof request?.reasoning === 'boolean' ? request.reasoning : null,
+                images: Array.isArray(request?.images) ? request.images.filter((image) => typeof image === 'string' && image.startsWith('data:image/')).slice(0, 4) : [],
             }, 'code-fix', 180000);
         } catch (err) {
             return { replacement: '', error: err?.message || String(err) };
@@ -227,6 +228,8 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
                 language: String(request?.language ?? ''),
                 prefix: String(request?.prefix ?? ''),
                 suffix: String(request?.suffix ?? ''),
+                kind: String(request?.kind ?? ''),
+                recent_edits: Array.isArray(request?.recentEdits) ? request.recentEdits.map(String) : [],
             }, 'code-completion', 20000, {
                 concurrencyKey: `code-completion/${requestId}`,
                 matchEvent: (event) => event?.data?.request_id === requestId,
@@ -234,6 +237,44 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
             return { completion: String(data?.completion ?? ''), error: data?.error ?? null };
         } catch (err) {
             return { completion: '', error: err?.message || String(err) };
+        }
+    });
+    ipcMain.handle('agent-code-index', async (_event, action, root, query, limit, options) => {
+        try {
+            return await sendAgentQuery({
+                type: 'code-index',
+                action: String(action ?? ''),
+                root: String(root ?? ''),
+                query: String(query ?? ''),
+                limit: Number.isFinite(Number(limit)) ? Number(limit) : null,
+                options_json: options && typeof options === 'object' ? JSON.stringify(options) : null,
+            }, 'code-index', action === 'sync' || action === 'verify' ? 1200000 : 60000);
+        } catch (err) {
+            return { action, result: null, error: err?.message || String(err) };
+        }
+    });
+    ipcMain.handle('agent-code-symbols', async (_event, root, path, content) => {
+        try {
+            return await sendAgentQuery({
+                type: 'code-symbols',
+                root: String(root ?? ''),
+                path: String(path ?? ''),
+                content: typeof content === 'string' ? content : null,
+            }, 'code-symbols', 10000);
+        } catch {
+            return null;
+        }
+    });
+    ipcMain.handle('agent-list-project-rules', async (_event, root, targets) => {
+        try {
+            const rules = await sendAgentQuery({
+                type: 'list-project-rules',
+                root: String(root ?? ''),
+                targets: Array.isArray(targets) ? targets.map(String) : [],
+            }, 'project-rules', 10000);
+            return Array.isArray(rules) ? rules : [];
+        } catch {
+            return [];
         }
     });
     ipcMain.handle('agent-list-ui-colors', async () => {

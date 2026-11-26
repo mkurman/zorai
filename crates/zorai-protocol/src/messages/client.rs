@@ -346,6 +346,9 @@ pub enum ClientMessage {
     AgentSetUiColor { kind: String, key: String, color: Option<String> },
     AgentGetMemoryFiles { agent_id: String },
     AgentSaveMemoryFile { agent_id: String, target: String, content: String },
-    AgentGenerateCodeFix { path: String, language: String, before: String, target: String, after: String, #[serde(default)] diagnostics: Vec<String>, #[serde(default)] instruction: String, #[serde(default)] request_id: String, #[serde(default)] reasoning: Option<bool> },
-    AgentCodeComplete { request_id: String, path: String, language: String, prefix: String, suffix: String },
+    AgentGenerateCodeFix { path: String, language: String, before: String, target: String, after: String, #[serde(default)] diagnostics: Vec<String>, #[serde(default)] instruction: String, #[serde(default)] request_id: String, #[serde(default)] reasoning: Option<bool>, #[serde(default)] images: Vec<String> },
+    AgentCodeComplete { request_id: String, path: String, language: String, prefix: String, suffix: String, #[serde(default)] kind: String, #[serde(default)] recent_edits: Vec<String> },
+    AgentListProjectRules { root: String, #[serde(default)] targets: Vec<String> },
+    AgentCodeSymbols { root: String, path: String, #[serde(default)] content: Option<String> },
+    AgentCodeIndex { action: String, root: String, #[serde(default)] query: String, #[serde(default)] limit: Option<usize>, #[serde(default)] options_json: Option<String> },
 }

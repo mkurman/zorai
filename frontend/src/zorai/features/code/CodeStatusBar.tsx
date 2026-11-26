@@ -4,6 +4,7 @@ import { monaco } from "@/lib/monacoEnvironment";
 import { CodeContextMenu, type CodeToolbarMenuItem } from "./CodeToolbarMenu";
 import { describeEditorStatus, type CodeEditorStatus } from "./codeStatusModel";
 import { saveInlineCompletionsEnabled, setInlineCompletionsEnabled, useInlineCompletionsEnabled } from "./codeInlineCompletions";
+import { useKeymapStatusStore } from "./codeKeymapMode";
 
 type Menu = { x: number; y: number; label: string; items: CodeToolbarMenuItem[] };
 
@@ -84,6 +85,7 @@ export function CodeStatusBar({ getEditor, documentPath, language, lspIndicator,
     .sort((a, b) => a.label.localeCompare(b.label))
     .map((entry) => ({ key: entry.id, label: entry.label, checked: entry.id === language, onSelect: () => onChangeLanguage(entry.id) }));
 
+  const keymapLabel = useKeymapStatusStore((state) => state.label);
   return (
     <div className="zorai-workspace-statusbar">
       <span className="zorai-code-statusbar-toggles">
@@ -104,6 +106,7 @@ export function CodeStatusBar({ getEditor, documentPath, language, lspIndicator,
       </span>
       {documentPath ? (
         <span className="zorai-code-statusbar-editor">
+          {keymapLabel ? <span className="zorai-code-statusbar-keymap" title="Keymap mode (Code Settings → Editor → Keymap)">{keymapLabel}</span> : null}
           {status ? (
             <>
               <button type="button" title="Go to Line (Ctrl+G)" onClick={withEditor((editor) => void editor.getAction("editor.action.gotoLine")?.run())}>

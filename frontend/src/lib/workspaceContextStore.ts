@@ -21,7 +21,11 @@ export type ThreadWorkspaceContext = {
   isolateAgentTasks: boolean;
   isolatedWorktreeStates: Record<string, "awaiting_review" | "retained" | "integrated" | "rejected">;
   pinnedFiles: string[];
+  mode?: ComposerMode;
+  extraRoots?: string[];
 };
+
+export type ComposerMode = "ask" | "plan" | "agent";
 
 type WorkspaceContextState = {
   hydrated: boolean;
@@ -37,6 +41,8 @@ type WorkspaceContextState = {
   togglePinnedFile: (threadId: string, filePath: string) => void;
   moveOpenFile: (threadId: string, filePath: string, targetPath: string, placeAfter: boolean) => void;
   setIsolateAgentTasks: (threadId: string, enabled: boolean) => void;
+  setComposerMode: (threadId: string, mode: ComposerMode) => void;
+  setExtraRoots: (threadId: string, roots: string[]) => void;
   setIsolatedWorktreeState: (threadId: string, worktreePath: string, state: "awaiting_review" | "retained" | "integrated" | "rejected") => void;
 };
 
@@ -55,6 +61,7 @@ export function toDaemonWorkspaceContext(context: ThreadWorkspaceContext) {
     updated_at: context.updatedAt,
     isolate_agent_tasks: context.isolateAgentTasks,
     isolated_worktree_states: context.isolatedWorktreeStates,
+    mode: context.mode ?? "agent",
   };
 }
 
@@ -168,13 +175,15 @@ export const useWorkspaceContextStore = create<WorkspaceContextState>((set, get)
           isolateAgentTasks: true,
           isolatedWorktreeStates: {},
           pinnedFiles: [],
+          mode: previous?.mode,
         },
     };
     persist(byThreadId);
     return { byThreadId };
   }),
   adoptRoot: (threadId, root) => set((state) => {
-    if (state.byThreadId[threadId]) return state;
+    const existing = state.byThreadId[threadId];
+    if (existing?.root) return state;
     const template = Object.values(state.byThreadId)
       .filter((context) => context.root === root)
       .sort((left, right) => right.updatedAt - left.updatedAt)[0];
@@ -190,6 +199,7 @@ export const useWorkspaceContextStore = create<WorkspaceContextState>((set, get)
         isolateAgentTasks: template?.isolateAgentTasks ?? true,
         isolatedWorktreeStates: {},
         pinnedFiles: template?.pinnedFiles ?? [],
+        mode: existing?.mode,
       },
     };
     persist(byThreadId);
@@ -236,6 +246,27 @@ export const useWorkspaceContextStore = create<WorkspaceContextState>((set, get)
   setIsolatedWorktreeState: (threadId, worktreePath, lifecycle) => set((state) => updateContext(state, threadId, (current) => ({
     ...current,
     isolatedWorktreeStates: { ...current.isolatedWorktreeStates, [worktreePath]: lifecycle },
+    updatedAt: Date.now(),
+  }))),
+  setComposerMode: (threadId, mode) => set((state) => {
+    const current = state.byThreadId[threadId] ?? {
+      root: "",
+      activeFile: null,
+      selection: null,
+      attachedFiles: [],
+      openFiles: [],
+      updatedAt: 0,
+      isolateAgentTasks: false,
+      isolatedWorktreeStates: {},
+      pinnedFiles: [],
+    };
+    const byThreadId = { ...state.byThreadId, [threadId]: { ...current, mode, updatedAt: Date.now() } };
+    persist(byThreadId);
+    return { byThreadId };
+  }),
+  setExtraRoots: (threadId, roots) => set((state) => updateContext(state, threadId, (current) => ({
+    ...current,
+    extraRoots: [...new Set(roots.filter((root) => root && root !== current.root))],
     updatedAt: Date.now(),
   }))),
   setIsolateAgentTasks: (threadId, enabled) => set((state) => updateContext(state, threadId, (current) => ({

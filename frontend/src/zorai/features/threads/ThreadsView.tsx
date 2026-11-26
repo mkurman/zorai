@@ -68,6 +68,8 @@ import { quoteForComposer, threadHeaderMenuItems, wantsNativeContextMenu } from 
 import { readComposerDraftInput, writeComposerDraftInput } from "./composerDraftStore";
 import { splitMessageAttachments } from "./messageAttachments";
 import { messagesFromRewindPoint, rewindIsUndoable, useThreadRewindStore } from "./threadRewind";
+import { loadCheckpointPlan, restoreCheckpoint, toMillis } from "./threadCheckpoint";
+import { pushToast } from "@/lib/toastStore";
 import { splitCandidateFor } from "./openThreadTarget";
 
 export { ThreadsRail } from "./ThreadsRail";
@@ -329,6 +331,7 @@ export function ThreadsView({
 
   const activeTint = useTintStore((state) => (runtime.activeThread ? threadTint(state.threads, runtime.activeThread) : undefined));
   const rewind = useThreadRewindStore((state) => state.rewind);
+  const [checkpointMenu, setCheckpointMenu] = useState<{ messageId: string; x: number; y: number } | null>(null);
 
   if (showConversationSkeleton && !runtime.activeThread) {
     return <ThreadConversationSkeleton />;
@@ -397,12 +400,7 @@ export function ThreadsView({
     writeComposerDraftInput(rewind.draftBefore);
     useThreadRewindStore.getState().setRewind(null);
   };
-  messageActionsRef.current = {
-    speak: (message) => { void speech.speakMessage(message); },
-    feedback: (threadId, messageId, reaction) => runtime.submitMessageFeedback(activeThreadIdForActions ?? threadId, messageId, reaction),
-    regenerate: regenerateAssistantMessage,
-    fork: (messageId) => runtime.forkThread(messageId),
-    rewind: (messageId) => {
+  const rewindConversation = (messageId: string) => {
       if (!activeThreadIdForActions || runtime.isStreamingResponse) return;
       const removed = messagesFromRewindPoint(runtime.messages, messageId);
       const first = removed[0];
@@ -416,6 +414,33 @@ export function ThreadsView({
       runtime.rewindMessages(activeThreadIdForActions, removed.map((message) => message.id));
       if (first.role === "user") writeComposerDraftInput(splitMessageAttachments(first.content, first.contentBlocks).displayText);
       runtime.inputRef.current?.focus();
+      };
+  const restoreCodeCheckpoint = async (messageId: string, alsoConversation: boolean) => {
+    const daemonThreadId = runtime.activeThread?.daemonThreadId;
+    const message = runtime.messages.find((entry) => entry.id === messageId);
+    if (!daemonThreadId || !message) return;
+    const steps = await loadCheckpointPlan(daemonThreadId, toMillis(message.createdAt)).catch(() => []);
+    if (steps.length === 0) {
+      pushToast("The agent changed no files after this message, so there is no code to restore.", "info");
+      if (alsoConversation) rewindConversation(messageId);
+      return;
+    }
+    const preview = steps.slice(0, 15).map((step) => `• ${step.path}`).join("\n") + (steps.length > 15 ? `\n… and ${steps.length - 15} more` : "");
+    if (!window.confirm(`Restore ${steps.length} file(s) to how they were before this message?\nFiles the agent created will be deleted. Your own later edits to these files are lost.\n\n${preview}`)) return;
+    const { restored, failed } = await restoreCheckpoint(steps);
+    if (failed.length > 0) pushToast(`Restored ${restored.length} file(s); could not restore ${failed.join(", ")}.`, "error");
+    else pushToast(`Restored ${restored.length} file(s) to this checkpoint.`, "success");
+    if (alsoConversation) rewindConversation(messageId);
+  };
+  messageActionsRef.current = {
+    speak: (message) => { void speech.speakMessage(message); },
+    feedback: (threadId, messageId, reaction) => runtime.submitMessageFeedback(activeThreadIdForActions ?? threadId, messageId, reaction),
+    regenerate: regenerateAssistantMessage,
+    fork: (messageId) => runtime.forkThread(messageId),
+    rewind: (messageId, anchor) => {
+      if (!activeThreadIdForActions || runtime.isStreamingResponse) return;
+      if (anchor && runtime.activeThread?.daemonThreadId) setCheckpointMenu({ messageId, ...anchor });
+      else rewindConversation(messageId);
     },
     deleteMessage: (threadId, messageId) => runtime.deleteMessage(activeThreadIdForActions ?? threadId, messageId),
     retry: retryLastMessage,
@@ -482,6 +507,19 @@ export function ThreadsView({
           setHeaderMenu({ x: event.clientX, y: event.clientY });
         }}
       />
+      {checkpointMenu ? (
+        <CodeContextMenu
+          x={checkpointMenu.x}
+          y={checkpointMenu.y}
+          label="Rewind or restore checkpoint"
+          onClose={() => setCheckpointMenu(null)}
+          items={[
+            { key: "conversation", label: "Rewind conversation to here", onSelect: () => rewindConversation(checkpointMenu.messageId) },
+            { key: "code", label: "Restore code to before this message…", onSelect: () => void restoreCodeCheckpoint(checkpointMenu.messageId, false) },
+            { key: "both", label: "Rewind conversation and restore code…", onSelect: () => void restoreCodeCheckpoint(checkpointMenu.messageId, true) },
+          ]}
+        />
+      ) : null}
       {headerMenu ? <CodeContextMenu x={headerMenu.x} y={headerMenu.y} label={`Actions for ${activeThread.title}`} onClose={closeHeaderMenu} items={headerMenuItems()} /> : null}
       {variant === "full" ? <ParticipantStrip thread={runtime.activeThread} onOpen={() => useThreadPanelStore.getState().toggle("participants")} /> : null}
 

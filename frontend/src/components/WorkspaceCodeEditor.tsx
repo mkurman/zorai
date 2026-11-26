@@ -4,6 +4,14 @@ import { getBridge } from "@/lib/bridge";
 import { RarogFixPrompt } from "@/zorai/features/code/RarogFixPrompt";
 import { createInlineDiffSession, streamingPreviewText, type InlineDiffSession } from "@/zorai/features/code/codeInlineEdit";
 import { registerInlineCompletions, setInlineCompletionsEnabled } from "@/zorai/features/code/codeInlineCompletions";
+import { attachNextEditPrediction } from "@/zorai/features/code/codeNextEdit";
+import { attachGitGutter, type GitGutterOptions } from "@/zorai/features/code/codeGitGutter";
+import { attachMergeConflicts } from "@/zorai/features/code/codeMergeConflicts";
+import { attachGitBlame, type GitBlameOptions } from "@/zorai/features/code/codeGitBlame";
+import { attachDebugDecorations } from "@/zorai/features/code/debug/codeDebugDecorations";
+import { attachProvenanceGutter, type ProvenanceOptions } from "@/zorai/features/code/codeProvenanceGutter";
+import { attachKeymapMode } from "@/zorai/features/code/codeKeymapMode";
+import { loadWorkspaceSnippets, registerSnippetCompletions } from "@/zorai/features/code/codeSnippets";
 import { applyMonacoGuiTheme, readGuiMonoFontFamily, resolveMonacoFontFamily, subscribeMonacoGuiTheme, ZORAI_MONACO_THEME } from "@/lib/monacoGuiTheme";
 import { monaco } from "@/lib/monacoEnvironment";
 import { BUILT_IN_SERVICE_BY_LANGUAGE, suppressBuiltInLanguageService } from "@/lib/monacoBuiltInSuppression";
@@ -11,10 +19,10 @@ import type { OnMount } from "@monaco-editor/react";
 import { useCodeEditorSettingsStore, type CodeEditorSettings } from "@/zorai/features/code/codeEditorSettingsStore";
 import { formatCodeText, prettierParserForLanguage } from "@/zorai/features/code/codeFormatter";
 import { monacoModelPath } from "@/zorai/features/code/codeLanguages";
-import type { languages as MonacoLanguagesApi } from "monaco-editor";
 import { registerCodeEditorActions } from "@/zorai/features/code/codeEditorActions";
 import { cssClassAtPosition, cssClassSelectorPattern } from "@/zorai/features/code/codeCssNavigation";
-import { lspUriToRelativePath, lspWorkspaceEditFiles, type LspFileEdits, type LspRange } from "@/zorai/features/code/codeLspEdits";
+import type { LspEditStep, LspFileEdits } from "@/zorai/features/code/codeLspEdits";
+import { registerLspProviders } from "@/zorai/features/code/lspProviders";
 
 const MonacoEditor = lazy(() => import("@monaco-editor/react").then((module) => ({ default: module.default })));
 const MonacoDiffEditor = lazy(() => import("@monaco-editor/react").then((module) => ({ default: module.DiffEditor })));
@@ -63,11 +71,17 @@ export function WorkspaceCodeEditor({
   onSave,
   onBlur,
   onFormatError,
+  resolveFormatOptions,
+  gitGutter,
+  gitRevision,
+  gitBlame,
+  provenance,
   diagnostics = [],
   testResults = [],
   lsp,
   onNavigateLocation,
   onApplyWorkspaceEdit,
+  onApplyWorkspaceSteps,
   onAddToChat,
   onCodeFixError,
   onClose,
@@ -75,6 +89,7 @@ export function WorkspaceCodeEditor({
   onMount,
   textareaRef,
   settings,
+  agentReview,
 }: FallbackEditorProps & {
   language: string;
   diagnostics?: ZoraiLspDiagnostic[];
@@ -82,6 +97,7 @@ export function WorkspaceCodeEditor({
   lsp?: { root: string; path: string; language: string; available: boolean };
   onNavigateLocation?: (path: string, line: number, column: number) => void;
   onApplyWorkspaceEdit?: (files: LspFileEdits[], skipped: number) => void;
+  onApplyWorkspaceSteps?: (steps: LspEditStep[], skipped: number) => void;
   onAddToChat?: (snippet: { startLine: number; endLine: number; text: string } | null) => void;
   onCodeFixError?: (message: string) => void;
   onClose?: () => void;
@@ -89,7 +105,13 @@ export function WorkspaceCodeEditor({
   onMount?: OnMount;
   onBlur?: () => void;
   onFormatError?: (message: string) => void;
+  resolveFormatOptions?: () => Promise<Record<string, string | number | boolean>>;
+  gitGutter?: GitGutterOptions | null;
+  gitBlame?: GitBlameOptions | null;
+  provenance?: ProvenanceOptions | null;
+  gitRevision?: unknown;
   settings: CodeEditorSettings;
+  agentReview?: { key: string; before: string; onSettled: () => void; onEdit: () => void } | null;
 }) {
   useMonacoGuiTheme();
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
@@ -97,8 +119,27 @@ export function WorkspaceCodeEditor({
   const providerDisposablesRef = useRef<Array<{ dispose: () => void }>>([]);
   const actionDisposablesRef = useRef<Array<{ dispose: () => void }>>([]);
   const [mountedEditor, setMountedEditor] = useState<Parameters<OnMount>[0] | null>(null);
-  const lspCallbacksRef = useRef({ onNavigateLocation, onApplyWorkspaceEdit, onAddToChat, onCodeFixError, onClose, path, language, workspaceRoot });
-  lspCallbacksRef.current = { onNavigateLocation, onApplyWorkspaceEdit, onAddToChat, onCodeFixError, onClose, path, language, workspaceRoot };
+  const lspCallbacksRef = useRef({ onNavigateLocation, onApplyWorkspaceEdit, onApplyWorkspaceSteps, onAddToChat, onCodeFixError, onClose, onSave, onBlur, path, language, workspaceRoot, resolveFormatOptions, codeLens: settings.lspCodeLens });
+  lspCallbacksRef.current = { onNavigateLocation, onApplyWorkspaceEdit, onApplyWorkspaceSteps, onAddToChat, onCodeFixError, onClose, onSave, onBlur, path, language, workspaceRoot, resolveFormatOptions, codeLens: settings.lspCodeLens };
+  const gitGutterRef = useRef(gitGutter);
+  gitGutterRef.current = gitGutter;
+  const gitGutterRefreshRef = useRef<(() => void) | null>(null);
+  const hasGitGutter = Boolean(gitGutter);
+  useEffect(() => { gitGutterRefreshRef.current?.(); }, [gitRevision, path, hasGitGutter]);
+  const keymapRef = useRef(settings.keymap);
+  keymapRef.current = settings.keymap;
+  const keymapRefreshRef = useRef<(() => void) | null>(null);
+  useEffect(() => { keymapRefreshRef.current?.(); }, [settings.keymap]);
+  const provenanceRef = useRef(provenance);
+  provenanceRef.current = provenance;
+  const provenanceRefreshRef = useRef<(() => void) | null>(null);
+  const provenanceEnabled = Boolean(provenance?.enabled);
+  useEffect(() => { provenanceRefreshRef.current?.(); }, [gitRevision, path, provenanceEnabled]);
+  const gitBlameRef = useRef(gitBlame);
+  gitBlameRef.current = gitBlame;
+  const gitBlameRefreshRef = useRef<(() => void) | null>(null);
+  const blameEnabled = Boolean(gitBlame?.enabled);
+  useEffect(() => { gitBlameRefreshRef.current?.(); }, [gitRevision, path, blameEnabled]);
   const [fixPrompt, setFixPrompt] = useState<{ id: number; startLine: number; endLine: number; diagnostics: number; busy: boolean; error: string | null; reviewing?: boolean; thinking?: string } | null>(null);
   const inlineDiffRef = useRef<InlineDiffSession | null>(null);
   const [fixPromptHost, setFixPromptHost] = useState<HTMLElement | null>(null);
@@ -153,6 +194,26 @@ export function WorkspaceCodeEditor({
     inlineDiffRef.current = null;
     setFixPrompt(null);
   }, [path]);
+  const agentReviewCallbacksRef = useRef(agentReview);
+  agentReviewCallbacksRef.current = agentReview;
+  const agentReviewKey = agentReview?.key ?? null;
+  const agentReviewBefore = agentReview?.before ?? null;
+  useEffect(() => {
+    const editor = mountedEditor;
+    const monaco = monacoRef.current;
+    const model = editor?.getModel();
+    if (!editor || !monaco || !model || agentReviewKey === null || agentReviewBefore === null) return;
+    const session = createInlineDiffSession(editor, monaco, 1, agentReviewBefore, () => agentReviewCallbacksRef.current?.onSettled(), {
+      review: true,
+      onEdit: () => agentReviewCallbacksRef.current?.onEdit(),
+    });
+    if (session.review() === 0) {
+      session.accept();
+      agentReviewCallbacksRef.current?.onSettled();
+      return;
+    }
+    return () => { session.accept(); };
+  }, [mountedEditor, agentReviewKey, agentReviewBefore]);
   const closeFixPrompt = () => {
     fixRequestRef.current += 1;
     inlineDiffRef.current?.reject();
@@ -172,7 +233,7 @@ export function WorkspaceCodeEditor({
     if (model) editor.setSelection(new monaco.Range(startLine, 1, endLine, model.getLineMaxColumn(endLine)));
     editor.focus();
   };
-  const runRarogFix = async (instruction: string, reasoning = true) => {
+  const runRarogFix = async (instruction: string, reasoning = true, images: string[] = []) => {
     const editor = mountedEditor;
     const monaco = monacoRef.current;
     const model = editor?.getModel();
@@ -240,6 +301,7 @@ export function WorkspaceCodeEditor({
         diagnostics,
         instruction,
         reasoning,
+        images,
       });
       if (request !== fixRequestRef.current) return;
       cancelAnimationFrame(frame);
@@ -389,161 +451,14 @@ export function WorkspaceCodeEditor({
     if (!editor || !monaco) return;
       providerDisposablesRef.current.forEach((disposable) => disposable.dispose());
       providerDisposablesRef.current = [];
-      const bridge = getBridge();
-      if (lsp?.available && bridge?.workspaceLspRequest) {
-        const request = (method: "hover" | "definition" | "references" | "completion" | "rename" | "codeAction" | "formatting" | "documentSymbol", position: { lineNumber: number; column: number }, extra?: Record<string, unknown>) => bridge.workspaceLspRequest!(
-          lsp.root,
-          lsp.path,
-          lsp.language,
-          method,
-          { line: position.lineNumber - 1, character: position.column - 1 },
-          extra,
-        );
-        providerDisposablesRef.current.push(monaco.languages.registerHoverProvider(language, {
-          provideHover: async (model, position) => {
-            if (model.uri.toString() !== editor.getModel()?.uri.toString()) return null;
-            const response = await request("hover", position).catch(() => null);
-            const hover = response?.result as any;
-            if (!hover?.contents) return null;
-            return {
-              contents: (Array.isArray(hover.contents) ? hover.contents : [hover.contents]).map((content: any) => ({
-                value: typeof content === "string" ? content : content.value ?? String(content),
-              })),
-            };
-          },
-        }));
-        const locations = (result: any): any[] => result ? (Array.isArray(result) ? result : [result]) : [];
-        const ensureWorkspaceModel = (relativePath: string) => ensureWorkspaceMonacoModel(monaco, lsp.root, relativePath);
-        const convertLocation = async (location: any): Promise<MonacoLanguagesApi.Location | null> => {
-          const uri = location?.targetUri ?? location?.uri;
-          const range = location?.targetSelectionRange ?? location?.targetRange ?? location?.range;
-          if (typeof uri !== "string" || !range) return null;
-          const relativePath = lspUriToRelativePath(uri, lsp.root);
-          if (!relativePath) return null;
-          const target = relativePath === lsp.path ? editor.getModel()?.uri : await ensureWorkspaceModel(relativePath);
-          return target ? { uri: target, range: new monaco.Range(range.start.line + 1, range.start.character + 1, range.end.line + 1, range.end.character + 1) } : null;
-        };
-        const convertLocations = async (result: unknown) => (await Promise.all(locations(result).map(convertLocation))).filter((location): location is MonacoLanguagesApi.Location => location !== null);
-        providerDisposablesRef.current.push(monaco.languages.registerDefinitionProvider(language, {
-          provideDefinition: async (model, position) => model.uri.toString() === editor.getModel()?.uri.toString()
-            ? convertLocations((await request("definition", position).catch(() => null))?.result)
-            : null,
-        }));
-        providerDisposablesRef.current.push(monaco.languages.registerReferenceProvider(language, {
-          provideReferences: async (model, position) => model.uri.toString() === editor.getModel()?.uri.toString()
-            ? convertLocations((await request("references", position).catch(() => null))?.result)
-            : null,
-        }));
-        providerDisposablesRef.current.push(monaco.editor.registerLinkOpener({
-          open: (resource) => {
-            if (resource.scheme !== "file") return false;
-            const target = lspUriToRelativePath(resource.with({ fragment: "" }).toString(), lsp.root);
-            if (!target) return false;
-            const match = /L(\d+)(?:[,:C](\d+))?/.exec(resource.fragment);
-            lspCallbacksRef.current.onNavigateLocation?.(target, match ? Number(match[1]) : 1, match?.[2] ? Number(match[2]) : 1);
-            return true;
-          },
-        }));
-        providerDisposablesRef.current.push(monaco.languages.registerCompletionItemProvider(language, {
-          triggerCharacters: ['.', ':'],
-          provideCompletionItems: async (model, position) => {
-            if (model.uri.toString() !== editor.getModel()?.uri.toString()) return { suggestions: [] };
-            const response = await request("completion", position).catch(() => null);
-            const raw: any = response?.result;
-            const items: any[] = Array.isArray(raw) ? raw : Array.isArray(raw?.items) ? raw.items : [];
-            const word = model.getWordUntilPosition(position);
-            const range = new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn);
-            return {
-              suggestions: items.slice(0, 500).map((item) => ({
-                label: typeof item.label === "string" ? item.label : item.label?.label ?? "completion",
-                kind: Math.max(0, Math.min(27, Number(item.kind) || 1)),
-                detail: item.detail,
-                documentation: typeof item.documentation === "string" ? item.documentation : item.documentation?.value,
-                insertText: typeof item.insertText === "string" ? item.insertText : typeof item.textEdit?.newText === "string" ? item.textEdit.newText : typeof item.label === "string" ? item.label : item.label?.label ?? "",
-                range,
-              })),
-            };
-          },
-        }));
-        const isEditorModel = (model: { uri: { toString: () => string } }) => model.uri.toString() === editor.getModel()?.uri.toString();
-        const toMonacoRange = (range: LspRange) => new monaco.Range(range.start.line + 1, range.start.character + 1, range.end.line + 1, range.end.character + 1);
-        const ownEdits = (edit: unknown) => {
-          const { files, skipped } = lspWorkspaceEditFiles(edit, lsp.root);
-          const others = files.filter((file) => file.path !== lsp.path);
-          if (others.length > 0 || skipped > 0) lspCallbacksRef.current.onApplyWorkspaceEdit?.(others, skipped);
-          return files.find((file) => file.path === lsp.path)?.edits ?? [];
-        };
-        providerDisposablesRef.current.push(monaco.languages.registerRenameProvider(language, {
-          provideRenameEdits: async (model, position, newName) => {
-            if (!isEditorModel(model)) return { edits: [] };
-            const response = await request("rename", position, { newName }).catch((reason) => ({ result: null, reason: reason instanceof Error ? reason.message : String(reason) }));
-            if (!response?.result) return { edits: [], rejectReason: response?.reason ?? "The language server cannot rename this symbol." };
-            return { edits: ownEdits(response.result).map((edit) => ({ resource: model.uri, textEdit: { range: toMonacoRange(edit.range), text: edit.newText }, versionId: model.getVersionId() })) };
-          },
-        }));
-        const applyEditCommand = `zorai.lsp.applyEdit.${editor.getId()}`;
-        providerDisposablesRef.current.push(monaco.editor.registerCommand(applyEditCommand, (_accessor, edit: unknown) => {
-          const edits = ownEdits(edit);
-          if (edits.length === 0) return;
-          editor.pushUndoStop();
-          editor.executeEdits("lsp.codeAction", edits.map((textEdit) => ({ range: toMonacoRange(textEdit.range), text: textEdit.newText, forceMoveMarkers: true })));
-          editor.pushUndoStop();
-        }));
-        const lspSeverity = (severity: number) => severity === monaco.MarkerSeverity.Error ? 1 : severity === monaco.MarkerSeverity.Warning ? 2 : severity === monaco.MarkerSeverity.Info ? 3 : 4;
-        providerDisposablesRef.current.push(monaco.languages.registerCodeActionProvider(language, {
-          provideCodeActions: async (model, range, context) => {
-            if (!isEditorModel(model)) return { actions: [], dispose: () => {} };
-            const diagnostics = context.markers.map((marker) => ({
-              range: { start: { line: marker.startLineNumber - 1, character: marker.startColumn - 1 }, end: { line: marker.endLineNumber - 1, character: marker.endColumn - 1 } },
-              message: marker.message,
-              severity: lspSeverity(marker.severity),
-              source: marker.source,
-              code: typeof marker.code === "string" ? marker.code : marker.code?.value,
-            }));
-            const response = await request("codeAction", { lineNumber: range.startLineNumber, column: range.startColumn }, {
-              range: { start: { line: range.startLineNumber - 1, character: range.startColumn - 1 }, end: { line: range.endLineNumber - 1, character: range.endColumn - 1 } },
-              diagnostics,
-            }).catch(() => null);
-            const items: any[] = Array.isArray(response?.result) ? response.result : [];
-            return {
-              actions: items.filter((item) => typeof item?.title === "string" && item.edit).map((item) => ({
-                title: item.title,
-                kind: typeof item.kind === "string" ? item.kind : undefined,
-                isPreferred: item.isPreferred === true,
-                command: { id: applyEditCommand, title: item.title, arguments: [item.edit] },
-              })),
-              dispose: () => {},
-            };
-          },
-        }));
-        providerDisposablesRef.current.push(monaco.languages.registerDocumentFormattingEditProvider(language, {
-          provideDocumentFormattingEdits: async (model, options) => {
-            if (!isEditorModel(model)) return [];
-            const response = await request("formatting", { lineNumber: 1, column: 1 }, { tabSize: options.tabSize, insertSpaces: options.insertSpaces }).catch(() => null);
-            const edits: any[] = Array.isArray(response?.result) ? response.result : [];
-            return edits.map((edit) => ({ range: toMonacoRange(edit.range), text: edit.newText }));
-          },
-        }));
-        const toDocumentSymbol = (symbol: any): MonacoLanguagesApi.DocumentSymbol => {
-          const range = toMonacoRange(symbol.range ?? symbol.location.range);
-          return {
-            name: String(symbol.name),
-            detail: typeof symbol.detail === "string" ? symbol.detail : "",
-            kind: Math.max(0, Math.min(25, (Number(symbol.kind) || 1) - 1)),
-            tags: [],
-            range,
-            selectionRange: symbol.selectionRange ? toMonacoRange(symbol.selectionRange) : range,
-            children: Array.isArray(symbol.children) ? symbol.children.map(toDocumentSymbol) : [],
-          };
-        };
-        providerDisposablesRef.current.push(monaco.languages.registerDocumentSymbolProvider(language, {
-          provideDocumentSymbols: async (model) => {
-            if (!isEditorModel(model)) return [];
-            const response = await request("documentSymbol", { lineNumber: 1, column: 1 }).catch(() => null);
-            const symbols: any[] = Array.isArray(response?.result) ? response.result : [];
-            return symbols.filter((symbol) => symbol?.range || symbol?.location?.range).map(toDocumentSymbol);
-          },
-        }));
+      if (lsp?.available) {
+        providerDisposablesRef.current.push(registerLspProviders(
+          editor,
+          monaco,
+          { root: lsp.root, path: lsp.path, language },
+          () => lspCallbacksRef.current,
+          (relativePath) => ensureWorkspaceMonacoModel(monaco, lsp.root, relativePath),
+        ));
       }
     const builtInService = lsp?.available ? BUILT_IN_SERVICE_BY_LANGUAGE[language] : undefined;
     const releaseBuiltInService = builtInService ? suppressBuiltInLanguageService(builtInService) : null;
@@ -552,12 +467,41 @@ export function WorkspaceCodeEditor({
       providerDisposablesRef.current = [];
       releaseBuiltInService?.();
     };
-  }, [mountedEditor, lsp?.root, lsp?.path, lsp?.language, lsp?.available, language]);
+  }, [mountedEditor, lsp?.root, lsp?.path, lsp?.language, lsp?.available, language, settings.lspCodeLens]);
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
     applyMonacoGuiTheme(monaco);
     registerInlineCompletions(monaco);
+    registerSnippetCompletions(monaco);
+    void loadWorkspaceSnippets(lspCallbacksRef.current.workspaceRoot ?? null);
+    const nextEdit = attachNextEditPrediction(editor, monaco, () => lspCallbacksRef.current.path);
+    const gutter = attachGitGutter(editor, monaco, () => gitGutterRef.current ?? null);
+    gitGutterRefreshRef.current = gutter.refresh;
+    const mergeConflicts = attachMergeConflicts(editor, monaco);
+    const blame = attachGitBlame(editor, monaco, () => gitBlameRef.current ?? null);
+    const provenanceGutter = attachProvenanceGutter(editor, monaco, () => provenanceRef.current ?? null);
+    provenanceRefreshRef.current = provenanceGutter.refresh;
+    const keymap = attachKeymapMode(editor, monaco, () => keymapRef.current, () => ({ onSave: lspCallbacksRef.current.onSave, onClose: lspCallbacksRef.current.onClose }));
+    keymapRefreshRef.current = keymap.refresh;
+    const debugDecorations = attachDebugDecorations(editor, monaco, () => {
+      const { workspaceRoot: root, path: current } = lspCallbacksRef.current;
+      return root && current && !/^([A-Za-z]:)?[\\/]/.test(current) ? { root, path: current } : null;
+    });
+    gitBlameRefreshRef.current = blame.refresh;
+    editor.onDidDispose(() => {
+      provenanceGutter.dispose();
+      provenanceRefreshRef.current = null;
+      keymap.dispose();
+      keymapRefreshRef.current = null;
+      debugDecorations.dispose();
+      blame.dispose();
+      gitBlameRefreshRef.current = null;
+      nextEdit.dispose();
+      gutter.dispose();
+      mergeConflicts.dispose();
+      gitGutterRefreshRef.current = null;
+    });
     void getBridge()?.agentGetConfig?.().then((config) => {
       setInlineCompletionsEnabled((config as { code_completion?: { enabled?: boolean } } | null)?.code_completion?.enabled !== false);
     }).catch(() => undefined);
@@ -568,7 +512,7 @@ export function WorkspaceCodeEditor({
         const model = editor.getModel();
         if (!model) return;
         try {
-          const formatted = await formatCodeText(model.getValue(), language);
+          const formatted = await formatCodeText(model.getValue(), language, await (lspCallbacksRef.current.resolveFormatOptions?.() ?? Promise.resolve({})));
           editor.pushUndoStop();
           editor.executeEdits("edit.formatDocument", [{ range: model.getFullModelRange(), text: formatted, forceMoveMarkers: true }]);
           editor.pushUndoStop();
@@ -582,7 +526,7 @@ export function WorkspaceCodeEditor({
       actionDisposablesRef.current.forEach((disposable) => disposable.dispose());
       actionDisposablesRef.current = [];
     });
-    editor.onDidBlurEditorWidget(() => onBlur?.());
+    editor.onDidBlurEditorWidget(() => lspCallbacksRef.current.onBlur?.());
     editor.onDidChangeCursorSelection((event) => onSelect(
       event.selection.startLineNumber,
       event.selection.startColumn,
@@ -594,7 +538,7 @@ export function WorkspaceCodeEditor({
   };
   return (
     <MonacoBoundary fallback={fallback}>
-      {fixPrompt && fixPromptHost ? createPortal(<RarogFixPrompt key={fixPrompt.id} startLine={fixPrompt.startLine} endLine={fixPrompt.endLine} diagnostics={fixPrompt.diagnostics} busy={fixPrompt.busy} error={fixPrompt.error} reviewing={Boolean(fixPrompt.reviewing)} thinking={fixPrompt.thinking ?? ""} onSubmit={(instruction, reasoning) => void runRarogFix(instruction, reasoning)} onAccept={acceptInlineEdit} onClose={closeFixPrompt} />, fixPromptHost) : null}
+      {fixPrompt && fixPromptHost ? createPortal(<RarogFixPrompt key={fixPrompt.id} startLine={fixPrompt.startLine} endLine={fixPrompt.endLine} diagnostics={fixPrompt.diagnostics} busy={fixPrompt.busy} error={fixPrompt.error} reviewing={Boolean(fixPrompt.reviewing)} thinking={fixPrompt.thinking ?? ""} allowImages onSubmit={(instruction, reasoning, images) => void runRarogFix(instruction, reasoning, images)} onAccept={acceptInlineEdit} onClose={closeFixPrompt} />, fixPromptHost) : null}
       <Suspense fallback={fallback}>
         <MonacoEditor
           path={monacoModelPath("zorai-workspace", path)}
@@ -625,6 +569,9 @@ export function WorkspaceCodeEditor({
             glyphMargin: settings.glyphMargin,
             formatOnPaste: settings.formatOnPaste,
             formatOnType: settings.formatOnType,
+            "semanticHighlighting.enabled": settings.semanticHighlighting,
+            inlayHints: { enabled: settings.inlayHints },
+            linkedEditing: true,
           }}
         />
       </Suspense>
@@ -712,30 +659,66 @@ export function MonacoReadOnlyView({ value, path, language }: { value: string; p
   );
 }
 
-export function WorkspaceDiffEditor({ original, modified, language }: { original: string; modified: string; language: string }) {
+export function WorkspaceDiffEditor({ original, modified, language, readOnly = true, onChange, onSave, onStageSelection }: {
+  original: string;
+  modified: string;
+  language: string;
+  readOnly?: boolean;
+  onChange?: (modified: string) => void;
+  onSave?: () => void;
+  onStageSelection?: (startLine: number, endLine: number) => void;
+}) {
   useMonacoGuiTheme();
   const settings = useCodeEditorSettingsStore((state) => state.settings);
+  const [sideBySide, setSideBySide] = useState(true);
+  const [collapseUnchanged, setCollapseUnchanged] = useState(false);
+  const callbacksRef = useRef({ onChange, onSave });
+  callbacksRef.current = { onChange, onSave };
+  const modifiedEditorRef = useRef<{ getSelection: () => { startLineNumber: number; endLineNumber: number } | null } | null>(null);
   const fallback = <div className="zorai-workspace-diff-grid"><pre>{original}</pre><pre>{modified}</pre></div>;
   return (
     <MonacoBoundary fallback={fallback}>
       <Suspense fallback={fallback}>
-        <MonacoDiffEditor
-          original={original}
-          modified={modified}
-          language={language || "plaintext"}
-          theme={ZORAI_MONACO_THEME}
-          options={{
-            automaticLayout: true,
-            contextmenu: false,
-            readOnly: true,
-            renderSideBySide: true,
-            minimap: { enabled: false },
-            scrollBeyondLastLine: false,
-            fontFamily: editorFontFamily(settings),
-            fontSize: settings.fontSize,
-            lineHeight: settings.lineHeight,
-          }}
-        />
+        <div className="zorai-diff-editor">
+          <div className="zorai-diff-editor__toolbar">
+            {!readOnly ? <span className="zorai-diff-editor__hint">Editable · Ctrl+S saves</span> : null}
+            {onStageSelection ? (
+              <button type="button" title="Stage only the changes that touch the selected lines" onClick={() => {
+                const selection = modifiedEditorRef.current?.getSelection();
+                if (selection) onStageSelection(selection.startLineNumber, selection.endLineNumber);
+              }}>Stage selected lines</button>
+            ) : null}
+            <button type="button" className={collapseUnchanged ? "is-on" : undefined} aria-pressed={collapseUnchanged} onClick={() => setCollapseUnchanged((value) => !value)}>Collapse unchanged</button>
+            <button type="button" onClick={() => setSideBySide((value) => !value)}>{sideBySide ? "Inline" : "Side by side"}</button>
+          </div>
+          <MonacoDiffEditor
+            original={original}
+            modified={modified}
+            language={language || "plaintext"}
+            theme={ZORAI_MONACO_THEME}
+            onMount={(diffEditor, monacoApi) => {
+              const modifiedEditor = diffEditor.getModifiedEditor();
+              modifiedEditorRef.current = modifiedEditor;
+              modifiedEditor.onDidChangeModelContent(() => {
+                if (!modifiedEditor.getOption(monacoApi.editor.EditorOption.readOnly)) callbacksRef.current.onChange?.(modifiedEditor.getValue());
+              });
+              modifiedEditor.addCommand(monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyS, () => callbacksRef.current.onSave?.());
+            }}
+            options={{
+              automaticLayout: true,
+              contextmenu: false,
+              readOnly,
+              originalEditable: false,
+              renderSideBySide: sideBySide,
+              hideUnchangedRegions: { enabled: collapseUnchanged },
+              minimap: { enabled: false },
+              scrollBeyondLastLine: false,
+              fontFamily: editorFontFamily(settings),
+              fontSize: settings.fontSize,
+              lineHeight: settings.lineHeight,
+            }}
+          />
+        </div>
       </Suspense>
     </MonacoBoundary>
   );

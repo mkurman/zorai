@@ -76,3 +76,42 @@ test('requests a server never advertised are skipped, so the lightbulb does not 
     assert.equal(serverSupports(capabilities, 'rename'), false);
     assert.equal(serverSupports(undefined, 'rename'), true);
 });
+
+test('completion resolve and capability probes follow what the server advertised', () => {
+    assert.equal(serverSupports({ completionProvider: {} }, 'completionResolve'), false);
+    assert.equal(serverSupports({ completionProvider: { resolveProvider: true } }, 'completionResolve'), true);
+    assert.equal(serverSupports({}, 'serverCapabilities'), true);
+    assert.equal(serverSupports({ inlayHintProvider: true }, 'inlayHint'), true);
+    assert.equal(serverSupports({}, 'semanticTokens'), false);
+});
+
+test('incremental sync sends only the edited range, and applying it reproduces the new text exactly', () => {
+    const { incrementalChange } = require('./main/lsp-session.cjs');
+    const apply = (text, change) => {
+        const offset = ({ line, character }) => text.split('\n').slice(0, line).reduce((sum, part) => sum + part.length + 1, 0) + character;
+        return text.slice(0, offset(change.range.start)) + change.text + text.slice(offset(change.range.end));
+    };
+    const cases = [
+        ['fn main() {\n    let a = 1;\n}\n', 'fn main() {\n    let ab = 1;\n}\n'],
+        ['a\nb\nc', 'a\nc'],
+        ['', 'hello'],
+        ['x 😀 y', 'x 😃 y'],
+        ['same', 'same!'],
+    ];
+    for (const [before, after] of cases) assert.equal(apply(before, incrementalChange(before, after)), after);
+    assert.deepEqual(incrementalChange('a\nbc\n', 'a\nbXc\n'), { range: { start: { line: 1, character: 1 }, end: { line: 1, character: 1 } }, text: 'X' });
+});
+
+test('a user lsp.json entry overrides or adds a language server, and broken entries are ignored', () => {
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const path = require('node:path');
+    const { userLanguageServerSpec } = require('./main/lsp-registry.cjs');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zorai-lsp-'));
+    const file = path.join(dir, 'lsp.json');
+    fs.writeFileSync(file, JSON.stringify({ servers: { elixir: { command: 'elixir-ls', args: ['--stdio'] }, rust: { command: '' } } }));
+    assert.deepEqual(userLanguageServerSpec('Elixir', file).candidates, [{ command: 'elixir-ls', args: ['--stdio'] }]);
+    assert.equal(userLanguageServerSpec('rust', file), null);
+    assert.equal(userLanguageServerSpec('go', path.join(dir, 'missing.json')), null);
+    fs.rmSync(dir, { recursive: true, force: true });
+});

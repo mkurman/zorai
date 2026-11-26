@@ -4,12 +4,13 @@ const { createWorkspaceWatcher } = require('./workspace-watch-service.cjs');
 const { discoverWorkspaceTests } = require('./test-runtime.cjs');
 const { createWorkspaceListCache } = require('./workspace-list-cache.cjs');
 const { createWorkspaceSearchCache } = require('./workspace-search-cache.cjs');
+const { ripgrepSearch } = require('./workspace-ripgrep.cjs');
 
 const MUTATING_METHODS = new Set([
     'createWorkspaceDirectory', 'deleteWorkspacePath', 'renameWorkspacePath', 'writeWorkspaceFile',
     'workspaceGitAction', 'workspaceGitApplyHunk', 'workspaceGitCheckout', 'workspaceGitCommit', 'workspaceGitCreateWorktree',
     'workspaceGitDiscard', 'workspaceGitIntegrateWorktree', 'workspaceGitRemoveWorktree', 'workspaceGitStage', 'workspaceGitStageMany',
-    'workspaceGitUnstage', 'workspaceGitUnstageMany',
+    'workspaceGitUnstage', 'workspaceGitUnstageMany', 'workspaceGitStageContent',
 ]);
 
 const listCache = createWorkspaceListCache({
@@ -57,7 +58,14 @@ const handlers = {
     searchWorkspaceFileNames,
     listWorkspaceFiles: workspaceFileIndex,
     listWorkspaceDirectory: listCache.listDirectory,
-    searchWorkspace: (rootPath, query, options) => searchCache.search(rootPath, query, options),
+    async searchWorkspace(rootPath, query, options = {}) {
+        if (!searchCache.isWarm(rootPath) && typeof query === 'string' && query.trim()) {
+            const streamId = typeof options.streamId === 'string' ? options.streamId : null;
+            const hits = await ripgrepSearch(workspaceService.canonicalWorkspaceRoot(rootPath), query, options, streamId ? (batch) => post({ type: 'search-batch', streamId, hits: batch }) : null).catch(() => null);
+            if (hits) return hits;
+        }
+        return searchCache.search(rootPath, query, options);
+    },
     discoverTests: discoverWorkspaceTests,
     setAskpassEnv(env) {
         setGitAskpassEnv(env);

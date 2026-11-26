@@ -166,6 +166,7 @@ const bridgeApi = {
     workspaceListDirectory: (rootPath, relativePath, options) => ipcRenderer.invoke('workspace-list-directory', rootPath, relativePath, options),
     workspaceStatFile: (rootPath, relativePath) => ipcRenderer.invoke('workspace-stat-file', rootPath, relativePath),
     workspaceReadFile: (rootPath, relativePath, options) => ipcRenderer.invoke('workspace-read-file', rootPath, relativePath, options),
+    workspaceReadOptionalFile: (rootPath, relativePath, options) => ipcRenderer.invoke('workspace-read-optional-file', rootPath, relativePath, options),
     workspaceWriteFile: (rootPath, relativePath, content, expectedHash) => ipcRenderer.invoke('workspace-write-file', rootPath, relativePath, content, expectedHash),
     workspaceCreateDirectory: (rootPath, relativePath) => ipcRenderer.invoke('workspace-create-directory', rootPath, relativePath),
     workspaceRenamePath: (rootPath, fromPath, toPath) => ipcRenderer.invoke('workspace-rename-path', rootPath, fromPath, toPath),
@@ -200,6 +201,12 @@ const bridgeApi = {
     workspaceSearchFileNames: (rootPath, query, options) => ipcRenderer.invoke('workspace-search-file-names', rootPath, query, options),
     workspaceListFiles: (rootPath) => ipcRenderer.invoke('workspace-list-files', rootPath),
     workspaceGitDiff: (rootPath, relativePath, options) => ipcRenderer.invoke('workspace-git-diff', rootPath, relativePath, options),
+    workspaceLocalHistoryList: (rootPath, relativePath) => ipcRenderer.invoke('workspace-local-history-list', rootPath, relativePath),
+    workspaceLocalHistoryRead: (rootPath, relativePath, id) => ipcRenderer.invoke('workspace-local-history-read', rootPath, relativePath, id),
+    workspaceGitChangedRanges: (rootPath, baseRef) => ipcRenderer.invoke('workspace-git-changed-ranges', rootPath, baseRef),
+    workspaceReadBytes: (rootPath, relativePath, offset, length) => ipcRenderer.invoke('workspace-read-bytes', rootPath, relativePath, offset, length),
+    workspaceGitStageContent: (rootPath, relativePath, content) => ipcRenderer.invoke('workspace-git-stage-content', rootPath, relativePath, content),
+    workspaceGitBlame: (rootPath, relativePath) => ipcRenderer.invoke('workspace-git-blame', rootPath, relativePath),
     workspaceGitShow: (rootPath, relativePath, revision) => ipcRenderer.invoke('workspace-git-show', rootPath, relativePath, revision),
     workspaceWatchStart: (rootPath, options) => ipcRenderer.invoke('workspace-watch-start', rootPath, options),
     workspaceWatchStop: (subscriptionId) => ipcRenderer.invoke('workspace-watch-stop', subscriptionId),
@@ -212,6 +219,7 @@ const bridgeApi = {
     workspaceLspOpen: (rootPath, relativePath, language, content, version) => ipcRenderer.invoke('workspace-lsp-open', rootPath, relativePath, language, content, version),
     workspaceLspChange: (rootPath, relativePath, language, content, version) => ipcRenderer.invoke('workspace-lsp-change', rootPath, relativePath, language, content, version),
     workspaceLspRequest: (rootPath, relativePath, language, method, position, extra) => ipcRenderer.invoke('workspace-lsp-request', rootPath, relativePath, language, method, position, extra),
+    workspaceLspSave: (rootPath, relativePath, language) => ipcRenderer.invoke('workspace-lsp-save', rootPath, relativePath, language),
     workspaceLspClose: (rootPath, relativePath, language) => ipcRenderer.invoke('workspace-lsp-close', rootPath, relativePath, language),
     workspaceLspServers: () => ipcRenderer.invoke('workspace-lsp-servers'),
     workspaceLspLog: () => ipcRenderer.invoke('workspace-lsp-log'),
@@ -228,6 +236,32 @@ const bridgeApi = {
         return () => ipcRenderer.removeListener('git-askpass-cancel', listener);
     },
     gitAskpassRespond: (id, value) => ipcRenderer.invoke('git-askpass-respond', id, value),
+    snippetsLoad: (rootPath) => ipcRenderer.invoke('snippets-load', rootPath),
+    notebookExecute: (rootPath, notebookPath, code) => ipcRenderer.invoke('notebook-execute', rootPath, notebookPath, code),
+    notebookRestart: (rootPath, notebookPath) => ipcRenderer.invoke('notebook-restart', rootPath, notebookPath),
+    tasksDiscover: (rootPath) => ipcRenderer.invoke('tasks-discover', rootPath),
+    tasksRun: (rootPath, task) => ipcRenderer.invoke('tasks-run', rootPath, task),
+    tasksStop: (runId) => ipcRenderer.invoke('tasks-stop', runId),
+    onTaskEvent: (cb) => {
+        const listener = (_event, payload) => cb(payload);
+        ipcRenderer.on('task-event', listener);
+        return () => ipcRenderer.removeListener('task-event', listener);
+    },
+    debugConfigurations: (rootPath, file) => ipcRenderer.invoke('debug-configurations', rootPath, file),
+    debugStart: (rootPath, file, config, breakpoints, exceptionFilters) => ipcRenderer.invoke('debug-start', rootPath, file, config, breakpoints, exceptionFilters),
+    debugRequest: (sessionId, command, args) => ipcRenderer.invoke('debug-request', sessionId, command, args),
+    debugSetBreakpoints: (sessionId, absolutePath, breakpoints) => ipcRenderer.invoke('debug-set-breakpoints', sessionId, absolutePath, breakpoints),
+    debugStop: (sessionId) => ipcRenderer.invoke('debug-stop', sessionId),
+    onDebugEvent: (cb) => {
+        const listener = (_event, payload) => cb(payload);
+        ipcRenderer.on('debug-event', listener);
+        return () => ipcRenderer.removeListener('debug-event', listener);
+    },
+    onWorkspaceSearchBatch: (cb) => {
+        const listener = (_event, payload) => cb(payload);
+        ipcRenderer.on('workspace-search-batch', listener);
+        return () => ipcRenderer.removeListener('workspace-search-batch', listener);
+    },
     onWorkspaceLspDiagnostics: (cb) => {
         const listener = (_event, payload) => cb(payload);
         ipcRenderer.on('workspace-lsp-diagnostics', listener);
@@ -399,6 +433,9 @@ const bridgeApi = {
     agentGenerateCommitMessage: (diff, recentSubjects) => ipcRenderer.invoke('agent-generate-commit-message', diff, recentSubjects),
     agentGenerateCodeFix: (request) => ipcRenderer.invoke('agent-generate-code-fix', request),
     agentCodeComplete: (request) => ipcRenderer.invoke('agent-code-complete', request),
+    agentListProjectRules: (root, targets) => ipcRenderer.invoke('agent-list-project-rules', root, targets),
+    agentCodeIndex: (action, root, query, limit, options) => ipcRenderer.invoke('agent-code-index', action, root, query, limit, options),
+    agentCodeSymbols: (root, path, content) => ipcRenderer.invoke('agent-code-symbols', root, path, content),
     agentCancelOperation: (id) => ipcRenderer.invoke('agent-cancel-operation', id),
     agentSendParticipantSuggestion: (payload) => ipcRenderer.invoke('agent-send-participant-suggestion', payload),
     agentDismissParticipantSuggestion: (payload) => ipcRenderer.invoke('agent-dismiss-participant-suggestion', payload),

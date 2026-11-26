@@ -49,9 +49,10 @@ function currentContextTokens(thread: AgentThread | null, messages: AgentMessage
 type Props = {
   thread?: AgentThread | null;
   messages: AgentMessage[];
+  compact?: boolean;
 };
 
-export const ComposerContextCircle = memo(function ComposerContextCircle({ thread, messages }: Props) {
+export const ComposerContextCircle = memo(function ComposerContextCircle({ thread, messages, compact = false }: Props) {
   const agentSettings = useAgentStore((state) => state.agentSettings);
   const conciergeConfig = useAgentStore((state) => state.conciergeConfig);
   const coderConfig = useAgentStore((state) => state.coderConfig);
@@ -167,7 +168,7 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
         onClick={() => setOpen((v) => !v)}
         title={`${pct}% · ${formatTokens(used)} / ${formatTokens(contextWindowTokens)}${sessionHasCost ? ` · $${sessionCost.toFixed(4)} session` : ""}`}
       >
-        <svg width={36} height={36} viewBox="0 0 36 36" aria-hidden="true">
+        <svg width={compact ? 18 : 36} height={compact ? 18 : 36} viewBox="0 0 36 36" aria-hidden="true">
           <circle cx={18} cy={18} r={radius} fill="none" stroke="var(--zorai-border)" strokeWidth={2} opacity={0.9} />
           <circle
             cx={18} cy={18} r={radius} fill="none"
@@ -176,7 +177,7 @@ export const ComposerContextCircle = memo(function ComposerContextCircle({ threa
             strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ * 0.25}
             style={{ transition: "stroke-dasharray 260ms ease" }}
           />
-          <text x={18} y={21} textAnchor="middle" fontSize={8} fontWeight={700} fill="var(--zorai-text)" fontFamily="var(--font-mono)">{pct}%</text>
+          {compact ? null : <text x={18} y={21} textAnchor="middle" fontSize={8} fontWeight={700} fill="var(--zorai-text)" fontFamily="var(--font-mono)">{pct}%</text>}
         </svg>
       </button>
 

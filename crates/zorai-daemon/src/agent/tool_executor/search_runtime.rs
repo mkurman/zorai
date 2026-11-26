@@ -343,6 +343,7 @@ where
     let request = search_files_request(args)?;
     let timeout_seconds = request.timeout_seconds;
     let max_results = request.max_results;
+    let fallback_request = request.clone();
 
     let output = tokio::time::timeout(
         std::time::Duration::from_secs(timeout_seconds),
@@ -354,9 +355,7 @@ where
     let output = match output {
         Ok(output) => output,
         Err(error) if search_files_runner_error_is_missing_program(&error) => {
-            return Err(anyhow::anyhow!(
-                "search_files requires `rg` (ripgrep) on PATH"
-            ));
+            return native_search_files(fallback_request).await;
         }
         Err(error) => return Err(error),
     };
@@ -409,6 +408,49 @@ where
         }
         Ok(result)
     }
+}
+
+async fn native_search_files(request: SearchFilesRequest) -> Result<String> {
+    let max_results = request.max_results.max(1) as usize;
+    let root = std::path::PathBuf::from(&request.path);
+    let hits = tokio::task::spawn_blocking(move || {
+        crate::code_intel::search::search_workspace(
+            &root,
+            &request.pattern,
+            &crate::code_intel::search::CodeSearchOptions {
+                case_sensitive: true,
+                regex: request.regex,
+                include: request.file_pattern.clone().into_iter().collect(),
+                max_results: Some(max_results + 1),
+                ..Default::default()
+            },
+        )
+        .map(|hits| (root, hits))
+    })
+    .await
+    .map_err(|error| anyhow::anyhow!("search failed: {error}"))?
+    .map_err(|error| anyhow::anyhow!("invalid regex: {error:#}"))?;
+    let (root, hits) = hits;
+    if hits.is_empty() {
+        return Ok("No matches found.".into());
+    }
+    let mut result = hits
+        .iter()
+        .take(max_results)
+        .map(|hit| {
+            format!(
+                "{}:{}:{}",
+                root.join(&hit.path).display(),
+                hit.line,
+                hit.preview
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    if hits.len() > max_results {
+        result.push_str("\n\n... (more matches)");
+    }
+    Ok(result)
 }
 
 fn search_files_runner_error_is_missing_program(error: &anyhow::Error) -> bool {

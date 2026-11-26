@@ -254,6 +254,8 @@ impl Default for AgentConfig {
             concierge: ConciergeConfig::default(),
             coder: CoderConfig::default(),
             code_completion: CodeCompletionConfig::default(),
+            code_index: CodeIndexConfig::default(),
+            verify: VerifyConfig::default(),
             anticipatory: AnticipatoryConfig::default(),
             operator_model: OperatorModelConfig::default(),
             collaboration: CollaborationConfig::default(),
@@ -594,6 +596,39 @@ impl Default for CodeCompletionConfig {
             ignore_globs: default_code_completion_ignore_globs(),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerifyConfig {
+    #[serde(default)]
+    pub roots: Vec<String>,
+    #[serde(default = "default_verify_max_retries")]
+    pub max_retries: u8,
+    #[serde(default = "default_true")]
+    pub run_tests: bool,
+    #[serde(default)]
+    pub browser_check: bool,
+}
+
+fn default_verify_max_retries() -> u8 {
+    2
+}
+
+impl Default for VerifyConfig {
+    fn default() -> Self {
+        Self {
+            roots: Vec::new(),
+            max_retries: default_verify_max_retries(),
+            run_tests: true,
+            browser_check: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CodeIndexConfig {
+    #[serde(default)]
+    pub roots: Vec<String>,
 }
 
 pub(crate) fn default_code_completion_ignore_globs() -> Vec<String> {

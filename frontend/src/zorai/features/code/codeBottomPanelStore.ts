@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-export type CodeBottomPanelTab = "problems" | "output" | "terminal";
+export type CodeBottomPanelTab = "problems" | "output" | "terminal" | "debug" | "tasks";
 
 export const CODE_PANEL_MIN_HEIGHT = 120;
 export const CODE_PANEL_DEFAULT_HEIGHT = 260;

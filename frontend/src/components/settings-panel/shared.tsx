@@ -283,7 +283,7 @@ export function modelSelectionDetails(
     };
 }
 
-export function ModelSelector({ providerId, value, customName, onChange, disabled, base_url, api_key, auth_source, modelOptions, remoteModelFilter, fetchOutputModalities }: {
+export function ModelSelector({ providerId, value, customName, onChange, disabled, base_url, api_key, auth_source, modelOptions, remoteModelFilter, fetchOutputModalities, dropUp }: {
     providerId: AgentProviderId;
     value: string;
     customName?: string;
@@ -296,6 +296,7 @@ export function ModelSelector({ providerId, value, customName, onChange, disable
     modelOptions?: ModelDefinition[];
     remoteModelFilter?: (model: FetchedRemoteModel) => boolean;
     fetchOutputModalities?: string;
+    dropUp?: boolean;
 }) {
     type ModelSelectorOption = {
         id: string;
@@ -553,7 +554,7 @@ export function ModelSelector({ providerId, value, customName, onChange, disable
             {isOpen && (
                 <div style={{
                     position: "absolute",
-                    top: "100%",
+                    ...(dropUp ? { bottom: "100%", marginBottom: 2 } : { top: "100%", marginTop: 2 }),
                     left: 0,
                     right: 0,
                     background: "var(--zorai-bg-surface)",
@@ -561,7 +562,6 @@ export function ModelSelector({ providerId, value, customName, onChange, disable
                     maxHeight: 240,
                     overflowY: "auto",
                     zIndex: 1000,
-                    marginTop: 2,
                 }}>
                     {fetchError && (
                         <div style={{

@@ -176,6 +176,7 @@ pub const RUN_TERMINAL_COMMAND_LEGACY: &str = "run_terminal_command";
 pub const RUN_WORKFLOW_PACK: &str = "run_workflow_pack";
 pub const SCHEDULE_WAKEUP: &str = "schedule_wakeup";
 pub const SEARCH_FILES: &str = "search_files";
+pub const LSP_QUERY: &str = "lsp_query";
 pub const SEARCH_CODEBASE: &str = "search_codebase";
 pub const SEARCH_HISTORY: &str = "search_history";
 pub const SEARCH_MEMORY: &str = "search_memory";
@@ -340,6 +341,7 @@ pub const GIT_TOOLS: &[&str] = &[GET_GIT_STATUS, GET_GIT_LINE_STATUSES];
 
 pub const SEARCH_TOOLS: &[&str] = &[
     SEARCH_FILES,
+    LSP_QUERY,
     SEARCH_CODEBASE,
     SYMBOL_SEARCH,
     SEARCH_HISTORY,

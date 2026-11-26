@@ -3,6 +3,7 @@ export type CodeCommandId =
   | "file.close" | "file.closeOthers" | "file.next" | "file.previous" | "file.pin"
   | "file.openExternal" | "file.reveal" | "search.file" | "search.replace" | "search.project"
   | "navigation.line" | "navigation.symbol" | "navigation.definition" | "navigation.references" | "navigation.back" | "navigation.forward"
+  | "navigation.workspaceSymbol" | "navigation.typeDefinition" | "navigation.implementation" | "navigation.callHierarchy" | "edit.expandSelection" | "edit.shrinkSelection"
   | "edit.undo" | "edit.redo" | "edit.cut" | "edit.copy" | "edit.paste" | "edit.selectAll"
   | "edit.deleteLine" | "edit.duplicate" | "edit.moveUp" | "edit.moveDown" | "edit.uppercase"
   | "edit.lowercase" | "edit.commentLine" | "edit.commentBlock" | "edit.indent" | "edit.outdent"
@@ -11,7 +12,9 @@ export type CodeCommandId =
   | "edit.sortAscending" | "edit.sortDescending" | "view.toggleExplorer" | "view.toggleAgent"
   | "view.settings" | "view.commandPalette" | "view.toggleMinimap" | "view.toggleWrap"
   | "view.fontIncrease" | "view.fontDecrease" | "view.fontReset" | "view.toggleWhitespace"
-  | "view.toggleStickyScroll" | "view.togglePanel" | "view.toggleTerminal";
+  | "view.toggleStickyScroll" | "view.togglePanel" | "view.toggleTerminal" | "view.toggleBlame" | "view.toggleProvenance"
+  | "debug.start" | "debug.stop" | "debug.restart" | "debug.pause" | "debug.stepOver" | "debug.stepInto" | "debug.stepOut" | "debug.toggleBreakpoint"
+  | "tasks.run" | "tasks.build" | "tasks.rerun";
 
 export type CodeIconId = "save" | "reload" | "file" | "search" | "replace" | "terminal" | "settings"
   | "palette" | "close" | "pin" | "external" | "reveal" | "minimap" | "wrap" | "text" | "edit" | "diff" | "more" | "expand" | "collapse";
@@ -19,7 +22,7 @@ export type CodeIconId = "save" | "reload" | "file" | "search" | "replace" | "te
 export type CodeCommand = {
   id: CodeCommandId;
   title: string;
-  category: "File" | "Navigation" | "Editing" | "View" | "Search";
+  category: "File" | "Navigation" | "Editing" | "View" | "Search" | "Debug" | "Tasks";
   icon: CodeIconId;
   defaultKeybinding: string | null;
   aliases?: string[];
@@ -49,6 +52,12 @@ export const CODE_COMMANDS: CodeCommand[] = [
   command("navigation.symbol", "Go to Symbol", "Navigation", "terminal", "CtrlCmd+Shift+O"),
   command("navigation.definition", "Go to Definition", "Navigation", "terminal", "F12"),
   command("navigation.references", "Find References", "Navigation", "terminal", "Shift+F12"),
+  command("navigation.workspaceSymbol", "Go to Symbol in Workspace", "Navigation", "terminal", "CtrlCmd+T"),
+  command("navigation.typeDefinition", "Go to Type Definition", "Navigation", "terminal", null),
+  command("navigation.implementation", "Go to Implementations", "Navigation", "terminal", "CtrlCmd+F12"),
+  command("navigation.callHierarchy", "Show Call Hierarchy", "Navigation", "terminal", "Shift+Alt+H"),
+  command("edit.expandSelection", "Expand Selection", "Editing", "edit", "Shift+Alt+ArrowRight"),
+  command("edit.shrinkSelection", "Shrink Selection", "Editing", "edit", "Shift+Alt+ArrowLeft"),
   command("edit.undo", "Undo", "Editing", "edit", "CtrlCmd+Z"),
   command("edit.redo", "Redo", "Editing", "edit", "CtrlCmd+Y"),
   command("edit.cut", "Cut", "Editing", "edit", "CtrlCmd+X"),
@@ -86,6 +95,19 @@ export const CODE_COMMANDS: CodeCommand[] = [
   command("view.fontReset", "Reset Editor Font Size", "View", "text", "CtrlCmd+0"),
   command("view.toggleWhitespace", "Toggle Whitespace Rendering", "View", "text", null),
   command("view.toggleStickyScroll", "Toggle Sticky Scroll", "View", "text", null),
+  command("view.toggleBlame", "Toggle Inline Git Blame", "View", "text", null),
+  command("view.toggleProvenance", "Toggle AI Provenance Gutter", "View", "text", null),
+  command("debug.start", "Debug: Start or Continue", "Debug", "terminal", "F5"),
+  command("debug.stop", "Debug: Stop", "Debug", "terminal", "Shift+F5"),
+  command("debug.restart", "Debug: Restart", "Debug", "terminal", "CtrlCmd+Shift+F5"),
+  command("debug.pause", "Debug: Pause", "Debug", "terminal", "F6"),
+  command("debug.stepOver", "Debug: Step Over", "Debug", "terminal", "F10"),
+  command("debug.stepInto", "Debug: Step Into", "Debug", "terminal", "F11"),
+  command("debug.stepOut", "Debug: Step Out", "Debug", "terminal", "Shift+F11"),
+  command("debug.toggleBreakpoint", "Debug: Toggle Breakpoint", "Debug", "terminal", "F9"),
+  command("tasks.run", "Tasks: Run Task", "Tasks", "terminal", null),
+  command("tasks.build", "Tasks: Run Build Task", "Tasks", "terminal", "CtrlCmd+Shift+B"),
+  command("tasks.rerun", "Tasks: Re-run Last Task", "Tasks", "terminal", null),
   command("view.togglePanel", "Toggle Panel", "View", "terminal", "CtrlCmd+J", ["output"]),
   command("view.toggleTerminal", "Toggle Terminal", "View", "terminal", "Ctrl+`", ["shell", "console"]),
 ];

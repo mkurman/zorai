@@ -129,7 +129,8 @@ describe("Zorai feature surfaces", () => {
     expect(historyMenuSource).toContain('aria-label="New project thread"');
     expect(historyMenuSource).toContain('aria-label="Project thread history"');
     expect(readFeature("./threads/ComposerContextCircle.tsx")).toContain('className="zorai-composer-context-circle"');
-    expect(readFeature("./threads/ThreadComposer.tsx")).toContain('ComposerContextCircle');
+    expect(readFeature("./threads/ThreadComposer.tsx")).toContain('<ComposerFooter');
+    expect(readFeature("./threads/ComposerFooter.tsx")).toContain('<ComposerContextCircle');
   });
 
   it("reserves editor hierarchy when no document is selected", () => {
@@ -541,9 +542,12 @@ describe("Zorai feature surfaces", () => {
     expect(advancedSource).toContain('<option value="heuristic">Heuristic</option>');
     expect(advancedSource).toContain('<option value="weles">WELES</option>');
     expect(advancedSource).toContain('<option value="custom_model">LLM provider</option>');
-    expect(advancedSource).toContain("welesProviderConfig");
     expect(advancedSource).toContain("customCompactionProviderConfig");
-    expect((advancedSource.match(/<ModelSelector/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    expect(advancedSource).toContain("set in the Weles tab");
+    expect((advancedSource.match(/<ModelSelector/g) ?? []).length).toBeGreaterThanOrEqual(1);
+    const welesSource = readFunctionSource(panelSource, "function WelesPanel()", "function RarogContextField()");
+    expect(welesSource).toContain("welesProviderConfig");
+    expect(welesSource).toContain("<ModelSelector");
     expect(advancedSource).not.toContain('label="WELES Provider" description="Provider used by WELES compaction."><input');
     expect(advancedSource).not.toContain('label="Custom Provider" description="Provider used by custom-model compaction."><input');
   });

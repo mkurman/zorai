@@ -142,6 +142,29 @@ pub(super) enum AgentBridgeCommand {
         request_id: String,
         #[serde(default)]
         reasoning: Option<bool>,
+        #[serde(default)]
+        images: Vec<String>,
+    },
+    ListProjectRules {
+        root: String,
+        #[serde(default)]
+        targets: Vec<String>,
+    },
+    CodeSymbols {
+        root: String,
+        path: String,
+        #[serde(default)]
+        content: Option<String>,
+    },
+    CodeIndex {
+        action: String,
+        root: String,
+        #[serde(default)]
+        query: String,
+        #[serde(default)]
+        limit: Option<usize>,
+        #[serde(default)]
+        options_json: Option<String>,
     },
     CodeComplete {
         request_id: String,
@@ -149,6 +172,10 @@ pub(super) enum AgentBridgeCommand {
         language: String,
         prefix: String,
         suffix: String,
+        #[serde(default)]
+        kind: String,
+        #[serde(default)]
+        recent_edits: Vec<String>,
     },
     AddTask {
         title: String,

@@ -16,10 +16,32 @@ const LSP_CAPABILITY_FOR_METHOD = {
     formatting: 'documentFormattingProvider',
     documentSymbol: 'documentSymbolProvider',
     workspaceSymbol: 'workspaceSymbolProvider',
+    completionResolve: 'completionProvider',
+    signatureHelp: 'signatureHelpProvider',
+    inlayHint: 'inlayHintProvider',
+    semanticTokens: 'semanticTokensProvider',
+    typeDefinition: 'typeDefinitionProvider',
+    implementation: 'implementationProvider',
+    prepareRename: 'renameProvider',
+    rangeFormatting: 'documentRangeFormattingProvider',
+    serverCapabilities: null,
+    foldingRange: 'foldingRangeProvider',
+    linkedEditingRange: 'linkedEditingRangeProvider',
+    onTypeFormatting: 'documentOnTypeFormattingProvider',
+    codeLens: 'codeLensProvider',
+    codeLensResolve: 'codeLensProvider',
+    executeCommand: 'executeCommandProvider',
+    prepareCallHierarchy: 'callHierarchyProvider',
+    incomingCalls: 'callHierarchyProvider',
+    outgoingCalls: 'callHierarchyProvider',
 };
+const SEMANTIC_TOKEN_TYPES = ['namespace', 'type', 'class', 'enum', 'interface', 'struct', 'typeParameter', 'parameter', 'variable', 'property', 'enumMember', 'event', 'function', 'method', 'macro', 'keyword', 'modifier', 'comment', 'string', 'number', 'regexp', 'operator', 'decorator'];
+const SEMANTIC_TOKEN_MODIFIERS = ['declaration', 'definition', 'readonly', 'static', 'deprecated', 'abstract', 'async', 'modification', 'documentation', 'defaultLibrary'];
 
 function serverSupports(capabilities, method) {
-    if (!capabilities) return true;
+    if (!capabilities || LSP_CAPABILITY_FOR_METHOD[method] === null) return true;
+    if (method === 'completionResolve') return capabilities.completionProvider?.resolveProvider === true;
+    if (method === 'codeLensResolve') return capabilities.codeLensProvider?.resolveProvider === true;
     const value = capabilities[LSP_CAPABILITY_FOR_METHOD[method]];
     return value !== undefined && value !== null && value !== false;
 }
@@ -74,6 +96,35 @@ function normalizeDiagnostic(diagnostic) {
     };
 }
 
+function syncKind(capabilities) {
+    const sync = capabilities?.textDocumentSync;
+    return typeof sync === 'number' ? sync : Number(sync?.change ?? 1);
+}
+
+function positionAt(text, offset) {
+    let line = 0;
+    let lineStart = 0;
+    for (let index = text.indexOf('\n'); index !== -1 && index < offset; index = text.indexOf('\n', index + 1)) {
+        line += 1;
+        lineStart = index + 1;
+    }
+    return { line, character: offset - lineStart };
+}
+
+function incrementalChange(previous, next) {
+    let start = 0;
+    const limit = Math.min(previous.length, next.length);
+    while (start < limit && previous.charCodeAt(start) === next.charCodeAt(start)) start += 1;
+    if (start > 0 && start < limit && previous.charCodeAt(start - 1) >= 0xd800 && previous.charCodeAt(start - 1) <= 0xdbff) start -= 1;
+    let previousEnd = previous.length;
+    let nextEnd = next.length;
+    while (previousEnd > start && nextEnd > start && previous.charCodeAt(previousEnd - 1) === next.charCodeAt(nextEnd - 1)) {
+        previousEnd -= 1;
+        nextEnd -= 1;
+    }
+    return { range: { start: positionAt(previous, start), end: positionAt(previous, previousEnd) }, text: next.slice(start, nextEnd) };
+}
+
 class LspSession {
     constructor(root, server, emitDiagnostics, removeSession, log = () => {}) {
         this.log = (level, text) => log({ at: Date.now(), server: server.id, root, level, text: String(text) });
@@ -123,10 +174,40 @@ class LspSession {
                 rootUri: pathToFileURL(this.root).href,
                 workspaceFolders: [{ uri: pathToFileURL(this.root).href, name: path.basename(this.root) }],
                 capabilities: {
-                    workspace: { workspaceFolders: true, configuration: true },
+                    workspace: { workspaceFolders: true, configuration: true, symbol: {}, didChangeWatchedFiles: { dynamicRegistration: true }, workspaceEdit: { documentChanges: true, resourceOperations: ['create', 'rename', 'delete'] } },
                     textDocument: {
                         publishDiagnostics: { relatedInformation: true, versionSupport: true },
-                        rename: { prepareSupport: false },
+                        synchronization: { didSave: true, dynamicRegistration: false },
+                        completion: {
+                            completionItem: {
+                                snippetSupport: true,
+                                insertReplaceSupport: false,
+                                documentationFormat: ['markdown', 'plaintext'],
+                                resolveSupport: { properties: ['documentation', 'detail', 'additionalTextEdits'] },
+                                labelDetailsSupport: true,
+                            },
+                            contextSupport: true,
+                        },
+                        signatureHelp: { signatureInformation: { documentationFormat: ['markdown', 'plaintext'], parameterInformation: { labelOffsetSupport: true }, activeParameterSupport: true }, contextSupport: true },
+                        inlayHint: { dynamicRegistration: false },
+                        semanticTokens: {
+                            requests: { full: true, range: false },
+                            tokenTypes: SEMANTIC_TOKEN_TYPES,
+                            tokenModifiers: SEMANTIC_TOKEN_MODIFIERS,
+                            formats: ['relative'],
+                            multilineTokenSupport: false,
+                            overlappingTokenSupport: false,
+                        },
+                        typeDefinition: { linkSupport: true },
+                        implementation: { linkSupport: true },
+                        definition: { linkSupport: true },
+                        rangeFormatting: {},
+                        callHierarchy: { dynamicRegistration: false },
+                        foldingRange: { lineFoldingOnly: true },
+                        linkedEditingRange: {},
+                        onTypeFormatting: {},
+                        codeLens: {},
+                        rename: { prepareSupport: true },
                         codeAction: { codeActionLiteralSupport: { codeActionKind: { valueSet: ['', 'quickfix', 'refactor', 'refactor.extract', 'refactor.inline', 'refactor.rewrite', 'source', 'source.organizeImports'] } } },
                         formatting: {},
                         documentSymbol: { hierarchicalDocumentSymbolSupport: true },
@@ -209,11 +290,13 @@ class LspSession {
         const uri = pathToFileURL(resolved.absolutePath).href;
         const existing = this.documents.get(resolved.relativePath);
         if (!existing) {
-            this.documents.set(resolved.relativePath, { uri, version });
+            this.documents.set(resolved.relativePath, { uri, version, text: content });
             this.notify('textDocument/didOpen', { textDocument: { uri, languageId: this.server.languageIdFor?.(resolved.relativePath) ?? this.server.languageId, version, text: content } });
-        } else {
+        } else if (existing.text !== content) {
             existing.version = Math.max(existing.version + 1, version);
-            this.notify('textDocument/didChange', { textDocument: { uri, version: existing.version }, contentChanges: [{ text: content }] });
+            const change = syncKind(this.capabilities) === 2 ? incrementalChange(existing.text, content) : { text: content };
+            existing.text = content;
+            this.notify('textDocument/didChange', { textDocument: { uri, version: existing.version }, contentChanges: [change] });
         }
         return { path: resolved.relativePath, version: this.documents.get(resolved.relativePath).version };
     }
@@ -249,8 +332,102 @@ class LspSession {
         return this.requestDocument(relativePath, 'textDocument/references', { position, context: { includeDeclaration: true } });
     }
 
-    async completion(relativePath, position) {
-        return this.requestDocument(relativePath, 'textDocument/completion', { position, context: { triggerKind: 1 } });
+    async completion(relativePath, position, extra) {
+        const triggerCharacter = typeof extra?.triggerCharacter === 'string' ? extra.triggerCharacter : undefined;
+        return this.requestDocument(relativePath, 'textDocument/completion', { position, context: triggerCharacter ? { triggerKind: 2, triggerCharacter } : { triggerKind: 1 } });
+    }
+
+    async completionResolve(_relativePath, _position, extra) {
+        await this.start();
+        return this.request('completionItem/resolve', extra?.item ?? {});
+    }
+
+    async signatureHelp(relativePath, position, extra) {
+        return this.requestDocument(relativePath, 'textDocument/signatureHelp', { position, context: extra?.context ?? { triggerKind: 1, isRetrigger: false } });
+    }
+
+    async inlayHint(relativePath, _position, extra) {
+        return this.requestDocument(relativePath, 'textDocument/inlayHint', { range: extra?.range });
+    }
+
+    async semanticTokens(relativePath) {
+        return this.requestDocument(relativePath, 'textDocument/semanticTokens/full', {});
+    }
+
+    async typeDefinition(relativePath, position) {
+        return this.requestDocument(relativePath, 'textDocument/typeDefinition', { position });
+    }
+
+    async implementation(relativePath, position) {
+        return this.requestDocument(relativePath, 'textDocument/implementation', { position });
+    }
+
+    async prepareRename(relativePath, position) {
+        if (!this.capabilities?.renameProvider?.prepareProvider) return { defaultBehavior: true };
+        return this.requestDocument(relativePath, 'textDocument/prepareRename', { position });
+    }
+
+    async rangeFormatting(relativePath, _position, extra) {
+        return this.requestDocument(relativePath, 'textDocument/rangeFormatting', { range: extra?.range, options: { tabSize: Number(extra?.tabSize) || 4, insertSpaces: extra?.insertSpaces !== false } });
+    }
+
+    async foldingRange(relativePath) {
+        return this.requestDocument(relativePath, 'textDocument/foldingRange', {});
+    }
+
+    async linkedEditingRange(relativePath, position) {
+        return this.requestDocument(relativePath, 'textDocument/linkedEditingRange', { position });
+    }
+
+    async onTypeFormatting(relativePath, position, extra) {
+        return this.requestDocument(relativePath, 'textDocument/onTypeFormatting', { position, ch: String(extra?.ch ?? ''), options: { tabSize: Number(extra?.tabSize) || 4, insertSpaces: extra?.insertSpaces !== false } });
+    }
+
+    async codeLens(relativePath) {
+        return this.requestDocument(relativePath, 'textDocument/codeLens', {});
+    }
+
+    async codeLensResolve(_relativePath, _position, extra) {
+        await this.start();
+        return this.request('codeLens/resolve', extra?.lens ?? {});
+    }
+
+    async executeCommand(_relativePath, _position, extra) {
+        await this.start();
+        return this.request('workspace/executeCommand', { command: String(extra?.command ?? ''), arguments: Array.isArray(extra?.arguments) ? extra.arguments : [] });
+    }
+
+    async prepareCallHierarchy(relativePath, position) {
+        return this.requestDocument(relativePath, 'textDocument/prepareCallHierarchy', { position });
+    }
+
+    async incomingCalls(_relativePath, _position, extra) {
+        await this.start();
+        return this.request('callHierarchy/incomingCalls', { item: extra?.item });
+    }
+
+    async outgoingCalls(_relativePath, _position, extra) {
+        await this.start();
+        return this.request('callHierarchy/outgoingCalls', { item: extra?.item });
+    }
+
+    async serverCapabilities() {
+        await this.start();
+        return this.capabilities ?? {};
+    }
+
+    async saveDocument(relativePath) {
+        await this.start();
+        const resolved = resolveWorkspacePath(this.root, relativePath);
+        const document = this.documents.get(resolved.relativePath);
+        if (!document) return false;
+        this.notify('textDocument/didSave', { textDocument: { uri: document.uri } });
+        return true;
+    }
+
+    filesChanged(changes) {
+        if (!this.capabilities || changes.length === 0) return;
+        this.notify('workspace/didChangeWatchedFiles', { changes });
     }
 
     async rename(relativePath, position, extra) {
@@ -297,4 +474,4 @@ class LspSession {
     }
 }
 
-module.exports = { LSP_METHOD_NOT_FOUND, LspMessageReader, LspSession, encodeLspMessage, normalizeDiagnostic, serverSupports };
+module.exports = { LSP_METHOD_NOT_FOUND, LspMessageReader, LspSession, encodeLspMessage, incrementalChange, normalizeDiagnostic, serverSupports };

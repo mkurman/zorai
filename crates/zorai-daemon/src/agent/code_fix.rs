@@ -23,6 +23,22 @@ pub(crate) struct CodeFixRequest<'a> {
     pub diagnostics: &'a [String],
     pub instruction: &'a str,
     pub reasoning: Option<bool>,
+    pub images: &'a [String],
+}
+
+const CODE_FIX_MAX_IMAGES: usize = 4;
+
+pub(crate) fn code_fix_content(request: &CodeFixRequest<'_>) -> ApiContent {
+    let images: Vec<&String> = request.images.iter().filter(|image| image.starts_with("data:image/")).take(CODE_FIX_MAX_IMAGES).collect();
+    if images.is_empty() {
+        return ApiContent::Text(code_fix_prompt(request));
+    }
+    let mut blocks = vec![serde_json::json!({
+        "type": "input_text",
+        "text": format!("{}\n\nThe attached image(s) show the UI or a sketch of the change the developer wants; use them to decide what the target should become.", code_fix_prompt(request)),
+    })];
+    blocks.extend(images.into_iter().map(|image| serde_json::json!({ "type": "input_image", "image_url": image })));
+    ApiContent::Blocks(blocks)
 }
 
 fn tail_chars(text: &str, max: usize) -> &str {
@@ -144,7 +160,7 @@ impl AgentEngine {
         self.check_circuit_breaker(&provider_id).await?;
         let messages = vec![ApiMessage {
             role: "user".into(),
-            content: ApiContent::Text(code_fix_prompt(request)),
+            content: code_fix_content(request),
             reasoning: None,
             tool_call_id: None,
             name: None,
@@ -238,7 +254,22 @@ mod tests {
             diagnostics,
             instruction: "",
             reasoning: None,
+            images: &[],
         }
+    }
+
+    #[test]
+    fn screenshots_and_sketches_travel_as_image_blocks_and_junk_is_dropped() {
+        let images = vec!["data:image/png;base64,iVBORw0K".to_string(), "https://evil.example/x.png".to_string()];
+        match code_fix_content(&CodeFixRequest { images: &images, ..request("", "<div />", "", &[]) }) {
+            ApiContent::Blocks(blocks) => {
+                assert_eq!(blocks.len(), 2);
+                assert_eq!(blocks[1]["type"], "input_image");
+                assert!(blocks[0]["text"].as_str().unwrap().contains("attached image"));
+            }
+            ApiContent::Text(_) => panic!("expected image blocks"),
+        }
+        assert!(matches!(code_fix_content(&request("", "x", "", &[])), ApiContent::Text(_)));
     }
 
     #[test]

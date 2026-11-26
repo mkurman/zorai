@@ -70,7 +70,7 @@ export function CodeToolbarMenu({ items, label = "More editor actions" }: { item
   );
 }
 
-export function CodeContextMenu({ x, y, items, label, onClose }: { x: number; y: number; items: CodeToolbarMenuItem[]; label: string; onClose: () => void }) {
+export function CodeContextMenu({ x, y, items, label, onClose, screenshot = true }: { x: number; y: number; items: CodeToolbarMenuItem[]; label: string; onClose: () => void; screenshot?: boolean }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
 
@@ -106,7 +106,7 @@ export function CodeContextMenu({ x, y, items, label, onClose }: { x: number; y:
         event.stopPropagation();
       }}
     >
-      <CodeToolbarMenuList items={withScreenshotItem(items)} label={label} onDone={onClose} />
+      <CodeToolbarMenuList items={screenshot ? withScreenshotItem(items) : items} label={label} onDone={onClose} />
     </div>,
     document.body,
   );

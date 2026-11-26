@@ -13,7 +13,7 @@ function resolveCommandPath(command) {
 
 function managedLanguageServerPath(command) {
     const executable = process.platform === 'win32' ? `${command}.cmd` : command;
-    if (['vscode-html-language-server', 'vscode-css-language-server'].includes(command)) return path.join(getZoraiDataDir(), 'language-servers', 'web', 'node_modules', '.bin', executable);
+    if (['vscode-html-language-server', 'vscode-css-language-server', 'vscode-json-language-server'].includes(command)) return path.join(getZoraiDataDir(), 'language-servers', 'web', 'node_modules', '.bin', executable);
     if (command === 'typescript-language-server') return path.join(getZoraiDataDir(), 'language-servers', 'typescript', 'node_modules', '.bin', executable);
     if (command === 'pyright-langserver') return path.join(getZoraiDataDir(), 'language-servers', 'pyright', 'node_modules', '.bin', executable);
     if (command === 'gopls') return path.join(process.env.GOPATH || path.join(os.homedir(), 'go'), 'bin', process.platform === 'win32' ? 'gopls.exe' : 'gopls');
@@ -81,7 +81,29 @@ function languageServerSpec(language) {
     };
     if (normalized === 'go') return { id: 'go', languageId: 'go', candidates: [{ command: 'gopls', args: [] }] };
     if (['c', 'cpp', 'objective-c'].includes(normalized)) return { id: 'cpp', languageId: normalized === 'c' ? 'c' : 'cpp', candidates: [{ command: 'clangd', args: ['--background-index'] }] };
+    if (normalized === 'json') return { id: 'json', installId: 'web', languageId: 'json', initializationOptions: { provideFormatter: true }, candidates: [{ command: 'vscode-json-language-server', args: ['--stdio'] }] };
+    if (normalized === 'yaml') return { id: 'yaml', languageId: 'yaml', candidates: [{ command: 'yaml-language-server', args: ['--stdio'] }] };
+    if (normalized === 'lua') return { id: 'lua', languageId: 'lua', candidates: [{ command: 'lua-language-server', args: [] }] };
+    if (normalized === 'ruby') return { id: 'ruby', languageId: 'ruby', candidates: [{ command: 'ruby-lsp', args: [] }, { command: 'solargraph', args: ['stdio'] }] };
+    if (normalized === 'java') return { id: 'java', languageId: 'java', candidates: [{ command: 'jdtls', args: [] }] };
+    if (normalized === 'csharp') return { id: 'csharp', languageId: 'csharp', candidates: [{ command: 'csharp-ls', args: [] }] };
+    if (normalized === 'shell') return { id: 'shell', languageId: 'shellscript', candidates: [{ command: 'bash-language-server', args: ['start'] }] };
+    if (normalized === 'zig') return { id: 'zig', languageId: 'zig', candidates: [{ command: 'zls', args: [] }] };
     return null;
+}
+
+function userLanguageServerSpec(language, configPath = path.join(getZoraiDataDir(), 'lsp.json')) {
+    let config;
+    try { config = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch { return null; }
+    const normalized = String(language || '').toLowerCase();
+    const entry = config?.servers?.[normalized];
+    if (!entry || typeof entry.command !== 'string' || !entry.command.trim()) return null;
+    return {
+        id: `user-${normalized}`,
+        languageId: typeof entry.languageId === 'string' ? entry.languageId : normalized,
+        initializationOptions: entry.initializationOptions && typeof entry.initializationOptions === 'object' ? entry.initializationOptions : undefined,
+        candidates: [{ command: entry.command.trim(), args: Array.isArray(entry.args) ? entry.args.map(String) : [] }],
+    };
 }
 
 const LANGUAGE_SERVER_INSTALLS = [
@@ -143,7 +165,7 @@ function resolveLanguageServer(language) {
 }
 
 function resolveLanguageServerUncached(language) {
-    const spec = languageServerSpec(language);
+    const spec = userLanguageServerSpec(language) ?? languageServerSpec(language);
     if (!spec) return null;
     const candidate = spec.candidates
         .map((entry) => ({ ...entry, resolvedCommand: usableLanguageServerCommand(entry.command) }))
@@ -153,4 +175,4 @@ function resolveLanguageServerUncached(language) {
         : { ...spec, command: null, displayCommand: null, args: [] };
 }
 
-module.exports = { installLanguageServer, languageServerSpec, languageServerStatuses, resolveLanguageServer, typeScriptLanguageId, usableLanguageServerCommand };
+module.exports = { installLanguageServer, languageServerSpec, languageServerStatuses, resolveLanguageServer, typeScriptLanguageId, usableLanguageServerCommand, userLanguageServerSpec };

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { latestPickedScreenshot } from "@/zorai/features/browser/domToCode";
 import { joinVoiceTranscript } from "@/zorai/features/threads/voiceTranscript";
 import { useCodeDictation } from "./useCodeDictation";
 
@@ -17,13 +18,14 @@ function readReasoningPreference(): boolean {
 
 const SendIcon = () => <svg {...ICON}><line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" /></svg>;
 
-export function RarogFixPrompt({ startLine, endLine, diagnostics, busy, error, reviewing = false, thinking = "", onSubmit, onAccept, onClose, title, scope, placeholder, acceptLabel = "Accept", preview, onRun }: {
+export function RarogFixPrompt({ startLine, endLine, diagnostics, busy, error, reviewing = false, thinking = "", onSubmit, onAccept, onClose, title, scope, placeholder, acceptLabel = "Accept", preview, onRun, allowImages = false }: {
   startLine: number;
   endLine: number;
   diagnostics: number;
   busy: boolean;
   error: string | null;
-  onSubmit: (instruction: string, reasoning: boolean) => void;
+  onSubmit: (instruction: string, reasoning: boolean, images: string[]) => void;
+  allowImages?: boolean;
   onAccept?: () => void;
   thinking?: string;
   onClose: () => void;
@@ -36,6 +38,14 @@ export function RarogFixPrompt({ startLine, endLine, diagnostics, busy, error, r
   onRun?: () => void;
 }) {
   const [instruction, setInstruction] = useState("");
+  const [images, setImages] = useState<string[]>([]);
+  const addImageFiles = (files: File[]) => {
+    for (const file of files.filter((entry) => entry.type.startsWith("image/")).slice(0, 4)) {
+      const reader = new FileReader();
+      reader.onload = () => { if (typeof reader.result === "string") setImages((current) => [...current, reader.result as string].slice(-4)); };
+      reader.readAsDataURL(file);
+    }
+  };
   const [reasoning, setReasoning] = useState(readReasoningPreference);
   const toggleReasoning = () => setReasoning((current) => {
     try {
@@ -52,7 +62,7 @@ export function RarogFixPrompt({ startLine, endLine, diagnostics, busy, error, r
   const fallback = diagnostics > 0 ? `fixes the ${diagnostics} problem${diagnostics === 1 ? "" : "s"} here` : "fixes the most likely bug";
   const submit = () => {
     if (busy || (reviewing && !instruction.trim())) return;
-    onSubmit(instruction.trim(), reasoning);
+    onSubmit(instruction.trim(), reasoning, images);
     if (reviewing) setInstruction("");
   };
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -89,8 +99,32 @@ export function RarogFixPrompt({ startLine, endLine, diagnostics, busy, error, r
           aria-label="Fix instruction"
           onChange={(event) => setInstruction(event.target.value)}
           onKeyDown={onKeyDown}
+          onPaste={allowImages ? (event) => {
+            const files = Array.from(event.clipboardData.files);
+            if (files.some((file) => file.type.startsWith("image/"))) {
+              event.preventDefault();
+              addImageFiles(files);
+            }
+          } : undefined}
+          onDrop={allowImages ? (event) => {
+            const files = Array.from(event.dataTransfer.files);
+            if (files.length > 0) {
+              event.preventDefault();
+              addImageFiles(files);
+            }
+          } : undefined}
         />
       </div>
+      {images.length > 0 ? (
+        <div className="zorai-rarog-fix__images">
+          {images.map((image, index) => (
+            <span key={index}>
+              <img src={image} alt={`Attached image ${index + 1}`} />
+              <button type="button" aria-label={`Remove image ${index + 1}`} onClick={() => setImages((current) => current.filter((_, position) => position !== index))}>×</button>
+            </span>
+          ))}
+        </div>
+      ) : null}
       <div className="zorai-rarog-fix__field-buttons">
         <div className="zorai-rarog-fix__field-left-buttons">
           <button
@@ -104,6 +138,15 @@ export function RarogFixPrompt({ startLine, endLine, diagnostics, busy, error, r
           >
             <BrainIcon />
           </button>
+          {allowImages && latestPickedScreenshot() ? (
+            <button
+              type="button"
+              disabled={busy}
+              title="Attach the last element you picked in the browser (paste or drop any screenshot or sketch too)"
+              aria-label="Attach browser screenshot"
+              onClick={() => { const shot = latestPickedScreenshot(); if (shot) setImages((current) => [...current, shot].slice(-4)); }}
+            >⌖</button>
+          ) : null}
         </div>
         <div className="zorai-rarog-fix__field-right-buttons">
           {dictation.available ? (

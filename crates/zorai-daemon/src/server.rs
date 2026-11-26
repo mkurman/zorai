@@ -255,6 +255,7 @@ fn client_message_variant_name(msg: &ClientMessage) -> &'static str {
         AgentGenerateCommitMessage { .. } => "AgentGenerateCommitMessage",
         AgentGenerateCodeFix { .. } => "AgentGenerateCodeFix",
         AgentCodeComplete { .. } => "AgentCodeComplete",
+        AgentListProjectRules { .. } => "AgentListProjectRules",
         AgentHandoffThread { .. } => "AgentHandoffThread",
         AgentHeartbeatGetItems => "AgentHeartbeatGetItems",
         ListAgentEvents { .. } => "ListAgentEvents",

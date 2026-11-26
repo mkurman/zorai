@@ -118,6 +118,9 @@ function createWorkspaceSearchCache({
             }
             return results;
         },
+        isWarm(rootPath) {
+            try { return stateFor(canonicalRoot(rootPath)).warm === true; } catch { return false; }
+        },
         async warm(rootPath) {
             const root = canonicalRoot(rootPath);
             const state = stateFor(root);
@@ -131,6 +134,7 @@ function createWorkspaceSearchCache({
                 }
             };
             await Promise.all(Array.from({ length: Math.min(4, files.length) }, worker));
+            state.warm = true;
             return files.length;
         },
         applyChanges(rootPath, changes) {
