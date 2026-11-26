@@ -34,7 +34,7 @@ type WorkspaceContextState = {
   bindRoot: (threadId: string, root: string) => void;
   adoptRoot: (threadId: string, root: string) => void;
   clearRoot: (threadId: string) => void;
-  setActiveFile: (threadId: string, filePath: string | null) => void;
+  setActiveFile: (threadId: string, filePath: string | null, openTab?: boolean) => void;
   setSelection: (threadId: string, selection: WorkspaceSelection | null) => void;
   toggleAttachedFile: (threadId: string, filePath: string) => void;
   closeFile: (threadId: string, filePath: string) => void;
@@ -211,10 +211,10 @@ export const useWorkspaceContextStore = create<WorkspaceContextState>((set, get)
     persist(byThreadId);
     return { byThreadId };
   }),
-  setActiveFile: (threadId, filePath) => set((state) => updateContext(state, threadId, (current) => ({
+  setActiveFile: (threadId, filePath, openTab = true) => set((state) => updateContext(state, threadId, (current) => ({
     ...current,
     activeFile: filePath,
-    openFiles: filePath && !current.openFiles.includes(filePath) ? [...current.openFiles, filePath] : current.openFiles,
+    openFiles: openTab && filePath && !current.openFiles.includes(filePath) ? [...current.openFiles, filePath] : current.openFiles,
     updatedAt: Date.now(),
   }))),
   setSelection: (threadId, selection) => set((state) => updateContext(state, threadId, (current) => ({

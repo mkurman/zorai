@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getBridge } from "@/lib/bridge";
-import { useDebugStore, type Breakpoint, type DebugVariable } from "./debugStore";
+import { compoundMembers, useDebugStore, type Breakpoint, type DebugVariable } from "./debugStore";
 import { useCodeTaskStore } from "../codeTaskStore";
 
 function VariableRow({ variable, depth }: { variable: DebugVariable; depth: number }) {
@@ -83,15 +83,18 @@ export function DebugPanel({ root, activeFile, onOpenLocation }: { root: string;
     if (!config) return;
     setError(null);
     void (async () => {
-      const preLaunch = typeof config.preLaunchTask === "string" ? config.preLaunchTask : null;
-      if (preLaunch) {
+      const members = config.type === "compound" ? compoundMembers(config, configs) : [config];
+      for (const entry of config.type === "compound" ? [config, ...members] : members) {
+        const preLaunch = typeof entry.preLaunchTask === "string" ? entry.preLaunchTask : null;
+        if (!preLaunch) continue;
         const tasks = await useCodeTaskStore.getState().discover(root);
-        const task = tasks.find((entry) => entry.label === preLaunch);
+        const task = tasks.find((candidate) => candidate.label === preLaunch);
         if (!task) throw new Error(`The preLaunchTask "${preLaunch}" was not found in tasks.json.`);
         const result = await useCodeTaskStore.getState().run(root, task);
         if (result?.status !== "succeeded") throw new Error(`The preLaunchTask "${preLaunch}" failed; see the Tasks panel.`);
       }
-      await store.start(root, activeFile, config);
+      if (config.type === "compound") await store.startCompound(root, activeFile, members);
+      else await store.start(root, activeFile, config);
     })().catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)));
   };
   const missing = config ? adapters.filter((adapter) => !adapter.available) : [];
@@ -108,7 +111,7 @@ export function DebugPanel({ root, activeFile, onOpenLocation }: { root: string;
       {error ? <p className="zorai-debug__hint is-error">{error}</p> : null}
       {active ? (
         <div className="zorai-debug__toolbar" role="toolbar" aria-label="Debug controls">
-          <span className="zorai-debug__status">{store.status === "stopped" ? `Paused${store.stopReason ? ` · ${store.stopReason}` : ""}` : store.status === "starting" ? "Starting…" : "Running"}</span>
+          <span className="zorai-debug__status" title={[store.session, ...store.companions].map((entry) => entry?.config.name).filter(Boolean).join(", ")}>{store.status === "stopped" ? `Paused${store.stopReason ? ` · ${store.stopReason}` : ""}` : store.status === "starting" ? "Starting…" : "Running"}{store.companions.length > 0 ? ` · ${store.session?.config.name} +${store.companions.length}` : ""}</span>
           {store.status === "stopped"
             ? <button type="button" title="Continue (F5)" onClick={() => void store.command("continue")}>⏵</button>
             : <button type="button" title="Pause (F6)" onClick={() => void store.command("pause")}>⏸</button>}

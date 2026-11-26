@@ -13,6 +13,7 @@ type Session = { id: string; root: string; file: string | null; config: ZoraiDeb
 type DebugState = {
   breakpoints: Record<string, Record<string, Breakpoint[]>>;
   session: Session | null;
+  companions: Session[];
   status: DebugStatus;
   stopReason: string | null;
   threadId: number | null;
@@ -29,6 +30,7 @@ type DebugState = {
   toggleBreakpoint: (root: string, path: string, line: number) => void;
   updateBreakpoint: (root: string, path: string, line: number, patch: Partial<Breakpoint> | null) => void;
   start: (root: string, file: string | null, config: ZoraiDebugConfiguration) => Promise<void>;
+  startCompound: (root: string, file: string | null, configs: ZoraiDebugConfiguration[]) => Promise<void>;
   command: (command: "continue" | "next" | "stepIn" | "stepOut" | "pause") => Promise<void>;
   stop: () => Promise<void>;
   restart: () => Promise<void>;
@@ -71,6 +73,13 @@ export function toggleBreakpointIn(list: Breakpoint[], line: number): Breakpoint
   return list.some((entry) => entry.line === line) ? list.filter((entry) => entry.line !== line) : [...list, { line, enabled: true }].sort((left, right) => left.line - right.line);
 }
 
+export function compoundMembers(compound: ZoraiDebugConfiguration, configs: ZoraiDebugConfiguration[]): ZoraiDebugConfiguration[] {
+  const names = Array.isArray(compound.configurations) ? compound.configurations.filter((name): name is string => typeof name === "string") : [];
+  const missing = names.filter((name) => !configs.some((config) => config.name === name && config.type !== "compound"));
+  if (missing.length > 0) throw new Error(`The compound "${compound.name}" names configurations that do not exist: ${missing.join(", ")}.`);
+  return names.map((name) => configs.find((config) => config.name === name && config.type !== "compound")!);
+}
+
 export function breakpointSpecs(list: Breakpoint[]): ZoraiDebugBreakpointSpec[] {
   return list.filter((entry) => entry.enabled).map(({ line, condition, logMessage, hitCondition }) => ({ line, condition, logMessage, hitCondition }));
 }
@@ -87,9 +96,13 @@ export const useDebugStore = create<DebugState>((set, get) => {
   };
   const syncBreakpoints = (root: string, path: string) => {
     const session = get().session;
-    if (!session || session.root !== root || get().status === "ended") return;
-    void getBridge()?.debugSetBreakpoints?.(session.id, joinPath(root, path), breakpointSpecs(get().breakpoints[root]?.[path] ?? []))?.catch(() => null);
+    if (!session || get().status === "ended") return;
+    for (const target of [session, ...get().companions]) {
+      if (target.root !== root) continue;
+      void getBridge()?.debugSetBreakpoints?.(target.id, joinPath(root, path), breakpointSpecs(get().breakpoints[root]?.[path] ?? []))?.catch(() => null);
+    }
   };
+  const breakpointSpecsFor = (root: string) => Object.fromEntries(Object.entries(get().breakpoints[root] ?? {}).map(([path, list]) => [path, breakpointSpecs(list)]).filter(([, list]) => list.length > 0));
   const refreshWatches = async () => {
     const values: Record<string, string> = {};
     for (const expression of get().watches) values[expression] = (await get().evaluate(expression, "watch")) ?? "not available";
@@ -114,7 +127,23 @@ export const useDebugStore = create<DebugState>((set, get) => {
     const top = frames.find((frame) => frame.path) ?? frames[0];
     if (top) await get().selectFrame(top.id);
   };
+  const handleCompanionEvent = (companion: Session, event: string, body: any) => {
+    if (event === "output" && typeof body?.output === "string" && body.category !== "telemetry") appendConsole([{ category: body.category === "stderr" ? "stderr" : "stdout", text: `[${companion.config.name}] ${body.output}` }]);
+    else if (event === "stopped") {
+      const focused = get().session;
+      set({ session: companion, companions: [...get().companions.filter((entry) => entry.id !== companion.id), ...(focused && get().status !== "ended" ? [focused] : [])], frames: [], scopes: [], frameId: null, threadId: null });
+      void onStopped(body ?? {});
+    } else if (event === "terminated" || event === "sessionEnded") {
+      set({ companions: get().companions.filter((entry) => entry.id !== companion.id) });
+      if (event === "terminated") appendConsole([{ category: "console", text: `${companion.config.name} ended\n` }]);
+    }
+  };
   const handleEvent = (payload: { sessionId: string; event: string; body: any }) => {
+    const companion = get().companions.find((entry) => entry.id === payload.sessionId);
+    if (companion) {
+      handleCompanionEvent(companion, payload.event, payload.body);
+      return;
+    }
     if (payload.sessionId !== get().session?.id) return;
     const { event, body } = payload;
     if (event === "capabilities") set({ exceptionFilters: Array.isArray(body?.exceptionBreakpointFilters) ? body.exceptionBreakpointFilters.map((entry: any) => ({ filter: String(entry.filter), label: String(entry.label ?? entry.filter), default: entry.default === true })) : [] });
@@ -123,6 +152,11 @@ export const useDebugStore = create<DebugState>((set, get) => {
     else if (event === "output" && typeof body?.output === "string" && body.category !== "telemetry") appendConsole([{ category: body.category === "stderr" ? "stderr" : body.category === "stdout" ? "stdout" : "console", text: body.output }]);
     else if (event === "terminated" || event === "exited" || event === "sessionEnded") {
       if (event === "exited" && typeof body?.exitCode === "number") appendConsole([{ category: "console", text: `Process exited with code ${body.exitCode}\n` }]);
+      const [next, ...rest] = get().companions;
+      if (next) {
+        if (event !== "exited") set({ session: next, companions: rest, status: "running", frames: [], scopes: [], frameId: null, threadId: null, stopReason: null });
+        return;
+      }
       set({ status: "ended", frames: [], scopes: [], frameId: null, threadId: null });
     }
   };
@@ -130,6 +164,7 @@ export const useDebugStore = create<DebugState>((set, get) => {
   return {
     breakpoints: readJson(STORAGE_KEY, {}),
     session: null,
+    companions: [],
     status: "idle",
     stopReason: null,
     threadId: null,
@@ -173,8 +208,8 @@ export const useDebugStore = create<DebugState>((set, get) => {
       if (!bridge?.debugStart) throw new Error("Debugging needs the desktop app.");
       if (get().session && get().status !== "ended") await get().stop();
       unsubscribe ??= (bridge.onDebugEvent?.(handleEvent) as (() => void) | undefined) ?? null;
-      const specs = Object.fromEntries(Object.entries(get().breakpoints[root] ?? {}).map(([path, list]) => [path, breakpointSpecs(list)]).filter(([, list]) => list.length > 0));
-      set({ status: "starting", console: [{ category: "console", text: `Starting ${config.name}…\n` }], frames: [], scopes: [], variables: {}, frameId: null, threadId: null, stopReason: null });
+      const specs = breakpointSpecsFor(root);
+      set({ companions: [], status: "starting", console: [{ category: "console", text: `Starting ${config.name}…\n` }], frames: [], scopes: [], variables: {}, frameId: null, threadId: null, stopReason: null });
       try {
         const { sessionId } = await bridge.debugStart(root, file, config, specs, get().enabledExceptionFilters);
         set({ session: { id: sessionId, root, file, config }, status: get().status === "starting" ? "running" : get().status });
@@ -184,21 +219,40 @@ export const useDebugStore = create<DebugState>((set, get) => {
         throw reason;
       }
     },
+    startCompound: async (root, file, configs) => {
+      const bridge = getBridge();
+      const [first, ...rest] = configs;
+      if (!first) return;
+      await get().start(root, file, first);
+      if (!bridge?.debugStart) return;
+      for (const config of rest) {
+        appendConsole([{ category: "console", text: `Starting ${config.name}…\n` }]);
+        try {
+          const { sessionId } = await bridge.debugStart(root, file, config, breakpointSpecsFor(root), get().enabledExceptionFilters);
+          set({ companions: [...get().companions, { id: sessionId, root, file, config }] });
+        } catch (reason) {
+          appendConsole([{ category: "error", text: `${config.name}: ${reason instanceof Error ? reason.message : String(reason)}\n` }]);
+        }
+      }
+    },
     command: async (command) => {
       const threadId = get().threadId;
       if (command !== "pause") set({ status: "running" });
       await request(command, { threadId: threadId ?? 1 }).catch((reason) => appendConsole([{ category: "error", text: `${reason.message}\n` }]));
     },
     stop: async () => {
-      const session = get().session;
-      if (session) await getBridge()?.debugStop?.(session.id).catch(() => false);
+      const sessions = [get().session, ...get().companions].filter((entry): entry is Session => Boolean(entry));
+      set({ companions: [] });
+      await Promise.all(sessions.map((entry) => getBridge()?.debugStop?.(entry.id).catch(() => false)));
       set({ status: "ended", frames: [], scopes: [], frameId: null, threadId: null });
     },
     restart: async () => {
       const session = get().session;
       if (!session) return;
+      const configs = [session.config, ...get().companions.map((entry) => entry.config)];
       await get().stop();
-      await get().start(session.root, session.file, session.config);
+      if (configs.length > 1) await get().startCompound(session.root, session.file, configs);
+      else await get().start(session.root, session.file, session.config);
     },
     selectFrame: async (frameId) => {
       set({ frameId });

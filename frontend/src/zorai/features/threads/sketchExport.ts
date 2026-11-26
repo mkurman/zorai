@@ -8,6 +8,18 @@ import {
   type SketchShape,
 } from "./sketchpadModel";
 
+let latestSketch: string | null = null;
+
+export function latestSketchImage(): string | null {
+  return latestSketch;
+}
+
+function rememberSketch(blob: Blob) {
+  const reader = new FileReader();
+  reader.onload = () => { if (typeof reader.result === "string") latestSketch = reader.result; };
+  reader.readAsDataURL(blob);
+}
+
 export async function sketchToPngFile(shapes: readonly SketchShape[], background: string): Promise<File | null> {
   const bounds = sketchBounds(shapes);
   if (!bounds || !sketchHasInk(shapes)) return null;
@@ -29,6 +41,7 @@ export async function sketchToPngFile(shapes: readonly SketchShape[], background
   ctx.drawImage(ink, 0, 0);
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
   if (!blob) return null;
+  rememberSketch(blob);
   return new File([blob], `sketch-${Date.now()}.png`, { type: "image/png" });
 }
 

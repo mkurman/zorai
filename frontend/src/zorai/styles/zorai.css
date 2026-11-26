@@ -2842,13 +2842,37 @@
   display: flex;
   gap: 2px;
   padding: 6px 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
   background: var(--zorai-bg-panel);
   border-bottom: 1px solid var(--zorai-border);
 }
 
+.zorai-code-rail-tabs {
+  touch-action: pan-x;
+  user-select: none;
+  --rail-fade-left: 0px;
+  --rail-fade-right: 0px;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--rail-fade-left), #000 calc(100% - var(--rail-fade-right)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--rail-fade-left), #000 calc(100% - var(--rail-fade-right)), transparent 100%);
+}
+
+.zorai-code-rail-tabs.has-more-left {
+  --rail-fade-left: 40px;
+}
+
+.zorai-code-rail-tabs.has-more-right {
+  --rail-fade-right: 40px;
+}
+
+.zorai-code-rail-tabs::-webkit-scrollbar {
+  display: none;
+}
+
 .zorai-code-rail-tabs button {
-  flex: 1;
-  min-width: 0;
+  flex: 1 0 auto;
+  min-width: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -8007,6 +8031,41 @@ button.zorai-composer-context-chip {
   cursor: default;
 }
 
+.zorai-scm-extra-root {
+  border-top: 1px solid var(--zorai-border);
+}
+
+.zorai-scm-extra-root > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  color: var(--zorai-text);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.zorai-scm-extra-root__meta {
+  color: var(--zorai-muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.zorai-scm-extra-root__message {
+  width: 100%;
+  min-height: 0;
+  resize: vertical;
+  font-size: var(--text-xs);
+}
+
+.zorai-scm-extra-root__error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--text-xs);
+}
+
 .zorai-workspace-git-overview .zorai-scm-commit-split {
   display: flex;
   align-items: stretch;
@@ -9199,14 +9258,12 @@ button.zorai-composer-context-chip {
       color-mix(in srgb, var(--text-primary) 6%, transparent));
 }
 
-.zorai-code-open-editors,
 .zorai-code-files,
 .zorai-code-workspace-actions,
 .zorai-code-source-control {
   border-bottom: 1px solid var(--zorai-border);
 }
 
-.zorai-code-open-editors>summary,
 .zorai-code-files>summary,
 .zorai-code-outline>summary,
 .zorai-code-timeline>summary,
@@ -9221,26 +9278,6 @@ button.zorai-composer-context-chip {
   font-weight: 700;
   text-transform: uppercase;
   cursor: pointer;
-}
-
-.zorai-code-open-editors>button {
-  width: 100%;
-  height: 25px;
-  overflow: hidden;
-  border: 0;
-  padding: 0 12px;
-  background: transparent;
-  color: var(--zorai-muted);
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font: 11px var(--font-mono);
-}
-
-.zorai-code-open-editors>button.active,
-.zorai-code-open-editors>button:hover {
-  background: var(--zorai-bg-active);
-  color: var(--zorai-text);
 }
 
 .zorai-code-outline>summary,
@@ -12523,12 +12560,6 @@ button.zorai-lsp-status:hover {
   pointer-events: auto;
 }
 
-.zorai-workspace-source-control.is-narrow .zorai-workspace-change-actions {
-  position: static;
-  transform: none;
-  pointer-events: auto;
-}
-
 .zorai-workspace-change-row:hover .zorai-workspace-change-actions,
 .zorai-workspace-change-actions:focus-within {
   opacity: 1;
@@ -12566,10 +12597,6 @@ button.zorai-lsp-status:hover {
   display: none;
 }
 
-.zorai-workspace-source-control.is-narrow .zorai-workspace-change-actions {
-  opacity: 1;
-}
-
 .zorai-workspace-source-control.is-narrow .zorai-workspace-change-actions button {
   width: 20px;
 }
@@ -12579,18 +12606,8 @@ button.zorai-lsp-status:hover {
     display: none;
   }
 
-  .zorai-workspace-change-actions {
-    opacity: 1;
-  }
-
   .zorai-workspace-change-actions button {
     width: 20px;
-  }
-
-  .zorai-workspace-change-actions {
-    position: static;
-    transform: none;
-    pointer-events: auto;
   }
 }
 

@@ -31,17 +31,14 @@ function ExtraRoot({ root, onOpen, onRemove }: { root: string; onOpen: (absolute
   );
 }
 
+export function addWorkspaceFolder(roots: string[], onChange: (roots: string[]) => void) {
+  void getBridge()?.workspaceSelectFolder?.().then((result) => { if (!result.canceled && result.root && !roots.includes(result.root.root)) onChange([...roots, result.root.root]); });
+}
+
 export function CodeWorkspaceFolders({ roots, onOpen, onChange }: { roots: string[]; onOpen: (absolutePath: string) => void; onChange: (roots: string[]) => void }) {
   return (
     <>
       {roots.map((root) => <ExtraRoot key={root} root={root} onOpen={onOpen} onRemove={() => onChange(roots.filter((entry) => entry !== root))} />)}
-      <button
-        type="button"
-        className="zorai-code-add-folder"
-        onClick={() => void getBridge()?.workspaceSelectFolder?.().then((result) => { if (!result.canceled && result.root) onChange([...roots, result.root.root]); })}
-      >
-        + Add folder to workspace
-      </button>
     </>
   );
 }

@@ -675,6 +675,10 @@ export function WorkspaceDiffEditor({ original, modified, language, readOnly = t
   const callbacksRef = useRef({ onChange, onSave });
   callbacksRef.current = { onChange, onSave };
   const modifiedEditorRef = useRef<{ getSelection: () => { startLineNumber: number; endLineNumber: number } | null } | null>(null);
+  useEffect(() => {
+    const service = BUILT_IN_SERVICE_BY_LANGUAGE[language];
+    return service ? suppressBuiltInLanguageService(service) : undefined;
+  }, [language]);
   const fallback = <div className="zorai-workspace-diff-grid"><pre>{original}</pre><pre>{modified}</pre></div>;
   return (
     <MonacoBoundary fallback={fallback}>

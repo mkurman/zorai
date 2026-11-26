@@ -94,7 +94,7 @@ describe("Zorai feature surfaces", () => {
     expect(workbenchSource).toContain("shouldRestoreWorkspaceDocument");
     expect(workbenchSource).toContain("shouldPassthroughCodeCommand");
     expect(workbenchSource).toContain("shouldPassthroughCodeCommand(command.id, event.target)");
-    expect(workbenchSource).toContain('setActiveEditorTabId(`file:${filePath}`)');
+    expect(workbenchSource).toContain('setActiveEditorTabId(view === "diff" ? `diff:${filePath}` : `file:${filePath}`)');
     expect(workbenchSource).toContain("void openFile(filePath)");
     expect(workbenchSource).toContain('<SessionTabStrip');
     expect(workbenchSource).toContain("This folder is not a Git repository");

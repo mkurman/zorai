@@ -32,13 +32,14 @@ describe("WorkspaceSourceControlChanges", () => {
     expect(narrow).toContain("theme.css");
   });
 
-  it("binds the narrow presentation to the same rules as the container query", () => {
+  it("keeps row actions hover-only at narrow widths so file names keep their space", () => {
     const cssPath = fileURLToPath(new URL("../../styles/zorai.css", import.meta.url));
-    const css = readFileSync(cssPath, "utf8");
+    const css = readFileSync(cssPath, "utf8").replace(/\s+/g, " ");
 
     expect(css).toContain(".zorai-workspace-source-control.is-narrow .zorai-workspace-change-path small { display: none; }");
-    expect(css).toContain(".zorai-workspace-source-control.is-narrow .zorai-workspace-change-actions { opacity: 1; }");
-    expect(css).toMatch(/@container \(max-width: 250px\)[\s\S]*\.zorai-workspace-change-path small \{ display: none; \}[\s\S]*\.zorai-workspace-change-actions \{ opacity: 1; \}/);
+    expect(css).toMatch(/@container \(max-width: 250px\) \{ \.zorai-workspace-change-path small \{ display: none; \}/);
+    expect(css).not.toMatch(/is-narrow \.zorai-workspace-change-actions \{[^}]*(opacity: 1|position: static)/);
+    expect(css).not.toMatch(/@container \(max-width: 250px\) \{[^@]*\.zorai-workspace-change-actions \{[^}]*(opacity: 1|position: static)/);
   });
 
   it("routes file actions through the supplied handlers", () => {

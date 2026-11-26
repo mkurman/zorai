@@ -19,6 +19,20 @@ test('launch.json with comments and VS Code variables resolves to concrete paths
     fs.rmSync(root, { recursive: true, force: true });
 });
 
+test('launch.json compounds become one entry that names the configurations to start together', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zorai-launch-'));
+    fs.mkdirSync(path.join(root, '.vscode'));
+    fs.writeFileSync(path.join(root, '.vscode', 'launch.json'), JSON.stringify({
+        configurations: [{ name: 'Server', type: 'node', request: 'launch' }, { name: 'Client', type: 'node', request: 'launch' }],
+        compounds: [{ name: 'Full stack', configurations: ['Server', 'Client'], stopAll: true }, { name: 'Empty', configurations: [] }],
+    }));
+    const configs = readLaunchConfigurations(root);
+    assert.deepEqual(configs.map((config) => config.name), ['Server', 'Client', 'Full stack']);
+    assert.equal(configs[2].type, 'compound');
+    assert.deepEqual(configs[2].configurations, ['Server', 'Client']);
+    fs.rmSync(root, { recursive: true, force: true });
+});
+
 test('TCP adapters announce their port in a line we can parse', () => {
     assert.deepEqual(LISTEN_PATTERN.exec('DAP server listening at: 127.0.0.1:38211').slice(1), ['127.0.0.1', '38211']);
     assert.equal(LISTEN_PATTERN.exec('Debug server listening at ::1:8123')[2], '8123');

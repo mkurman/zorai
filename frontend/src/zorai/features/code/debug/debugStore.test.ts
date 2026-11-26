@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { breakpointSpecs, relativeToRoot, toggleBreakpointIn } from "./debugStore";
+import { breakpointSpecs, compoundMembers, relativeToRoot, toggleBreakpointIn } from "./debugStore";
 
 describe("debug breakpoints", () => {
   it("toggles a breakpoint on and off and keeps them in line order for the gutter and the adapter", () => {
@@ -17,5 +17,20 @@ describe("debug breakpoints", () => {
     expect(relativeToRoot("/repo/", "/repo/src/main.c")).toBe("src/main.c");
     expect(relativeToRoot("C:\\repo", "C:\\repo\\a.py")).toBe("a.py");
     expect(relativeToRoot("/repo", "/usr/lib/libc.so")).toBeNull();
+  });
+});
+
+describe("compound launch configurations", () => {
+  const server = { name: "Server", type: "node", request: "launch" };
+  const client = { name: "Client", type: "node", request: "launch" };
+
+  it("starts the named configurations in the order the compound lists them", () => {
+    const compound = { name: "Full stack", type: "compound", request: "launch", configurations: ["Client", "Server"] };
+    expect(compoundMembers(compound, [server, client, compound]).map((config) => config.name)).toEqual(["Client", "Server"]);
+  });
+
+  it("refuses to start when a named configuration is missing instead of launching half the stack", () => {
+    const compound = { name: "Broken", type: "compound", request: "launch", configurations: ["Server", "Worker"] };
+    expect(() => compoundMembers(compound, [server, compound])).toThrow(/Worker/);
   });
 });

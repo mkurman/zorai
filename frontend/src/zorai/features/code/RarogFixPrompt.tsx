@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { latestPickedScreenshot } from "@/zorai/features/browser/domToCode";
+import { latestSketchImage } from "@/zorai/features/threads/sketchExport";
 import { joinVoiceTranscript } from "@/zorai/features/threads/voiceTranscript";
 import { useCodeDictation } from "./useCodeDictation";
 
@@ -146,6 +147,15 @@ export function RarogFixPrompt({ startLine, endLine, diagnostics, busy, error, r
               aria-label="Attach browser screenshot"
               onClick={() => { const shot = latestPickedScreenshot(); if (shot) setImages((current) => [...current, shot].slice(-4)); }}
             >⌖</button>
+          ) : null}
+          {allowImages && latestSketchImage() ? (
+            <button
+              type="button"
+              disabled={busy}
+              title="Attach your latest sketch from the composer so Leszy can turn it into code"
+              aria-label="Attach latest sketch"
+              onClick={() => { const sketch = latestSketchImage(); if (sketch) setImages((current) => [...current, sketch].slice(-4)); }}
+            >✎</button>
           ) : null}
         </div>
         <div className="zorai-rarog-fix__field-right-buttons">

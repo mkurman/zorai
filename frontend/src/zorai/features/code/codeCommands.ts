@@ -1,7 +1,7 @@
 export type CodeCommandId =
   | "file.save" | "file.saveAll" | "file.reload" | "file.reopenClosed" | "file.quickOpen"
   | "file.close" | "file.closeOthers" | "file.next" | "file.previous" | "file.pin"
-  | "file.openExternal" | "file.reveal" | "search.file" | "search.replace" | "search.project"
+  | "file.openExternal" | "file.reveal" | "file.addFolder" | "search.file" | "search.replace" | "search.project"
   | "navigation.line" | "navigation.symbol" | "navigation.definition" | "navigation.references" | "navigation.back" | "navigation.forward"
   | "navigation.workspaceSymbol" | "navigation.typeDefinition" | "navigation.implementation" | "navigation.callHierarchy" | "edit.expandSelection" | "edit.shrinkSelection"
   | "edit.undo" | "edit.redo" | "edit.cut" | "edit.copy" | "edit.paste" | "edit.selectAll"
@@ -43,6 +43,7 @@ export const CODE_COMMANDS: CodeCommand[] = [
   command("file.pin", "Pin or Unpin Editor", "File", "pin", null),
   command("file.openExternal", "Open Externally", "File", "external", null),
   command("file.reveal", "Reveal in File Manager", "File", "reveal", null),
+  command("file.addFolder", "Add Folder to Workspace…", "File", "file", null, ["multi-root", "workspace folder"]),
   command("search.file", "Find in File", "Search", "search", "CtrlCmd+F"),
   command("search.replace", "Replace in File", "Search", "replace", "CtrlCmd+H"),
   command("search.project", "Search in Files", "Search", "search", "CtrlCmd+Shift+F"),

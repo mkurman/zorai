@@ -125,6 +125,10 @@ function readLaunchConfigurations(root) {
         for (const config of Array.isArray(parsed?.configurations) ? parsed.configurations : []) {
             if (config && typeof config.name === 'string' && typeof config.type === 'string') configs.push({ ...config, source: file });
         }
+        for (const compound of Array.isArray(parsed?.compounds) ? parsed.compounds : []) {
+            const members = Array.isArray(compound?.configurations) ? compound.configurations.filter((name) => typeof name === 'string') : [];
+            if (typeof compound?.name === 'string' && members.length > 0) configs.push({ ...compound, name: compound.name, type: 'compound', request: 'launch', configurations: members, source: file });
+        }
     }
     return configs;
 }
