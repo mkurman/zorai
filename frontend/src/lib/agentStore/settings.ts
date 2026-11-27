@@ -175,7 +175,7 @@ export interface AgentSettings {
   enable_computer_use_tool: boolean;
   bash_timeout_seconds: number;
   enable_web_search_tool: boolean;
-  search_provider: "none" | "firecrawl" | "duckduckgo" | "exa" | "tavily" | "keenable" | "youcom";
+  search_provider: "none" | "firecrawl" | "duckduckgo" | "exa" | "tavily" | "keenable" | "youcom" | "parallel";
   duckduckgo_region: string;
   duckduckgo_safe_search: "off" | "moderate" | "strict";
   firecrawl_api_key: string;

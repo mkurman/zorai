@@ -477,6 +477,26 @@ async fn web_search_runtime_routes_firecrawl_only_when_its_key_is_set() {
 }
 
 #[tokio::test]
+async fn web_search_runtime_uses_parallel_only_when_selected() {
+    for (setting, expected) in [("parallel", "parallel"), ("none", "ddg"), ("", "ddg")] {
+        let provider = execute_web_search_with_runner(
+            &serde_json::json!({ "query": "rust async", "max_results": 2 }),
+            setting,
+            "",
+            "",
+            "",
+            |request, provider| async move {
+                assert_eq!(request.max_results, 2);
+                Ok(provider.to_string())
+            },
+        )
+        .await
+        .expect("search");
+        assert_eq!(provider, expected);
+    }
+}
+
+#[tokio::test]
 async fn web_search_runtime_routes_keenable_without_a_key() {
     let args = serde_json::json!({ "query": "keenable" });
     let provider = execute_web_search_with_runner(

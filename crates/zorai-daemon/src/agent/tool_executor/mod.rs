@@ -8,6 +8,7 @@
 
 mod deferred_tools;
 mod detached_operations;
+mod parallel_search;
 #[path = "catalog/part_a.rs"]
 mod part_a;
 #[path = "catalog/part_b.rs"]

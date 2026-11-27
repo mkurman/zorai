@@ -77,7 +77,7 @@ pub(crate) fn add_available_tools_part_c(
     if config.tools.web_search {
         tools.push(tool_def(
             tool_names::WEB_SEARCH,
-            "Search the web and return results. Requires a search API key in config.",
+            "Search the web using the configured search provider and return source URLs and excerpts.",
             serde_json::json!({
                 "type": "object",
                 "properties": {

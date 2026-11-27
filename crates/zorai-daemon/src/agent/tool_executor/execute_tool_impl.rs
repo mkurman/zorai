@@ -2115,8 +2115,14 @@ async fn dispatch_tool_execution(
                 .extra
                 .get("search_provider")
                 .and_then(|v| v.as_str())
-                .unwrap_or("none")
-                .to_string();
+                .unwrap_or("none");
+            if search_provider == "parallel" && !config.tools.web_search {
+                return (
+                    Err(anyhow::anyhow!("Parallel search requires Web Search to be enabled")),
+                    pending_approval,
+                );
+            }
+            let search_provider = search_provider.to_string();
             let exa_api_key = config
                 .extra
                 .get("exa_api_key")
@@ -2160,7 +2166,7 @@ async fn dispatch_tool_execution(
                 .unwrap_or("moderate")
                 .to_string();
             drop(config);
-            execute_web_search(
+            let search = execute_web_search(
                 args,
                 http_client,
                 &search_provider,
@@ -2171,8 +2177,17 @@ async fn dispatch_tool_execution(
                 &youcom_api_key,
                 &duckduckgo_region,
                 &duckduckgo_safe_search,
-            )
-            .await
+            );
+            match (search_provider.as_str(), cancel_token) {
+                ("parallel", Some(cancel)) => {
+                    tokio::select! {
+                        biased;
+                        _ = cancel.cancelled() => Err(anyhow::anyhow!("Parallel search cancelled")),
+                        result = search => result,
+                    }
+                }
+                _ => search.await,
+            }
         }
         tool_names::FETCH_URL => {
             let config = agent.config.read().await;

@@ -10,6 +10,7 @@ impl TuiModel {
                     "exa" => "tavily",
                     "tavily" => "keenable",
                     "keenable" => "youcom",
+                    "youcom" => "parallel",
                     _ => "none",
                 };
                 self.config.search_provider = next.to_string();

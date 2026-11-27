@@ -338,6 +338,14 @@ The built-in Settings panel exposes configuration in these sections:
 - Agent: provider selection, per-provider API keys and models, system prompt, streaming, memory, compaction, bash tool, and web search settings
 - Keybindings: custom key combinations and reset-to-defaults
 
+To use Parallel for the agent's `web_search` tool, enable Web Search and select
+Parallel in the search provider picker, or choose Parallel in `zorai setup`.
+From the CLI, run `zorai settings set search_provider parallel` and
+`zorai settings set tools.web_search true`.
+No API key is needed. Zorai sends the search query to
+[`https://mcp.parallel.ai/mcp`](https://mcp.parallel.ai/mcp) with a
+`zorai-daemon/<version>` User-Agent so Parallel can count aggregate Zorai usage.
+
 ## Keyboard Shortcuts
 
 All keybindings are customizable from the Settings panel or by editing `keybindings.json`.
