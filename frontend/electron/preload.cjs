@@ -237,7 +237,15 @@ const bridgeApi = {
     },
     gitAskpassRespond: (id, value) => ipcRenderer.invoke('git-askpass-respond', id, value),
     snippetsLoad: (rootPath) => ipcRenderer.invoke('snippets-load', rootPath),
-    notebookExecute: (rootPath, notebookPath, code) => ipcRenderer.invoke('notebook-execute', rootPath, notebookPath, code),
+    notebookExecute: (rootPath, notebookPath, code, python, runId) => ipcRenderer.invoke('notebook-execute', rootPath, notebookPath, code, python, runId),
+    notebookComplete: (rootPath, notebookPath, code, cursor, python) => ipcRenderer.invoke('notebook-complete', rootPath, notebookPath, code, cursor, python),
+    notebookInterrupt: (rootPath, notebookPath) => ipcRenderer.invoke('notebook-interrupt', rootPath, notebookPath),
+    notebookInterpreters: (rootPath) => ipcRenderer.invoke('notebook-interpreters', rootPath),
+    onNotebookOutput: (callback) => {
+        const listener = (_event, payload) => callback(payload);
+        ipcRenderer.on('notebook-output', listener);
+        return () => ipcRenderer.removeListener('notebook-output', listener);
+    },
     notebookRestart: (rootPath, notebookPath) => ipcRenderer.invoke('notebook-restart', rootPath, notebookPath),
     tasksDiscover: (rootPath) => ipcRenderer.invoke('tasks-discover', rootPath),
     tasksRun: (rootPath, task) => ipcRenderer.invoke('tasks-run', rootPath, task),
@@ -519,6 +527,7 @@ const bridgeApi = {
     agentRunGeneratedTool: (toolName, argsJson) => ipcRenderer.invoke('agent-run-generated-tool', toolName, argsJson),
     agentSpeechToText: (base64Audio, mimeType, options) => ipcRenderer.invoke('agent-speech-to-text', base64Audio, mimeType, options),
     agentTextToSpeech: (text, voice, options) => ipcRenderer.invoke('agent-text-to-speech', text, voice, options),
+    agentRealtimeClientSecret: (options) => ipcRenderer.invoke('agent-realtime-client-secret', options),
     agentGenerateImage: (prompt, options) => ipcRenderer.invoke('agent-generate-image', prompt, options),
     agentGenerateVideo: (prompt, options) => ipcRenderer.invoke('agent-generate-video', prompt, options),
     agentGenerateMusic: (prompt, options) => ipcRenderer.invoke('agent-generate-music', prompt, options),

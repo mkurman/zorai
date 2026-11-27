@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cellSource, insertCell, kernelOutputs, moveCell, parseNotebook, serializeNotebook, toSourceLines, updateCell } from "./codeNotebookModel";
+import { appendLiveOutput, cellSource, insertCell, kernelOutputs, notebookCommandKey, moveCell, parseNotebook, serializeNotebook, toSourceLines, updateCell } from "./codeNotebookModel";
 
 const original = JSON.stringify({
   cells: [
@@ -38,5 +38,41 @@ describe("notebook model", () => {
     expect(outputs.map((output) => output.output_type)).toEqual(["stream", "display_data", "execute_result"]);
     expect(outputs[2]).toEqual({ output_type: "execute_result", execution_count: 7, data: { "text/plain": ["42"] }, metadata: {} });
     expect(kernelOutputs({ stdout: "", stderr: "", result: null, html: null, images: [], error: { ename: "E", evalue: "v", traceback: ["t"] } }, 1)[0].output_type).toBe("error");
+  });
+
+  it("opens an empty .ipynb as a blank notebook so a freshly created file is editable instead of rejected", () => {
+    const notebook = parseNotebook("  \n");
+    expect(notebook?.cells).toHaveLength(1);
+    expect(notebook?.cells[0].cell_type).toBe("code");
+    expect(notebook?.nbformat).toBe(4);
+    expect(parseNotebook("{not json")).toBeNull();
+  });
+
+  it("merges streamed print chunks into one output and honours clear_output, like Jupyter does live", () => {
+    let outputs = appendLiveOutput([], { output_type: "stream", name: "stdout", text: "0\n" });
+    outputs = appendLiveOutput(outputs, { output_type: "stream", name: "stdout", text: "1\n" });
+    expect(outputs).toEqual([{ output_type: "stream", name: "stdout", text: ["0\n", "1\n"] }]);
+    outputs = appendLiveOutput(outputs, { output_type: "stream", name: "stderr", text: "warn" });
+    expect(outputs).toHaveLength(2);
+    expect(appendLiveOutput(outputs, { output_type: "clear_output" })).toEqual([]);
+  });
+
+  it("keeps Jupyter kernel outputs as-is but stamps the notebook's execution count on the result", () => {
+    const outputs = kernelOutputs({ outputs: [
+      { output_type: "stream", name: "stdout", text: "a" },
+      { output_type: "stream", name: "stdout", text: "b\n" },
+      { output_type: "execute_result", execution_count: 1, data: { "text/plain": "2" }, metadata: {} },
+    ] }, 9);
+    expect(outputs[0]).toEqual({ output_type: "stream", name: "stdout", text: ["ab\n"] });
+    expect(outputs[1].execution_count).toBe(9);
+  });
+
+  it("maps Jupyter command-mode keys: A/B insert around the selected cell, arrows move, Enter edits", () => {
+    expect(notebookCommandKey("a", 2, 5)).toEqual({ insertAt: 2 });
+    expect(notebookCommandKey("b", 2, 5)).toEqual({ insertAt: 3 });
+    expect(notebookCommandKey("ArrowUp", 0, 5)).toEqual({ select: 0 });
+    expect(notebookCommandKey("ArrowDown", 4, 5)).toEqual({ select: 4 });
+    expect(notebookCommandKey("Enter", 1, 5)).toEqual({ edit: true });
+    expect(notebookCommandKey("x", 1, 5)).toBeNull();
   });
 });

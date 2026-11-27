@@ -39,6 +39,10 @@ function makeToolMessage(partial: Partial<AgentMessage>): AgentMessage {
 }
 
 describe("audioPlayback helpers", () => {
+  it("prefers the zorai-media URL because a dev-server page cannot load file:// audio", () => {
+    expect(resolveAudioPlaybackSource({ media_url: "zorai-media://local/tmp/speech.mp3", file_url: "file:///tmp/speech.mp3", path: "/tmp/speech.mp3" })).toBe("zorai-media://local/tmp/speech.mp3");
+  });
+
   it("prefers file_url before url and path", () => {
     expect(resolveAudioPlaybackSource({
       file_url: "file:///tmp/speech.mp3",

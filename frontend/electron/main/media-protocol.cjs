@@ -17,6 +17,12 @@ function mediaPathFromUrl(url) {
     return path.resolve(expanded);
 }
 
+function mediaUrlForPath(filePath) {
+    const normalized = String(filePath).replace(/\\/g, '/');
+    const absolute = normalized.startsWith('/') ? normalized : `/${normalized}`;
+    return `${MEDIA_SCHEME}://local${encodeURI(absolute).replace(/\?/g, '%3F').replace(/#/g, '%23')}`;
+}
+
 function isServableMediaPath(filePath) {
     return typeof filePath === 'string' && MEDIA_EXTENSIONS.has(path.extname(filePath).toLowerCase());
 }
@@ -36,4 +42,4 @@ function registerMediaProtocol(protocol, net) {
     });
 }
 
-module.exports = { MEDIA_SCHEME, mediaPathFromUrl, isServableMediaPath, registerMediaSchemePrivileges, registerMediaProtocol };
+module.exports = { MEDIA_SCHEME, mediaPathFromUrl, mediaUrlForPath, isServableMediaPath, registerMediaSchemePrivileges, registerMediaProtocol };

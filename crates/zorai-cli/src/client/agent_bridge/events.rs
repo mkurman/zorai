@@ -215,6 +215,11 @@ fn bridge_event_from_daemon_message(message: &DaemonMessage) -> Option<serde_jso
             "data": serde_json::from_str::<serde_json::Value>(content)
                 .unwrap_or_else(|_| serde_json::Value::String(content.clone())),
         })),
+        DaemonMessage::AgentRealtimeClientSecretResult { content } => Some(serde_json::json!({
+            "type": "realtime-client-secret-result",
+            "data": serde_json::from_str::<serde_json::Value>(content)
+                .unwrap_or_else(|_| serde_json::Value::String(content.clone())),
+        })),
         DaemonMessage::AgentGenerateImageResult { content } => Some(serde_json::json!({
             "type": "image-generation-result",
             "data": serde_json::from_str::<serde_json::Value>(content)

@@ -279,3 +279,13 @@ export function filterRecentRoots(roots: readonly string[], query: string): stri
   const needle = query.trim().toLowerCase();
   return needle ? roots.filter((root) => root.toLowerCase().includes(needle)) : [...roots];
 }
+
+export function defaultRecentIndex(roots: readonly string[], current: string | null): number {
+  const index = roots.findIndex((root) => root !== current);
+  return index === -1 ? 0 : index;
+}
+
+export function stepRecentIndex(index: number, delta: number, length: number): number {
+  if (length === 0) return 0;
+  return (index + delta + length) % length;
+}

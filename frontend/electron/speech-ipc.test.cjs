@@ -25,6 +25,10 @@ function createHandlerHarness() {
     if (args[1] === "speech-to-text-result") {
       return { text: "transcribed hello" };
     }
+    if ([].concat(args[1]).includes("realtime-client-secret-result")) {
+      if (JSON.parse(args[0].args_json).provider === "openai") throw new Error("failed to start realtime voice: realtime voice needs an API key for 'openai'");
+      return { value: "ek_test", expires_at: 1 };
+    }
     if (args[1] === "text-to-speech-result") {
       return { path: "/tmp/speech.mp3", mime_type: "audio/mpeg" };
     }
@@ -168,6 +172,7 @@ test("agent-generate-music waits for long songs, rejects on daemon errors and re
 test("runtime allowlists speech query response types", () => {
   assert.ok(runtime.AGENT_QUERY_RESPONSE_TYPES.includes("speech-to-text-result"));
   assert.ok(runtime.AGENT_QUERY_RESPONSE_TYPES.includes("text-to-speech-result"));
+  assert.ok(runtime.AGENT_QUERY_RESPONSE_TYPES.includes("realtime-client-secret-result"));
   assert.ok(runtime.AGENT_QUERY_RESPONSE_TYPES.includes("image-generation-result"));
 });
 
@@ -195,7 +200,7 @@ test("agent IPC handlers route speech APIs through the daemon bridge", async () 
   });
 
   assert.deepEqual(sttResult, { text: "transcribed hello" });
-  assert.deepEqual(ttsResult, { path: "/tmp/speech.mp3", mime_type: "audio/mpeg", file_url: "file:///tmp/speech.mp3" });
+  assert.deepEqual(ttsResult, { path: "/tmp/speech.mp3", mime_type: "audio/mpeg", file_url: "file:///tmp/speech.mp3", media_url: "zorai-media://local/tmp/speech.mp3" });
   assert.deepEqual(imageResult, {
     ok: true,
     path: "/tmp/generated-image.png",
@@ -275,4 +280,20 @@ test("media generation failures come back as ok:false so the composer reports th
     assert.equal(result.ok, false, `${channel} must flag the failure`);
     assert.match(result.error, /does not support video generation/);
   }
+});
+
+test("realtime voice asks the daemon for a short-lived client secret instead of exposing the provider key", async () => {
+  const { handlers, queries } = createHandlerHarness();
+  const result = await handlers.get("agent-realtime-client-secret")(null, { provider: "xai", model: "grok-voice-latest", voice: "eve" });
+  assert.deepEqual(result, { value: "ek_test", expires_at: 1 });
+  const query = queries.find((args) => [].concat(args[1]).includes("realtime-client-secret-result"));
+  assert.ok([].concat(query[1]).includes("error"), "daemon errors must resolve the query instead of timing out");
+  assert.equal(query[0].type, "realtime-client-secret");
+  assert.deepEqual(JSON.parse(query[0].args_json), { provider: "xai", model: "grok-voice-latest", voice: "eve" });
+});
+
+test("a daemon error for realtime voice comes back as a readable message instead of a timeout", async () => {
+  const { handlers } = createHandlerHarness();
+  const result = await handlers.get("agent-realtime-client-secret")(null, { provider: "openai", model: "gpt-realtime-2.1" });
+  assert.match(result.error, /needs an API key for 'openai'/);
 });

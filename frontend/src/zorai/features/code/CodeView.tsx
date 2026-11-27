@@ -14,11 +14,12 @@ export { CodeAgentPane } from "./CodeAgentPane";
 import { useCodeWorkspaceBindingStore } from "./codeWorkspaceBindingStore";
 import { emitCodeRailAction, subscribeCodeRailActions, type CodeRailAction } from "./codeRailActions";
 import {
-  displayRootName, filterRecentRoots,
+  defaultRecentIndex, displayRootName, filterRecentRoots, stepRecentIndex,
   type ZoraiWorkspaceSelection,
   type ZoraiWorkspaceValidatedRoot,
 } from "./codeEmptyStateModel";
 import { usePresence } from "@/hooks/usePresence";
+import { revealScrollDelta } from "./WorkspaceExplorerTree";
 import { codeTiming } from "./codeTiming";
 import { hydrateCodeWorkspaceContexts } from "./hydrateCodeWorkspace";
 
@@ -61,6 +62,12 @@ export function CodeRail() {
   const filteredRecentRoots = filterRecentRoots(recentRoots, recentQuery);
   const visibleRecentRoots = showAllRecent || recentQuery.trim() ? filteredRecentRoots : filteredRecentRoots.slice(0, RECENT_MENU_VISIBLE);
   const hiddenRecentCount = filteredRecentRoots.length - visibleRecentRoots.length;
+  const [recentIndex, setRecentIndex] = useState(0);
+  useEffect(() => { setRecentIndex(defaultRecentIndex(filteredRecentRoots, lastRoot)); }, [recentOpen, recentQuery, lastRoot]);
+  const openRecent = (root: string) => {
+    setRecentOpen(false);
+    if (root !== lastRoot) emitCodeRailAction({ kind: "open-recent", root });
+  };
 
   useEffect(() => {
     if (!recentOpen) return;
@@ -129,29 +136,40 @@ export function CodeRail() {
                   placeholder="Search recent folders"
                   aria-label="Search recent folders"
                   autoFocus
+                  onKeyDown={(event) => {
+                    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                      event.preventDefault();
+                      setShowAllRecent(true);
+                      setRecentIndex((index) => stepRecentIndex(index, event.key === "ArrowDown" ? 1 : -1, filteredRecentRoots.length));
+                    } else if (event.key === "Enter" && filteredRecentRoots[recentIndex]) {
+                      event.preventDefault();
+                      openRecent(filteredRecentRoots[recentIndex]);
+                    }
+                  }}
                 />
                 {filteredRecentRoots.length === 0 ? (
                   <div className="zorai-code-recent-empty" role="menuitem" aria-disabled="true">
                     {recentRoots.length === 0 ? "No recent folders" : "No folders match"}
                   </div>
                 ) : (
-                  visibleRecentRoots.map((root) => {
+                  visibleRecentRoots.map((root, index) => {
                     const isCurrent = root === lastRoot;
                     return (
                       <div
                         key={root}
-                        className={isCurrent ? "zorai-code-recent-item is-current" : "zorai-code-recent-item"}
+                        ref={index === recentIndex ? (element) => {
+                          const menu = element?.closest<HTMLElement>(".zorai-code-recent-menu");
+                          if (element && menu) menu.scrollTop += revealScrollDelta(element.getBoundingClientRect(), menu.getBoundingClientRect());
+                        } : undefined}
+                        onPointerEnter={() => setRecentIndex(index)}
+                        className={["zorai-code-recent-item", isCurrent ? "is-current" : "", index === recentIndex ? "is-active" : ""].filter(Boolean).join(" ")}
                         role="menuitem"
                       >
                         <button
                           type="button"
                           className="zorai-code-recent-item-open"
                           title={root}
-                          onClick={() => {
-                            setRecentOpen(false);
-                            if (isCurrent) return;
-                            emitCodeRailAction({ kind: "open-recent", root });
-                          }}
+                          onClick={() => openRecent(root)}
                         >
                           <strong>{displayRootName(root)}</strong>
                           <span>{root}</span>

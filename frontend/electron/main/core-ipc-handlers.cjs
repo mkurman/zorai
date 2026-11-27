@@ -200,7 +200,13 @@ function registerCoreIpcHandlers(ipcMain, options) {
     ipcMain.handle('workspace-watch-start', (event, rootPath, runtimeOptions) => startWorkspaceWatch(event.sender, rootPath, runtimeOptions));
     ipcMain.handle('workspace-watch-stop', (_event, subscriptionId) => stopWorkspaceWatch(subscriptionId));
     ipcMain.handle('snippets-load', (_event, rootPath) => loadSnippets(rootPath || null, path.join(getZoraiDataDir(), 'snippets')));
-    ipcMain.handle('notebook-execute', (_event, rootPath, notebookPath, code) => notebookKernels.execute(rootPath, notebookPath, code));
+    ipcMain.handle('notebook-execute', (event, rootPath, notebookPath, code, python, runId) => notebookKernels.execute(rootPath, notebookPath, code, {
+        python,
+        onOutput: (output) => { if (!event.sender.isDestroyed()) event.sender.send('notebook-output', { runId, output }); },
+    }));
+    ipcMain.handle('notebook-complete', (_event, rootPath, notebookPath, code, cursor, python) => notebookKernels.complete(rootPath, notebookPath, code, cursor, python));
+    ipcMain.handle('notebook-interrupt', (_event, rootPath, notebookPath) => notebookKernels.interrupt(rootPath, notebookPath));
+    ipcMain.handle('notebook-interpreters', (_event, rootPath) => notebookKernels.interpreters(rootPath));
     ipcMain.handle('notebook-restart', (_event, rootPath, notebookPath) => notebookKernels.restart(rootPath, notebookPath));
     ipcMain.handle('tasks-discover', (_event, rootPath) => taskRuntime.discover(rootPath));
     ipcMain.handle('tasks-run', (event, rootPath, task) => taskRuntime.run(event.sender, rootPath, task));

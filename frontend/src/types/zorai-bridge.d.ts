@@ -776,7 +776,11 @@ declare global {
         workspaceLspLog?: () => Promise<Array<{ at: number; server: string; root: string; level: "info" | "warning" | "error" | "stderr"; text: string }>>;
         workspaceLspInstall?: (id: string) => Promise<{ ok: boolean; output: string; installedCommand?: string | null }>;
         snippetsLoad?: (rootPath: string | null) => Promise<Array<{ name: string; prefix: string; body: string; description: string; scope: string[]; source: string }>>;
-        notebookExecute?: (rootPath: string, notebookPath: string, code: string) => Promise<{ id: number; stdout: string; stderr: string; result: string | null; html: string | null; images: string[]; error: { ename: string; evalue: string; traceback: string[] } | null }>;
+        notebookExecute?: (rootPath: string, notebookPath: string, code: string, python?: string | null, runId?: string) => Promise<{ id: number; stdout?: string; stderr?: string; result?: string | null; html?: string | null; images?: string[]; error?: { ename: string; evalue: string; traceback: string[] } | null; outputs?: Array<Record<string, unknown> & { output_type: string }>; execution_count?: number | null; mode?: "jupyter" | "basic" | null; python?: string; note?: string | null }>;
+        notebookComplete?: (rootPath: string, notebookPath: string, code: string, cursor: number, python?: string | null) => Promise<{ matches: string[]; cursor_start: number; cursor_end: number; types: Array<string | null> }>;
+        notebookInterrupt?: (rootPath: string, notebookPath: string) => Promise<boolean>;
+        notebookInterpreters?: (rootPath: string) => Promise<{ defaultPython: string | null; interpreters: Array<{ path: string; label: string; source: "workspace" | "active" | "conda" | "pyenv" | "path"; version: string; jupyter: boolean }> }>;
+        onNotebookOutput?: (callback: (payload: { runId?: string; output: Record<string, unknown> & { output_type: string } }) => void) => () => void;
         notebookRestart?: (rootPath: string, notebookPath: string) => Promise<boolean>;
         tasksDiscover?: (rootPath: string) => Promise<ZoraiTask[]>;
         tasksRun?: (rootPath: string, task: ZoraiTask) => Promise<{ runId: string }>;
@@ -1024,6 +1028,7 @@ declare global {
         agentRunGeneratedTool?: (toolName: string, argsJson: string) => Promise<unknown>;
         agentSpeechToText?: (base64Audio: string, mimeType?: string | null, options?: Record<string, unknown> | null) => Promise<unknown>;
         agentTextToSpeech?: (text: string, voice?: string | null, options?: Record<string, unknown> | null) => Promise<unknown>;
+        agentRealtimeClientSecret?: (options: { provider: string; model: string; voice?: string; instructions?: string }) => Promise<{ value?: string; expires_at?: number | null; error?: string }>;
         agentGenerateImage?: (prompt: string, options?: Record<string, unknown> | null) => Promise<unknown>;
         agentGenerateVideo?: (prompt: string, options?: Record<string, unknown> | null) => Promise<unknown>;
         agentGenerateMusic?: (prompt: string, options?: Record<string, unknown> | null) => Promise<unknown>;

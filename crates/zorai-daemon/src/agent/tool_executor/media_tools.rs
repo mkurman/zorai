@@ -1019,7 +1019,8 @@ async fn execute_minimax_text_to_speech(
         .map(str::trim)
         .filter(|value| !value.is_empty());
     let codec = minimax_tts_codec(requested_format);
-    let body = build_minimax_tts_body(&provider_config.model, input, voice, codec);
+    let mut body = build_minimax_tts_body(&provider_config.model, input, voice, codec);
+    apply_minimax_tts_tuning(&mut body, args);
     let url = format!(
         "{}/t2a_v2",
         minimax_media_base_url(&provider_config.base_url)
@@ -2764,12 +2765,14 @@ pub(crate) async fn execute_text_to_speech(
     let body = if route == AudioToolRoute::XaiTts {
         build_xai_tts_body(args, input)?
     } else {
-        serde_json::json!({
+        let mut body = serde_json::json!({
             "model": provider_config.model,
             "input": input,
             "voice": voice,
             "response_format": output_format,
-        })
+        });
+        apply_openai_tts_tuning(&mut body, args);
+        body
     };
 
     let request =

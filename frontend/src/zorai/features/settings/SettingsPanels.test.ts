@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   conciergeReasoningEffortOptions,
   filterProviderAuthStates,
+  providerAuthSourceLabel,
   normalizeConciergeReasoningEffortForUi,
   serializeConciergeReasoningEffortFromUi,
 } from "./SettingsPanels";
@@ -59,5 +60,24 @@ describe("Auth settings panel", () => {
   it("matches providers by display name or id, ignoring case", () => {
     expect(filterProviderAuthStates(states, "ROUTER").map((state) => state.provider_id)).toEqual(["openrouter"]);
     expect(filterProviderAuthStates(states, "custom").map((state) => state.provider_id)).toEqual(["custom"]);
+  });
+
+  it("narrows to connected or not-connected providers so a long list can show only what needs a key", () => {
+    const withAuth = [
+      { provider_id: "anthropic", provider_name: "Anthropic", authenticated: true },
+      { provider_id: "openai", provider_name: "OpenAI", authenticated: false },
+    ];
+    expect(filterProviderAuthStates(withAuth, "", "connected").map((state) => state.provider_id)).toEqual(["anthropic"]);
+    expect(filterProviderAuthStates(withAuth, "", "disconnected").map((state) => state.provider_id)).toEqual(["openai"]);
+    expect(filterProviderAuthStates(withAuth, "open", "connected")).toEqual([]);
+  });
+});
+
+describe("providerAuthSourceLabel", () => {
+  it("shows readable auth types in the narrow Auth column instead of raw daemon ids", () => {
+    expect(providerAuthSourceLabel("api_key")).toBe("API key");
+    expect(providerAuthSourceLabel("chatgpt_subscription")).toBe("Subscription");
+    expect(providerAuthSourceLabel("github_copilot")).toBe("Copilot");
+    expect(providerAuthSourceLabel("oauth_device")).toBe("oauth device");
   });
 });

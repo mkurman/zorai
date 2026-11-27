@@ -225,4 +225,5 @@ pub enum DaemonMessage {
     AgentProjectRules { rules_json: String },
     AgentCodeSymbolsResult { graph_json: String },
     AgentCodeIndexResult { action: String, result_json: String, #[serde(default)] error: Option<String> },
+    AgentRealtimeClientSecretResult { content: String },
 }

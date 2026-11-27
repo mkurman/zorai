@@ -12,6 +12,7 @@ export type WorkspaceExplorerController = {
   subscribe: (listener: () => void) => () => void;
   toggle: (path: string) => Promise<void>;
   reveal: (path: string) => Promise<void>;
+  expand: (path: string) => Promise<void>;
   refreshExpanded: () => Promise<void>;
 };
 
@@ -103,6 +104,16 @@ export function createWorkspaceExplorerController(
         opened.push(ancestor);
       }
       publish({ ...snapshot, expandedPaths: new Set([...snapshot.expandedPaths, ...opened]), revealedPath: path, revealToken: snapshot.revealToken + 1 });
+    },
+    async expand(path) {
+      const parts = path.split("/").filter(Boolean);
+      const opened: string[] = [];
+      for (const ancestor of parts.map((_, index) => parts.slice(0, index + 1).join("/"))) {
+        if (!snapshot.childrenByPath.has(ancestor)) await load(ancestor);
+        if (!snapshot.childrenByPath.has(ancestor)) break;
+        opened.push(ancestor);
+      }
+      publish({ ...snapshot, expandedPaths: new Set([...snapshot.expandedPaths, ...opened]) });
     },
     async refreshExpanded() {
       const expanded = [...snapshot.expandedPaths];

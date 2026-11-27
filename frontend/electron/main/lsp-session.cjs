@@ -3,6 +3,8 @@ const path = require('path');
 const { pathToFileURL, fileURLToPath } = require('url');
 const { isWithinRoot, resolveWorkspacePath } = require('./workspace-service.cjs');
 
+const isNotebookShadowPath = (relativePath) => /\.ipynb\.zorai-notebook\.py$/.test(String(relativePath || ''));
+
 const MAX_LSP_MESSAGE_BYTES = 16 * 1024 * 1024;
 const LSP_RETRYABLE_CODES = new Set([-32801, -32802]);
 const LSP_METHOD_NOT_FOUND = -32601;
@@ -286,7 +288,7 @@ class LspSession {
 
     async openDocument(relativePath, content, version = 1) {
         await this.start();
-        const resolved = resolveWorkspacePath(this.root, relativePath);
+        const resolved = resolveWorkspacePath(this.root, relativePath, { allowMissing: isNotebookShadowPath(relativePath) });
         const uri = pathToFileURL(resolved.absolutePath).href;
         const existing = this.documents.get(resolved.relativePath);
         if (!existing) {
@@ -307,7 +309,7 @@ class LspSession {
 
     async requestDocument(relativePath, method, params) {
         await this.start();
-        const resolved = resolveWorkspacePath(this.root, relativePath);
+        const resolved = resolveWorkspacePath(this.root, relativePath, { allowMissing: isNotebookShadowPath(relativePath) });
         const document = this.documents.get(resolved.relativePath);
         const textDocument = { uri: document?.uri ?? pathToFileURL(resolved.absolutePath).href };
         for (let attempt = 1; ; attempt += 1) {
@@ -418,7 +420,7 @@ class LspSession {
 
     async saveDocument(relativePath) {
         await this.start();
-        const resolved = resolveWorkspacePath(this.root, relativePath);
+        const resolved = resolveWorkspacePath(this.root, relativePath, { allowMissing: isNotebookShadowPath(relativePath) });
         const document = this.documents.get(resolved.relativePath);
         if (!document) return false;
         this.notify('textDocument/didSave', { textDocument: { uri: document.uri } });
@@ -452,7 +454,7 @@ class LspSession {
     }
 
     closeDocument(relativePath) {
-        const resolved = resolveWorkspacePath(this.root, relativePath);
+        const resolved = resolveWorkspacePath(this.root, relativePath, { allowMissing: isNotebookShadowPath(relativePath) });
         const document = this.documents.get(resolved.relativePath);
         if (!document) return false;
         this.documents.delete(resolved.relativePath);

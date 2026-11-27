@@ -971,6 +971,11 @@ where
                 .send(ClientMessage::AgentTextToSpeech { args_json })
                 .await?;
         }
+        AgentBridgeCommand::RealtimeClientSecret { args_json } => {
+            framed
+                .send(ClientMessage::AgentRealtimeClientSecret { args_json })
+                .await?;
+        }
         AgentBridgeCommand::GenerateImage { args_json } => {
             framed
                 .send(ClientMessage::AgentGenerateImage { args_json })

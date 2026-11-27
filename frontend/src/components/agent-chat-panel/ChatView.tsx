@@ -21,6 +21,7 @@ import type { AgentMessage } from "@/lib/agentStore";
 import type { ChatViewProps, ComposerAttachment } from "./chat-view/types";
 import { buildAttachmentSendPayload } from "./chat-view/composerMedia";
 import { readComposerDraftInput, writeComposerDraftInput } from "@/zorai/features/threads/composerDraftStore";
+import { currentTtsTuning } from "@/zorai/features/voice/ttsTuningStore";
 
 export function ChatView({
   messages,
@@ -196,6 +197,7 @@ export function ChatView({
       const result = await bridge.agentTextToSpeech(text, agentSettings.audio_tts_voice || null, {
         provider: agentSettings.audio_tts_provider,
         model: agentSettings.audio_tts_model,
+        tuning: currentTtsTuning(),
       });
       const source = resolveAudioPlaybackSource(result);
       if (!source) {

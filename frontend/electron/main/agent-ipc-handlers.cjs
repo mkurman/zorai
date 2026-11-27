@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
+const { mediaUrlForPath } = require('./media-protocol.cjs');
 const os = require('node:os');
 
 const IMAGE_FILE_MAX_BYTES = 25 * 1024 * 1024;
@@ -758,9 +759,21 @@ function registerAgentIpcHandlers(ipcMain, runtime, options = {}) {
                 return {
                     ...result,
                     file_url: pathToFileURL(result.path).href,
+                    media_url: mediaUrlForPath(result.path),
                 };
             }
             return result;
+        } catch (err) {
+            return { error: err?.message || String(err) };
+        }
+    });
+    ipcMain.handle('agent-realtime-client-secret', async (_event, options) => {
+        try {
+            const payload = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+            return await sendAgentQuery({
+                type: 'realtime-client-secret',
+                args_json: JSON.stringify(payload),
+            }, ['realtime-client-secret-result', 'error'], 30000);
         } catch (err) {
             return { error: err?.message || String(err) };
         }
