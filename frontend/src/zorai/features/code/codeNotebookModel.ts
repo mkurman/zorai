@@ -1,9 +1,10 @@
 export type NotebookOutput = Record<string, unknown> & { output_type: string };
 export type NotebookCell = Record<string, unknown> & { cell_type: "code" | "markdown" | "raw"; source: string | string[]; outputs?: NotebookOutput[]; execution_count?: number | null; metadata?: Record<string, unknown> };
 export type Notebook = Record<string, unknown> & { cells: NotebookCell[]; metadata?: Record<string, unknown>; nbformat?: number; nbformat_minor?: number };
-export type KernelResult = { stdout: string; stderr: string; result: string | null; html: string | null; images: string[]; error: { ename: string; evalue: string; traceback: string[] } | null };
+export type KernelResult = { stdout?: string; stderr?: string; result?: string | null; html?: string | null; images?: string[]; error?: { ename: string; evalue: string; traceback: string[] } | null; outputs?: NotebookOutput[]; execution_count?: number | null; mode?: "jupyter" | "basic" | null; python?: string; note?: string | null };
 
 export function parseNotebook(text: string): Notebook | null {
+  if (text.trim() === "") return { cells: [{ cell_type: "code", execution_count: null, metadata: {}, outputs: [], source: [] }], metadata: {}, nbformat: 4, nbformat_minor: 5 };
   try {
     const value = JSON.parse(text) as Notebook;
     return value && Array.isArray(value.cells) ? value : null;
@@ -51,16 +52,26 @@ export function moveCell(notebook: Notebook, index: number, offset: number): Not
   return { ...notebook, cells };
 }
 
+export function appendLiveOutput(outputs: NotebookOutput[], output: NotebookOutput): NotebookOutput[] {
+  if (output.output_type === "clear_output") return [];
+  const last = outputs[outputs.length - 1];
+  if (output.output_type === "stream" && last?.output_type === "stream" && last.name === output.name) {
+    return [...outputs.slice(0, -1), { ...last, text: toSourceLines(outputText(last.text) + outputText(output.text)) }];
+  }
+  return [...outputs, output.output_type === "stream" ? { ...output, text: toSourceLines(outputText(output.text)) } : output];
+}
+
 export function kernelOutputs(result: KernelResult, executionCount: number): NotebookOutput[] {
+  if (result.outputs) return result.outputs.reduce<NotebookOutput[]>((merged, output) => appendLiveOutput(merged, output.output_type === "execute_result" ? { ...output, execution_count: executionCount } : output), []);
   const outputs: NotebookOutput[] = [];
   if (result.stdout) outputs.push({ output_type: "stream", name: "stdout", text: toSourceLines(result.stdout) });
   if (result.stderr) outputs.push({ output_type: "stream", name: "stderr", text: toSourceLines(result.stderr) });
-  for (const image of result.images) outputs.push({ output_type: "display_data", data: { "image/png": image, "text/plain": ["<Figure>"] }, metadata: {} });
-  if (result.result !== null || result.html) {
+  for (const image of result.images ?? []) outputs.push({ output_type: "display_data", data: { "image/png": image, "text/plain": ["<Figure>"] }, metadata: {} });
+  if ((result.result !== null && result.result !== undefined) || result.html) {
     outputs.push({
       output_type: "execute_result",
       execution_count: executionCount,
-      data: { ...(result.result !== null ? { "text/plain": toSourceLines(result.result) } : {}), ...(result.html ? { "text/html": toSourceLines(result.html) } : {}) },
+      data: { ...(result.result !== null && result.result !== undefined ? { "text/plain": toSourceLines(result.result) } : {}), ...(result.html ? { "text/html": toSourceLines(result.html) } : {}) },
       metadata: {},
     });
   }
@@ -70,4 +81,15 @@ export function kernelOutputs(result: KernelResult, executionCount: number): Not
 
 export function outputText(value: unknown): string {
   return Array.isArray(value) ? value.join("") : typeof value === "string" ? value : "";
+}
+
+export type NotebookCommand = { insertAt: number } | { select: number } | { edit: true };
+
+export function notebookCommandKey(key: string, index: number, count: number): NotebookCommand | null {
+  if (key === "a" || key === "A") return { insertAt: index };
+  if (key === "b" || key === "B") return { insertAt: index + 1 };
+  if (key === "ArrowUp" || key === "k") return { select: Math.max(0, index - 1) };
+  if (key === "ArrowDown" || key === "j") return { select: Math.min(count - 1, index + 1) };
+  if (key === "Enter") return { edit: true };
+  return null;
 }

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { displayRootName, filterRecentRoots } from "./codeEmptyStateModel";
+import { defaultRecentIndex, displayRootName, filterRecentRoots, stepRecentIndex } from "./codeEmptyStateModel";
 import type { CodeOpenWorkspaceBoundary } from "./CodeView";
 
 function readSource(relativePath: string): string {
@@ -125,5 +125,19 @@ describe("recent folder search", () => {
     expect(filterRecentRoots(roots, "MED")).toEqual(["/mnt/e/gitlab/ai/med-jev"]);
     expect(filterRecentRoots(roots, "gitlab")).toHaveLength(2);
     expect(filterRecentRoots(roots, "  ")).toEqual(roots);
+  });
+});
+
+describe("recent folder keyboard selection", () => {
+  it("starts on the most recent folder that is not already open so Enter switches repos in one key", () => {
+    expect(defaultRecentIndex(["/a/zorai", "/a/grpo", "/a/limbo"], "/a/zorai")).toBe(1);
+    expect(defaultRecentIndex(["/a/grpo", "/a/zorai"], "/a/zorai")).toBe(0);
+    expect(defaultRecentIndex(["/a/zorai"], "/a/zorai")).toBe(0);
+  });
+
+  it("wraps arrow-key movement at both ends of the list", () => {
+    expect(stepRecentIndex(2, 1, 3)).toBe(0);
+    expect(stepRecentIndex(0, -1, 3)).toBe(2);
+    expect(stepRecentIndex(0, 1, 0)).toBe(0);
   });
 });

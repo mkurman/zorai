@@ -626,6 +626,9 @@ pub(super) enum AgentBridgeCommand {
     TextToSpeech {
         args_json: String,
     },
+    RealtimeClientSecret {
+        args_json: String,
+    },
     GenerateImage {
         args_json: String,
     },

@@ -3,6 +3,7 @@ import { resolveAudioPlaybackSource } from "@/components/agent-chat-panel/chat-v
 import { useAgentStore, type AgentMessage } from "@/lib/agentStore";
 import { getBridge } from "@/lib/bridge";
 import { pushToast } from "@/lib/toastStore";
+import { currentTtsTuning } from "@/zorai/features/voice/ttsTuningStore";
 
 type SpeechQueueItem = {
   id: string;
@@ -97,6 +98,7 @@ export function useThreadSpeech(messages: AgentMessage[]) {
       const result = await bridge.agentTextToSpeech(next.text, currentSettings.audio_tts_voice || null, {
         provider: currentSettings.audio_tts_provider,
         model: currentSettings.audio_tts_model,
+        tuning: currentTtsTuning(),
       });
       if (generation !== playbackGenerationRef.current || !autoSpeakRef.current) {
         busyRef.current = false;
@@ -185,6 +187,7 @@ export function useThreadSpeech(messages: AgentMessage[]) {
       const result = await bridge.agentTextToSpeech(text, currentSettings.audio_tts_voice || null, {
         provider: currentSettings.audio_tts_provider,
         model: currentSettings.audio_tts_model,
+        tuning: currentTtsTuning(),
       });
       if (queueCounterRef.current !== requestSerial) {
         // A newer manual action superseded this request while synthesizing.

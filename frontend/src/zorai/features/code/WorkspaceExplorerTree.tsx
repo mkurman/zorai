@@ -15,7 +15,43 @@ export type WorkspaceExplorerTreeProps = {
   allFiles?: string[] | null;
   onEntryContextMenu?: ExplorerContextMenuHandler;
   onEntryShortcut?: ExplorerShortcutHandler;
+  createRequest?: ExplorerCreateRequest | null;
+  onCreate?: (kind: ExplorerCreateKind, path: string) => Promise<boolean>;
+  onCreateCancel?: () => void;
 };
+
+export type ExplorerCreateKind = "file" | "directory";
+export type ExplorerCreateRequest = { kind: ExplorerCreateKind; parent?: string; token: number };
+type ExplorerCreate = { kind: ExplorerCreateKind; parent: string; submit: (name: string) => Promise<boolean>; cancel: () => void };
+
+export function explorerCreateParent(selected: { path: string; isDirectory: boolean } | null): string {
+  if (!selected) return "";
+  return selected.isDirectory ? selected.path : selected.path.split("/").slice(0, -1).join("/");
+}
+
+export function explorerChildPath(parent: string, name: string): string {
+  const clean = name.trim().replace(/^\/+/, "");
+  return parent ? `${parent}/${clean}` : clean;
+}
+
+function ExplorerCreateRow({ create, depth }: { create: ExplorerCreate; depth: number }) {
+  const [name, setName] = useState("");
+  const busy = useRef(false);
+  const finish = async (value: string) => {
+    if (busy.current) return;
+    if (!value.trim()) { create.cancel(); return; }
+    busy.current = true;
+    await create.submit(value);
+    busy.current = false;
+  };
+  return <div className="zorai-workspace-tree-row zorai-workspace-tree-create" style={{ paddingLeft: 8 + depth * 14 }}>
+    {create.kind === "directory" ? <span className="zorai-workspace-chevron"><CodeFolderChevron expanded={false} /></span> : <CodeFileIcon path={name || "file"} />}
+    <input autoFocus value={name} aria-label={create.kind === "directory" ? "New folder name" : "New file name"} spellCheck={false} onChange={(event) => setName(event.target.value)} onBlur={() => void finish(name)} onKeyDown={(event) => {
+      if (event.key === "Enter") { event.preventDefault(); void finish(name); }
+      if (event.key === "Escape") { event.preventDefault(); create.cancel(); }
+    }} />
+  </div>;
+}
 
 export type ExplorerShortcutHandler = (entry: ZoraiWorkspaceEntry, action: "rename" | "delete") => void;
 
@@ -46,7 +82,7 @@ export function revealScrollDelta(row: { top: number; bottom: number }, containe
   return 0;
 }
 
-function WorkspaceExplorerTreeNode({ entry, depth, status, onOpen, snapshot, onToggle, query = "", onEntryContextMenu, onEntryShortcut }: {
+function WorkspaceExplorerTreeNode({ entry, depth, status, onOpen, snapshot, onToggle, query = "", onEntryContextMenu, onEntryShortcut, selectedPath, onSelect, create }: {
   entry: ZoraiWorkspaceEntry;
   depth: number;
   status: Map<string, string>;
@@ -56,6 +92,9 @@ function WorkspaceExplorerTreeNode({ entry, depth, status, onOpen, snapshot, onT
   query?: string;
   onEntryContextMenu?: ExplorerContextMenuHandler;
   onEntryShortcut?: ExplorerShortcutHandler;
+  selectedPath?: string | null;
+  onSelect?: (entry: ZoraiWorkspaceEntry) => void;
+  create?: ExplorerCreate | null;
 }) {
   const expanded = snapshot.expandedPaths.has(entry.path);
   const loading = snapshot.loadingPaths.has(entry.path);
@@ -72,7 +111,7 @@ function WorkspaceExplorerTreeNode({ entry, depth, status, onOpen, snapshot, onT
   }, [revealed, snapshot.revealToken]);
 
   return <div>
-    <button ref={rowRef} type="button" role="treeitem" aria-expanded={entry.isDirectory ? expanded : undefined} aria-disabled={loading || undefined} aria-current={revealed || undefined} className={["zorai-workspace-tree-row", entry.isGitIgnored ? "zorai-workspace-tree-row--ignored" : "", revealed ? "is-revealed" : ""].filter(Boolean).join(" ")} style={{ paddingLeft: 8 + depth * 14 }} draggable={!entry.isDirectory} onDragStart={entry.isDirectory ? undefined : (event) => startCodeFileDrag(event, entry.path)} onClick={() => void activate()} onContextMenu={explorerContextMenu(onEntryContextMenu, entry)} onKeyDown={explorerShortcut(onEntryShortcut, entry)}>
+    <button ref={rowRef} type="button" role="treeitem" aria-expanded={entry.isDirectory ? expanded : undefined} aria-disabled={loading || undefined} aria-current={revealed || undefined} className={["zorai-workspace-tree-row", entry.isGitIgnored ? "zorai-workspace-tree-row--ignored" : "", revealed ? "is-revealed" : "", selectedPath === entry.path ? "is-selected" : ""].filter(Boolean).join(" ")} style={{ paddingLeft: 8 + depth * 14 }} draggable={!entry.isDirectory} onDragStart={entry.isDirectory ? undefined : (event) => startCodeFileDrag(event, entry.path)} onClick={() => { onSelect?.(entry); void activate(); }} onContextMenu={explorerContextMenu(onEntryContextMenu, entry)} onKeyDown={explorerShortcut(onEntryShortcut, entry)}>
       {entry.isDirectory ? <span className="zorai-workspace-chevron"><CodeFolderChevron expanded={expanded} /></span> : null}
       {!entry.isDirectory ? <CodeFileIcon path={entry.path} /> : null}
       <span className="zorai-workspace-tree-name">{entry.name}</span>
@@ -80,11 +119,12 @@ function WorkspaceExplorerTreeNode({ entry, depth, status, onOpen, snapshot, onT
     </button>
     {loading ? <div className="zorai-workspace-tree-loading" style={{ paddingLeft: 24 + depth * 14 }}>Loading…</div> : null}
     {error ? <div className="zorai-workspace-tree-error" role="alert" style={{ paddingLeft: 24 + depth * 14 }}>{error}</div> : null}
-    {expanded ? filterExplorerEntries(children, query, (path) => snapshot.childrenByPath.get(path) ?? []).map((child) => <WorkspaceExplorerTreeNode key={child.path} entry={child} depth={depth + 1} status={status} onOpen={onOpen} snapshot={snapshot} onToggle={onToggle} query={query} onEntryContextMenu={onEntryContextMenu} onEntryShortcut={onEntryShortcut} />) : null}
+    {expanded && create && create.parent === entry.path ? <ExplorerCreateRow create={create} depth={depth + 1} /> : null}
+    {expanded ? filterExplorerEntries(children, query, (path) => snapshot.childrenByPath.get(path) ?? []).map((child) => <WorkspaceExplorerTreeNode key={child.path} entry={child} depth={depth + 1} status={status} onOpen={onOpen} snapshot={snapshot} onToggle={onToggle} query={query} onEntryContextMenu={onEntryContextMenu} onEntryShortcut={onEntryShortcut} selectedPath={selectedPath} onSelect={onSelect} create={create} />) : null}
   </div>;
 }
 
-export function WorkspaceExplorerTreeView({ entries, status, onOpen, snapshot, onToggle, query = "", onEntryContextMenu, onEntryShortcut }: {
+export function WorkspaceExplorerTreeView({ entries, status, onOpen, snapshot, onToggle, query = "", onEntryContextMenu, onEntryShortcut, selectedPath, onSelect, create }: {
   entries: ZoraiWorkspaceEntry[];
   status: Map<string, string>;
   onOpen: (path: string) => void;
@@ -93,8 +133,14 @@ export function WorkspaceExplorerTreeView({ entries, status, onOpen, snapshot, o
   query?: string;
   onEntryContextMenu?: ExplorerContextMenuHandler;
   onEntryShortcut?: ExplorerShortcutHandler;
+  selectedPath?: string | null;
+  onSelect?: (entry: ZoraiWorkspaceEntry) => void;
+  create?: ExplorerCreate | null;
 }) {
-  return <div className="zorai-workspace-tree" role="tree" aria-label="Workspace files">{entries.map((entry) => <WorkspaceExplorerTreeNode key={entry.path} entry={entry} depth={0} status={status} onOpen={onOpen} snapshot={snapshot} onToggle={onToggle} query={query} onEntryContextMenu={onEntryContextMenu} onEntryShortcut={onEntryShortcut} />)}</div>;
+  return <div className="zorai-workspace-tree" role="tree" aria-label="Workspace files">
+    {create && create.parent === "" ? <ExplorerCreateRow create={create} depth={0} /> : null}
+    {entries.map((entry) => <WorkspaceExplorerTreeNode key={entry.path} entry={entry} depth={0} status={status} onOpen={onOpen} snapshot={snapshot} onToggle={onToggle} query={query} onEntryContextMenu={onEntryContextMenu} onEntryShortcut={onEntryShortcut} selectedPath={selectedPath} onSelect={onSelect} create={create} />)}
+  </div>;
 }
 
 const EMPTY_EXPLORER_SNAPSHOT: WorkspaceExplorerSnapshot = {
@@ -106,7 +152,7 @@ const EMPTY_EXPLORER_SNAPSHOT: WorkspaceExplorerSnapshot = {
   revealToken: 0,
 };
 
-export function WorkspaceExplorerTree({ root, entries, status, onOpen, refreshToken, allFiles, onEntryContextMenu, onEntryShortcut }: WorkspaceExplorerTreeProps) {
+export function WorkspaceExplorerTree({ root, entries, status, onOpen, refreshToken, allFiles, onEntryContextMenu, onEntryShortcut, createRequest, onCreate, onCreateCancel }: WorkspaceExplorerTreeProps) {
   const bridge = getBridge();
   const [query, setQuery] = useState("");
   const controller = useMemo(() => workspaceExplorerControllerFor(bridge, root), [bridge, root]);
@@ -120,6 +166,25 @@ export function WorkspaceExplorerTree({ root, entries, status, onOpen, refreshTo
   useEffect(() => {
     if (refreshToken > 0) void controller.refreshExpanded();
   }, [controller, refreshToken]);
+
+  const [selected, setSelected] = useState<{ path: string; isDirectory: boolean } | null>(null);
+  useEffect(() => {
+    if (snapshot.revealedPath) setSelected({ path: snapshot.revealedPath, isDirectory: false });
+  }, [snapshot.revealedPath, snapshot.revealToken]);
+  const [createParent, setCreateParent] = useState<string | null>(null);
+  useEffect(() => {
+    if (!createRequest) { setCreateParent(null); return; }
+    const parent = createRequest.parent ?? explorerCreateParent(selected);
+    setQuery("");
+    setCreateParent(parent);
+    if (parent) void controller.expand(parent);
+  }, [createRequest?.token]);
+  const create: ExplorerCreate | null = createRequest && createParent !== null && onCreate ? {
+    kind: createRequest.kind,
+    parent: createParent,
+    submit: (name) => onCreate(createRequest.kind, explorerChildPath(createParent, name)),
+    cancel: () => onCreateCancel?.(),
+  } : null;
 
   return (
     <div className="zorai-workspace-files" onContextMenu={explorerContextMenu(onEntryContextMenu, null)}>
@@ -147,7 +212,7 @@ export function WorkspaceExplorerTree({ root, entries, status, onOpen, refreshTo
           })}
         </div>
       ) : (
-        <WorkspaceExplorerTreeView entries={visibleEntries} status={status} onOpen={onOpen} snapshot={snapshot} onToggle={controller.toggle} query={query} onEntryContextMenu={onEntryContextMenu} onEntryShortcut={onEntryShortcut} />
+        <WorkspaceExplorerTreeView entries={visibleEntries} status={status} onOpen={onOpen} snapshot={snapshot} onToggle={controller.toggle} query={query} onEntryContextMenu={onEntryContextMenu} onEntryShortcut={onEntryShortcut} selectedPath={selected?.path ?? null} onSelect={(entry) => setSelected({ path: entry.path, isDirectory: entry.isDirectory })} create={create} />
       )}
     </div>
   );

@@ -1706,7 +1706,7 @@ select.zorai-input:disabled option {
 
 .zorai-donut-legend-item {
   display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) auto;
+  grid-template-columns: 10px minmax(0, 1fr) 236px;
   align-items: center;
   gap: 8px;
   border: 1px solid transparent;
@@ -3895,65 +3895,6 @@ select.zorai-input:disabled option {
   width: min(280px, 45%);
 }
 
-.zorai-auth-summary {
-  margin: 0;
-  color: var(--zorai-muted);
-  font-size: var(--text-sm);
-}
-
-.zorai-auth-group {
-  display: grid;
-}
-
-.zorai-auth-group+.zorai-auth-group {
-  margin-top: 12px;
-}
-
-.zorai-auth-group__label {
-  padding-bottom: 6px;
-  color: var(--zorai-muted);
-  font-size: var(--text-2xs);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.zorai-auth-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  align-items: center;
-  column-gap: 12px;
-  row-gap: 10px;
-  padding: 10px 4px;
-  border-top: 1px solid var(--zorai-border);
-}
-
-.zorai-auth-row__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  border: 1.5px solid var(--zorai-muted);
-}
-
-.zorai-auth-row--connected .zorai-auth-row__dot {
-  border-color: var(--success);
-  background: var(--success);
-}
-
-.zorai-auth-row__main {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.zorai-auth-row__main span {
-  overflow: hidden;
-  color: var(--zorai-muted);
-  font-size: var(--text-sm);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .zorai-auth-row__result {
   max-width: 220px;
   overflow: hidden;
@@ -3968,13 +3909,6 @@ select.zorai-input:disabled option {
 
 .zorai-auth-row__result--error {
   color: var(--danger);
-}
-
-.zorai-auth-row__actions {
-  display: flex;
-  grid-column: 4;
-  gap: 6px;
-  justify-content: flex-end;
 }
 
 .zorai-auth-row__logout:hover:not(:disabled) {
@@ -4000,15 +3934,372 @@ select.zorai-input:disabled option {
   font-size: var(--text-2xs);
 }
 
-@media (max-width: 640px) {
-  .zorai-auth-row {
-    grid-template-columns: auto minmax(0, 1fr);
+.zorai-provider-table .zorai-subagent-table__row {
+  grid-template-columns: 10px minmax(140px, 1.2fr) minmax(140px, 1.6fr) 104px 236px;
+}
+
+.zorai-provider-table .zorai-subagent-table__row:not(.zorai-subagent-table__row--head) {
+  padding-block: 6px;
+}
+
+.zorai-provider-table__auth {
+  min-width: 0;
+}
+
+.zorai-provider-table__auth .zorai-subagent-card__pill {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.zorai-provider-table__actions .zorai-auth-row__result {
+  min-width: 0;
+  font-size: var(--text-xs);
+}
+
+.zorai-provider-table__actions {
+  align-items: center;
+  gap: 6px;
+}
+
+.zorai-provider-table__actions .zorai-ghost-button {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  font-size: var(--text-xs);
+}
+
+.zorai-provider-table__editor {
+  grid-column: 2 / -1;
+  padding-bottom: 4px;
+}
+
+@media (max-width: 720px) {
+  .zorai-provider-table .zorai-subagent-table__row {
+    grid-template-columns: 10px minmax(0, 1fr) 236px;
   }
 
-  .zorai-auth-row__result,
-  .zorai-auth-row__actions,
-  .zorai-auth-row__editor {
-    grid-column: 2;
-    justify-content: flex-start;
+  .zorai-provider-table .zorai-subagent-table__row> :nth-child(3),
+  .zorai-provider-table .zorai-subagent-table__row> :nth-child(4) {
+    display: none;
+  }
+
+  .zorai-provider-table .zorai-subagent-table__row> :nth-child(5) {
+    display: flex;
+  }
+}
+.zorai-voice-start-icon {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.zorai-voice {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 32px;
+  background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--zorai-accent) 10%, var(--zorai-bg)) 0%, var(--zorai-bg) 60%);
+  color: var(--zorai-text);
+  animation: zorai-voice-in 220ms ease-out;
+}
+
+@keyframes zorai-voice-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.zorai-voice__engine {
+  position: absolute;
+  top: 20px;
+  color: var(--zorai-muted);
+  font-size: var(--text-xs);
+}
+
+.zorai-voice__orb {
+  width: 168px;
+  height: 168px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, color-mix(in srgb, #fff 70%, var(--zorai-accent)) 0%, transparent 38%),
+    radial-gradient(circle at 50% 55%, var(--zorai-accent) 0%, color-mix(in srgb, var(--zorai-accent) 55%, #000) 70%, color-mix(in srgb, var(--zorai-accent) 25%, #000) 100%);
+  box-shadow: 0 0 60px color-mix(in srgb, var(--zorai-accent) 45%, transparent), 0 0 140px color-mix(in srgb, var(--zorai-accent) 20%, transparent);
+  transition: transform 90ms linear, filter 300ms ease, opacity 300ms ease;
+}
+
+.zorai-voice__orb.is-connecting,
+.zorai-voice__orb.is-transcribing {
+  opacity: 0.7;
+}
+
+.zorai-voice__orb.is-thinking {
+  animation: zorai-voice-think 1.6s ease-in-out infinite;
+}
+
+.zorai-voice__orb.is-speaking {
+  animation: zorai-voice-speak 1.1s ease-in-out infinite;
+}
+
+.zorai-voice__orb.is-muted,
+.zorai-voice__orb.is-error {
+  filter: grayscale(0.85) brightness(0.7);
+}
+
+@keyframes zorai-voice-think {
+  0%, 100% { filter: brightness(0.85) hue-rotate(0deg); }
+  50% { filter: brightness(1.15) hue-rotate(-18deg); }
+}
+
+@keyframes zorai-voice-speak {
+  0%, 100% { box-shadow: 0 0 60px color-mix(in srgb, var(--zorai-accent) 45%, transparent), 0 0 140px color-mix(in srgb, var(--zorai-accent) 20%, transparent); }
+  50% { box-shadow: 0 0 90px color-mix(in srgb, var(--zorai-accent) 65%, transparent), 0 0 200px color-mix(in srgb, var(--zorai-accent) 30%, transparent); }
+}
+
+.zorai-voice__status {
+  min-height: 20px;
+  color: var(--zorai-muted);
+  font-size: var(--text-sm);
+  letter-spacing: 0.02em;
+}
+
+.zorai-voice__captions {
+  display: grid;
+  gap: 10px;
+  width: min(680px, 100%);
+  text-align: center;
+}
+
+.zorai-voice__captions p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.zorai-voice__you {
+  color: var(--zorai-muted);
+  font-size: var(--text-sm);
+}
+
+.zorai-voice__reply {
+  max-height: 7.5em;
+  overflow-y: auto;
+  scrollbar-width: none;
+  color: color-mix(in srgb, var(--zorai-text) 38%, transparent);
+  font-size: var(--text-lg, 17px);
+  line-height: 1.5;
+}
+
+.zorai-voice__reply span {
+  transition: color 160ms ease;
+}
+
+.zorai-voice__reply span.is-spoken {
+  color: var(--zorai-text);
+}
+
+.zorai-voice__error {
+  color: var(--danger);
+  font-size: var(--text-sm);
+}
+
+.zorai-voice__controls {
+  display: flex;
+  gap: 18px;
+}
+
+.zorai-voice__controls button {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--zorai-border-strong);
+  border-radius: 50%;
+  background: var(--zorai-bg-surface);
+  color: var(--zorai-text);
+  cursor: pointer;
+}
+
+.zorai-voice__controls button:hover {
+  border-color: var(--zorai-accent);
+}
+
+.zorai-voice__controls button.is-on {
+  background: var(--zorai-bg-active);
+  color: var(--zorai-muted);
+}
+
+.zorai-voice__controls button.is-hangup {
+  border-color: color-mix(in srgb, var(--danger) 60%, transparent);
+  background: color-mix(in srgb, var(--danger) 85%, #000);
+  color: #fff;
+}
+
+.zorai-voice__controls svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zorai-voice__orb.is-thinking,
+  .zorai-voice__orb.is-speaking {
+    animation: none;
+  }
+}
+
+.zorai-tts-slider,
+.zorai-tts-polar {
+  display: grid;
+  align-items: center;
+  gap: 8px;
+  width: min(320px, 100%);
+}
+
+.zorai-tts-slider {
+  grid-template-columns: minmax(0, 1fr) 48px;
+}
+
+.zorai-tts-polar {
+  grid-template-columns: 64px minmax(0, 1fr) 64px 36px;
+  color: var(--zorai-muted);
+  font-size: var(--text-xs);
+}
+
+.zorai-tts-polar span:last-of-type {
+  text-align: right;
+}
+
+.zorai-tts-slider input,
+.zorai-tts-polar input {
+  width: 100%;
+  accent-color: var(--zorai-accent);
+}
+
+.zorai-tts-slider output,
+.zorai-tts-polar output {
+  color: var(--zorai-text);
+  font: 12px var(--font-mono);
+  text-align: right;
+}
+
+.zorai-tts-modifier {
+  display: grid;
+  gap: 6px;
+}
+
+.zorai-realtime-picker {
+  display: grid;
+  gap: 4px;
+  width: min(320px, 100%);
+}
+
+.zorai-realtime-picker small {
+  color: var(--zorai-muted);
+  font-size: var(--text-2xs);
+}
+
+.zorai-voice-mini {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(420px, calc(100vw - 40px));
+  padding: 8px 10px 8px 8px;
+  border: 1px solid var(--zorai-border-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--zorai-bg-panel) 92%, transparent);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--shade) 45%, transparent);
+  backdrop-filter: blur(10px);
+  animation: zorai-voice-in 180ms ease-out;
+}
+
+.zorai-voice-mini__orb-button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.zorai-voice-mini .zorai-voice__orb {
+  width: 34px;
+  height: 34px;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--zorai-accent) 45%, transparent);
+}
+
+.zorai-voice-mini .zorai-voice__orb.is-speaking {
+  animation: zorai-voice-mini-speak 1.1s ease-in-out infinite;
+}
+
+@keyframes zorai-voice-mini-speak {
+  0%, 100% { box-shadow: 0 0 14px color-mix(in srgb, var(--zorai-accent) 45%, transparent); }
+  50% { box-shadow: 0 0 26px color-mix(in srgb, var(--zorai-accent) 70%, transparent); }
+}
+
+.zorai-voice-mini__status {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--zorai-muted);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zorai-voice-mini > button:not(.zorai-voice-mini__orb-button) {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--zorai-border);
+  border-radius: 50%;
+  background: var(--zorai-bg-surface);
+  color: var(--zorai-text);
+  cursor: pointer;
+}
+
+.zorai-voice-mini > button.is-on {
+  color: var(--zorai-muted);
+}
+
+.zorai-voice-mini > button.is-hangup {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--danger) 85%, #000);
+  color: #fff;
+}
+
+.zorai-voice-mini svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zorai-voice-mini .zorai-voice__orb.is-speaking {
+    animation: none;
   }
 }

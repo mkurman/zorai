@@ -24,6 +24,7 @@ pub(crate) async fn dispatch_part6(
             | ClientMessage::AgentExecuteMemoryTool { .. }
             | ClientMessage::AgentSpeechToText { .. }
             | ClientMessage::AgentTextToSpeech { .. }
+            | ClientMessage::AgentRealtimeClientSecret { .. }
             | ClientMessage::AgentAnalyzeImage { .. }
             | ClientMessage::AgentGenerateImage { .. }
             | ClientMessage::AgentGenerateVideo { .. }
@@ -379,6 +380,29 @@ pub(crate) async fn dispatch_part6(
                     framed
                         .send(DaemonMessage::AgentError {
                             message: format!("invalid speech_to_text arguments: {error}"),
+                        })
+                        .await
+                        .ok();
+                }
+            }
+        }
+
+        ClientMessage::AgentRealtimeClientSecret { args_json } => {
+            let result = match serde_json::from_str::<serde_json::Value>(&args_json) {
+                Ok(args) => crate::agent::tool_executor::execute_realtime_client_secret(&args, &agent).await,
+                Err(error) => Err(anyhow::anyhow!("invalid realtime voice arguments: {error}")),
+            };
+            match result {
+                Ok(content) => {
+                    framed
+                        .send(DaemonMessage::AgentRealtimeClientSecretResult { content })
+                        .await
+                        .ok();
+                }
+                Err(error) => {
+                    framed
+                        .send(DaemonMessage::AgentError {
+                            message: format!("failed to start realtime voice: {error}"),
                         })
                         .await
                         .ok();

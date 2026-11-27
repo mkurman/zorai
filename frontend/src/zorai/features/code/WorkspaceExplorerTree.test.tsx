@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { WorkspaceExplorerTreeView, WorkspaceExplorerTree, revealScrollDelta } from "./WorkspaceExplorerTree";
+import { WorkspaceExplorerTreeView, WorkspaceExplorerTree, revealScrollDelta, explorerChildPath, explorerCreateParent } from "./WorkspaceExplorerTree";
 import { createWorkspaceExplorerController, createWorkspaceExplorerLoader, type WorkspaceExplorerSnapshot } from "./workspaceExplorerController";
 
 const directory = { name: "src", path: "src", isDirectory: true } as ZoraiWorkspaceEntry;
@@ -150,5 +150,28 @@ describe("revealing the open file", () => {
     expect(revealScrollDelta({ top: 200, bottom: 225 }, tree)).toBe(0);
     expect(revealScrollDelta({ top: 520, bottom: 545 }, tree)).toBe(45);
     expect(revealScrollDelta({ top: 60, bottom: 85 }, tree)).toBe(-40);
+  });
+});
+
+describe("explorer inline create target", () => {
+  it("creates inside the selected folder, beside the selected file, or at the root like VS Code", () => {
+    expect(explorerCreateParent({ path: "notebooks", isDirectory: true })).toBe("notebooks");
+    expect(explorerCreateParent({ path: "notebooks/test.ipynb", isDirectory: false })).toBe("notebooks");
+    expect(explorerCreateParent({ path: "README.md", isDirectory: false })).toBe("");
+    expect(explorerCreateParent(null)).toBe("");
+  });
+
+  it("expands a collapsed target folder and its parents so the new-name row is visible", async () => {
+    const controller = createWorkspaceExplorerController(async () => []);
+    await controller.expand("src/components");
+    expect([...controller.getSnapshot().expandedPaths]).toEqual(["src", "src/components"]);
+    await controller.expand("src/components");
+    expect(controller.getSnapshot().expandedPaths.has("src/components")).toBe(true);
+  });
+
+  it("joins the typed name onto the target folder, keeping nested names the user typed", () => {
+    expect(explorerChildPath("notebooks", " test2.ipynb ")).toBe("notebooks/test2.ipynb");
+    expect(explorerChildPath("", "src/new.ts")).toBe("src/new.ts");
+    expect(explorerChildPath("a", "/b")).toBe("a/b");
   });
 });

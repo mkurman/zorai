@@ -15,11 +15,11 @@ export type CodeEditorSettings = {
 };
 
 export const CODE_EDITOR_SETTINGS_STORE_NAME = "zorai-code-editor-settings";
-export const CODE_EDITOR_SETTINGS_STORE_VERSION = 1;
+export const CODE_EDITOR_SETTINGS_STORE_VERSION = 2;
 export const CODE_EDITOR_DEFAULTS: Readonly<CodeEditorSettings> = Object.freeze({
   fontFamily: "var(--font-mono)", fontSize: 13, lineHeight: 20, tabSize: 2, insertSpaces: true,
   wordWrap: "bounded", wordWrapColumn: 120, formatOnPaste: false, formatOnType: false, formatOnSave: false,
-  trimTrailingWhitespaceOnSave: false, finalNewlineOnSave: false, autoSave: "off", autoSaveDelayMs: 1000,
+  trimTrailingWhitespaceOnSave: false, finalNewlineOnSave: false, autoSave: "code_window_focus_lost", autoSaveDelayMs: 1000,
   reopenEditors: true, restoreViewState: true, maxFileSizeMb: 5, preloadMonaco: true, cacheDocuments: 32,
   performanceLogging: false, minimap: true, stickyScroll: true, renderWhitespace: "selection", lineNumbers: "on",
   bracketGuides: true, smoothScrolling: true, glyphMargin: true, lspEnabled: true, diagnosticsDelayMs: 250,
@@ -39,7 +39,7 @@ export function normalizeCodeEditorSettings(input: unknown): CodeEditorSettings 
     wordWrap: choice(raw.wordWrap, ["off", "viewport", "column", "bounded"], "bounded"), wordWrapColumn: number(raw.wordWrapColumn, 120, 40, 500),
     formatOnPaste: boolean(raw.formatOnPaste, false), formatOnType: boolean(raw.formatOnType, false), formatOnSave: boolean(raw.formatOnSave, false),
     trimTrailingWhitespaceOnSave: boolean(raw.trimTrailingWhitespaceOnSave, false), finalNewlineOnSave: boolean(raw.finalNewlineOnSave, false),
-    autoSave: choice(raw.autoSave, ["off", "after_delay", "editor_focus_lost", "code_window_focus_lost"], "off"), autoSaveDelayMs: number(raw.autoSaveDelayMs, 1000, 100, 60000),
+    autoSave: choice(raw.autoSave, ["off", "after_delay", "editor_focus_lost", "code_window_focus_lost"], "code_window_focus_lost"), autoSaveDelayMs: number(raw.autoSaveDelayMs, 1000, 100, 60000),
     reopenEditors: boolean(raw.reopenEditors, true), restoreViewState: boolean(raw.restoreViewState, true), maxFileSizeMb: number(raw.maxFileSizeMb, 5, 1, 100),
     preloadMonaco: boolean(raw.preloadMonaco, true), cacheDocuments: number(raw.cacheDocuments, 32, 1, 200), performanceLogging: boolean(raw.performanceLogging, false),
     minimap: boolean(raw.minimap, true), stickyScroll: boolean(raw.stickyScroll, true), renderWhitespace: choice(raw.renderWhitespace, ["none", "boundary", "selection", "trailing", "all"], "selection"),
@@ -52,7 +52,17 @@ type Store = { settings: CodeEditorSettings; updateSetting: <K extends keyof Cod
 const initial = (): CodeEditorSettings => ({ ...CODE_EDITOR_DEFAULTS, keybindings: {} });
 const memoryStorage = (): StateStorage => { const values = new Map<string, string>(); return { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => void values.set(key, value), removeItem: (key) => void values.delete(key) }; };
 const creator = (set: (partial: Partial<Store> | ((state: Store) => Partial<Store>)) => void): Store => ({ settings: initial(), updateSetting: (key, value) => set((state: Store) => ({ settings: normalizeCodeEditorSettings({ ...state.settings, [key]: value }) })), resetSettings: () => set({ settings: initial() }) });
-const config = (storage: StateStorage) => ({ name: CODE_EDITOR_SETTINGS_STORE_NAME, version: CODE_EDITOR_SETTINGS_STORE_VERSION, storage: createJSONStorage<{ settings: CodeEditorSettings }>(() => storage), partialize: (state: Store) => ({ settings: state.settings }), merge: (persisted: unknown, current: Store) => ({ ...current, settings: normalizeCodeEditorSettings((persisted as { settings?: unknown } | null)?.settings) }), migrate: (persisted: unknown) => ({ settings: normalizeCodeEditorSettings((persisted as { settings?: unknown } | null)?.settings) }) });
+export function autoSaveTriggers(mode: CodeAutoSaveMode): { editorBlur: boolean; tabSwitch: boolean; windowBlur: boolean } {
+  const focusMode = mode === "editor_focus_lost" || mode === "code_window_focus_lost";
+  return { editorBlur: mode === "editor_focus_lost", tabSwitch: focusMode, windowBlur: focusMode };
+}
+
+export function migrateCodeEditorSettings(persisted: unknown, version: number): { settings: CodeEditorSettings } {
+  const settings = normalizeCodeEditorSettings((persisted as { settings?: unknown } | null)?.settings);
+  return { settings: version < 2 && settings.autoSave === "off" ? { ...settings, autoSave: "code_window_focus_lost" } : settings };
+}
+
+const config = (storage: StateStorage) => ({ name: CODE_EDITOR_SETTINGS_STORE_NAME, version: CODE_EDITOR_SETTINGS_STORE_VERSION, storage: createJSONStorage<{ settings: CodeEditorSettings }>(() => storage), partialize: (state: Store) => ({ settings: state.settings }), merge: (persisted: unknown, current: Store) => ({ ...current, settings: normalizeCodeEditorSettings((persisted as { settings?: unknown } | null)?.settings) }), migrate: migrateCodeEditorSettings });
 export const createCodeEditorSettingsStore = (storage: StateStorage = memoryStorage()) => createStore<Store>()(persist(creator, config(storage)));
 export const useCodeEditorSettingsStore = create<Store>()(persist(creator, config(typeof localStorage !== "undefined" ? localStorage : memoryStorage())));
 

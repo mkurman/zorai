@@ -124,6 +124,11 @@
   letter-spacing: 0.13em;
 }
 
+:root[data-theme^="clinicalgym"] .zorai-rail-heading .zorai-kicker {
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
 :root[data-theme^="clinicalgym"] .zorai-rail-heading h2,
 :root[data-theme^="clinicalgym"] .zorai-topbar h1,
 :root[data-theme^="clinicalgym"] .zorai-view-header h1,

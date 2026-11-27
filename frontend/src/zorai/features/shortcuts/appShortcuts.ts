@@ -33,6 +33,7 @@ export const APP_SHORTCUTS: AppShortcut[] = [
   { id: "thread.speakLatest", label: "Read the latest reply aloud", category: "Threads", defaultCombo: "Ctrl+L" },
   { id: "thread.find", label: "Find in thread", category: "Threads", defaultCombo: "Ctrl+F" },
   { id: "thread.recordVoice", label: "Record a voice message", category: "Threads", defaultCombo: "Ctrl+M" },
+  { id: "voice.toggleMinimized", label: "Voice conversation: start, or switch between full screen and thread view", category: "Threads", defaultCombo: "Ctrl+Alt+V" },
 ];
 
 export const APP_SHORTCUT_CATEGORIES: AppShortcutCategory[] = ["General", "Navigation", "Threads"];

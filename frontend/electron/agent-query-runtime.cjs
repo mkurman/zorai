@@ -86,6 +86,7 @@ const AGENT_QUERY_RESPONSE_TYPES = [
   'generated-tool-result',
   'speech-to-text-result',
   'text-to-speech-result',
+  'realtime-client-secret-result',
   'image-generation-result',
   'video-generation-result',
   'music-generation-result',

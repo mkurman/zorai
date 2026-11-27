@@ -66,10 +66,10 @@ import {
   getWorkspaceFiles,
   invalidateWorkspaceFileIndex,
 } from "@/zorai/features/code/workspaceFileIndex";
-import { codeSettingsCommandPatch, codeSettingsToggleState, useCodeEditorSettingsStore } from "@/zorai/features/code/codeEditorSettingsStore";
+import { autoSaveTriggers, codeSettingsCommandPatch, codeSettingsToggleState, useCodeEditorSettingsStore } from "@/zorai/features/code/codeEditorSettingsStore";
 import { createFileTab } from "@/zorai/features/code/codeEditorTabs";
 import { CodeLargeFileGate, CodeUnsupportedFileNotice, fileTooLargeBytes, isBinaryFileError } from "@/zorai/features/code/CodeLargeFileGate";
-import { WorkspaceExplorerTree } from "@/zorai/features/code/WorkspaceExplorerTree";
+import { WorkspaceExplorerTree, type ExplorerCreateRequest } from "@/zorai/features/code/WorkspaceExplorerTree";
 import { WorkspacePathDialog, type WorkspacePathOperation } from "@/zorai/features/code/WorkspacePathDialog";
 import { WorkspaceSourceControlChanges } from "@/zorai/features/code/WorkspaceSourceControlChanges";
 import { BranchSwitcher } from "@/zorai/features/code/BranchSwitcher";
@@ -245,6 +245,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const rootTint = useTintStore((state) => (context?.root ? state.roots[context.root] : undefined));
   const setRootTint = useTintStore((state) => state.setRootTint);
   const [pathDialogBusy, setPathDialogBusy] = useState(false);
+  const [explorerCreate, setExplorerCreate] = useState<ExplorerCreateRequest | null>(null);
   const [pathDialogError, setPathDialogError] = useState<string | null>(null);
   const [agentChanges, setAgentChanges] = useState<ZoraiWorkContextEntry[]>([]);
   const [operationSnapshots, setOperationSnapshots] = useState<Record<string, { available: boolean; revertible: boolean; stale_paths: string[]; retained_bytes: number; reason: string | null }>>({});
@@ -252,6 +253,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   const [editorFullscreen, setEditorFullscreen] = useState(false);
   const [codeSettingsTab, setCodeSettingsTab] = useState<CodeSettingsTab>("editor");
   const [lspStatus, setLspStatus] = useState<{ available: boolean; command?: string | null; reason?: string } | null>(null);
+  const [notebookLspStatus, setNotebookLspStatus] = useState<{ available: boolean; command?: string | null; reason?: string } | null>(null);
   const [diagnosticsByPath, setDiagnosticsByPath] = useState<Record<string, ZoraiLspDiagnostic[]>>({});
   const [workspaceTests, setWorkspaceTests] = useState<Array<ZoraiWorkspaceTest & { root?: string }>>([]);
   const [testRun, setTestRun] = useState<{ runId: string; status: "running" | "passed" | "failed" | "cancelled" | "error"; output: string; durationMs?: number; evidence?: ZoraiWorkspaceTestEvidence } | null>(null);
@@ -533,8 +535,6 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
           if (!latest) return prev;
           if (diskFile.hash === latest.hash) return prev;
           if (latest.dirty) {
-            // Defer toast outside setDocuments via microtask
-            queueMicrotask(() => setError(`External change detected in ${pathAtDispatch}. Compare or reload before saving.`));
             return { ...prev, [pathAtDispatch]: { ...latest, externalContent: diskFile.content, externalHash: diskFile.hash } };
           }
           return { ...prev, [diskFile.path]: { ...diskFile, original: diskFile.content, dirty: false } };
@@ -569,7 +569,6 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
           if (!latest) return prev;
           if (diskFile.hash === latest.hash || diskFile.hash === latest.externalHash) return prev;
           if (latest.dirty) {
-            queueMicrotask(() => setError(`External change detected in ${path}. Compare or reload before saving.`));
             return { ...prev, [path]: { ...latest, externalContent: diskFile.content, externalHash: diskFile.hash } };
           }
           return { ...prev, [diskFile.path]: { ...diskFile, original: diskFile.content, dirty: false } };
@@ -638,15 +637,25 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     const unsubscribe = bridge.onWorkspaceLspDiagnostics((payload) => {
       const extra = payload.root !== context.root && extraRoots.some((root) => root.replace(/[\\/]+$/, "") === payload.root.replace(/[\\/]+$/, ""));
       if (payload.root !== context.root && !extra) return;
+      if (payload.path.endsWith(".zorai-notebook.py")) return;
       const key = extra ? joinExtraRoot(payload.root, payload.path) : payload.path;
       setDiagnosticsByPath((current) => ({ ...current, [key]: payload.diagnostics }));
     });
     return () => { if (typeof unsubscribe === "function") unsubscribe(); };
   }, [bridge, context?.root, context?.extraRoots]);
   useEffect(() => {
+    setNotebookLspStatus(null);
     if (!editorSettings.lspEnabled || !context?.root || !activeDocument || !bridge?.workspaceLspOpen || reducedModePathsRef.current.has(activeDocument.path)) {
       setLspStatus(null);
       return;
+    }
+    if (/\.ipynb$/i.test(activeDocument.path)) {
+      setLspStatus(null);
+      let cancelled = false;
+      void bridge.workspaceLspStatus?.(context.root, "python").then((status) => {
+        if (!cancelled) setNotebookLspStatus({ available: status.available, command: status.command, reason: status.available ? undefined : `${status.server ?? "A Python language server"} is not installed.` });
+      }).catch((reason) => { if (!cancelled) setNotebookLspStatus({ available: false, reason: reason?.message ?? String(reason) }); });
+      return () => { cancelled = true; };
     }
     let disposed = false;
     const openTimer = window.setTimeout(() => {
@@ -995,7 +1004,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
   };
   prettierOptionsForRef.current = prettierOptionsFor;
 
-  const saveDocument = async (path: string): Promise<boolean> => {
+  const saveDocument = async (path: string, expectedHash?: string): Promise<boolean> => {
     if (!activeThreadId) return false;
     const document = documents[path];
     if (!document || !document.dirty) return true;
@@ -1051,7 +1060,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
         return false;
       }
     }
-    const hashAtSave = document.hash;
+    const hashAtSave = expectedHash ?? document.hash;
     const contentAtSave = content;
     setSaving(true);
     try {
@@ -1065,6 +1074,8 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
             ...current,
             [saved.path]: {
               ...latest,
+              externalContent: undefined,
+              externalHash: undefined,
               original: saved.content,
               hash: saved.hash,
               sizeBytes: saved.sizeBytes,
@@ -1508,6 +1519,22 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     }
   };
 
+  const overwriteExternalChange = async (path: string) => {
+    const document = documents[path];
+    if (!document?.externalHash) return;
+    if (await saveDocument(path, document.externalHash)) setMode("edit");
+  };
+
+  const discardForExternalChange = async (path: string) => {
+    if (!context?.root || !bridge?.workspaceReadFile) return;
+    try {
+      const disk = await bridge.workspaceReadFile(context.root, path);
+      setDocuments((current) => ({ ...current, [disk.path]: { ...disk, original: disk.content, dirty: false } }));
+      setMode("edit");
+      setError(null);
+    } catch (reason: any) { setError(reason?.message ?? String(reason)); }
+  };
+
   const reloadActiveFile = async () => {
     if (!context?.root || !activeDocument || !bridge?.workspaceReadFile) return;
     if (activeDocument.dirty && !window.confirm(`Discard unsaved changes in ${activeDocument.path}?`)) return;
@@ -1844,8 +1871,18 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     return () => { window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
   }, [context?.root, refreshGitOnly]);
 
+  const previousActivePathRef = useRef<string | null>(null);
   useEffect(() => {
-    if (editorSettings.autoSave !== "code_window_focus_lost") return;
+    const previous = previousActivePathRef.current;
+    previousActivePathRef.current = activeDocument?.path ?? null;
+    if (!previous || previous === activeDocument?.path || !autoSaveTriggers(editorSettings.autoSave).tabSwitch) return;
+    const document = documents[previous];
+    if (document?.dirty && document.externalContent === undefined) void saveDocumentRef.current(previous);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDocument?.path]);
+
+  useEffect(() => {
+    if (!autoSaveTriggers(editorSettings.autoSave).windowBlur) return;
     const saveDirty = () => { for (const [path, document] of Object.entries(documents)) if (document.dirty && document.externalContent === undefined) void saveDocumentRef.current(path); };
     const onVisibility = () => { if (document.visibilityState === "hidden") saveDirty(); };
     window.addEventListener("blur", saveDirty);
@@ -1882,7 +1919,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
       isAttached: (path) => context.attachedFiles.includes(path),
       open: (path) => void openFile(path),
       toggleAttached: (path) => toggleAttachedFile(activeThreadId, path),
-      create: (operation, initialPath) => openPathDialog(operation, initialPath),
+      create: (operation, initialPath) => setExplorerCreate({ kind: operation, parent: initialPath.replace(/\/+$/, ""), token: Date.now() }),
       copy: (text) => void navigator.clipboard.writeText(text).catch((reason) => setError(reason?.message ?? String(reason))),
       reveal: (path) => void bridge?.revealFsPath?.(path),
       openExternal: (path) => void bridge?.openFsPath?.(path),
@@ -1986,13 +2023,13 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                   <summary className="zorai-code-files-heading">
                     <span>Files</span>
                     <span className="zorai-code-explorer-actions">
-                      <button type="button" title="New file" aria-label="New file" onClick={(event) => { event.preventDefault(); setPathDialogError(null); setPathDialog({ operation: "file", initialPath: newPath }); }}><SkillIcon name="newSkill" /></button>
-                      <button type="button" title="New folder" aria-label="New folder" onClick={(event) => { event.preventDefault(); setPathDialogError(null); setPathDialog({ operation: "directory", initialPath: newPath }); }}><SkillIcon name="newFolder" /></button>
+                      <button type="button" title="New file" aria-label="New file" onClick={(event) => { event.preventDefault(); setExplorerCreate({ kind: "file", token: Date.now() }); }}><SkillIcon name="newSkill" /></button>
+                      <button type="button" title="New folder" aria-label="New folder" onClick={(event) => { event.preventDefault(); setExplorerCreate({ kind: "directory", token: Date.now() }); }}><SkillIcon name="newFolder" /></button>
                       <button type="button" title="Add folder to workspace" aria-label="Add folder to workspace" onClick={(event) => { event.preventDefault(); addWorkspaceFolder(context.extraRoots ?? [], (roots) => setExtraRoots(activeThreadId, roots)); }}><SkillIcon name="importFolder" /></button>
                       <button type="button" title="Refresh Explorer" aria-label="Refresh Explorer" onClick={(event) => { event.preventDefault(); void refreshRoot(); }}><RefreshIcon /></button>
                     </span>
                   </summary>
-                  <WorkspaceExplorerTree root={context.root} entries={rootEntries} status={statusMap} onOpen={(path) => void openFile(path)} refreshToken={explorerRefreshToken} allFiles={indexedFiles} onEntryContextMenu={(entry, x, y) => setExplorerMenu({ entry, x, y })} onEntryShortcut={(entry, action) => { if (action === "rename") { setPathDialogError(null); setPathDialog({ operation: "rename", initialPath: entry.path, sourcePath: entry.path }); } else void deleteWorkspacePath(entry.path, entry.isDirectory); }} />
+                  <WorkspaceExplorerTree root={context.root} entries={rootEntries} status={statusMap} onOpen={(path) => void openFile(path)} refreshToken={explorerRefreshToken} allFiles={indexedFiles} createRequest={explorerCreate} onCreate={async (kind, path) => { const created = await createPath(kind, path); if (created) setExplorerCreate(null); return created; }} onCreateCancel={() => setExplorerCreate(null)} onEntryContextMenu={(entry, x, y) => setExplorerMenu({ entry, x, y })} onEntryShortcut={(entry, action) => { if (action === "rename") { setPathDialogError(null); setPathDialog({ operation: "rename", initialPath: entry.path, sourcePath: entry.path }); } else void deleteWorkspacePath(entry.path, entry.isDirectory); }} />
                 </details>
                 <CodeWorkspaceFolders
                   roots={context.extraRoots ?? []}
@@ -2408,8 +2445,9 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     void workspaceExplorerControllerFor(bridge, context.root).reveal(path);
   };
 
-  const lspIndicator = !lspStatus ? null : lspStatus.available ? (
-    <span className="zorai-lsp-status is-ready" title={`Language server running\n${lspStatus.command ?? "ready"}`}>
+  const shownLspStatus = notebookLspStatus ?? lspStatus;
+  const lspIndicator = !shownLspStatus ? null : shownLspStatus.available ? (
+    <span className="zorai-lsp-status is-ready" title={`${notebookLspStatus ? "Python language server for notebook cells" : "Language server running"}\n${shownLspStatus.command ?? "ready"}`}>
       <span className="zorai-lsp-status__dot" aria-hidden="true" />
       LSP
     </span>
@@ -2417,7 +2455,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
     <button
       type="button"
       className="zorai-lsp-status is-unavailable"
-      title={`Language server unavailable${lspStatus.reason ? `\n${lspStatus.reason}` : ""}\nOpen Code Settings → Language Servers`}
+      title={`Language server unavailable${shownLspStatus.reason ? `\n${shownLspStatus.reason}` : ""}\nOpen Code Settings → Language Servers`}
       aria-label="Language server unavailable. Open Code Settings."
       onClick={openLanguageServerSettings}
     >
@@ -2688,7 +2726,7 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
           load: async () => ({ lines: await bridge.workspaceGitBlame!(context.root, doc.path), content: doc.original }),
         } : null}
         onBlur={() => {
-          if (editorSettings.autoSave === "editor_focus_lost" && doc.dirty && doc.externalContent === undefined) void saveDocumentRef.current(doc.path);
+          if (autoSaveTriggers(editorSettings.autoSave).editorBlur && doc.dirty && doc.externalContent === undefined) void saveDocumentRef.current(doc.path);
         }}
         diagnostics={reducedModePathsRef.current.has(doc.path) ? [] : diagnosticsByPath[doc.path] ?? []}
         testResults={(testRun?.evidence?.results ?? []).map((result) => {
@@ -2971,6 +3009,14 @@ export function WorkspaceWorkbench({ openedRoot }: { openedRoot?: string | null 
                 </div>
               </div>
             </div>
+            {activeDocument.externalContent !== undefined ? (
+              <div className="zorai-code-external-notice" role="alert">
+                <span>{mode === "external" ? "Left: your unsaved edits · Right: the file on disk" : "This file changed on disk while you have unsaved edits."}</span>
+                <button type="button" onClick={() => setMode(mode === "external" ? "edit" : "external")}>{mode === "external" ? "Back to editor" : "See changes"}</button>
+                <button type="button" disabled={saving} onClick={() => void overwriteExternalChange(activeDocument.path)}>Overwrite with mine</button>
+                <button type="button" className="is-danger" onClick={() => void discardForExternalChange(activeDocument.path)}>Discard mine</button>
+              </div>
+            ) : null}
             <div className="zorai-workspace-editor" {...editorDropProps}>
               {mode === "diff" ? (
                 <Suspense fallback={<div className="zorai-workspace-diff-grid"><pre>{activeDocument.gitBaseContent ?? activeDocument.original}</pre><pre>{activeDocument.content}</pre></div>}>

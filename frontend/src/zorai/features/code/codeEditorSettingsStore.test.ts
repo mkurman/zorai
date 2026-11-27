@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { StateStorage } from "zustand/middleware";
-import { CODE_EDITOR_DEFAULTS, CODE_EDITOR_SETTINGS_STORE_NAME, codeSettingsCommandPatch, codeSettingsToggleState, createCodeEditorSettingsStore, normalizeCodeEditorSettings } from "./codeEditorSettingsStore";
+import { autoSaveTriggers, CODE_EDITOR_DEFAULTS, CODE_EDITOR_SETTINGS_STORE_NAME, codeSettingsCommandPatch, codeSettingsToggleState, createCodeEditorSettingsStore, migrateCodeEditorSettings, normalizeCodeEditorSettings } from "./codeEditorSettingsStore";
 
 function memoryStorage(): StateStorage {
   const values = new Map<string, string>();
@@ -10,8 +10,20 @@ function memoryStorage(): StateStorage {
 describe("codeEditorSettingsStore", () => {
   it("starts with immutable safe defaults", () => {
     const store = createCodeEditorSettingsStore(memoryStorage());
-    expect(store.getState().settings).toMatchObject({ wordWrap: "bounded", wordWrapColumn: 120, autoSave: "off", autoSaveDelayMs: 1000, maxFileSizeMb: 5 });
+    expect(store.getState().settings).toMatchObject({ wordWrap: "bounded", wordWrapColumn: 120, autoSave: "code_window_focus_lost", autoSaveDelayMs: 1000, maxFileSizeMb: 5 });
     expect(Object.isFrozen(CODE_EDITOR_DEFAULTS)).toBe(true);
+  });
+
+  it("saves on app switch and tab switch in both focus modes, and on any click away only in editor-focus mode", () => {
+    expect(autoSaveTriggers("editor_focus_lost")).toEqual({ editorBlur: true, tabSwitch: true, windowBlur: true });
+    expect(autoSaveTriggers("code_window_focus_lost")).toEqual({ editorBlur: false, tabSwitch: true, windowBlur: true });
+    expect(autoSaveTriggers("after_delay")).toEqual({ editorBlur: false, tabSwitch: false, windowBlur: false });
+  });
+
+  it("moves the old saved Off default to saving on app switch once, but keeps a deliberately chosen mode", () => {
+    expect(migrateCodeEditorSettings({ settings: { autoSave: "off" } }, 1).settings.autoSave).toBe("code_window_focus_lost");
+    expect(migrateCodeEditorSettings({ settings: { autoSave: "after_delay" } }, 1).settings.autoSave).toBe("after_delay");
+    expect(migrateCodeEditorSettings({ settings: { autoSave: "off" } }, 2).settings.autoSave).toBe("off");
   });
 
   it("normalizes malformed and out-of-range persisted values", () => {

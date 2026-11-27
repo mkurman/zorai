@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getBridge } from "@/lib/bridge";
 import { CodeSemanticSearch } from "./CodeSemanticSearch";
 import { CodeFileIcon } from "./CodeFileIcon";
@@ -24,6 +24,10 @@ function hitKey(hit: CodeSearchHit): string {
 function errorText(reason: unknown): string {
   return reason instanceof Error ? reason.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, "") : String(reason);
 }
+
+const SEARCH_INPUT_MAX_ROWS = 5;
+const SEARCH_INPUT_LINE_HEIGHT = 18;
+const SEARCH_INPUT_PADDING_Y = 8;
 
 export function CodeSearchPanel({ root, focusToken, seedQuery = "", openFiles = [], search, replace, onOpen }: {
   root: string;
@@ -54,6 +58,14 @@ export function CodeSearchPanel({ root, focusToken, seedQuery = "", openFiles = 
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [runToken, setRunToken] = useState(0);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "0px";
+    const maxHeight = SEARCH_INPUT_MAX_ROWS * SEARCH_INPUT_LINE_HEIGHT + SEARCH_INPUT_PADDING_Y;
+    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
+    el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
+  }, [query]);
   const visibleHits = useMemo(() => hits.filter((hit) => !dismissed.has(hitKey(hit)) && !dismissed.has(hit.path)), [dismissed, hits]);
   const groups = useMemo(() => groupCodeSearchHits(visibleHits), [visibleHits]);
   const openFilesInclude = openEditorsOnly ? openFiles.join(", ") : "";
@@ -168,7 +180,7 @@ export function CodeSearchPanel({ root, focusToken, seedQuery = "", openFiles = 
             <textarea
               ref={inputRef}
               value={query}
-              rows={Math.min(5, query.split("\n").length)}
+              rows={1}
               placeholder="Search (Shift+Enter for a new line)"
               aria-label="Search"
               spellCheck={false}

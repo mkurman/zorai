@@ -28,6 +28,7 @@ import { ThreadComposerQueue } from "./ThreadComposerQueue";
 import { queuedComposerDraft } from "./composerQueue";
 import { OperatorQuestionDock } from "@/components/OperatorQuestionDock";
 import { AgentApprovalOverlay } from "@/components/AgentApprovalOverlay";
+import { VoiceConversationButton } from "@/zorai/features/voice/VoiceConversationButton";
 import { useDaemonPromptQueue } from "./useDaemonPromptQueue";
 import { getBridge } from "@/lib/bridge";
 import { pushToast } from "@/lib/toastStore";
@@ -739,6 +740,7 @@ export function ThreadComposer({
               </label>
             ) : null}
             {voiceButton}
+            {voiceCaptureAvailable && !onSendNewThread ? <VoiceConversationButton runtime={runtime} /> : null}
             {queue.editingId ? (
               <>
                 <button

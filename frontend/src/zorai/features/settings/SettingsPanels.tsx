@@ -11,6 +11,7 @@ import { previewApproval, type PreviewApprovalKind } from "./developerTools";
 import { OpenRouterProviderRoutingControls } from "@/components/settings-panel/OpenRouterProviderRoutingControls";
 import { GenerationSettingsControls, generationSettingFields } from "@/components/settings-panel/GenerationSettingsControls";
 import { SubAgentsTab } from "@/components/settings-panel/SubAgentsTab";
+import { ViewModeToggle } from "@/components/data-viewers/ViewModeToggle";
 import { ModelSelector } from "@/components/settings-panel/shared";
 import {
   audioModelOptions,
@@ -72,6 +73,8 @@ import { PreferredSkillsEditor } from "../skills/PreferredSkillsEditor";
 import { PromptEditor } from "./PromptEditor";
 import { AgentMemoryFilesEditor } from "./AgentMemoryFilesEditor";
 import { Panel, SettingRow, SettingsGrid } from "./settingsLayout";
+import { VoiceModeSettingsPanel } from "@/zorai/features/voice/VoiceModeSettingsPanel";
+import { TtsTuningPanel } from "@/zorai/features/voice/TtsTuningPanel";
 import { LeszyPanel } from "./LeszyPanel";
 import { useProviderIds } from "./settingsProviders";
 import type { ZoraiSettingsTabId } from "./settingsTabs";
@@ -131,11 +134,32 @@ export function serializeConciergeReasoningEffortFromUi(value: AgentSettings["re
   return value === "none" ? undefined : value;
 }
 
-export function filterProviderAuthStates<T extends { provider_id: string; provider_name: string }>(states: T[], query: string): T[] {
+export type ProviderAuthStatusFilter = "all" | "connected" | "disconnected";
+
+export function filterProviderAuthStates<T extends { provider_id: string; provider_name: string; authenticated?: boolean }>(states: T[], query: string, status: ProviderAuthStatusFilter = "all"): T[] {
   const needle = query.trim().toLowerCase();
-  if (!needle) return states;
-  return states.filter((state) => state.provider_name.toLowerCase().includes(needle) || state.provider_id.toLowerCase().includes(needle));
+  return states.filter((state) => {
+    if (status === "connected" && !state.authenticated) return false;
+    if (status === "disconnected" && state.authenticated) return false;
+    return !needle || state.provider_name.toLowerCase().includes(needle) || state.provider_id.toLowerCase().includes(needle);
+  });
 }
+
+const PROVIDER_AUTH_SOURCE_LABELS: Record<string, string> = {
+  api_key: "API key",
+  chatgpt_subscription: "Subscription",
+  github_copilot: "Copilot",
+};
+
+export function providerAuthSourceLabel(source: string): string {
+  return PROVIDER_AUTH_SOURCE_LABELS[source] ?? source.replace(/_/g, " ");
+}
+
+const PROVIDER_STATUS_FILTERS = [
+  { id: "all", label: "All" },
+  { id: "connected", label: "Connected" },
+  { id: "disconnected", label: "Not connected" },
+] as const;
 
 const SETTINGS_TAB_PANELS: Record<ZoraiSettingsTabId, () => ReactNode> = {
   auth: AuthPanel,
@@ -388,7 +412,8 @@ function AuthPanel() {
   const [loginKey, setLoginKey] = useState("");
   const [validationResult, setValidationResult] = useState<ProviderValidationStatusMap>({});
   const [query, setQuery] = useState("");
-  const visibleAuthStates = useMemo(() => filterProviderAuthStates(authStates, query), [authStates, query]);
+  const [statusFilter, setStatusFilter] = useState<ProviderAuthStatusFilter>("all");
+  const visibleAuthStates = useMemo(() => [...filterProviderAuthStates(authStates, query, statusFilter)].sort((a, b) => Number(b.authenticated) - Number(a.authenticated)), [authStates, query, statusFilter]);
 
   useEffect(() => {
     void refreshAuth();
@@ -413,66 +438,70 @@ function AuthPanel() {
   return (
     <SettingsGrid extraClassName="zorai-settings-grid--full">
       <Panel section="Auth" title="Authentication" extraClassName="zorai-settings-auth" actions={<RefreshButton label="Refresh auth status" onClick={() => void refreshAuth()} />}>
-        {authStates.length > 0 ? <input className="zorai-input" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search providers" aria-label="Search providers" /> : null}
-        {authStates.length > 0 && visibleAuthStates.length === 0 ? <p className="zorai-empty-state">No providers match "{query.trim()}".</p> : null}
         {authStates.length === 0 ? <p className="zorai-empty-state">No provider auth status has been reported by the daemon yet.</p> : (
-          <p className="zorai-auth-summary">{authStates.filter((state) => state.authenticated).length} of {authStates.length} providers connected</p>
+          <div className="zorai-subagents__toolbar">
+            <input className="zorai-input zorai-subagents__search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search providers" aria-label="Search providers" />
+            <ViewModeToggle modes={PROVIDER_STATUS_FILTERS} value={statusFilter} onChange={setStatusFilter} label="Connection" />
+            <span className="zorai-subagents__count">{authStates.filter((state) => state.authenticated).length} of {authStates.length} connected</span>
+          </div>
         )}
-        {([["Connected", true], ["Not connected", false]] as const).map(([groupLabel, connected]) => {
-          const groupStates = visibleAuthStates.filter((state) => state.authenticated === connected);
-          if (groupStates.length === 0) return null;
-          return (
-            <div key={groupLabel} className="zorai-auth-group">
-              <div className="zorai-auth-group__label">{groupLabel} · {groupStates.length}</div>
-              {groupStates.map((state) => {
-                const providerValidation = validationResult[state.provider_id];
-                const isTestingProvider = providerValidation?.state === "testing";
+        {authStates.length > 0 && visibleAuthStates.length === 0 ? <p className="zorai-empty-state">No providers match.</p> : null}
+        {visibleAuthStates.length > 0 ? (
+          <div className="zorai-subagent-table zorai-provider-table" role="table" aria-label="Providers">
+            <div className="zorai-subagent-table__row zorai-subagent-table__row--head" role="row">
+              <span role="columnheader" />
+              <span role="columnheader">Provider</span>
+              <span role="columnheader">Model</span>
+              <span role="columnheader">Auth</span>
+              <span role="columnheader" />
+            </div>
+            {visibleAuthStates.map((state) => {
+              const providerValidation = validationResult[state.provider_id];
+              const isTestingProvider = providerValidation?.state === "testing";
 
-                const usesCursorSubscription = state.provider_id === "cursor";
-                const usesLocalCliAuth = state.provider_id === "claude-code-cli" || usesCursorSubscription;
-                const editingKey = !usesLocalCliAuth && loginTarget === state.provider_id;
-                const saveKey = () => {
-                  if (!loginKey.trim()) return;
-                  void loginProvider(state.provider_id, loginKey, state.base_url).then(() => { setLoginKey(""); setLoginTarget(null); });
-                };
+              const usesCursorSubscription = state.provider_id === "cursor";
+              const usesLocalCliAuth = state.provider_id === "claude-code-cli" || usesCursorSubscription;
+              const editingKey = !usesLocalCliAuth && loginTarget === state.provider_id;
+              const saveKey = () => {
+                if (!loginKey.trim()) return;
+                void loginProvider(state.provider_id, loginKey, state.base_url).then(() => { setLoginKey(""); setLoginTarget(null); });
+              };
 
-                return (
-                  <div key={`${state.provider_id}-${state.auth_source}`} className={["zorai-auth-row", state.authenticated ? "zorai-auth-row--connected" : ""].filter(Boolean).join(" ")}>
-                    <span className="zorai-auth-row__dot" aria-hidden="true" />
-                    <div className="zorai-auth-row__main">
-                      <strong>{state.provider_name}</strong>
-                      <span>{state.model ? `${state.model} · ` : ""}{state.auth_source}</span>
-                    </div>
+              return (
+                <div key={`${state.provider_id}-${state.auth_source}`} role="row" className={["zorai-subagent-table__row", state.authenticated ? "is-enabled" : "is-disabled"].join(" ")}>
+                  <span role="cell" className={["zorai-subagent-card__status", state.authenticated ? "is-enabled" : ""].filter(Boolean).join(" ")} aria-label={state.authenticated ? "Connected" : "Not connected"} />
+                  <span role="cell" className="zorai-subagent-table__name"><strong>{state.provider_name}</strong></span>
+                  <span role="cell" className="zorai-subagent-table__model" title={state.model || undefined}>{state.model || "—"}</span>
+                  <span role="cell" className="zorai-provider-table__auth"><span className="zorai-subagent-card__pill" title={state.auth_source}>{providerAuthSourceLabel(state.auth_source)}</span></span>
+                  <span role="cell" className="zorai-subagent-table__actions zorai-provider-table__actions">
                     {providerValidation && providerValidation.state !== "testing" ? (
                       <span className={`zorai-auth-row__result zorai-auth-row__result--${providerValidation.state}`} title={providerValidation.message}>{providerValidation.state === "success" ? "Test passed" : providerValidation.message}</span>
                     ) : null}
-                    <div className="zorai-auth-row__actions">
-                      {usesCursorSubscription && !state.authenticated ? (
-                        <button type="button" className="zorai-ghost-button" onClick={() => void loginProvider(state.provider_id, "", state.base_url)}>Subscription</button>
-                      ) : null}
-                      {usesLocalCliAuth ? null : (
-                        <button type="button" className={["zorai-ghost-button", editingKey ? "zorai-button--active" : ""].filter(Boolean).join(" ")} onClick={() => {
-                          setLoginTarget(editingKey ? null : state.provider_id);
-                          setLoginKey("");
-                        }}>{state.authenticated ? "Replace key" : "Add key"}</button>
-                      )}
-                      <button type="button" className="zorai-ghost-button" disabled={isTestingProvider} onClick={() => void runTest(state.provider_id, state.base_url, state.auth_source)}>{getProviderValidationButtonLabel(validationResult, state.provider_id)}</button>
-                      {state.authenticated ? <button type="button" className="zorai-ghost-button zorai-auth-row__logout" onClick={() => void logoutProvider(state.provider_id)}>Logout</button> : null}
-                    </div>
-                    {editingKey ? (
-                      <form className="zorai-auth-row__editor" onSubmit={(event) => { event.preventDefault(); saveKey(); }}>
-                        <input className="zorai-input" type="password" autoFocus value={loginKey} onChange={(event) => setLoginKey(event.target.value)} placeholder={`${state.provider_name} API key`} aria-label={`${state.provider_name} API key`} />
-                        <button type="submit" className="zorai-primary-button" disabled={!loginKey.trim()}>Save</button>
-                        <button type="button" className="zorai-ghost-button" onClick={() => { setLoginKey(""); setLoginTarget(null); }}>Cancel</button>
-                        <span>Stored by the daemon provider auth store.</span>
-                      </form>
+                    {usesCursorSubscription && !state.authenticated ? (
+                      <button type="button" className="zorai-ghost-button" onClick={() => void loginProvider(state.provider_id, "", state.base_url)}>Subscription</button>
                     ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })}
+                    {usesLocalCliAuth ? null : (
+                      <button type="button" className={["zorai-ghost-button", editingKey ? "zorai-button--active" : ""].filter(Boolean).join(" ")} onClick={() => {
+                        setLoginTarget(editingKey ? null : state.provider_id);
+                        setLoginKey("");
+                      }}>{state.authenticated ? "Replace key" : "Add key"}</button>
+                    )}
+                    <button type="button" className="zorai-ghost-button" disabled={isTestingProvider} onClick={() => void runTest(state.provider_id, state.base_url, state.auth_source)}>{getProviderValidationButtonLabel(validationResult, state.provider_id)}</button>
+                    {state.authenticated ? <button type="button" className="zorai-ghost-button zorai-auth-row__logout" onClick={() => void logoutProvider(state.provider_id)}>Logout</button> : null}
+                  </span>
+                  {editingKey ? (
+                    <form className="zorai-auth-row__editor zorai-provider-table__editor" onSubmit={(event) => { event.preventDefault(); saveKey(); }}>
+                      <input className="zorai-input" type="password" autoFocus value={loginKey} onChange={(event) => setLoginKey(event.target.value)} placeholder={`${state.provider_name} API key`} aria-label={`${state.provider_name} API key`} />
+                      <button type="submit" className="zorai-primary-button" disabled={!loginKey.trim()}>Save</button>
+                      <button type="button" className="zorai-ghost-button" onClick={() => { setLoginKey(""); setLoginTarget(null); }}>Cancel</button>
+                      <span>Stored by the daemon provider auth store.</span>
+                    </form>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
       </Panel>
     </SettingsGrid>
   );
@@ -1017,6 +1046,8 @@ function MediaPanel() {
         <SettingRow label="TTS Voice" description="Text-to-speech voice."><input className="zorai-input" value={agentSettings.audio_tts_voice} disabled={!agentSettings.audio_tts_enabled} onChange={(event) => updateAgentSetting("audio_tts_voice", event.target.value)} /></SettingRow>
         <SettingRow label="TTS Auto Speak" description="Speak assistant replies automatically."><Switch checked={agentSettings.audio_tts_auto_speak} onChange={(checked) => updateAgentSetting("audio_tts_auto_speak", checked)} /></SettingRow>
       </Panel>
+      <TtsTuningPanel />
+      <VoiceModeSettingsPanel />
       <Panel section="Images" title="Image generation">
         <SettingRow label="Image Provider" description="Image generation provider.">
           <ProviderSelect

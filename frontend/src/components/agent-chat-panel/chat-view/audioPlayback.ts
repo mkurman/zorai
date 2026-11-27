@@ -9,6 +9,9 @@ export function resolveAudioPlaybackSource(result: unknown): string {
     return "";
   }
 
+  if (typeof (result as { media_url?: unknown }).media_url === "string") {
+    return (result as { media_url: string }).media_url;
+  }
   if (typeof (result as { file_url?: unknown }).file_url === "string") {
     return (result as { file_url: string }).file_url;
   }

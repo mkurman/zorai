@@ -351,4 +351,5 @@ pub enum ClientMessage {
     AgentListProjectRules { root: String, #[serde(default)] targets: Vec<String> },
     AgentCodeSymbols { root: String, path: String, #[serde(default)] content: Option<String> },
     AgentCodeIndex { action: String, root: String, #[serde(default)] query: String, #[serde(default)] limit: Option<usize>, #[serde(default)] options_json: Option<String> },
+    AgentRealtimeClientSecret { args_json: String },
 }
